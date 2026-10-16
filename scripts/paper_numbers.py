@@ -285,7 +285,7 @@ def main():
         f = json.loads(ff.read_text())
         pr = f['primary']
         m['FPairs'] = pr['n_world_pairs_fire_visible_both']; m['FWrongA'] = pr['wrong_deliveries_A']
-        m['FWrongB'] = pr['wrong_deliveries_B']; m['FMcNemarP'] = f"{pr['mcnemar_p']:.3f}"
+        m['FWrongB'] = pr['wrong_deliveries_B']; m['FMcNemarP'] = f"{pr['mcnemar_p']:.4f}"
         for cfg in ('A', 'B'):
             c = f['per_config'][cfg]
             m[f'FCorrect{cfg}'] = f"{c['correct']}/{c['n']}"; m[f'FFalseStop{cfg}'] = f"{c['false_hazard_stops']}/{c['fire_free_trials']}"
