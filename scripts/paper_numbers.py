@@ -171,7 +171,8 @@ def main():
         tables['tab_t1_models.tex'] = '\n'.join(lines)
         # ablation table (all scored models)
         names = {'full': 'Full rule', 'A1_pass1_only': 'A1: question 1 only', 'A2_pass2_only': 'A2: question 2 only',
-                 'A3_no_hazard_question': 'A3: no hazard question', 'A4_no_confidence_threshold': r'A4: no threshold ($\tau_s{=}0$)'}
+                 'A3_no_hazard_question': 'A3: no hazard question', 'A4_no_confidence_threshold': r'A4: no threshold ($\tau_s{=}0$)',
+                 'v35_tau_h_0.05': r'v3.5: $\tau_h{=}0.05$ (I-10)'}
         models = list(t1['models'])
         lines = [r'\begin{tabular}{l' + 'r' * len(models) + '}', r'\toprule',
                  'Decision rule & ' + ' & '.join(models) + r' \\', r'\midrule']
