@@ -152,3 +152,31 @@ def verify_station_local(image_path: str | Path, expected: str, *,
             'backend':'LOCAL_ONLY_NO_CLOUD_API', 'mode':mode,
             'model_calls':{'first':first,'second':second}, 'decision':decision,
             'limitations':'The two prompts in single mode use the SAME model. Model confidence and physical safety are not established.'}
+
+
+DEFAULT_DESCRIBE_URL = 'http://127.0.0.1:8765/v1/describe'
+
+
+def describe_station_local(image_path: str | Path, *, url: str = DEFAULT_DESCRIBE_URL,
+                           model: str = PRIMARY_MODEL, timeout: int = 60, transport=None) -> dict:
+    """I-03: ask the local VLM for a one-sentence Japanese report of what it sees.
+
+    Explanation only — the allow/deny decision never reads this text.
+    """
+    localhost_only(url, path='/v1/describe')
+    raw = Path(image_path).read_bytes()
+    sha = hashlib.sha256(raw).hexdigest()
+    payload = {'model': model, 'image_sha256': sha, 'image_base64': base64.b64encode(raw).decode('ascii')}
+    if transport is None:
+        request = urllib.request.Request(url, data=json.dumps(payload).encode('utf8'),
+                                         headers={'Content-Type': 'application/json'}, method='POST')
+        with urllib.request.urlopen(request, timeout=timeout) as f:
+            response = json.loads(f.read(16384).decode('utf8'))
+    else:
+        response = transport(url, payload)
+    text = response.get('text_ja')
+    if (response.get('model') != model or response.get('image_sha256') != sha or response.get('real_inference') is not True
+            or not isinstance(text, str) or not text.strip() or len(text) > 120):
+        raise LocalInferenceError('invalid local explanation response')
+    return {'text_ja': text.strip(), 'image_sha256': sha, 'model': model,
+            'purpose': 'explanation_only_not_decision'}

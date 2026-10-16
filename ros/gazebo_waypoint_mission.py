@@ -167,8 +167,34 @@ def run_ros(route, args, record):
                                now < ctx['guard_time'] or now-ctx['guard_time']>0.6):
             raise RuntimeError('independent velocity guard missing / not ready; refuse motion')
 
-    def onsite_check(expected):
-        """Align camera to station, capture NEW frame, then keep zero velocity during AI."""
+    def hold_stationary_while(thread, timeout_s, label):
+        """Keep commanding zero velocity and enforce every watchdog while `thread` runs."""
+        started=time.monotonic()
+        while thread.is_alive():
+            publish()
+            rclpy.spin_once(node,timeout_sec=.09)
+            now=time.monotonic()
+            if watch.check(now):
+                raise RuntimeError(label+' watchdog: '+watch.latched_reason)
+            check_camera(now)
+            check_guard(now)
+            if ctx['pose_time'] is None or now-ctx['pose_time']>1.3:
+                raise RuntimeError(label+' odometry stale')
+            enforce_stationary_ref[0]()
+            if now-started>timeout_s:
+                raise TimeoutError(label+' timeout; remain STOPPED')
+        thread.join(timeout=.01)
+
+    enforce_stationary_ref=[lambda: None]
+
+    def onsite_check(station, expected=None):
+        """Align camera to `station`, capture NEW frame, then keep zero velocity during AI.
+
+        `expected` is the requested supply (defaults to the station name); in a
+        recovery search the robot checks the OTHER station for the same supply.
+        Returns the checkpoint outcome; a denial has already held 2.5 s at zero.
+        """
+        expected=expected or station
         if getattr(args,'inference_backend','cloud') == 'local':
             from rescuemind.local_vision import verify_station_local
         else:
@@ -177,7 +203,7 @@ def run_ros(route, args, record):
         # Before VLM inference, actively point its camera at the expected
         # supply station. Scene truth labels are NOT supplied to the models.
         centers=station_centers(json.loads((ROOT/'configs/gazebo_station_centers.json').read_text()))
-        if expected not in centers:
+        if station not in centers:
             raise RuntimeError('Unknown camera aiming station; do not infer')
         aim_started=time.monotonic()
         aligned_since=None
@@ -193,7 +219,7 @@ def run_ros(route, args, record):
                 raise RuntimeError('camera aiming odometry stale')
             if now-aim_started>args.aim_timeout:
                 raise TimeoutError('camera aiming timed out; VLM inference withheld')
-            aim=aim_at_station(ctx['pose'],centers[expected])
+            aim=aim_at_station(ctx['pose'],centers[station])
             publish(0.,aim.angular)
             if aim.aligned:
                 if aligned_since is None:
@@ -201,7 +227,7 @@ def run_ros(route, args, record):
                 if now-aligned_since>=0.5:
                     publish()
                     record['events'].append({'stage':'camera_aim_aligned',
-                        'target_station':expected,'error_rad':round(aim.bearing_error_rad,4),
+                        'target_station':station,'error_rad':round(aim.bearing_error_rad,4),
                         'duration_wall_s':round(now-aim_started,3),
                         't_wall_s':round(now-start,3)})
                     break
@@ -226,6 +252,7 @@ def run_ros(route, args, record):
                 last_odom_processed=stamp
                 stationary.observe(ctx['pose'], *ctx['odom_twist'], stamp)
             return stationary.locked
+        enforce_stationary_ref[0]=enforce_stationary
         while not stationary.locked:
             publish()
             rclpy.spin_once(node,timeout_sec=.08)
@@ -302,27 +329,36 @@ def run_ros(route, args, record):
             except Exception as e:
                 finished['error']=e
         t=Thread(target=inference,daemon=True)
-        t.start(); started=time.monotonic()
-        while t.is_alive():
-            publish()
-            rclpy.spin_once(node,timeout_sec=.09)
-            now=time.monotonic()
-            if watch.check(now):
-                raise RuntimeError('checkpoint inference watchdog: '+watch.latched_reason)
-            check_camera(now)
-            check_guard(now)
-            if ctx['pose_time'] is None or now-ctx['pose_time']>1.3:
-                raise RuntimeError('checkpoint inference odometry stale')
-            enforce_stationary()
-            if now-started>args.checkpoint_timeout:
-                raise TimeoutError('Jev/Qwen on-site inference timeout; remain STOPPED')
-        t.join(timeout=.01)
+        t.start()
+        hold_stationary_while(t,args.checkpoint_timeout,'checkpoint inference')
         if finished['error'] is not None:
-            raise RuntimeError('Jev/Qwen checkpoint inference failed') from finished['error']
+            raise RuntimeError('on-site checkpoint inference failed') from finished['error']
         outcome=finished['result']
         record['checkpoint']=outcome
+        record['checkpoint_station']=station
         record['events'].append({'stage':'checkpoint_decision','t_wall_s':round(time.monotonic()-start,3),
+                                  'station':station,'expected':expected,
                                   'allow':outcome['decision']['allow'],'reason':outcome['decision']['reason']})
+        if getattr(args,'explain',False) and getattr(args,'inference_backend','cloud')=='local':
+            # I-03: one-sentence Japanese report of what the camera saw (explanation only;
+            # the decision above is already final and never reads this text).
+            from rescuemind.local_vision import describe_station_local
+            said={'result':None,'error':None}
+            def explain():
+                try:
+                    said['result']=describe_station_local(f,url=args.local_primary_url.replace('/v1/classify','/v1/describe'))
+                except Exception as e:
+                    said['error']=e
+            te=Thread(target=explain,daemon=True); te.start(); t0=time.monotonic()
+            hold_stationary_while(te,60.,'explanation')
+            entry={'stage':'checkpoint_explanation','t_wall_s':round(time.monotonic()-start,3),
+                   'latency_s':round(time.monotonic()-t0,3)}
+            if said['result'] is not None:
+                outcome['explanation']=said['result']
+                entry['text_ja']=said['result']['text_ja']
+            else:
+                entry['error']=type(said['error']).__name__  # explanation failure never changes the decision
+            record['events'].append(entry)
         if not outcome['decision']['allow']:
             # An expected negative scene must not be confused with a crash.
             # Keep the velocity guard alive, command ZERO, and retain new ROS
@@ -344,7 +380,7 @@ def run_ros(route, args, record):
             record['events'].append({'stage':'checkpoint_denial_dwell_finished',
                                      't_wall_s':round(time.monotonic()-start,3),
                                      'commanded_linear':0.,'commanded_angular':0.})
-            raise RuntimeError('Jev/Qwen checkpoint DENIED: '+outcome['decision']['reason'])
+        return outcome
 
     try:
         # Sensor warmup, no motion allowed during startup.  v3.3: a fixed 3 s
@@ -376,7 +412,11 @@ def run_ros(route, args, record):
         check_guard(time.monotonic())
         if math.hypot(ctx['pose'].x,ctx['pose'].y)>1.0:
             raise RuntimeError('Unexpected start odometry: restart test world at origin and calibrate')
-        for stage,target,goal in route:
+        route=list(route)
+        index=0
+        while index < len(route):
+            stage,target,goal=route[index]
+            index+=1
             progress.anchor_at=None; progress.anchor_xy=None
             begun=time.monotonic();samples=[]
             while True:
@@ -404,7 +444,34 @@ def run_ros(route, args, record):
                                               'last_pose':list(ctx['pose'].__dict__.values())})
                     record['trace'].extend(samples)
                     if stage == 'supply_station' and record.get('run_type') in ('jev_qwen_mission', 'jev_qwen_live_mission','local_vlm_live_mission'):
-                        onsite_check(target)
+                        requested=(record.get('intent') or {}).get('item') or target
+                        outcome=onsite_check(target,requested)
+                        if not outcome['decision']['allow']:
+                            reason=outcome['decision']['reason']
+                            other='medicine' if target=='water' else 'water'
+                            # I-02: the requested supply is not here and no hazard was seen ->
+                            # check the other station once.  Hazards and low-confidence
+                            # matches stop immediately (no search into a possible danger).
+                            if (getattr(args,'recovery',False) and record.get('recovery') is None
+                                    and reason=='local_vlm_disagree_or_wrong_supply'):
+                                first=len(record['events'])-1
+                                while first>=0 and record['events'][first].get('stage')!='supply_station':
+                                    first-=1
+                                for e in record['events'][first:]:
+                                    e['stage']='recovery_'+e['stage']
+                                first_image=Path(args.checkpoint_image)
+                                kept=first_image.with_name('recovery_'+first_image.name)
+                                first_image.replace(kept)
+                                record['recovery']={'first_station':target,'first_checkpoint':outcome,
+                                                    'first_checkpoint_image':kept.name,'searched_station':other,
+                                                    'reason':reason}
+                                record['checkpoint']=None
+                                record['events'].append({'stage':'recovery_search_started','from':target,'to':other,
+                                                         't_wall_s':round(time.monotonic()-start,3)})
+                                waypoints=json.loads(Path(getattr(args,'config',ROOT/'configs/gazebo_waypoints.json')).read_text(encoding='utf-8'))
+                                route.insert(index,('supply_station',other,tuple(waypoints[other])))
+                            else:
+                                raise RuntimeError('on-site checkpoint DENIED: '+reason)
                     break
                 publish(cmd.linear,cmd.angular)
                 if len(samples)==0 or now-samples[-1]['t']>.24:
@@ -450,6 +517,8 @@ def main():
     ap.add_argument('--aim-timeout',type=float,default=14.0)
     ap.add_argument('--settle-timeout',type=float,default=7.0)
     ap.add_argument('--checkpoint-timeout',type=float,default=155.0)
+    ap.add_argument('--recovery',action='store_true',help='I-02: if the supply is missing/wrong, check the other station once')
+    ap.add_argument('--explain',action='store_true',help='I-03: one-sentence Japanese report after each checkpoint (not used for decisions)')
     ap.add_argument('--estop-topic',default='/rescuemind/estop')
     ap.add_argument('--min-front-m',type=float,default=.26)
     ap.add_argument('--scan-max-age',type=float,default=1.5)

@@ -49,7 +49,9 @@ def gazebo_command(world: Path, gz_mode: str = 'auto') -> tuple[str, ...]:
 
 def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: str = "nominal",
                evidence_dir: Path | None = None, capture_rosbag: bool = False,
-               local_mode: str = "single", gz_mode: str = 'auto', film: bool = False) -> dict:
+               local_mode: str = "single", gz_mode: str = 'auto', film: bool = False,
+               recovery: bool = False, explain: bool = False, world: Path | None = None,
+               prompt_set: str = 'v33') -> dict:
     if scenario not in ('motion-check', 'live'):
         raise ValueError('invalid scenario')
     from rescuemind.scene_variants import SCENES
@@ -62,18 +64,23 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
     if scenario=='live':
         cmd += ['--inference-backend','local','--local-mode',local_mode,
                 '--checkpoint-timeout','300']
+        if recovery:
+            cmd += ['--recovery']
+        if explain:
+            cmd += ['--explain']
     if evidence_dir is not None:
         cmd += ['--run-id', evidence_dir.name, '--out', str(evidence_dir/'mission.json'),
                 '--checkpoint-image', str(evidence_dir/'checkpoint.jpg')]
     services = [
-        ManagedCommand('gazebo', gazebo_command(ROOT/'worlds/scenarios'/('rescuemind_'+scene+'.sdf'), gz_mode)),
+        ManagedCommand('gazebo', gazebo_command(world or ROOT/'worlds/scenarios'/('rescuemind_'+scene+'.sdf'), gz_mode)),
         ManagedCommand('bridge', ('bash', str(ROOT/'scripts/bridge_direct_gazebo.sh'))),
         ManagedCommand('velocity_guard', ('bash', str(ROOT/'scripts/start_velocity_guard.sh'))),
     ]
     if scenario=='live':
         from rescuemind.local_vision import PRIMARY_MODEL, SECONDARY_MODEL
         services.insert(0,ManagedCommand('primary_local_vlm', shell_exec([
-            'python3',str(ROOT/'scripts/local_vlm_server.py'),'--model',PRIMARY_MODEL,'--port','8765'])))
+            'python3',str(ROOT/'scripts/local_vlm_server.py'),'--model',PRIMARY_MODEL,'--port','8765',
+            '--prompt-set',prompt_set])))
         if local_mode=='dual':
             services.insert(1,ManagedCommand('secondary_local_vlm', shell_exec([
                 'python3',str(ROOT/'scripts/local_vlm_server.py'),'--model',SECONDARY_MODEL,'--port','8766'])))
@@ -157,6 +164,12 @@ def main(argv=None):
                    help='single=Qwen2.5-VL-3B twice; dual=Qwen2.5-VL-3B + SmolVLM2-2.2B')
     p.add_argument('--gz-mode', choices=['auto', 'headless', 'gui'], default='auto',
                    help='auto=GUI when DISPLAY is set, otherwise server-only headless EGL rendering')
+    p.add_argument('--recovery', action='store_true', help='I-02: search the other station if the supply is wrong/missing')
+    p.add_argument('--explain', action='store_true', help='I-03: Japanese one-sentence report after each checkpoint')
+    p.add_argument('--prompt-set', choices=['v33', 'v34'], default='v33', help='VLM checkpoint prompts (v34 = I-05)')
+    p.add_argument('--lighting', choices=['default', 'dim_evening', 'harsh_noon'], default='default')
+    p.add_argument('--hazard-at', choices=['water', 'medicine'], default=None, help='I-05: fire behind this station')
+    p.add_argument('--distractor-at', choices=['water', 'medicine'], default=None, help='I-05: cardboard box at this station')
     p.add_argument('--film', action='store_true',
                    help='also record a Gazebo-rendered overview camera for the demo video')
     p.add_argument('--startup-timeout', type=int, default=480)
@@ -168,10 +181,20 @@ def main(argv=None):
     from rescuemind.gazebo_transport_contract import validate_static
     audit_scenarios(ROOT/'worlds/scenarios')
     validate_static(ROOT/'worlds/scenarios'/('rescuemind_'+args.scene+'.sdf'), ROOT/'configs/ros_gz_bridge_v20.yaml')
+    robust = args.lighting != 'default' or args.hazard_at or args.distractor_at
+    def make_world(dest_dir):
+        if not robust:
+            return None
+        from rescuemind.robust_scenes import write_variant
+        w = write_variant(ROOT/'worlds/scenarios', dest_dir, args.scene, lighting=args.lighting,
+                          distractor_at=args.distractor_at, hazard_at=args.hazard_at)
+        validate_static(w, ROOT/'configs/ros_gz_bridge_v20.yaml')
+        return w
+    extra = dict(recovery=args.recovery, explain=args.explain, prompt_set=args.prompt_set)
     placeholder=ROOT/'outputs'/'runs'/'<run_id>'
     plan = build_plan(args.scenario, args.instruction, mission_timeout=args.mission_timeout, scene=args.scene,
                       evidence_dir=placeholder, capture_rosbag=args.capture_rosbag,local_mode=args.local_mode,
-                      gz_mode=args.gz_mode, film=args.film)
+                      gz_mode=args.gz_mode, film=args.film, **extra)
     import hashlib
     scene_path = ROOT/'worlds/scenarios'/('rescuemind_'+args.scene+'.sdf')
     scene_sha256=hashlib.sha256(scene_path.read_bytes()).hexdigest()
@@ -185,9 +208,16 @@ def main(argv=None):
     run_id = uuid.uuid4().hex[:16]
     log_dir = ROOT/'outputs'/'runs'/run_id
     log_dir.mkdir(parents=True, exist_ok=False)
+    run_world = make_world(log_dir)
     plan = build_plan(args.scenario, args.instruction, mission_timeout=args.mission_timeout, scene=args.scene, evidence_dir=log_dir,
+                      world=run_world, **extra,
                       capture_rosbag=args.capture_rosbag,local_mode=args.local_mode,gz_mode=args.gz_mode,
                       film=args.film)
+    summary['world_variant'] = {'lighting': args.lighting, 'hazard_at': args.hazard_at,
+                                'distractor_at': args.distractor_at, 'sdf': run_world.name if run_world else None}
+    summary['recovery'] = args.recovery
+    summary['explain'] = args.explain
+    summary['prompt_set'] = args.prompt_set
     # Replace every planning placeholder with the actual run ID, including
     # independent recorder / bag paths, not just mission output paths.
     summary['run_id'] = run_id
@@ -240,7 +270,7 @@ def main(argv=None):
             try:
                 sup.run_mission(plan['mission'], plan['mission_timeout'])
             except StackFailure as mission_error:
-                if (args.scenario == 'live' and args.scene in ('swapped', 'empty')
+                if (args.scenario == 'live' and (args.scene in ('swapped', 'empty') or args.hazard_at)
                         and str(mission_error).startswith('mission failed (exit=')):
                     deferred_denial = mission_error
                 else:
@@ -274,6 +304,13 @@ def main(argv=None):
             config=json.loads((ROOT/'configs/gazebo_waypoints.json').read_text())
             if item not in ('water','medicine'):
                 raise StackFailure('motion evidence: invalid supply item')
+            # I-02: after a recovery search the authorising checkpoint is at the OTHER station.
+            station_name=mission_record.get('checkpoint_station') or item
+            if station_name not in ('water','medicine'):
+                raise StackFailure('motion evidence: invalid checkpoint station')
+            if mission_record.get('recovery'):
+                from rescuemind.recovery_evidence import audit_recovery
+                outcome['recovery_evidence']=audit_recovery(mission_record,log_dir,completed=True)
             # The observer runs asynchronously: give the final odometry sample
             # up to 1.5 seconds to reach the separate subscriber, never assume
             # process exit means physical movement was observed.
@@ -283,7 +320,7 @@ def main(argv=None):
                 try:
                     outcome['independent_motion_evidence']=audit_motion(
                         log_dir/'independent_ros_topics.jsonl',run_id=run_id,
-                        station=config[item],shelter=config['B'])
+                        station=config[station_name],shelter=config['B'])
                     break
                 except (MotionEvidenceError,OSError,ValueError) as e:
                     last_error=e
@@ -293,7 +330,7 @@ def main(argv=None):
             from rescuemind.ground_truth_evidence import audit_ground_truth, GroundTruthError
             try:
                 outcome['ground_truth_evidence']=audit_ground_truth(
-                    log_dir/'independent_ros_topics.jsonl',station=config[item],shelter=config['B'],
+                    log_dir/'independent_ros_topics.jsonl',station=config[station_name],shelter=config['B'],
                     expect_arrival=True)
             except (GroundTruthError,OSError,ValueError,KeyError) as exc:
                 raise StackFailure('Gazebo ground-truth audit failed: '+str(exc)) from exc
@@ -303,7 +340,7 @@ def main(argv=None):
                 try:
                     outcome['authorization_motion_chronology'] = audit_causal(
                         log_dir/'mission.json', log_dir/'independent_ros_topics.jsonl',
-                        station=config[item], shelter=config['B'])
+                        station=config[station_name], shelter=config['B'])
                 except (CausalEvidenceError, ValueError, OSError) as exc:
                     raise StackFailure('AI authorization/movement chronology failed: '+str(exc)) from exc
             outcome['state'] = 'COMPLETED'
@@ -318,7 +355,7 @@ def main(argv=None):
         # Expected AI rejection in swapped/empty is a valid experimental
         # outcome ONLY when the independent ROS evidence proves the robot
         # stayed at the station after the explicitly logged denial.
-        if (args.scenario=='live' and args.scene in ('swapped','empty')
+        if (args.scenario=='live' and (args.scene in ('swapped','empty') or args.hazard_at)
                 and isinstance(e,StackFailure)
                 and str(e).startswith('mission failed (exit=')):
             try:
@@ -332,12 +369,19 @@ def main(argv=None):
                 outcome['image_acquisition_evidence']=audit_capture(log_dir/'mission.json',log_dir/'checkpoint.jpg')
                 from rescuemind.v28_clock_evidence import audit_clock_capture
                 outcome['gazebo_camera_clock_evidence']=audit_clock_capture(log_dir/'mission.json')
-                negative=classify_negative_run(log_dir,scene=args.scene,run_id=run_id,waypoints=config)
+                denied=json.loads((log_dir/'mission.json').read_text(encoding='utf8'))
+                denied_item=denied['intent']['item']
+                final_station=denied.get('checkpoint_station') or denied_item
+                waypoints=dict(config); waypoints[denied_item]=config[final_station]
+                negative=classify_negative_run(log_dir,scene='hazard' if args.hazard_at else args.scene,
+                                               run_id=run_id,waypoints=waypoints)
                 outcome['expected_denial']=negative
+                if denied.get('recovery'):
+                    from rescuemind.recovery_evidence import audit_recovery
+                    outcome['recovery_evidence']=audit_recovery(denied,log_dir,completed=False)
                 from rescuemind.ground_truth_evidence import audit_ground_truth
-                denied_item=json.loads((log_dir/'mission.json').read_text(encoding='utf8'))['intent']['item']
                 outcome['ground_truth_evidence']=audit_ground_truth(
-                    log_dir/'independent_ros_topics.jsonl',station=config[denied_item],shelter=config['B'],
+                    log_dir/'independent_ros_topics.jsonl',station=config[final_station],shelter=config['B'],
                     expect_arrival=False)
                 # If a rosbag was specifically requested, it is evidence
                 # required even for a deliberately denied mission.

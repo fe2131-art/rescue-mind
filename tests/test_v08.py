@@ -53,7 +53,7 @@ class TestMissionV08(unittest.TestCase):
         src=(ROOT/'ros/gazebo_waypoint_mission.py').read_text()
         self.assertIn('--run-live',src)
         self.assertIn("'jev_qwen_live_mission'",src)
-        self.assertIn('onsite_check(target)',src)
+        self.assertIn('onsite_check(target,requested)',src)  # v3.4: station + requested supply (I-02)
     def test_static_scene_camera_looks_at_both_stations(self):
         result=scene.inspect_world()
         self.assertEqual(result['status'],'PASS')

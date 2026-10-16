@@ -28,6 +28,9 @@ def validate(path: Path, scenario: str, expected_run_id: str | None = None) -> d
     stages=record.get('events')
     if not isinstance(stages,list) or any(e.get('stage')=='error' for e in stages if isinstance(e,dict)):
         raise CompletionError('missing events or error event in completed mission')
+    # I-02: a denied first checkpoint before a recovery search is kept with a 'recovery_'
+    # prefix and audited separately (rescuemind.recovery_evidence).
+    stages=[e for e in stages if not (isinstance(e,dict) and str(e.get('stage','')).startswith('recovery_'))]
     visits=[e.get('stage') for e in stages if isinstance(e,dict) and e.get('arrived') is True]
     if visits != ['supply_station','shelter_approach']:
         raise CompletionError('missing ordered supply/shelter arrivals')
