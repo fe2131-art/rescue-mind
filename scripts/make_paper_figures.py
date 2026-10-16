@@ -100,7 +100,7 @@ def fig_t1_examples():
             ('fire, correct supply', lambda r: r['scene'] == 'nominal' and r['hazard_visibility'] == 'visible'),
             ('cone (new)', lambda r: r.get('distractor_kind') == 'cone' and r.get('distractor_at') == r['station']),
             ('crate on empty platform (new)', lambda r: r.get('distractor_kind') == 'crate' and r['scene'] == 'empty' and r.get('distractor_at') == r['station']),
-            ('box beside supply', lambda r: r.get('distractor_kind') == 'box' and r['scene'] != 'empty' and r.get('distractor_at') == r['station'])]
+            ('box beside supply', lambda r: r.get('distractor_kind') == 'box' and r['scene'] == 'nominal' and r.get('distractor_at') == r['station'])]
     fig, axes = plt.subplots(2, 3, figsize=(3.45, 1.85))
     for ax, (title, pred) in zip(axes.flat, want):
         r = next((r for r in rows if pred(r)), None)

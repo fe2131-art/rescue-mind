@@ -103,9 +103,27 @@ def random_lighting(rng) -> dict:
 FIRE_STYLE = 'tongues'   # v2 (I-05): ellipsoid flame tongues; 'cylinders' = first version
 
 
-def fire_and_smoke(name, x, y, style: str | None = None):
-    """A fire behind the supply platform: flames rising above it + smoke column."""
+MASK_RGB = '1 0 1 1'   # T1 amendment 2: flat magenta fire/smoke for visibility masks
+
+
+def fire_and_smoke(name, x, y, style: str | None = None, mask: bool = False):
+    """A fire behind the supply platform: flames rising above it + smoke column.
+    mask=True renders every flame/smoke visual in flat emissive magenta (label masks only)."""
     style = style or FIRE_STYLE
+    if mask:
+        m = fire_and_smoke(name, x, y, style)
+        for v in m.iter('visual'):
+            if v.get('name') == 'charred_base':
+                continue           # burnt ground is not fire or smoke
+            mat = v.find('material')
+            for tag in ('ambient', 'diffuse', 'emissive'):
+                el = mat.find(tag) if mat.find(tag) is not None else ET.SubElement(mat, tag)
+                el.text = MASK_RGB
+            tr = v.find('transparency')
+            if tr is not None:
+                v.remove(tr)
+            ET.SubElement(v, 'cast_shadows').text = 'false'
+        return m
     m = ET.Element('model', name=name)
     ET.SubElement(m, 'static').text = 'true'
     ET.SubElement(m, 'pose').text = f'{x:g} {y:g} 0 0 0 0'
@@ -200,7 +218,7 @@ def build_variant(src: Path, *, lighting: str = 'default', distractor_at: str | 
                   hazard_at: str | None = None, lighting_params: dict | None = None,
                   prop_offsets: dict | None = None, hazard_geom: tuple[float, float] | None = None,
                   distractor_kind: str = 'box', distractor_side: float = 1.0,
-                  distractor_layout: str = 'world') -> bytes:
+                  distractor_layout: str = 'world', hazard_mask: bool = False) -> bytes:
     """Controlled variants (dev sets, campaigns) and, with the extra keyword arguments,
     the continuously randomised held-out test worlds (T1)."""
     tree = ET.parse(src)
@@ -249,7 +267,8 @@ def build_variant(src: Path, *, lighting: str = 'default', distractor_at: str | 
     if hazard_at:
         # behind the platform on the far side from the approach: flames rise above the
         # platform into the checkpoint view, off the path and outside the lidar front zone
-        world.append(fire_and_smoke(f'hazard_fire_{hazard_at}', *hazard_xy(hazard_at, *(hazard_geom or (0.75, 0.5)))))
+        world.append(fire_and_smoke(f'hazard_fire_{hazard_at}', *hazard_xy(hazard_at, *(hazard_geom or (0.75, 0.5))),
+                                    mask=hazard_mask))
     ET.indent(tree, space='  ')
     return ET.tostring(tree.getroot(), encoding='utf-8', xml_declaration=True)
 
