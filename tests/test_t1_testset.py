@@ -47,5 +47,27 @@ class T1Spec(unittest.TestCase):
             self.assertTrue(any(m.get('name', '').startswith(f'distractor_{kind}') for m in ET.fromstring(xml).find('world').findall('model')))
 
 
+    def test_distractor_beside_supply_never_overlaps_it(self):
+        # amendment 1 regression: a moved supply must not make its platform look empty
+        import math
+        from rescuemind.robust_scenes import STATIONS
+        n = 0
+        for w in t1.make_spec():
+            if not w.get('distractor_at') or w['scene'] == 'empty':
+                continue
+            kw = {k: w[k] for k in ('lighting_params', 'prop_offsets', 'distractor_at', 'distractor_kind',
+                                    'distractor_side', 'distractor_layout')}
+            world = ET.fromstring(build_variant(ROOT / f"worlds/scenarios/rescuemind_{w['scene']}.sdf", **kw)).find('world')
+            pose = lambda pre: [float(v) for v in next(m for m in world.findall('model')
+                                                       if m.get('name', '').startswith(pre)).findtext('pose').split()]
+            d = pose('distractor_')
+            sx, sy = STATIONS[w['distractor_at']]
+            near = min((pose(nm) for nm in ('sealed_water_bottles', 'first_aid_case')),
+                       key=lambda p: math.hypot(p[0] - sx, p[1] - sy))
+            self.assertGreater(math.hypot(d[0] - near[0], d[1] - near[1]), 0.30, w['id'])
+            n += 1
+        self.assertGreater(n, 5)
+
+
 if __name__ == '__main__':
     unittest.main()

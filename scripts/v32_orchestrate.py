@@ -36,6 +36,10 @@ def shell_exec(args: list[str]) -> tuple[str, ...]:
     return ('bash', '-c', command)
 
 
+WORLD_SPEC_KEYS = {'lighting_params', 'prop_offsets', 'hazard_at', 'hazard_geom', 'distractor_at',
+                   'distractor_kind', 'distractor_side', 'distractor_layout'}
+
+
 def can_raise_priority() -> bool:
     """True if this process may lower niceness (docker --cap-add SYS_NICE, no sudo needed)."""
     try:
@@ -205,6 +209,9 @@ def main(argv=None):
     p.add_argument('--lighting', choices=['default', 'dim_evening', 'harsh_noon'], default='default')
     p.add_argument('--hazard-at', choices=['water', 'medicine'], default=None, help='I-05: fire behind this station')
     p.add_argument('--distractor-at', choices=['water', 'medicine'], default=None, help='I-05: cardboard box at this station')
+    p.add_argument('--world-spec', default=None,
+                   help='JSON object of randomised-world parameters for build_variant (campaign E); '
+                        'its hazard_at / distractor_at also drive the audits')
     p.add_argument('--film', action='store_true',
                    help='also record a Gazebo-rendered overview camera for the demo video')
     p.add_argument('--startup-timeout', type=int, default=480)
@@ -216,13 +223,27 @@ def main(argv=None):
     from rescuemind.gazebo_transport_contract import validate_static
     audit_scenarios(ROOT/'worlds/scenarios')
     validate_static(ROOT/'worlds/scenarios'/('rescuemind_'+args.scene+'.sdf'), ROOT/'configs/ros_gz_bridge_v20.yaml')
-    robust = args.lighting != 'default' or args.hazard_at or args.distractor_at
+    world_spec = json.loads(args.world_spec) if args.world_spec else None
+    if world_spec is not None:
+        if not isinstance(world_spec, dict) or set(world_spec) - WORLD_SPEC_KEYS:
+            p.error(f'--world-spec keys must be within {sorted(WORLD_SPEC_KEYS)}')
+        if args.hazard_at or args.distractor_at or args.lighting != 'default':
+            p.error('--world-spec replaces --lighting/--hazard-at/--distractor-at')
+        args.hazard_at = world_spec.get('hazard_at')
+        args.distractor_at = world_spec.get('distractor_at')
+    robust = args.lighting != 'default' or args.hazard_at or args.distractor_at or world_spec is not None
     def make_world(dest_dir):
         if not robust:
             return None
         from rescuemind.robust_scenes import write_variant
-        w = write_variant(ROOT/'worlds/scenarios', dest_dir, args.scene, lighting=args.lighting,
-                          distractor_at=args.distractor_at, hazard_at=args.hazard_at)
+        if world_spec is not None:
+            kw = dict(world_spec)
+            if 'hazard_geom' in kw:
+                kw['hazard_geom'] = tuple(kw['hazard_geom'])
+            w = write_variant(ROOT/'worlds/scenarios', dest_dir, args.scene, **kw)
+        else:
+            w = write_variant(ROOT/'worlds/scenarios', dest_dir, args.scene, lighting=args.lighting,
+                              distractor_at=args.distractor_at, hazard_at=args.hazard_at)
         validate_static(w, ROOT/'configs/ros_gz_bridge_v20.yaml')
         return w
     extra = dict(recovery=args.recovery, explain=args.explain, prompt_set=args.prompt_set, model=args.model,
@@ -251,7 +272,8 @@ def main(argv=None):
                       capture_rosbag=args.capture_rosbag,local_mode=args.local_mode,gz_mode=args.gz_mode,
                       film=args.film)
     summary['world_variant'] = {'lighting': args.lighting, 'hazard_at': args.hazard_at,
-                                'distractor_at': args.distractor_at, 'sdf': run_world.name if run_world else None}
+                                'distractor_at': args.distractor_at, 'sdf': run_world.name if run_world else None,
+                                'world_spec': world_spec}
     summary['recovery'] = args.recovery
     summary['explain'] = args.explain
     summary['prompt_set'] = args.prompt_set

@@ -65,16 +65,26 @@ def plastic_crate(name, x, y, z=0.5, yaw=0.0):
     return m
 
 
-def traffic_cone(name, x, y):
-    """Orange traffic cone on the floor (held-out hazard confuser: orange but not fire)."""
+def traffic_cone(name, x, y, z=0.0):
+    """Orange traffic cone (held-out hazard confuser: orange but not fire)."""
     m = ET.Element('model', name=name)
     ET.SubElement(m, 'static').text = 'true'
-    ET.SubElement(m, 'pose').text = f'{x:g} {y:g} 0 0 0 0'
+    ET.SubElement(m, 'pose').text = f'{x:g} {y:g} {z:g} 0 0 0'
     link = ET.SubElement(m, 'link', name='cone')
     _visual(link, 'base', '0 0 .015 0 0 0', '<box><size>.36 .36 .03</size></box>', '.95 .38 .05 1')
     _visual(link, 'body', '0 0 .30 0 0 0', '<cone><radius>.14</radius><length>.54</length></cone>', '.98 .42 .06 1')
     _visual(link, 'band', '0 0 .34 0 0 0', '<cylinder><radius>.085</radius><length>.07</length></cylinder>', '.95 .95 .95 1')
     return m
+
+
+PLATFORM_SIDE_M = 0.28
+
+
+def platform_side_offset(station: str, side: float, dist: float = PLATFORM_SIDE_M) -> tuple[float, float]:
+    """Offset across the approach direction (left/right in the checkpoint image) on a platform."""
+    x, y = STATIONS[station]
+    n = (x * x + y * y) ** .5
+    return -y / n * side * dist, x / n * side * dist
 
 
 def random_lighting(rng) -> dict:
@@ -189,7 +199,8 @@ def _platform_empty(world, x, y) -> bool:
 def build_variant(src: Path, *, lighting: str = 'default', distractor_at: str | None = None,
                   hazard_at: str | None = None, lighting_params: dict | None = None,
                   prop_offsets: dict | None = None, hazard_geom: tuple[float, float] | None = None,
-                  distractor_kind: str = 'box', distractor_side: float = 1.0) -> bytes:
+                  distractor_kind: str = 'box', distractor_side: float = 1.0,
+                  distractor_layout: str = 'world') -> bytes:
     """Controlled variants (dev sets, campaigns) and, with the extra keyword arguments,
     the continuously randomised held-out test worlds (T1)."""
     tree = ET.parse(src)
@@ -201,6 +212,9 @@ def build_variant(src: Path, *, lighting: str = 'default', distractor_at: str | 
         sun.find('direction').text = preset['direction']
         sun.find('intensity').text = preset['intensity']
         sun.find('diffuse').text = preset['diffuse']
+    # which platforms are empty is decided from the scene definition, BEFORE any prop is moved
+    # (T1 amendment 1: checking after the move made every platform with a moved supply look empty)
+    empty_at = {st: _platform_empty(world, *xy) for st, xy in STATIONS.items()}
     if prop_offsets:
         # held-out: move/rotate each supply prop on its platform (dx, dy, yaw)
         for m in world.findall('model'):
@@ -210,9 +224,18 @@ def build_variant(src: Path, *, lighting: str = 'default', distractor_at: str | 
                 m.find('pose').text = f'{v[0] + dx:g} {v[1] + dy:g} {v[2]:g} {v[3]:g} {v[4]:g} {v[5] + dyaw:g}'
     if distractor_at:
         x, y = STATIONS[distractor_at]
-        names = {m.get('name') for m in world.findall('model')}
-        empty_platform = not ({'sealed_water_bottles', 'first_aid_case'} & names) or _platform_empty(world, x, y)
-        if distractor_kind == 'cone':
+        empty_platform = empty_at[distractor_at]
+        if distractor_layout == 'platform':
+            # campaign E: the distractor stands ON the supply platform (beside the supply when one is
+            # there, centred when the platform is empty) so it is always in the checkpoint view and
+            # never in the robot's corridor; the generator keeps the supply on the other half.
+            ox, oy = (0.0, 0.0) if empty_platform else platform_side_offset(distractor_at, distractor_side)
+            fx, fy = x + ox, y + oy
+            obj = {'cone': lambda: traffic_cone(f'distractor_cone_{distractor_at}', fx, fy, 0.5),
+                   'crate': lambda: plastic_crate(f'distractor_crate_{distractor_at}', fx, fy, 0.5, 0.4),
+                   'box': lambda: cardboard_box(f'distractor_box_{distractor_at}', fx, fy)}[distractor_kind]()
+            world.append(obj)
+        elif distractor_kind == 'cone':
             world.append(traffic_cone(f'distractor_cone_{distractor_at}', x + 0.70 * distractor_side, y - 0.55))
         elif distractor_kind == 'crate':
             world.append(plastic_crate(f'distractor_crate_{distractor_at}', x, y, 0.5, 0.4) if empty_platform else
@@ -233,7 +256,7 @@ def build_variant(src: Path, *, lighting: str = 'default', distractor_at: str | 
 
 def write_variant(scene_dir: Path, out_dir: Path, scene: str, **kw) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
-    tag = '_'.join([scene, kw.get('lighting', 'default')] +
+    tag = '_'.join([scene, 'random' if kw.get('lighting_params') else kw.get('lighting', 'default')] +
                    ([f"box-{kw['distractor_at']}"] if kw.get('distractor_at') else []) +
                    ([f"fire-{kw['hazard_at']}"] if kw.get('hazard_at') else []))
     path = out_dir / f'rescuemind_{tag}.sdf'
