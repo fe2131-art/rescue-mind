@@ -19,8 +19,8 @@ ROOT = Path(__file__).resolve().parents[1]
 ITEM_JA = {'water': '飲料水', 'medicine': '医療物資'}
 
 
-def load_protocol():
-    p = json.loads((ROOT/'experiments/v23_locked_protocol.json').read_text(encoding='utf8'))
+def load_protocol(path=None):
+    p = json.loads(Path(path or ROOT/'experiments/v23_locked_protocol.json').read_text(encoding='utf8'))
     if p['planned_n'] != len(p['trials']):
         raise SystemExit('protocol corrupted')
     return sorted(p['trials'], key=lambda t: t['order'])
@@ -62,15 +62,27 @@ def summarize(trial: dict, run_dir: Path | None, rc: int, wall_s: float) -> dict
         row['vlm_latency_s'] = round(ev['checkpoint_decision']['t_wall_s'] - ev['checkpoint_frame']['t_wall_s'], 2)
     row['image_sha256'] = cp.get('image_sha256')
     row['models'] = sorted({c.get('model') for c in calls.values() if isinstance(c, dict)})
+    rec = mission.get('recovery') or {}
+    row['recovery_searched'] = bool(rec)
+    row['final_station'] = mission.get('checkpoint_station')
+    if rec:
+        fd = (rec.get('first_checkpoint') or {}).get('decision') or {}
+        row['first_vlm'] = [fd.get('first_supply'), fd.get('second_supply')]
+    row['intent_backend'] = (mission.get('intent_gate') or {}).get('backend')
+    row['intent_item'] = (mission.get('intent') or {}).get('item')
+    row['explanations'] = [e.get('text_ja') for e in mission.get('events', []) if e.get('stage', '').endswith('checkpoint_explanation')]
     if row['state'] == 'COMPLETED':
-        row['observed_action'] = 'ALLOW'
+        row['observed_action'] = 'ALLOW_AFTER_SEARCH' if rec else 'ALLOW'
     elif row['state'] == 'COMPLETED_EXPECTED_DENIAL':
-        row['observed_action'] = 'DENY'
+        row['observed_action'] = ('DENY_HAZARD' if decision.get('reason') == 'visible_hazard_at_checkpoint' and not rec
+                                  else 'DENY')
     elif decision.get('allow') is False:
         row['observed_action'] = 'DENY_UNVERIFIED'
     else:
         row['observed_action'] = 'FAILED'
-    row['correct'] = row['observed_action'] == trial['expected_action']
+    expected = trial['expected_action']
+    want = {'DELIVER_AFTER_SEARCH': 'ALLOW_AFTER_SEARCH'}.get(expected, expected)
+    row['correct'] = row['observed_action'] == want
     return row
 
 
@@ -81,6 +93,8 @@ def main(argv=None):
     ap.add_argument('--only', nargs='*', help='trial IDs to run (default: all not yet in ledger)')
     ap.add_argument('--no-rosbag', action='store_true')
     ap.add_argument('--retries', type=int, default=1, help='re-run a trial whose stack FAILED for infra reasons')
+    ap.add_argument('--protocol', default=None, help='protocol JSON (default: v23 locked protocol)')
+    ap.add_argument('stack_args', nargs='*', help='extra orchestrator flags after "--", e.g. -- --recovery --explain')
     a = ap.parse_args(argv)
     ledger = Path(a.ledger)
     ledger.parent.mkdir(parents=True, exist_ok=True)
@@ -90,7 +104,7 @@ def main(argv=None):
             r = json.loads(line)
             if r.get('local_mode', 'single') == a.local_mode and r.get('final', True):
                 done.add(r['trial_id'])
-    for trial in load_protocol():
+    for trial in load_protocol(a.protocol):
         if a.only and trial['id'] not in a.only:
             continue
         if not a.only and trial['id'] in done:
@@ -100,7 +114,11 @@ def main(argv=None):
             before = {d.name for d in runs.iterdir()} if runs.is_dir() else set()
             cmd = [sys.executable, str(ROOT/'scripts/v32_orchestrate.py'), '--run', '--scenario', 'live',
                    '--scene', trial['scene'], '--local-mode', a.local_mode,
-                   '--instruction', f"避難所Bに{ITEM_JA[trial['expected']]}を届けて"]
+                   '--instruction', trial.get('instruction') or f"避難所Bに{ITEM_JA[trial['expected']]}を届けて"]
+            for key, flag in (('lighting', '--lighting'), ('hazard_at', '--hazard-at'), ('distractor_at', '--distractor-at')):
+                if trial.get(key) and not (key == 'lighting' and trial[key] == 'default'):
+                    cmd += [flag, trial[key]]
+            cmd += a.stack_args
             if not a.no_rosbag:
                 cmd.append('--capture-rosbag')
             started = time.monotonic()
@@ -114,6 +132,8 @@ def main(argv=None):
                 raise
             row = summarize(trial, latest_run_after(before), rc, time.monotonic() - started)
             row['local_mode'] = a.local_mode
+            row['stack_args'] = a.stack_args
+            row['instruction'] = trial.get('instruction')
             row['attempt'] = attempt + 1
             infra_failure = row['observed_action'] == 'FAILED' and row.get('vlm_reason') is None
             row['final'] = not (infra_failure and attempt < a.retries)

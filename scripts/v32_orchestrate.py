@@ -51,7 +51,7 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
                evidence_dir: Path | None = None, capture_rosbag: bool = False,
                local_mode: str = "single", gz_mode: str = 'auto', film: bool = False,
                recovery: bool = False, explain: bool = False, world: Path | None = None,
-               prompt_set: str = 'v33') -> dict:
+               prompt_set: str = 'v33', model: str | None = None, intent_backend: str = 'tfidf') -> dict:
     if scenario not in ('motion-check', 'live'):
         raise ValueError('invalid scenario')
     from rescuemind.scene_variants import SCENES
@@ -68,6 +68,10 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
             cmd += ['--recovery']
         if explain:
             cmd += ['--explain']
+        if intent_backend != 'tfidf':
+            cmd += ['--intent-backend', intent_backend]
+        if model:
+            cmd += ['--vlm-model', model]
     if evidence_dir is not None:
         cmd += ['--run-id', evidence_dir.name, '--out', str(evidence_dir/'mission.json'),
                 '--checkpoint-image', str(evidence_dir/'checkpoint.jpg')]
@@ -79,7 +83,7 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
     if scenario=='live':
         from rescuemind.local_vision import PRIMARY_MODEL, SECONDARY_MODEL
         services.insert(0,ManagedCommand('primary_local_vlm', shell_exec([
-            'python3',str(ROOT/'scripts/local_vlm_server.py'),'--model',PRIMARY_MODEL,'--port','8765',
+            'python3',str(ROOT/'scripts/local_vlm_server.py'),'--model',model or PRIMARY_MODEL,'--port','8765',
             '--prompt-set',prompt_set])))
         if local_mode=='dual':
             services.insert(1,ManagedCommand('secondary_local_vlm', shell_exec([
@@ -166,7 +170,9 @@ def main(argv=None):
                    help='auto=GUI when DISPLAY is set, otherwise server-only headless EGL rendering')
     p.add_argument('--recovery', action='store_true', help='I-02: search the other station if the supply is wrong/missing')
     p.add_argument('--explain', action='store_true', help='I-03: Japanese one-sentence report after each checkpoint')
-    p.add_argument('--prompt-set', choices=['v33', 'v34'], default='v33', help='VLM checkpoint prompts (v34 = I-05)')
+    p.add_argument('--prompt-set', choices=['v33', 'v34', 'v35'], default='v33', help='VLM checkpoint prompts (v34 = I-05)')
+    p.add_argument('--model', default=None, help='local VLM model id (I-08); default Qwen2.5-VL-3B')
+    p.add_argument('--intent-backend', choices=['tfidf', 'llm'], default='tfidf', help='I-04 instruction parser')
     p.add_argument('--lighting', choices=['default', 'dim_evening', 'harsh_noon'], default='default')
     p.add_argument('--hazard-at', choices=['water', 'medicine'], default=None, help='I-05: fire behind this station')
     p.add_argument('--distractor-at', choices=['water', 'medicine'], default=None, help='I-05: cardboard box at this station')
@@ -190,7 +196,8 @@ def main(argv=None):
                           distractor_at=args.distractor_at, hazard_at=args.hazard_at)
         validate_static(w, ROOT/'configs/ros_gz_bridge_v20.yaml')
         return w
-    extra = dict(recovery=args.recovery, explain=args.explain, prompt_set=args.prompt_set)
+    extra = dict(recovery=args.recovery, explain=args.explain, prompt_set=args.prompt_set, model=args.model,
+                 intent_backend=args.intent_backend)
     placeholder=ROOT/'outputs'/'runs'/'<run_id>'
     plan = build_plan(args.scenario, args.instruction, mission_timeout=args.mission_timeout, scene=args.scene,
                       evidence_dir=placeholder, capture_rosbag=args.capture_rosbag,local_mode=args.local_mode,
@@ -218,6 +225,8 @@ def main(argv=None):
     summary['recovery'] = args.recovery
     summary['explain'] = args.explain
     summary['prompt_set'] = args.prompt_set
+    summary['model'] = args.model or 'Qwen/Qwen2.5-VL-3B-Instruct'
+    summary['intent_backend'] = args.intent_backend
     # Replace every planning placeholder with the actual run ID, including
     # independent recorder / bag paths, not just mission output paths.
     summary['run_id'] = run_id
@@ -248,7 +257,7 @@ def main(argv=None):
                 if args.scenario=='live':
                     import urllib.request
                     from rescuemind.local_vision import PRIMARY_MODEL,SECONDARY_MODEL
-                    for port,model in ([(8765,PRIMARY_MODEL)] + ([(8766,SECONDARY_MODEL)] if args.local_mode=='dual' else [])):
+                    for port,model in ([(8765,args.model or PRIMARY_MODEL)] + ([(8766,SECONDARY_MODEL)] if args.local_mode=='dual' else [])):
                         try:
                             with urllib.request.urlopen('http://127.0.0.1:'+str(port)+'/health',timeout=3) as f:
                                 h=json.load(f)

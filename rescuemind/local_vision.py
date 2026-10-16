@@ -15,7 +15,9 @@ from urllib.parse import urlparse
 
 PRIMARY_MODEL = 'Qwen/Qwen2.5-VL-3B-Instruct'
 SECONDARY_MODEL = 'HuggingFaceTB/SmolVLM2-2.2B-Instruct'
-ALLOWED_MODELS = frozenset((PRIMARY_MODEL, SECONDARY_MODEL))
+# I-08 candidates (Apache-2.0, newer generations); selection is evidence-based (IMPROVEMENT_LOG.md)
+CANDIDATE_MODELS = ('Qwen/Qwen3-VL-8B-Instruct', 'Qwen/Qwen3.5-9B', 'Qwen/Qwen3.5-4B')
+ALLOWED_MODELS = frozenset((PRIMARY_MODEL, SECONDARY_MODEL) + CANDIDATE_MODELS)
 DEFAULT_PRIMARY_URL = 'http://127.0.0.1:8765/v1/classify'
 DEFAULT_SECONDARY_URL = 'http://127.0.0.1:8766/v1/classify'
 LABELS = ('water', 'medicine', 'other')

@@ -20,17 +20,17 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 
-def run(method: str, text: str) -> dict:
+def run(method: str, text: str, model: str = 'Qwen/Qwen2.5-VL-3B-Instruct') -> dict:
     if method == 'tfidf':
         from rescuemind.mission_policy import decide_intent
         g = decide_intent(text)
         return {'accept': g.allow, 'item': g.intent.item if g.allow else None, 'reason': g.reason}
     from rescuemind.intent_llm import parse_instruction_llm, decide_intent_hybrid
     if method == 'llm':
-        r = parse_instruction_llm(text)
+        r = parse_instruction_llm(text, model=model)
         return {'accept': r['accept'], 'item': r['item'] if r['accept'] else None, 'reason': r['reason'], 'probs': r['probs']}
     if method == 'hybrid':
-        r = decide_intent_hybrid(text)
+        r = decide_intent_hybrid(text, model=model)
         return {'accept': r['accept'], 'item': r['item'] if r['accept'] else None, 'reason': r['reason']}
     raise ValueError(method)
 
@@ -38,12 +38,16 @@ def run(method: str, text: str) -> dict:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--method', choices=['tfidf', 'llm', 'hybrid'], required=True)
+    ap.add_argument('--model', default='Qwen/Qwen2.5-VL-3B-Instruct')
+    ap.add_argument('--tag', default=None, help='suffix for the result file')
+    ap.add_argument('--split', choices=['held_out_v34', 'dev_v35'], default='held_out_v34',
+                    help='dev_v35 = tuning set; held_out_v34 = frozen test set (never tune on it)')
     a = ap.parse_args()
-    rows = [json.loads(x) for x in (ROOT / 'experiments/intent_eval/held_out_v34.jsonl').read_text().splitlines()]
+    rows = [json.loads(x) for x in (ROOT / f'experiments/intent_eval/{a.split}.jsonl').read_text().splitlines()]
     out = []
     for r in rows:
         t0 = time.perf_counter()
-        got = run(a.method, r['text'])
+        got = run(a.method, r['text'], a.model)
         ok = (got['accept'] and r['expect'] == 'accept' and got['item'] == r['item']) or \
              (not got['accept'] and r['expect'] == 'reject')
         unsafe = got['accept'] and (r['expect'] == 'reject' or got['item'] != r.get('item'))
@@ -57,7 +61,8 @@ def main():
             'false_rejects': sum((not o['got']['accept']) and o['expect'] == 'accept' for o in out),
             'by_category': {k: f'{v[0]}/{v[1]}' for k, v in sorted(by.items())},
             'mean_latency_s': round(sum(o['latency_s'] for o in out) / len(out), 3)}
-    (ROOT / 'experiments/results' / f'intent_{a.method}.json').write_text(
+    suffix = ('_' + a.tag if a.tag else '') + ('' if a.split == 'held_out_v34' else '_' + a.split)
+    (ROOT / 'experiments/results' / f"intent_{a.method}{suffix}.json").write_text(
         json.dumps({'summary': summ, 'records': out}, ensure_ascii=False, indent=1) + '\n')
     print(json.dumps(summ, ensure_ascii=False))
     for o in out:

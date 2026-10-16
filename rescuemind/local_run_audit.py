@@ -1,6 +1,6 @@
 """Recalculate local checkpoint decisions; never claim Jev/cloud provenance."""
 from __future__ import annotations
-from .local_vision import validate_result, local_decision, PRIMARY_MODEL, SECONDARY_MODEL
+from .local_vision import validate_result, local_decision, ALLOWED_MODELS, SECONDARY_MODEL
 
 class LocalReceiptError(ValueError):
     pass
@@ -15,8 +15,11 @@ def audit_local_checkpoint(checkpoint: dict, image_sha: str, *, expected: str) -
     if mode not in ('single','dual'):
         raise LocalReceiptError('missing local mode')
     a,b=calls['first'],calls['second']
+    primary=a.get('model') if isinstance(a,dict) else None
+    if primary not in ALLOWED_MODELS or primary==SECONDARY_MODEL:
+        raise LocalReceiptError('primary model not on the local allow-list')
     for call,idx in ((a,1),(b,2)):
-        validate_result(call,PRIMARY_MODEL if idx==1 or mode=='single' else SECONDARY_MODEL,image_sha,idx)
+        validate_result(call,primary if idx==1 or mode=='single' else SECONDARY_MODEL,image_sha,idx)
     computed=local_decision(expected,a,b,dual_model=(mode=='dual'))
     if checkpoint.get('image_sha256')!=image_sha or checkpoint.get('decision')!=computed:
         raise LocalReceiptError('decision or image hash does not match original model outputs')

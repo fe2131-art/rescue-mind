@@ -73,11 +73,30 @@ PROMPT_SETS={
        {'A':'other','B':'medicine','C':'water'})},
    'hazard':('Look at the whole image, including behind and around the objects. '
              'Do you see any fire, flames, or smoke? Answer Yes or No.')},
+ # v3.5 (I-08): options name both the function and the visible appearance, so the class
+ # definition does not depend on how literally a given model reads "kit" vs "box".
+ 'v35':{'supply':{
+    1:('This photo is from a rescue robot camera facing a grey supply platform. '
+       'What is placed on top of the platform?\n'
+       'A. drinking water (plastic water bottles with caps)\n'
+       'B. a first-aid kit (a box marked with a red cross)\n'
+       'C. nothing, or some other object\n'
+       'Answer with the letter only.',
+       {'A':'water','B':'medicine','C':'other'}),
+    2:('Which supply is placed on top of the grey platform in this robot camera image?\n'
+       'A. neither - the platform top is empty or holds a different object\n'
+       'B. a first-aid kit (box with a red cross)\n'
+       'C. drinking water (plastic bottles)\n'
+       'Answer with the letter only.',
+       {'A':'other','B':'medicine','C':'water'})},
+   'hazard':('Look at the whole image, including behind and around the objects. '
+             'Do you see any fire, flames, or smoke? Answer Yes or No.')},
 }
 
 
 class ModelWorker:
-    def __init__(self,model_id: str, max_pixels: int=321126, method: str='scored', prompt_set: str='v33'):
+    def __init__(self,model_id: str, max_pixels: int=321126, method: str='scored', prompt_set: str='v33',
+                 dtype: str='float16'):
         if model_id not in ALLOWED_MODELS:
             raise ValueError('model not on local allowlist')
         if method not in ('scored','json'):
@@ -96,18 +115,22 @@ class ModelWorker:
         self.prompt_set=prompt_set
         self.torch=torch
         kwargs={'local_files_only':True}
-        if model_id.startswith('Qwen/'):
+        if model_id.startswith('Qwen/Qwen2.5-VL'):
             kwargs.update(min_pixels=256*28*28,max_pixels=max_pixels)
         self.processor=AutoProcessor.from_pretrained(model_id,**kwargs)
-        if model_id.startswith('Qwen/'):
+        if model_id.startswith('Qwen/Qwen2.5-VL'):
             from transformers import Qwen2_5_VLForConditionalGeneration
             cls=Qwen2_5_VLForConditionalGeneration
         else:
             from transformers import AutoModelForImageTextToText
             cls=AutoModelForImageTextToText
-        self.model=cls.from_pretrained(model_id,torch_dtype=torch.float16,
-                                      attn_implementation='eager',local_files_only=True,
-                                      low_cpu_mem_usage=True).to(self.device).eval()
+        # Qwen3.5 thinks by default; the checkpoint must answer directly.
+        self.template_kwargs={'enable_thinking':False} if model_id.startswith('Qwen/Qwen3') else {}
+        self.dtype=getattr(torch,dtype)
+        load=dict(attn_implementation='eager',local_files_only=True,low_cpu_mem_usage=True)
+        import transformers
+        key='dtype' if int(transformers.__version__.split('.')[0])>=5 else 'torch_dtype'  # renamed in v5
+        self.model=cls.from_pretrained(model_id,**{key:self.dtype},**load).to(self.device).eval()
         tok=self.processor.tokenizer
         def ids(word):
             out=set()
@@ -118,18 +141,21 @@ class ModelWorker:
             if not out:
                 raise RuntimeError('answer token not single-token: '+word)
             return sorted(out)
-        self.answer_ids={w:ids(w) for w in ('A','B','C','Yes','No')}
+        self.answer_ids={w:ids(w) for w in ('A','B','C','D','Yes','No')}
 
     def _inputs(self,pic,question):
         messages=[{'role':'user','content':[{'type':'image'},{'type':'text','text':question}]}]
-        text=self.processor.apply_chat_template(messages,tokenize=False,add_generation_prompt=True)
+        text=self.processor.apply_chat_template(messages,tokenize=False,add_generation_prompt=True,
+                                                **self.template_kwargs)
         inputs=self.processor(text=[text],images=[pic],return_tensors='pt',padding=True)
-        return inputs.to(self.device,dtype=self.torch.float16)
+        return inputs.to(self.device,dtype=self.dtype)
 
     def _answer_probs(self,pic,question,choices):
         inputs=self._inputs(pic,question)
         with self.torch.inference_mode():
             logits=self.model(**inputs).logits[0,-1].float()
+        if not self.torch.isfinite(logits).all():
+            raise RuntimeError('non-finite logits (FP16 overflow?) - refuse to decide')
         # log-sum-exp over the tokenizer's variants of each answer ("A" / " A")
         scores=self.torch.stack([self.torch.logsumexp(logits[self.answer_ids[c]],0) for c in choices])
         probs=self.torch.softmax(scores,0).tolist()
@@ -156,6 +182,44 @@ class ModelWorker:
            '火や煙が見える場合は必ずそれも書いてください。'),
     }
     describe_prompt='e0'
+
+    INTENT_PROMPTS={
+     'i34':None,   # filled below from the class attributes
+     # I-08: concrete "other" and "elsewhere" options (examples deliberately differ from the test set)
+     'i35':(('次の依頼文で、ロボットに届けてほしい物資はどれですか。\n依頼文：「{text}」\n'
+             'A. 飲料水（水・飲み物）\nB. 医療物資（救急箱・薬・包帯・消毒など）\nC. 飲料水と医療物資の両方\n'
+             'D. それ以外（衣類・寝具・燃料・電池などの別の物、物資の依頼ではない、何が必要か書かれていない）\n'
+             '記号だけで答えてください。'),
+            ('次の依頼文で、物資の届け先はどれですか。\n依頼文：「{text}」\n'
+             'A. 避難所B\nB. 避難所B以外の場所（別の避難所や、学校・病院・公共施設などの建物）\nC. 届け先が書かれていない\n'
+             '記号だけで答えてください。')),
+    }
+    intent_prompt='i34'
+    INTENT_ITEM_Q=('次の依頼文で、届けてほしい物資はどれですか。\n依頼文：「{text}」\n'
+                   'A. 飲料水（水・飲み物）\nB. 医療物資（救急箱・薬・包帯など）\nC. 飲料水と医療物資の両方\n'
+                   'D. どちらでもない（他の物、物資の依頼ではない、または不明）\n記号だけで答えてください。')
+    INTENT_DEST_Q=('次の依頼文で、物資の届け先はどれですか。\n依頼文：「{text}」\n'
+                   'A. 避難所B\nB. 避難所B以外の場所\nC. 届け先が書かれていない\n記号だけで答えてください。')
+
+    def _text_probs(self,question,choices):
+        messages=[{'role':'user','content':[{'type':'text','text':question}]}]
+        prompt=self.processor.apply_chat_template(messages,tokenize=False,add_generation_prompt=True,
+                                                  **self.template_kwargs)
+        inputs=self.processor(text=[prompt],return_tensors='pt',padding=True).to(self.device)
+        with self.torch.inference_mode():
+            logits=self.model(**inputs).logits[0,-1].float()
+        scores=self.torch.stack([self.torch.logsumexp(logits[self.answer_ids[c]],0) for c in choices])
+        return dict(zip(choices,self.torch.softmax(scores,0).tolist()))
+
+    def intent(self,text):
+        """I-04: closed-set parse of a natural-language request (supply + destination)."""
+        text=' '.join(str(text).split())[:200].replace('「','').replace('」','')
+        item_q,dest_q=(self.INTENT_ITEM_Q,self.INTENT_DEST_Q) if self.intent_prompt=='i34' else self.INTENT_PROMPTS[self.intent_prompt]
+        item=self._text_probs(item_q.format(text=text),('A','B','C','D'))
+        dest=self._text_probs(dest_q.format(text=text),('A','B','C'))
+        return {'item_probs':{'water':round(item['A'],4),'medicine':round(item['B'],4),'both':round(item['C'],4),
+                              'none':round(item['D'],4)},
+                'dest_probs':{'B':round(dest['A'],4),'other':round(dest['B'],4),'unstated':round(dest['C'],4)}}
 
     def describe(self,image_bytes):
         """I-03: short Japanese situation report for people. NEVER used for the allow/deny decision."""
@@ -197,15 +261,22 @@ def make_handler(worker):
             self.reply(200,{'status':'ready','model':worker.model_id,'backend':'local_transformers',
                             'method':getattr(worker,'method','json'),'prompt_set':getattr(worker,'prompt_set',None)})
         def do_POST(self):
-            if self.path not in ('/v1/classify','/v1/describe'):
+            if self.path not in ('/v1/classify','/v1/describe','/v1/intent'):
                 self.send_error(404);return
             n=int(self.headers.get('Content-Length','0'))
-            if n<100 or n>9_000_000:
+            if n<20 or n>9_000_000:
                 self.send_error(413);return
             try:
                 request=json.loads(self.rfile.read(n))
                 if type(request) is not dict or request.get('model')!=worker.model_id:
                     raise ValueError('wrong model')
+                if self.path=='/v1/intent':
+                    text=request.get('text')
+                    if not isinstance(text,str) or not text.strip() or len(text)>500:
+                        raise ValueError('invalid instruction text')
+                    self.reply(200,{'backend':'local_transformers','model':worker.model_id,'real_inference':True,
+                                    'text':text,**worker.intent(text)})
+                    return
                 blob=base64.b64decode(request['image_base64'],validate=True)
                 if not (300<=len(blob)<=5_000_000):
                     raise ValueError('image byte size invalid')
@@ -242,14 +313,17 @@ def make_handler(worker):
 def main():
     p=argparse.ArgumentParser()
     p.add_argument('--model',choices=sorted(ALLOWED_MODELS),default='Qwen/Qwen2.5-VL-3B-Instruct')
+    p.add_argument('--dtype',choices=['float16','float32'],default='float16')
     p.add_argument('--port',type=int,default=8765)
     p.add_argument('--method',choices=['scored','json'],default='scored')
     p.add_argument('--prompt-set',choices=sorted(PROMPT_SETS),default='v33')
     p.add_argument('--describe-prompt',choices=sorted(ModelWorker.DESCRIBE_PROMPTS),default='e0')
+    p.add_argument('--intent-prompt',choices=sorted(ModelWorker.INTENT_PROMPTS),default='i34')
     a=p.parse_args()
     if not 1024<=a.port<=65535: p.error('invalid port')
-    worker=ModelWorker(a.model,method=a.method,prompt_set=a.prompt_set)
+    worker=ModelWorker(a.model,method=a.method,prompt_set=a.prompt_set,dtype=a.dtype)
     worker.describe_prompt=a.describe_prompt
+    worker.intent_prompt=a.intent_prompt
     ThreadingHTTPServer(('127.0.0.1',a.port),make_handler(worker)).serve_forever()
 
 if __name__=='__main__': main()

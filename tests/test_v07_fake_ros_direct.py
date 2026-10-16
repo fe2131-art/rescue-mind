@@ -81,7 +81,7 @@ class TestROSBridgeEndToEndStub(unittest.TestCase):
             return {'decision':{'allow':permit,'reason':'on_site_supply_confirmed' if permit else 'models_disagree_or_wrong_supply'},
                     'image_sha256':__import__('hashlib').sha256(Path(f).read_bytes()).hexdigest(),
                     'model_calls':{'jev':{'model':'jev-1.14.0'},'qwen':{'model':'qwen3.8-omni-flash'}}}
-        def fake_verify_local(f,expected,*,mode,primary_url,secondary_url):
+        def fake_verify_local(f,expected,*,mode,primary_url,secondary_url,primary_model=None):
             return {'decision':{'allow':permit,'reason':'on_site_supply_confirmed' if permit else 'local_vlm_disagree_or_wrong_supply'},
                     'backend':'OFFLINE_MOCK_ONLY','image_sha256':__import__('hashlib').sha256(Path(f).read_bytes()).hexdigest()}
         def fake_sleep(seconds):
