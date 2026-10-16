@@ -36,6 +36,26 @@ def shell_exec(args: list[str]) -> tuple[str, ...]:
     return ('bash', '-c', command)
 
 
+def can_raise_priority() -> bool:
+    """True if this process may lower niceness (docker --cap-add SYS_NICE, no sudo needed)."""
+    try:
+        r = subprocess.run(['nice', '-n', '-10', 'true'], capture_output=True, text=True, timeout=5)
+        return r.returncode == 0 and not r.stderr.strip()
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
+def prioritised(argv: tuple[str, ...], niceness: int) -> tuple[str, ...]:
+    """I-09: on a CPU-saturated 4-core host the control loops must not be starved.
+    Negative niceness only when permitted; positive (lower priority) always allowed."""
+    if niceness < 0 and not PRIORITY_OK:
+        return argv
+    return ('nice', '-n', str(niceness)) + tuple(argv)
+
+
+PRIORITY_OK = can_raise_priority()
+
+
 def gazebo_command(world: Path, gz_mode: str = 'auto') -> tuple[str, ...]:
     """Server+GUI on a desktop; server-only EGL rendering on a headless GPU box."""
     if gz_mode not in ('auto', 'headless', 'gui'):
@@ -52,7 +72,7 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
                local_mode: str = "single", gz_mode: str = 'auto', film: bool = False,
                recovery: bool = False, explain: bool = False, world: Path | None = None,
                prompt_set: str = 'v33', model: str | None = None, intent_backend: str = 'tfidf',
-               intent_prompt: str = 'i34', describe_prompt: str = 'e0') -> dict:
+               intent_prompt: str = 'i34', describe_prompt: str = 'e0', inject_stall: float = 0.0) -> dict:
     if scenario not in ('motion-check', 'live'):
         raise ValueError('invalid scenario')
     from rescuemind.scene_variants import SCENES
@@ -62,6 +82,8 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
     cmd = ['python3', script, '--motion-check'] if scenario == 'motion-check' else \
           ['python3', script, '--run-live', '--instruction', instruction]
     cmd += ['--stage-timeout', '120']
+    if inject_stall:
+        cmd += ['--inject-warmup-stall', str(inject_stall)]
     if scenario=='live':
         cmd += ['--inference-backend','local','--local-mode',local_mode,
                 '--checkpoint-timeout','300']
@@ -79,7 +101,7 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
     services = [
         ManagedCommand('gazebo', gazebo_command(world or ROOT/'worlds/scenarios'/('rescuemind_'+scene+'.sdf'), gz_mode)),
         ManagedCommand('bridge', ('bash', str(ROOT/'scripts/bridge_direct_gazebo.sh'))),
-        ManagedCommand('velocity_guard', ('bash', str(ROOT/'scripts/start_velocity_guard.sh'))),
+        ManagedCommand('velocity_guard', prioritised(('bash', str(ROOT/'scripts/start_velocity_guard.sh')), -10)),
     ]
     if scenario=='live':
         from rescuemind.local_vision import PRIMARY_MODEL, SECONDARY_MODEL
@@ -106,7 +128,7 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
             'nice', '-n', '15', 'python3', str(ROOT/'ros/film_recorder.py'), '--out', str(evidence_dir/'film')])))
     if capture_rosbag and evidence_dir is not None:
         services.append(ManagedCommand('rosbag_recorder', shell_exec([
-            'ros2', 'bag', 'record', '-o', str(evidence_dir/'rosbag2'), '--use-sim-time', '--topics',
+            'nice', '-n', '10', 'ros2', 'bag', 'record', '-o', str(evidence_dir/'rosbag2'), '--use-sim-time', '--topics',
             '/clock', '/odom', '/cmd_vel', '/rescuemind/cmd_vel_request',
             '/camera', '/scan', '/rescuemind/guard_ready', '/ground_truth/odom'])))
     return {
@@ -115,7 +137,7 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
                           'Gazebo Harmonic', 'project .venv from setup_ubuntu_jazzy.sh'],
         'services': services,
         'readiness': ('bash', str(ROOT/'scripts/v21_live_readiness.sh')),
-        'mission': ManagedCommand('mission', shell_exec(cmd)),
+        'mission': ManagedCommand('mission', prioritised(shell_exec(cmd), -10)),
         'mission_timeout': mission_timeout,
     }
 
@@ -175,6 +197,7 @@ def main(argv=None):
     p.add_argument('--model', default=None, help='local VLM model id (I-08); default Qwen2.5-VL-3B')
     p.add_argument('--intent-backend', choices=['tfidf', 'llm'], default='tfidf', help='I-04 instruction parser')
     p.add_argument('--intent-prompt', choices=['i34', 'i35', 'i36', 'i37'], default='i34')
+    p.add_argument('--inject-warmup-stall', type=float, default=0.0, help='I-09 fault injection (A/B tests only)')
     p.add_argument('--describe-prompt', choices=['e0', 'e1', 'e2'], default='e0')
     p.add_argument('--lighting', choices=['default', 'dim_evening', 'harsh_noon'], default='default')
     p.add_argument('--hazard-at', choices=['water', 'medicine'], default=None, help='I-05: fire behind this station')
@@ -201,7 +224,7 @@ def main(argv=None):
         return w
     extra = dict(recovery=args.recovery, explain=args.explain, prompt_set=args.prompt_set, model=args.model,
                  intent_backend=args.intent_backend, intent_prompt=args.intent_prompt,
-                 describe_prompt=args.describe_prompt)
+                 describe_prompt=args.describe_prompt, inject_stall=args.inject_warmup_stall)
     placeholder=ROOT/'outputs'/'runs'/'<run_id>'
     plan = build_plan(args.scenario, args.instruction, mission_timeout=args.mission_timeout, scene=args.scene,
                       evidence_dir=placeholder, capture_rosbag=args.capture_rosbag,local_mode=args.local_mode,
@@ -233,6 +256,9 @@ def main(argv=None):
     summary['intent_backend'] = args.intent_backend
     summary['intent_prompt'] = args.intent_prompt
     summary['describe_prompt'] = args.describe_prompt
+    summary['control_priority_raised'] = PRIORITY_OK
+    summary['guard_args'] = os.environ.get('RESCUEMIND_GUARD_ARGS', '')
+    summary['inject_warmup_stall'] = args.inject_warmup_stall
     # Replace every planning placeholder with the actual run ID, including
     # independent recorder / bag paths, not just mission output paths.
     summary['run_id'] = run_id

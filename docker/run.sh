@@ -13,7 +13,7 @@ RUN_FLAGS=(--rm)
 # RESCUEMIND_CONTAINER=name keeps a detached container for `docker exec` sessions.
 if [[ -n "${RESCUEMIND_CONTAINER:-}" ]]; then RUN_FLAGS=(-d --name "$RESCUEMIND_CONTAINER"); fi
 exec docker run "${RUN_FLAGS[@]}" \
-  --init --gpus all --network host --ipc host \
+  --init --gpus all --network host --ipc host --cap-add SYS_NICE \
   --user "$(id -u):$(id -g)" \
   -e HOME=/tmp/rescuemind-home \
   -e HF_HOME=/hf -e HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-1}" \

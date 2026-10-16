@@ -52,6 +52,28 @@ class TestGuard(unittest.TestCase):
         r.request(.1,0,.90)
         self.assertEqual(r.decide(.91).linear,0)
 
+    def test_stale_zero_request_holds_without_latching(self):
+        # I-09: a planner stall while stationary must not abort the mission
+        r=healthy()
+        r.request(0.,0.,.4)
+        d=r.decide(.95)
+        self.assertTrue(d.ready); self.assertEqual((d.linear,d.angular),(0.,0.))
+        self.assertEqual(d.reason,'stale_zero_request_hold')
+        r.request(.1,0,1.0)
+        self.assertEqual(r.decide(1.01).linear,.1)
+
+    def test_stale_motion_request_still_latches(self):
+        r=healthy()
+        r.request(0.,.3,.4)
+        self.assertEqual(r.decide(.95).reason,'stale_velocity_command')
+        r.request(.1,0,1.0)
+        self.assertEqual(r.decide(1.01).linear,0)
+
+    def test_legacy_mode_latches_stale_zero(self):
+        r=healthy(); r.latch_stale_zero=True
+        r.request(0.,0.,.4)
+        self.assertEqual(r.decide(.95).reason,'stale_velocity_command')
+
     def test_sensor_freeze_stops_even_with_cmd_updates(self):
         for missing in ('camera','scan','odom'):
             with self.subTest(missing=missing):
