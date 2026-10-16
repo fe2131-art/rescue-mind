@@ -61,7 +61,7 @@ def main():
             out.append({'trial_id': r['trial_id'], 'fire_at': fire_at, 'visibility': 'not_checked_at_burning_station'})
             continue
         (x, y, yaw), dt = pose_at(run, m['mission_start_unix_ns'] + int(ev['t_wall_s'] * 1e9))
-        vis = hazard_visibility(fire_at, fire_at, (x, y), yaw, hazard_xy(fire_at, *geom))
+        vis = hazard_visibility(fire_at, fire_at, (x, y), yaw, hazard_xy(fire_at, *geom[:2]))
         out.append({'trial_id': r['trial_id'], 'run_id': r['run_id'], 'fire_at': fire_at, 'stage': stage,
                     'pose': [round(x, 3), round(y, 3), round(yaw, 3)], 'pose_dt_s': round(dt, 3),
                     'visibility': vis, 'observed_action': r['observed_action'], 'correct': r['correct']})

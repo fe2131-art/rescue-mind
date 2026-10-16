@@ -5,7 +5,8 @@
 
 24 worlds (seed F-2026), each run twice: A = v3.5, B = the highest-ranked *deployable* configuration of the
 pre-registered I-13 selection (experiments/results/i13_selection.json).  Order alternates ABBA over worlds.
-  * 12 nominal worlds, fire straight behind the requested station (back 0.60-0.80 m, lateral +-0.20 m)
+  * 12 nominal worlds, a SMALL fire (0.45-0.62 x the full model) straight behind the requested station
+    (back 0.55-0.75 m, lateral +-0.15 m), so that at the real checkpoint pose it is mostly hidden by the supply
   * 8 nominal worlds without fire (false-alarm control)
   * 4 swapped worlds, fire straight behind the OTHER station (the search must stop)
 All worlds: continuous random lighting and moved/rotated supplies, as in campaign E.
@@ -42,7 +43,9 @@ def worlds(seed: str = SEED):
                                      round(rng.uniform(-math.pi, math.pi), 3)] for n in ('sealed_water_bottles', 'first_aid_case')}}
         if cond != 'plain':
             spec['hazard_at'] = item if cond == 'fire_hidden' else OTHER[item]
-            spec['hazard_geom'] = [round(rng.uniform(.60, .80), 3), round(rng.uniform(-.20, .20), 3)]
+            # small, early-stage fire (0.45-0.62 of the full model) straight behind the supply
+            spec['hazard_geom'] = [round(rng.uniform(.55, .75), 3), round(rng.uniform(-.15, .15), 3),
+                                   round(rng.uniform(.45, .62), 3)]
         out.append({'world': f'W{k + 1:02d}', 'scene': scene, 'expected': item, 'condition': cond, 'world_spec': spec,
                     'instruction': POOL[item][rng.randrange(len(POOL[item]))]})
     return out

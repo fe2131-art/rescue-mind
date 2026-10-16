@@ -106,7 +106,22 @@ FIRE_STYLE = 'tongues'   # v2 (I-05): ellipsoid flame tongues; 'cylinders' = fir
 MASK_RGB = '1 0 1 1'   # T1 amendment 2: flat magenta fire/smoke for visibility masks
 
 
-def fire_and_smoke(name, x, y, style: str | None = None, mask: bool = False):
+def _scale_model(m, k: float):
+    """Uniformly scale every visual of a model about its origin (campaign F: small, early-stage fires)."""
+    for v in m.iter('visual'):
+        pose = v.find('pose')
+        vals = [float(t) for t in pose.text.split()]
+        pose.text = ' '.join(f'{t * k:.4f}' for t in vals[:3]) + ' ' + ' '.join(f'{t:.4f}' for t in vals[3:])
+        g = v.find('geometry')
+        for tag in ('radius', 'length', 'radii', 'size'):
+            for el in g.iter(tag):
+                el.text = ' '.join(f'{float(t) * k:.4f}' for t in el.text.split())
+    return m
+
+
+def fire_and_smoke(name, x, y, style: str | None = None, mask: bool = False, scale: float = 1.0):
+    if scale != 1.0:
+        return _scale_model(fire_and_smoke(name, x, y, style, mask), scale)
     """A fire behind the supply platform: flames rising above it + smoke column.
     mask=True renders every flame/smoke visual in flat emissive magenta (label masks only)."""
     style = style or FIRE_STYLE
@@ -267,8 +282,10 @@ def build_variant(src: Path, *, lighting: str = 'default', distractor_at: str | 
     if hazard_at:
         # behind the platform on the far side from the approach: flames rise above the
         # platform into the checkpoint view, off the path and outside the lidar front zone
-        world.append(fire_and_smoke(f'hazard_fire_{hazard_at}', *hazard_xy(hazard_at, *(hazard_geom or (0.75, 0.5))),
-                                    mask=hazard_mask))
+        geom = tuple(hazard_geom or (0.75, 0.5))
+        # optional third element = fire size scale (campaign F: small, early-stage fires); default full size
+        world.append(fire_and_smoke(f'hazard_fire_{hazard_at}', *hazard_xy(hazard_at, *geom[:2]),
+                                    mask=hazard_mask, scale=geom[2] if len(geom) > 2 else 1.0))
     ET.indent(tree, space='  ')
     return ET.tostring(tree.getroot(), encoding='utf-8', xml_declaration=True)
 
