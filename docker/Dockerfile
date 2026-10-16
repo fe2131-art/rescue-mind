@@ -15,13 +15,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         fonts-noto-cjk fonts-ipaexfont curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
+# Model-stack versions are build args (I-08): the default image keeps the v3.3 stack;
+#   docker build --build-arg STACK=next ...  -> torch 2.8 (cu126, still ships sm70 for V100)
+#   + transformers 5.x for Qwen3-VL / Qwen3.5.
+ARG STACK=v33
 # Isolated venv that still sees apt-installed rclpy (system site packages).
 RUN python3 -m venv --system-site-packages /opt/rescuemind-venv \
     && /opt/rescuemind-venv/bin/pip install -U 'pip<26' \
-    && /opt/rescuemind-venv/bin/pip install 'torch==2.5.1' 'torchvision==0.20.1' \
-         --index-url https://download.pytorch.org/whl/cu121 \
+    && if [ "$STACK" = next ]; then \
+         /opt/rescuemind-venv/bin/pip install 'torch==2.8.0' 'torchvision==0.23.0' \
+           --index-url https://download.pytorch.org/whl/cu126 \
+         && /opt/rescuemind-venv/bin/pip install 'transformers==5.20.0' 'accelerate>=1.10' 'huggingface_hub>=1.31' ; \
+       else \
+         /opt/rescuemind-venv/bin/pip install 'torch==2.5.1' 'torchvision==0.20.1' \
+           --index-url https://download.pytorch.org/whl/cu121 \
+         && /opt/rescuemind-venv/bin/pip install 'transformers==4.53.3' 'accelerate==1.9.0' 'huggingface_hub==0.33.4' ; \
+       fi \
     && /opt/rescuemind-venv/bin/pip install \
-         'transformers==4.53.3' 'accelerate==1.9.0' 'huggingface_hub==0.33.4' \
          'num2words>=0.5' 'safetensors>=0.4' 'scikit-learn>=1.3,<2' 'Pillow>=9' \
          'matplotlib>=3.8' 'opencv-python-headless>=4.9' 'reportlab>=4.0'
 
