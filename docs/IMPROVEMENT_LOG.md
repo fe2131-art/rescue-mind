@@ -177,3 +177,25 @@
 * **変更**：`--hazard-threshold`（サーバ・オーケストレータ）。v3.5 では τ_h = **0.05**。物資側の閾値 τ_s=0.5 は変えない。
 * **結果**：同じ予備走行の世界で再実行すると 8/9 → **9/9 期待どおり**。P04 は探索後に火災で停止した（`DENY_HAZARD_AFTER_SEARCH`）。
 * **評価への扱い**：T1 では登録済みの v3.4（τ_h=0.5）を主、v3.5（0.05）を事前指定の副として、両方を採点前に登録した（Amendment 3）。評価E は v3.5 で事前登録した。
+
+
+---
+
+## I-11 Detecting partly hidden fires (written before any I-11 result)
+
+* **Motivation (T1, held-out):** all 5 registered false approvals were images with the correct supply and a fire
+  mostly hidden behind it (only smoke or a flame edge in view). Seven visible fires had p(hazard) below 0.007.
+  T1 is NOT used to choose the fix.
+* **Hypotheses:**
+  * (a) The model attends to the supply. Asking explicitly about small, partly hidden or cut-off fire and smoke (`h36`) raises recall.
+  * (b) Small regions near the image edge get lost at 640 px. Asking the same question on three enlarged overlapping crops (`tiles`) and taking the max raises recall.
+* **Development data only:**
+  * a new hazard development set DH (seed `DH-2026`, 30 worlds, 300 images). It has many fires straight behind the supply, plus fire-free cones, crates and boxes. Labels come from magenta masks.
+  * the earlier dev v1/v2 (176 images), used to check for false alarms.
+* **Selection rule (fixed now, `scripts/i11_select.py`):**
+  1. zero hazard alarms on every fire-free development image;
+  2. then the highest recall on DH visible fires;
+  3. then fewer model calls, then the higher τ_h ∈ {0.05, 0.10, 0.20}.
+* **Confirmation:** the winner and v3.5 are compared on a NEW held-out set T2 (seed `T2-2026`, the same distribution as T1).
+  T2 is registered before it is rendered.
+* **Side change:** the hazard question does not depend on the pass, so each image now computes it once (cached per image hash). This saves one model call per check.
