@@ -153,7 +153,7 @@ def build(account: str, video_url: str | None, repo_url: str):
           table([['項目', '内容'],
                  ['提出者', f'omnicampus アカウント：{account}'],
                  ['コード', repo_url],
-                 ['動画', video_url or f'YouTube（タイトル：PAI最終課題_{account}）。走行は2〜3倍速、AI判断は等速（倍速は動画内に常時表示）'],
+                 ['動画', video_url or f'YouTube（タイトル：PAI最終課題_{account}）。走行は4倍速・確認動作は2倍速・AI判断の瞬間は等速（倍速は動画内に常時表示）。日本語ナレーション（VOICEVOX:四国めたん）'],
                  ['使用ツール', 'ROS 2 Jazzy / Gazebo Harmonic（Docker・EGLヘッドレス描画）/ PyTorch 2.8 + Transformers 5.20 / Tesla V100 32GB（sudo不要）'],
                  ['AIの活用', '① 自然言語指示の理解（ローカルLLM）② 搭載カメラ画像による現物・危険の確認（ローカルVLM、選択肢の確率で判断）③ 現場の人への日本語状況報告'],
                  ['主結果', head]],
@@ -274,9 +274,10 @@ def build(account: str, video_url: str | None, repo_url: str):
         mmss = lambda x: f'{int(x // 60)}:{int(x % 60):02d}'
         s += [P('9. 提出動画の構成', 'h1'),
               P(f"全 {mmss(ch[-1]['end_s'])}。3-D映像はすべてGazeboの実レンダリング（俯瞰カメラ＋ロボット搭載カメラ）で、模式図やモック映像は使っていない。"
-                '字幕・確率バー・軌跡・ロボットの報告文はその試行のログから自動合成。<b>走行は2〜3倍速、AI判断は等速</b>で、速度は画面左上に常時表示している。'),
+                '字幕・確率バー・軌跡・ロボットの報告文はその試行のログから自動合成。<b>走行は4倍速、確認動作は2倍速、AI判断の瞬間（画像取得〜判断）は等速</b>で、速度は画面左上に常時表示している。ナレーションは VOICEVOX:四国めたん。'),
               table([['時刻', '内容', '備考']] + [[f"{mmss(c['start_s'])}–{mmss(c['end_s'])}", c['title'],
                      (c['speed'] or '') + (f"（run {c['run_id']}）" if c.get('run_id') else '')] for c in ch], [24, 90, 60])]
+    s += fig('video_frame_decision.png', 128, '図7 動画の一場面（取り違え）：拠点Wで救急箱を確認して拒否し、もう一方の拠点を確認しに向かう。下段はロボットの日本語報告。')
     s += [P('10. 再現方法', 'h1'),
           P('<font name="IPAexG">bash docker/build.sh</font> → <font name="IPAexG">bash docker/run.sh python3 scripts/run_campaign.py --protocol experiments/v34_protocol.json -- --model Qwen/Qwen3.5-9B --prompt-set v35 --intent-backend llm --intent-prompt i35 --recovery --explain</font>。'
             '全体フローは docs/ARCHITECTURE.md、設計判断は docs/DESIGN_DECISIONS.md。'),

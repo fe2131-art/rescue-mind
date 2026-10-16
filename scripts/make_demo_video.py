@@ -222,10 +222,13 @@ def mission_segment(run_dir: Path, spec: dict, cam: FilmCamera, emit, narr=None,
     t1 = min(run['film'][-1][0], t_end_motion + int(spec.get('tail_s', 2.0) * 1e9))
     fast = spec.get('fast', 3.0)
     plan, cur = [], t0
-    for e in eps:   # drive fast, every on-site check at real speed
+    slow = spec.get('check_speed', 2.0)
+    for e in eps:   # drive fast; aiming/settling and post-decision waits at 2x; the decision itself at 1x
         a = (e['arrive'] or e['frame']) - int(1.0e9)
+        f0 = e['frame'] or a
+        d1 = e['decision_t'] + int(1.5e9)
         b = e['end'] + int(0.8e9)
-        plan += [(cur, a, fast), (a, b, 1.0)]
+        plan += [(cur, a, fast), (a, f0, slow), (f0, d1, 1.0), (d1, b, slow)]
         cur = b
     plan.append((cur, t1, fast if 'shelter_approach' in ev else 1.0))
     item = mission['intent']['item']
@@ -236,7 +239,7 @@ def mission_segment(run_dir: Path, spec: dict, cam: FilmCamera, emit, narr=None,
     if hz:
         from rescuemind.robust_scenes import hazard_xy
         hx, hy = hazard_xy(hz)
-        labels.append(((hx, hy, 1.9), '火災', BAD))
+        labels.append(((hx, hy, 1.25), '火災', BAD))
     instr = mission['instruction']
     intent_gate = mission.get('intent_gate') or {}
     total = spec.get('total', 3)
@@ -464,9 +467,9 @@ def main(argv=None):
         elif kind == 'mission':
             mission_segment(ROOT / part['run_dir'], part, cam, emit, narr=narr, now=now)
         print(f"{kind}: total {count['n'] / FPS:.1f}s", flush=True)
-        label = part.get('title') if kind != 'mission' else f"デモ{part['index']}：{SCENE_JA[part['scene']]}"
+        label = part.get('title') if kind != 'mission' else f"デモ{part['index']}：{part.get('title') or SCENE_JA[part['scene']]}"
         chapters.append({'start_s': round(start, 2), 'end_s': round(count['n'] / FPS, 2), 'title': label,
-                         'kind': kind, 'speed': None if kind != 'mission' else f"走行{part.get('fast', 3.0):g}倍速・AI判断は等速",
+                         'kind': kind, 'speed': None if kind != 'mission' else f"走行{part.get('fast', 3.0):g}倍速・確認動作{part.get('check_speed', 2.0):g}倍速・AI判断の瞬間は等速",
                          'run_id': Path(part['run_dir']).name if kind == 'mission' else None})
     ff.stdin.close()
     ff.wait()
