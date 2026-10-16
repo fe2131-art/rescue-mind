@@ -1,0 +1,34 @@
+{
+  "scenario": "motion-check",
+  "scene": "nominal",
+  "scene_sha256": "5b373aa979300c09a6bba3613c100c01b7e1696dbdc5e1324be6024073ff326e",
+  "services": [
+    [
+      "gz",
+      "sim",
+      "-r",
+      "-v",
+      "4",
+      "/mnt/data/rescuemind_v26/worlds/scenarios/rescuemind_nominal.sdf"
+    ],
+    [
+      "bash",
+      "/mnt/data/rescuemind_v26/scripts/bridge_direct_gazebo.sh"
+    ],
+    [
+      "bash",
+      "/mnt/data/rescuemind_v26/scripts/start_velocity_guard.sh"
+    ]
+  ],
+  "readiness": [
+    "bash",
+    "/mnt/data/rescuemind_v26/scripts/v21_live_readiness.sh"
+  ],
+  "mission": [
+    "bash",
+    "-c",
+    "source /opt/ros/jazzy/setup.bash && source /mnt/data/rescuemind_v26/.venv/bin/activate && exec python3 /mnt/data/rescuemind_v26/ros/gazebo_waypoint_mission.py --motion-check --stage-timeout 120"
+  ],
+  "capture_rosbag": false,
+  "notes": "Plan is not execution evidence. v2.1 first validates Gazebo Transport topic names, then sensor/clock/guard readiness; real live requires Jev+Qwen3.8 API."
+}

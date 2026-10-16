@@ -1,0 +1,17 @@
+name: RescueMind offline tests
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    # ROS/Gazebo/GPU parts are validated in the Docker image (docker/); CI runs the
+    # ROS-free unit tests (ROS-dependent tests skip or use the in-repo fakes).
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e . matplotlib
+      - run: python -m unittest discover -s tests -q
+      - run: python scripts/public_release_audit.py

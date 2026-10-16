@@ -1,0 +1,1052 @@
+<?xml version='1.0' encoding='utf-8'?>
+<sdf version="1.9">
+  <world name="rescuemind_arena">
+    <gravity>0 0 -9.81</gravity>
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics" />
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands" />
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster" />
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <scene>
+      <ambient>0.85 0.85 0.85 1</ambient>
+      <background>0.94 0.95 0.97 1</background>
+    </scene>
+    <light name="sun" type="directional">
+      <pose>0 0 9 0 0 0</pose>
+      <cast_shadows>true</cast_shadows>
+      <intensity>0.8</intensity>
+      <direction>-0.3 -0.4 -1</direction>
+      <diffuse>1 1 1 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+    </light>
+    <model name="ground">
+      <static>true</static>
+      <link name="ground_link">
+        <collision name="floor">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>16 12</size>
+            </plane>
+          </geometry>
+        </collision>
+        <visual name="floor">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>16 12</size>
+            </plane>
+          </geometry>
+          <material>
+            <ambient>.78 .82 .86 1</ambient>
+            <diffuse>.78 .82 .86 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="aid_station_water">
+      <static>true</static>
+      <pose>2 2 0 0 0 0</pose>
+      <link name="station">
+        <collision name="c">
+          <geometry>
+            <box>
+              <size>.9 .9 .5</size>
+            </box>
+          </geometry>
+          <pose>0 0 .25 0 0 0</pose>
+        </collision>
+        <visual name="v">
+          <geometry>
+            <box>
+              <size>.9 .9 .5</size>
+            </box>
+          </geometry>
+          <pose>0 0 .25 0 0 0</pose>
+          <material>
+            <ambient>.53 .55 .57 1</ambient>
+            <diffuse>.53 .55 .57 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="aid_station_medicine">
+      <static>true</static>
+      <pose>-2 2 0 0 0 0</pose>
+      <link name="station">
+        <collision name="c">
+          <geometry>
+            <box>
+              <size>.9 .9 .5</size>
+            </box>
+          </geometry>
+          <pose>0 0 .25 0 0 0</pose>
+        </collision>
+        <visual name="v">
+          <geometry>
+            <box>
+              <size>.9 .9 .5</size>
+            </box>
+          </geometry>
+          <pose>0 0 .25 0 0 0</pose>
+          <material>
+            <ambient>.53 .55 .57 1</ambient>
+            <diffuse>.53 .55 .57 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="shelter_B">
+      <static>true</static>
+      <pose>3 -2 0 0 0 0</pose>
+      <link name="shelter">
+        <collision name="c">
+          <pose>0 0 .35 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>1 .8 .7</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="v">
+          <pose>0 0 .35 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>1 .8 .7</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.15 .75 .35 1</ambient>
+            <diffuse>.15 .75 .35 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="rescue_diffbot">
+      <pose>0 0 .16 0 0 0</pose>
+      <link name="base_link">
+        <inertial>
+          <pose>-.06 0 .05 0 0 0</pose>
+          <mass>4</mass>
+          <inertia>
+            <ixx>.1</ixx>
+            <iyy>.1</iyy>
+            <izz>.1</izz>
+          </inertia>
+        </inertial>
+        <collision name="base_collision">
+          <pose>0 0 .08 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>.44 .30 .16</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="body">
+          <pose>0 0 .08 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>.44 .30 .16</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.3 .3 .36 1</ambient>
+            <diffuse>.3 .3 .36 1</diffuse>
+          </material>
+        </visual>
+        <collision name="caster">
+          <pose>-.18 0 -.09 0 0 0</pose>
+          <geometry>
+            <sphere>
+              <radius>.07</radius>
+            </sphere>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0</mu>
+                <mu2>0</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="rescue_plate">
+          <visibility_flags>2</visibility_flags>
+          <pose>0 0 .165 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>.40 .28 .012</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>1 .45 .05 1</ambient>
+            <diffuse>1 .45 .05 1</diffuse>
+          </material>
+        </visual>
+        <visual name="lidar_puck">
+          <visibility_flags>2</visibility_flags>
+          <pose>0 0 .20 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.045</radius>
+              <length>.05</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.1 .1 .12 1</ambient>
+            <diffuse>.1 .1 .12 1</diffuse>
+          </material>
+        </visual>
+        <visual name="camera_mast">
+          <visibility_flags>2</visibility_flags>
+          <pose>.16 0 .31 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.015</radius>
+              <length>.30</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.2 .2 .22 1</ambient>
+            <diffuse>.2 .2 .22 1</diffuse>
+          </material>
+        </visual>
+        <visual name="camera_head">
+          <visibility_flags>2</visibility_flags>
+          <pose>.17 0 .46 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>.04 .09 .05</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.05 .05 .05 1</ambient>
+            <diffuse>.05 .05 .05 1</diffuse>
+          </material>
+        </visual>
+        <visual name="beacon">
+          <visibility_flags>2</visibility_flags>
+          <pose>-.12 0 .19 0 0 0</pose>
+          <geometry>
+            <sphere>
+              <radius>.025</radius>
+            </sphere>
+          </geometry>
+          <material>
+            <ambient>1 .85 0 1</ambient>
+            <diffuse>1 .85 0 1</diffuse>
+            <emissive>.6 .5 0 1</emissive>
+          </material>
+        </visual>
+        <sensor name="front_camera" type="camera">
+          <pose>.20 0 .46 0 0 0</pose>
+          <topic>/camera</topic>
+          <update_rate>5</update_rate>
+          <always_on>true</always_on>
+          <camera>
+            <horizontal_fov>1.05</horizontal_fov>
+            <image>
+              <width>640</width>
+              <height>480</height>
+              <format>R8G8B8</format>
+            </image>
+            <clip>
+              <near>.05</near>
+              <far>15</far>
+            </clip>
+          </camera>
+        </sensor>
+        <sensor name="scan_sensor" type="gpu_lidar">
+          <pose>0 0 .21 0 0 0</pose>
+          <topic>/scan</topic>
+          <update_rate>10</update_rate>
+          <always_on>true</always_on>
+          <ray>
+            <visibility_mask>1</visibility_mask>
+            <scan>
+              <horizontal>
+                <samples>360</samples>
+                <resolution>1</resolution>
+                <min_angle>-3.14159</min_angle>
+                <max_angle>3.14159</max_angle>
+              </horizontal>
+            </scan>
+            <range>
+              <min>.08</min>
+              <max>10</max>
+              <resolution>.01</resolution>
+            </range>
+          </ray>
+        </sensor>
+      </link>
+      <link name="left_wheel">
+        <pose>0 .20 -.045 1.570796 0 0</pose>
+        <inertial>
+          <mass>.35</mass>
+          <inertia>
+            <ixx>.002</ixx>
+            <iyy>.002</iyy>
+            <izz>.002</izz>
+          </inertia>
+        </inertial>
+        <collision name="c">
+          <geometry>
+            <cylinder>
+              <radius>.115</radius>
+              <length>.05</length>
+            </cylinder>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>1.2</mu>
+                <mu2>1.2</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="v">
+          <geometry>
+            <cylinder>
+              <radius>.115</radius>
+              <length>.05</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.07 .07 .07 1</ambient>
+          </material>
+        </visual>
+      </link>
+      <link name="right_wheel">
+        <pose>0 -.20 -.045 1.570796 0 0</pose>
+        <inertial>
+          <mass>.35</mass>
+          <inertia>
+            <ixx>.002</ixx>
+            <iyy>.002</iyy>
+            <izz>.002</izz>
+          </inertia>
+        </inertial>
+        <collision name="c">
+          <geometry>
+            <cylinder>
+              <radius>.115</radius>
+              <length>.05</length>
+            </cylinder>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>1.2</mu>
+                <mu2>1.2</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="v">
+          <geometry>
+            <cylinder>
+              <radius>.115</radius>
+              <length>.05</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.07 .07 .07 1</ambient>
+          </material>
+        </visual>
+      </link>
+      <joint name="left_wheel_joint" type="revolute">
+        <parent>base_link</parent>
+        <child>left_wheel</child>
+        <axis>
+          <xyz expressed_in="__model__">0 1 0</xyz>
+        </axis>
+      </joint>
+      <joint name="right_wheel_joint" type="revolute">
+        <parent>base_link</parent>
+        <child>right_wheel</child>
+        <axis>
+          <xyz expressed_in="__model__">0 1 0</xyz>
+        </axis>
+      </joint>
+      <plugin filename="gz-sim-diff-drive-system" name="gz::sim::systems::DiffDrive">
+        <left_joint>left_wheel_joint</left_joint>
+        <right_joint>right_wheel_joint</right_joint>
+        <wheel_separation>.40</wheel_separation>
+        <wheel_radius>.115</wheel_radius>
+        <topic>/cmd_vel</topic>
+        <odom_topic>/odom</odom_topic>
+        <frame_id>odom</frame_id>
+        <child_frame_id>base_link</child_frame_id>
+      </plugin>
+      <plugin filename="gz-sim-odometry-publisher-system" name="gz::sim::systems::OdometryPublisher">
+        <odom_frame>world</odom_frame>
+        <robot_base_frame>rescue_diffbot</robot_base_frame>
+        <odom_topic>/ground_truth/odom</odom_topic>
+        <odom_publish_frequency>20</odom_publish_frequency>
+        <dimensions>3</dimensions>
+      </plugin>
+    </model>
+    <model name="sealed_water_bottles">
+      <static>true</static>
+      <pose>2 2 0 0 0 0</pose>
+      <link name="six_pack_pet_bottles">
+        <visual name="b1_body">
+          <pose>-0.065 -0.13 0.64 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.055</radius>
+              <length>.28</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.70 .88 1 1</ambient>
+            <diffuse>.70 .88 1 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+          <transparency>0.25</transparency>
+        </visual>
+        <visual name="b1_label">
+          <pose>-0.065 -0.13 0.62 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.057</radius>
+              <length>.09</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.05 .35 .85 1</ambient>
+            <diffuse>.05 .35 .85 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+        </visual>
+        <visual name="b1_label_stripe">
+          <pose>-0.065 -0.13 0.62 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.058</radius>
+              <length>.025</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.96 .97 1 1</ambient>
+            <diffuse>.96 .97 1 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+        </visual>
+        <visual name="b1_shoulder">
+          <pose>-0.065 -0.13 0.78 0 0 0</pose>
+          <geometry>
+            <sphere>
+              <radius>.055</radius>
+            </sphere>
+          </geometry>
+          <material>
+            <ambient>.70 .88 1 1</ambient>
+            <diffuse>.70 .88 1 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+          <transparency>0.25</transparency>
+        </visual>
+        <visual name="b1_neck">
+          <pose>-0.065 -0.13 0.83 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.022</radius>
+              <length>.05</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.70 .88 1 1</ambient>
+            <diffuse>.70 .88 1 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+          <transparency>0.15</transparency>
+        </visual>
+        <visual name="b1_cap">
+          <pose>-0.065 -0.13 0.865 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.026</radius>
+              <length>.03</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.02 .18 .70 1</ambient>
+            <diffuse>.02 .18 .70 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+        </visual>
+        <visual name="b2_body">
+          <pose>-0.065 0 0.64 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.055</radius>
+              <length>.28</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.70 .88 1 1</ambient>
+            <diffuse>.70 .88 1 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+          <transparency>0.25</transparency>
+        </visual>
+        <visual name="b2_label">
+          <pose>-0.065 0 0.62 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.057</radius>
+              <length>.09</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.05 .35 .85 1</ambient>
+            <diffuse>.05 .35 .85 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+        </visual>
+        <visual name="b2_label_stripe">
+          <pose>-0.065 0 0.62 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.058</radius>
+              <length>.025</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.96 .97 1 1</ambient>
+            <diffuse>.96 .97 1 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+        </visual>
+        <visual name="b2_shoulder">
+          <pose>-0.065 0 0.78 0 0 0</pose>
+          <geometry>
+            <sphere>
+              <radius>.055</radius>
+            </sphere>
+          </geometry>
+          <material>
+            <ambient>.70 .88 1 1</ambient>
+            <diffuse>.70 .88 1 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+          <transparency>0.25</transparency>
+        </visual>
+        <visual name="b2_neck">
+          <pose>-0.065 0 0.83 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.022</radius>
+              <length>.05</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.70 .88 1 1</ambient>
+            <diffuse>.70 .88 1 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+          <transparency>0.15</transparency>
+        </visual>
+        <visual name="b2_cap">
+          <pose>-0.065 0 0.865 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.026</radius>
+              <length>.03</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.02 .18 .70 1</ambient>
+            <diffuse>.02 .18 .70 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+        </visual>
+        <visual name="b3_body">
+          <pose>-0.065 0.13 0.64 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.055</radius>
+              <length>.28</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.70 .88 1 1</ambient>
+            <diffuse>.70 .88 1 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+          <transparency>0.25</transparency>
+        </visual>
+        <visual name="b3_label">
+          <pose>-0.065 0.13 0.62 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.057</radius>
+              <length>.09</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.05 .35 .85 1</ambient>
+            <diffuse>.05 .35 .85 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+        </visual>
+        <visual name="b3_label_stripe">
+          <pose>-0.065 0.13 0.62 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.058</radius>
+              <length>.025</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.96 .97 1 1</ambient>
+            <diffuse>.96 .97 1 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+        </visual>
+        <visual name="b3_shoulder">
+          <pose>-0.065 0.13 0.78 0 0 0</pose>
+          <geometry>
+            <sphere>
+              <radius>.055</radius>
+            </sphere>
+          </geometry>
+          <material>
+            <ambient>.70 .88 1 1</ambient>
+            <diffuse>.70 .88 1 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+          <transparency>0.25</transparency>
+        </visual>
+        <visual name="b3_neck">
+          <pose>-0.065 0.13 0.83 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.022</radius>
+              <length>.05</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.70 .88 1 1</ambient>
+            <diffuse>.70 .88 1 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+          <transparency>0.15</transparency>
+        </visual>
+        <visual name="b3_cap">
+          <pose>-0.065 0.13 0.865 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.026</radius>
+              <length>.03</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.02 .18 .70 1</ambient>
+            <diffuse>.02 .18 .70 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+        </visual>
+        <visual name="b4_body">
+          <pose>0.065 -0.13 0.64 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.055</radius>
+              <length>.28</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.70 .88 1 1</ambient>
+            <diffuse>.70 .88 1 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+          <transparency>0.25</transparency>
+        </visual>
+        <visual name="b4_label">
+          <pose>0.065 -0.13 0.62 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.057</radius>
+              <length>.09</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.05 .35 .85 1</ambient>
+            <diffuse>.05 .35 .85 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+        </visual>
+        <visual name="b4_label_stripe">
+          <pose>0.065 -0.13 0.62 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.058</radius>
+              <length>.025</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.96 .97 1 1</ambient>
+            <diffuse>.96 .97 1 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+        </visual>
+        <visual name="b4_shoulder">
+          <pose>0.065 -0.13 0.78 0 0 0</pose>
+          <geometry>
+            <sphere>
+              <radius>.055</radius>
+            </sphere>
+          </geometry>
+          <material>
+            <ambient>.70 .88 1 1</ambient>
+            <diffuse>.70 .88 1 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+          <transparency>0.25</transparency>
+        </visual>
+        <visual name="b4_neck">
+          <pose>0.065 -0.13 0.83 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.022</radius>
+              <length>.05</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.70 .88 1 1</ambient>
+            <diffuse>.70 .88 1 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+          <transparency>0.15</transparency>
+        </visual>
+        <visual name="b4_cap">
+          <pose>0.065 -0.13 0.865 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.026</radius>
+              <length>.03</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.02 .18 .70 1</ambient>
+            <diffuse>.02 .18 .70 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+        </visual>
+        <visual name="b5_body">
+          <pose>0.065 0 0.64 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.055</radius>
+              <length>.28</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.70 .88 1 1</ambient>
+            <diffuse>.70 .88 1 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+          <transparency>0.25</transparency>
+        </visual>
+        <visual name="b5_label">
+          <pose>0.065 0 0.62 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.057</radius>
+              <length>.09</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.05 .35 .85 1</ambient>
+            <diffuse>.05 .35 .85 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+        </visual>
+        <visual name="b5_label_stripe">
+          <pose>0.065 0 0.62 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.058</radius>
+              <length>.025</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.96 .97 1 1</ambient>
+            <diffuse>.96 .97 1 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+        </visual>
+        <visual name="b5_shoulder">
+          <pose>0.065 0 0.78 0 0 0</pose>
+          <geometry>
+            <sphere>
+              <radius>.055</radius>
+            </sphere>
+          </geometry>
+          <material>
+            <ambient>.70 .88 1 1</ambient>
+            <diffuse>.70 .88 1 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+          <transparency>0.25</transparency>
+        </visual>
+        <visual name="b5_neck">
+          <pose>0.065 0 0.83 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.022</radius>
+              <length>.05</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.70 .88 1 1</ambient>
+            <diffuse>.70 .88 1 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+          <transparency>0.15</transparency>
+        </visual>
+        <visual name="b5_cap">
+          <pose>0.065 0 0.865 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.026</radius>
+              <length>.03</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.02 .18 .70 1</ambient>
+            <diffuse>.02 .18 .70 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+        </visual>
+        <visual name="b6_body">
+          <pose>0.065 0.13 0.64 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.055</radius>
+              <length>.28</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.70 .88 1 1</ambient>
+            <diffuse>.70 .88 1 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+          <transparency>0.25</transparency>
+        </visual>
+        <visual name="b6_label">
+          <pose>0.065 0.13 0.62 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.057</radius>
+              <length>.09</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.05 .35 .85 1</ambient>
+            <diffuse>.05 .35 .85 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+        </visual>
+        <visual name="b6_label_stripe">
+          <pose>0.065 0.13 0.62 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.058</radius>
+              <length>.025</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.96 .97 1 1</ambient>
+            <diffuse>.96 .97 1 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+        </visual>
+        <visual name="b6_shoulder">
+          <pose>0.065 0.13 0.78 0 0 0</pose>
+          <geometry>
+            <sphere>
+              <radius>.055</radius>
+            </sphere>
+          </geometry>
+          <material>
+            <ambient>.70 .88 1 1</ambient>
+            <diffuse>.70 .88 1 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+          <transparency>0.25</transparency>
+        </visual>
+        <visual name="b6_neck">
+          <pose>0.065 0.13 0.83 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.022</radius>
+              <length>.05</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.70 .88 1 1</ambient>
+            <diffuse>.70 .88 1 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+          <transparency>0.15</transparency>
+        </visual>
+        <visual name="b6_cap">
+          <pose>0.065 0.13 0.865 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>.026</radius>
+              <length>.03</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>.02 .18 .70 1</ambient>
+            <diffuse>.02 .18 .70 1</diffuse>
+            <specular>.6 .6 .6 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="first_aid_case">
+      <static>true</static>
+      <pose>-2 2 0 0 0 0</pose>
+      <link name="first_aid_case_link">
+        <visual name="white_kit">
+          <pose>0 0 .68 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>.37 .40 .31</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>1 1 1 1</ambient>
+            <diffuse>1 1 1 1</diffuse>
+          </material>
+        </visual>
+        <visual name="red_cross_px_vertical">
+          <pose>0.19 0 .68 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.012 0.07 .20</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.9 .05 .08 1</ambient>
+            <diffuse>.9 .05 .08 1</diffuse>
+          </material>
+        </visual>
+        <visual name="red_cross_px_horizontal">
+          <pose>0.19 0 .68 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.012 0.2 .07</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.9 .05 .08 1</ambient>
+            <diffuse>.9 .05 .08 1</diffuse>
+          </material>
+        </visual>
+        <visual name="red_cross_nx_vertical">
+          <pose>-0.19 0 .68 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.012 0.07 .20</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.9 .05 .08 1</ambient>
+            <diffuse>.9 .05 .08 1</diffuse>
+          </material>
+        </visual>
+        <visual name="red_cross_nx_horizontal">
+          <pose>-0.19 0 .68 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.012 0.2 .07</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.9 .05 .08 1</ambient>
+            <diffuse>.9 .05 .08 1</diffuse>
+          </material>
+        </visual>
+        <visual name="red_cross_py_vertical">
+          <pose>0 0.205 .68 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.07 0.012 .20</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.9 .05 .08 1</ambient>
+            <diffuse>.9 .05 .08 1</diffuse>
+          </material>
+        </visual>
+        <visual name="red_cross_py_horizontal">
+          <pose>0 0.205 .68 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.2 0.012 .07</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.9 .05 .08 1</ambient>
+            <diffuse>.9 .05 .08 1</diffuse>
+          </material>
+        </visual>
+        <visual name="red_cross_ny_vertical">
+          <pose>0 -0.205 .68 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.07 0.012 .20</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.9 .05 .08 1</ambient>
+            <diffuse>.9 .05 .08 1</diffuse>
+          </material>
+        </visual>
+        <visual name="red_cross_ny_horizontal">
+          <pose>0 -0.205 .68 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.2 0.012 .07</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.9 .05 .08 1</ambient>
+            <diffuse>.9 .05 .08 1</diffuse>
+          </material>
+        </visual>
+        <visual name="red_cross_lid_a">
+          <pose>0 0 .838 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>.07 .20 .008</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.9 .05 .08 1</ambient>
+            <diffuse>.9 .05 .08 1</diffuse>
+          </material>
+        </visual>
+        <visual name="red_cross_lid_b">
+          <pose>0 0 .838 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>.20 .07 .008</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.9 .05 .08 1</ambient>
+            <diffuse>.9 .05 .08 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+  </world>
+</sdf>

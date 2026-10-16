@@ -1,0 +1,42 @@
+{
+  "scenario": "live",
+  "services": [
+    [
+      "gz",
+      "sim",
+      "-r",
+      "-v",
+      "4",
+      "/mnt/data/rescuemind_v20/worlds/rescuemind_test_arena.sdf"
+    ],
+    [
+      "bash",
+      "/mnt/data/rescuemind_v20/scripts/bridge_direct_gazebo.sh"
+    ],
+    [
+      "bash",
+      "/mnt/data/rescuemind_v20/scripts/start_velocity_guard.sh"
+    ],
+    [
+      "bash",
+      "-c",
+      "source /opt/ros/jazzy/setup.bash && source /mnt/data/rescuemind_v20/.venv/bin/activate && exec python3 /mnt/data/rescuemind_v20/ros/odom_evidence_recorder.py --out '/mnt/data/rescuemind_v20/outputs/runs/<run_id>/independent_ros_topics.jsonl' --run-id '<run_id>'"
+    ],
+    [
+      "bash",
+      "-c",
+      "source /opt/ros/jazzy/setup.bash && source /mnt/data/rescuemind_v20/.venv/bin/activate && exec ros2 bag record -o '/mnt/data/rescuemind_v20/outputs/runs/<run_id>/rosbag2' --use-sim-time --topics /clock /odom /cmd_vel /rescuemind/cmd_vel_request /camera /scan /rescuemind/guard_ready"
+    ]
+  ],
+  "readiness": [
+    "bash",
+    "/mnt/data/rescuemind_v20/scripts/v20_live_readiness.sh"
+  ],
+  "mission": [
+    "bash",
+    "-c",
+    "source /opt/ros/jazzy/setup.bash && source /mnt/data/rescuemind_v20/.venv/bin/activate && exec python3 /mnt/data/rescuemind_v20/ros/gazebo_waypoint_mission.py --run-live --instruction '避難所Bに飲料水を届けて' --stage-timeout 120 --run-id '<run_id>' --out '/mnt/data/rescuemind_v20/outputs/runs/<run_id>/mission.json' --checkpoint-image '/mnt/data/rescuemind_v20/outputs/runs/<run_id>/checkpoint.jpg'"
+  ],
+  "capture_rosbag": true,
+  "notes": "plan/dry output is not execution evidence; live requires Jev+Qwen3.8 API."
+}
