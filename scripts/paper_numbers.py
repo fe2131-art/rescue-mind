@@ -173,6 +173,18 @@ def main():
                 m['TvConeAlarm'] = '/'.join(map(str, p['hazard_false_alarm_cone_tau_h_0.05']))
                 m['TvNoFireAlarm'] = '/'.join(map(str, p['hazard_false_alarm_all_no_fire_tau_h_0.05']))
                 m['TNoFireAlarm'] = '/'.join(map(str, p['hazard_false_alarm_all_no_fire']))
+        m3 = t1['models'].get('Qwen2.5-VL-3B')
+        if m3:
+            m['TThreeBPassTwoFA'] = m3['rules']['A2_pass2_only']['false_approvals']
+            m['TThreeBFullFA'] = m3['rules']['full']['false_approvals']
+        jm = t1.get('json_method', {})
+        if isinstance(jm.get('Qwen3.5-9B'), dict):
+            m['TJsonNineFA'] = jm['Qwen3.5-9B']['false_approvals']; m['TJsonNineCA'] = jm['Qwen3.5-9B']['correct_approvals']
+        if isinstance(jm.get('Qwen2.5-VL-3B'), dict):
+            m['TJsonThreeErr'] = jm['Qwen2.5-VL-3B']['parse_or_inference_errors']
+            m['TJsonThreeCA'] = jm['Qwen2.5-VL-3B']['correct_approvals']
+        rec = [mm['hazard_recall'] for mm in t1['models'].values()]
+        m['THazMin'] = min(r[0] for r in rec); m['THazMax'] = f"{max(r[0] for r in rec)}/{rec[0][1]}"
         # model table
         lines = [r'\begin{tabular}{lrrrrr}', r'\toprule',
                  r'Model & False approvals & Correct approvals & Hazard recall & Cone alarms & s/pass \\', r'\midrule']
@@ -244,7 +256,8 @@ def main():
     m.pending(['TNimages', 'TNamb', 'TNdeny', 'TNallow', 'TFA', 'TFARate', 'TFACI', 'TCA', 'TCARate', 'TCACI', 'THazRecall',
                'TConeAlarm', 'TLatPass', 'TAmbAllowed', 'TvFA', 'TvFARate', 'TvFACI', 'TvCA', 'TvCARate', 'TvCACI',
                'TvHazRecall', 'TvConeAlarm', 'TvNoFireAlarm', 'TNoFireAlarm', 'TSupplyN', 'TSupplyFA', 'TSupplyFACI',
-               'TFireCorrectN', 'TFireCorrectFA', 'TAblNoHazFA', 'EN', 'ECorrect', 'ECorrectCI', 'EWrong', 'EWrongCI', 'ELatMed',
+               'TFireCorrectN', 'TFireCorrectFA', 'TAblNoHazFA', 'TThreeBPassTwoFA', 'TThreeBFullFA', 'TJsonNineFA',
+               'TJsonNineCA', 'TJsonThreeErr', 'TJsonThreeCA', 'THazMin', 'THazMax', 'EN', 'ECorrect', 'ECorrectCI', 'EWrong', 'EWrongCI', 'ELatMed',
                'ELatMax', 'ERetries', 'EWallMed', 'ESafeN', 'ETaskSuccess', 'ETaskSuccessCI', 'EBzeroWrong', 'EBzeroWrongCI',
                'EBzeroTask', 'EBoneWrong', 'EBoneTask'])
     for name in ('tab_t1_models.tex', 'tab_t1_ablation.tex', 'tab_e_strata.tex'):
