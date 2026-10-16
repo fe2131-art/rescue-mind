@@ -92,7 +92,8 @@ def run_ros(route, args, record):
         raise RuntimeError('ROS2 not loaded; source /opt/ros/jazzy/setup.bash') from ex
     rclpy.init()
     node=rclpy.create_node('rescuemind_gazebo_waypoint_mission')
-    pub=node.create_publisher(Twist,args.cmd_topic,10)
+    from rescuemind.ros_qos import control_qos
+    pub=node.create_publisher(Twist,args.cmd_topic,control_qos(getattr(args,'control_qos','reliable')))
     ctx={'pose':None,'pose_time':None,'odom_twist':None,'frame_msg':None,'frame_time':None, 'guard_ready':False, 'guard_time':None}
     frames=FrameSequence()
     clock_gate=CameraClockGate()
@@ -142,7 +143,8 @@ def run_ros(route, args, record):
           node.create_subscription(Image,args.camera_topic,on_camera,image_qos()),
           node.create_subscription(Clock,'/clock',on_clock,qos_profile_sensor_data)]
     if guard_required:
-        subs.append(node.create_subscription(Bool,'/rescuemind/guard_ready',on_guard,10))
+        subs.append(node.create_subscription(Bool,'/rescuemind/guard_ready',on_guard,
+                                             control_qos(getattr(args,'control_qos','reliable'))))
     ctl=WaypointController()
     progress=ProgressWatch()
     # I-09: instrument gaps between velocity requests (the guard latches after 0.45 s)
@@ -577,6 +579,8 @@ def main():
     ap.add_argument('--vlm-model',default='Qwen/Qwen2.5-VL-3B-Instruct',help='model id served on the local endpoint')
     ap.add_argument('--recovery',action='store_true',help='I-02: if the supply is missing/wrong, check the other station once')
     ap.add_argument('--explain',action='store_true',help='I-03: one-sentence Japanese report after each checkpoint (not used for decisions)')
+    ap.add_argument('--control-qos',choices=['reliable','best_effort'],default='reliable',
+                    help='I-12: QoS of /rescuemind/cmd_vel_request and /rescuemind/guard_ready')
     ap.add_argument('--inject-warmup-stall',type=float,default=0.0,help='I-09 fault injection (seconds); tests only')
     ap.add_argument('--gc-freeze',action='store_true',help='I-09: freeze start-up objects out of the cyclic GC before the control loop')
     ap.add_argument('--estop-topic',default='/rescuemind/estop')

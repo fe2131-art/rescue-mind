@@ -29,8 +29,9 @@ def run(args):
             super().__init__('rescuemind_velocity_guard')
             self.policy=VelocityRelay(started_at=time.monotonic(),latch_stale_zero=args.legacy_latch_zero)
             self.command_pub=self.create_publisher(Twist,'/cmd_vel',10)
-            self.status_pub=self.create_publisher(Bool,'/rescuemind/guard_ready',10)
-            self.create_subscription(Twist,'/rescuemind/cmd_vel_request',self.on_request,10)
+            from rescuemind.ros_qos import control_qos
+            self.status_pub=self.create_publisher(Bool,'/rescuemind/guard_ready',control_qos(args.control_qos))
+            self.create_subscription(Twist,'/rescuemind/cmd_vel_request',self.on_request,control_qos(args.control_qos))
             self.create_subscription(Odometry,'/odom',self.on_odom,qos_profile_sensor_data)
             self.create_subscription(Image,'/camera',self.on_camera,image_qos())
             self.create_subscription(LaserScan,'/scan',self.on_lidar,qos_profile_sensor_data)
@@ -89,6 +90,8 @@ def run(args):
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--control-qos',choices=['reliable','best_effort'],default='reliable',
+                        help='I-12: QoS of the request / heartbeat topics (must match the mission)')
     parser.add_argument('--legacy-latch-zero',action='store_true',
                         help='pre-v3.4: latch even when the stale request was zero (A/B experiments only)')
     run(parser.parse_args())
