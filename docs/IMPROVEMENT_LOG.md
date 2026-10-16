@@ -215,3 +215,30 @@
   3. 同点ならモデル呼び出しが少ない方、さらに同点なら τ_h ∈ {0.05, 0.10, 0.20} の高い方
 * **確認**：選ばれた構成と v3.5 を、新しい未使用テストセット T2（seed `T2-2026`、T1 と同じ分布）で比較する。T2 は描画する前に事前登録する。
 * **付随変更**：危険の質問はパスに依存しないので、画像ごとに1回だけ計算する（画像ハッシュでキャッシュ）。1回の確認でモデル呼び出しが1回減る。
+
+
+---
+
+## I-13 Restoring the original two-AI check: Clef-Flash (Jev role) + Qwen (written before any I-13 result)
+
+* **Background**
+  * The original plan's core idea was "two different AIs (Jev + Qwen) decide the next action".
+  * v3.2 handed off with the cloud Jev unused, and the local second model (SmolVLM2) was unusable (FINDINGS #10). After that I dropped to a single model **without trying an alternative** (a deviation).
+  * Cloudflare's **Clef-Flash** (2026-10, Apache-2.0, Jev/SystemOne-compatible, image input) runs locally on the V100.
+    * It answers the original Jev request (`rescuemind/jev.py`) unchanged.
+    * It answers all questions in one forward pass in ~0.8 s.
+    * It needs ~19 GB of VRAM, so it cannot be loaded together with Qwen3.5-9B.
+* **Candidates** (each scored on development data only: dev v1+v2 176 images, DH 300 images)
+  * `Q`: v3.5 (Qwen3.5-9B, τ_h=0.05)
+  * `Q-tiles` / `Q-h36` / `Q-h36-tiles`: I-11
+  * `J`: Clef-Flash alone, with the original Jev thresholds (confidence ≥0.65, presence ≥0.80, hazard <0.35); τ_h is also tried at 0.10 and 0.05
+  * `J+Q`: the original consensus (`checkpoint.decide_checkpoint`): approve only when both approve; a hazard from either side refuses
+  * `J+Q4B`: Clef-Flash + Qwen3.5-4B (both fit on the V100 at once)
+* **Selection rule** (fixed now, `scripts/i13_select.py`)
+  1. Zero false approvals on development data (wrong or missing supply, or a visible fire).
+  2. Correct approvals on development must-approve images ≥ 95%.
+  3. Highest recall on DH visible fires.
+  4. Ties: deployable live on one V100 (concurrent VRAM ≤ 30 GB) first, then lower latency.
+* **Confirmation**
+  * The winner and v3.5 are compared on the held-out T2, registered before it is rendered.
+  * Then a closed-loop campaign F that includes fires that are almost hidden.
