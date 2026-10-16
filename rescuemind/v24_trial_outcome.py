@@ -14,7 +14,7 @@ class TrialClassificationError(ValueError):
 
 def classify_negative_run(directory: Path, *, scene: str, run_id: str,
                           waypoints: dict) -> dict:
-    if scene not in ('swapped','empty'):
+    if scene not in ('swapped','empty','hazard'):
         raise TrialClassificationError('only negative controlled scenes are eligible')
     if not isinstance(run_id,str) or len(run_id)!=16 or any(c not in '0123456789abcdef' for c in run_id):
         raise TrialClassificationError('invalid run ID')
