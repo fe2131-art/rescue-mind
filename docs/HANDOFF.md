@@ -97,15 +97,15 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 * T1：物資の誤許可は 0/332。
 * 唯一の重大な弱点は**小さく写った火の見逃し**（1万画素未満では 1/7、1万画素以上では 68/69）。
 
-**実行中・この後の手順**（2026-10-18）
-1. `scripts/paper_chain_7.sh` を実行中。内容：評価F（事前登録、48試行、A=v3.5、B=Qwen9B h36＋tiles）→ 確認時の姿勢で火災マスクを描画 → T2 の採点（全候補）。
-   * 終わったら `python3 scripts/f_analysis.py`（→ f_summary.json）と `python3 scripts/t2_analysis.py`（→ t2_summary.json）。
-2. 選定の記録：`experiments/PREREGISTRATION_T2.md`（I13* = Clef（課題向け）＋Qwen9B h36＋tiles、オフラインのみ）、`experiments/PREREGISTRATION_F.md`（B = Qwen9B h36＋tiles）。
-3. 結果が出たら、v3.6（h36＋tiles を既定にするか）を決める。
-   * F と T2 で効果が確認できた場合に限り、オーケストレータの既定を変える。
-   * 結果は IMPROVEMENT_LOG（I-11/I-13）、論文、README、レポートに反映する。
-4. 仕上げ：論文（独立レビュー `docs/paper/REVIEW_NOTES.md` の指摘のうち未対応分）、動画（欠品で停止する場面と新しい結果を加え、3分以内）、YouTube 説明文、SUBMISSION チェックリスト。
-5. サブエージェントは同時に1つまで（Sonnet 5.5）。ユーザーが許可済み。
+**実行中・この後の手順**（2026-10-18 朝）
+1. `scripts/paper_chain_8.sh` を実行中。内容：T2 に Clef（課題向けの質問）を適用 → **評価G**（事前登録、48試行。B = h36＋tiles、C = B＋look-around 0.4 m）→ `g_analysis.py` → `experiments/results/g_summary.json`。
+2. ここまでの主な結果：
+   * **F**：小さな火が見える13世界で、v3.5 が見逃して配達したのは 12/13、B は 7/13。食い違い 5:0、McNemar p=0.0625（有意でない）。
+   * **T2**：v3.5 でも誤許可 0/407 で、天井に達していたため改善は測れない（正直に報告する）。
+   * **I-14 予備走行**：横からの再確認で、F で B が見逃した火を 5/5 止めた。
+3. G の結果を見て、v3.6 の既定構成を決める（h36＋tiles＋look-around）。決めたらオーケストレータの既定値を変え、IMPROVEMENT_LOG（I-14）、論文（F・G・T2）、README、レポート、動画を更新する。
+4. 動画：撮影用の走行（`--film`）を最終構成で撮り直す。場面は deliver / recover / empty / hidden-fire。その後 `make_video_plan.py`（v3.6 対応済み）→ `make_demo_video.py --narrate 2` で作り、3分以内であることを確認する。
+5. サブエージェントは同時に1つまで（Sonnet 5.5）。
 
 **このフェーズで済んだこと**
 * I-10（τ_h=0.05）、I-11（拡大切り出しと危険質問のキャッシュ、選定待ち）、I-12（DDS の非同期送信、5/10→0/10）、I-13（Clef-Flash を Jev の役割で使う。サーバ・2モデル判定・監査・オーケストレータ `--jev-local clef`）。
