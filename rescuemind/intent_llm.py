@@ -1,0 +1,63 @@
+"""I-04: instruction understanding with the on-board LLM (same local Qwen2.5-VL-3B).
+
+The model answers two closed-set questions about the request (which supply, which
+destination); answer-letter probabilities are read from one forward pass each, so
+there is no free text to parse.  Decision (fail-closed):
+  * supply  = argmax over {water, medicine, both, none}; accept only water/medicine with p >= 0.60
+  * destination 'elsewhere' (argmax) -> reject; 'unstated' -> project default shelter B
+`decide_intent_hybrid` adds the deterministic shelter-name guard from mission_policy
+(an explicit 避難所A/C/…/shelter X is always refused, whatever the model says).
+"""
+from __future__ import annotations
+import json
+import urllib.request
+
+from .local_vision import PRIMARY_MODEL, LocalInferenceError, localhost_only
+
+DEFAULT_INTENT_URL = 'http://127.0.0.1:8765/v1/intent'
+MIN_ITEM_P = 0.60
+
+
+def query(text: str, *, url: str = DEFAULT_INTENT_URL, model: str = PRIMARY_MODEL, timeout: int = 60,
+          transport=None) -> dict:
+    localhost_only(url, path='/v1/intent')
+    payload = {'model': model, 'text': text}
+    if transport is None:
+        req = urllib.request.Request(url, data=json.dumps(payload, ensure_ascii=False).encode('utf8'),
+                                     headers={'Content-Type': 'application/json'}, method='POST')
+        with urllib.request.urlopen(req, timeout=timeout) as f:
+            resp = json.loads(f.read(16384).decode('utf8'))
+    else:
+        resp = transport(url, payload)
+    if resp.get('model') != model or resp.get('real_inference') is not True or resp.get('text') != text:
+        raise LocalInferenceError('intent response provenance mismatch')
+    ip, dp = resp.get('item_probs'), resp.get('dest_probs')
+    if not (isinstance(ip, dict) and set(ip) == {'water', 'medicine', 'both', 'none'}
+            and isinstance(dp, dict) and set(dp) == {'B', 'other', 'unstated'}):
+        raise LocalInferenceError('intent response schema')
+    return resp
+
+
+def parse_instruction_llm(text: str, **kw) -> dict:
+    r = query(text, **kw)
+    ip, dp = r['item_probs'], r['dest_probs']
+    item = max(ip, key=ip.get)
+    dest = max(dp, key=dp.get)
+    probs = {'item': ip, 'dest': dp}
+    if item == 'both':
+        return {'accept': False, 'item': None, 'reason': 'ambiguous_multiple_supplies', 'probs': probs}
+    if item == 'none':
+        return {'accept': False, 'item': None, 'reason': 'no_supported_supply', 'probs': probs}
+    if ip[item] < MIN_ITEM_P:
+        return {'accept': False, 'item': None, 'reason': 'low_llm_confidence', 'probs': probs}
+    if dest == 'other':
+        return {'accept': False, 'item': None, 'reason': 'unsupported_shelter', 'probs': probs}
+    return {'accept': True, 'item': item, 'shelter': 'B', 'reason': 'llm_intent_accepted', 'probs': probs}
+
+
+def decide_intent_hybrid(text: str, **kw) -> dict:
+    from .mission_policy import UNSUPPORTED
+    from .intent import parse_shelter
+    if UNSUPPORTED.search(text) or parse_shelter(text) != 'B':
+        return {'accept': False, 'item': None, 'reason': 'unsupported_shelter', 'rule': 'explicit_shelter_name'}
+    return parse_instruction_llm(text, **kw)

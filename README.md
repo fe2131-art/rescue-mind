@@ -44,6 +44,8 @@
 | **「拒否」と「故障」を区別** | 拒否は「拒否イベント＋2.5秒の停止保持＋真値で拠点から動いていない＋bag確定」が揃って初めて成功扱い。VLMがエラーで止まっただけでは成功にしない。 |
 | **sudo不要で再現** | Ubuntu 22.04 ホストでも Docker（ROS 2 Jazzy + Gazebo Harmonic + CUDA PyTorch）で動作。Gazebo は EGL ヘッドレス描画。 |
 
+全体の処理フロー・プロセス構成・判定ロジックの図は [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)、
+v3.3 以降の改善の経緯（Before/After）は [`docs/IMPROVEMENT_LOG.md`](docs/IMPROVEMENT_LOG.md) にあります。
 実際に動かして初めて分かった13件の問題と対策は [`docs/FINDINGS.md`](docs/FINDINGS.md) にまとめています。
 
 ![devset](docs/figures/devset_ablation.png)
