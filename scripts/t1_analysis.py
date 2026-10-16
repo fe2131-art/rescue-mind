@@ -57,6 +57,8 @@ RULES = {
     'A2_pass2_only': dict(passes='2'),
     'A3_no_hazard_question': dict(passes='12', use_hazard=False),
     'A4_no_confidence_threshold': dict(passes='12', tau_s=0.0),
+    # amendment 3: v3.5 configuration (I-10), pre-specified secondary
+    'v35_tau_h_0.05': dict(passes='12', tau_h=0.05),
 }
 
 
