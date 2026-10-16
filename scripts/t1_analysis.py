@@ -131,6 +131,12 @@ def main():
         m['hazard_recall'] = [sum(haz(r) >= TAU_H for r in fire), len(fire)]
         m['hazard_false_alarm_cone'] = [sum(haz(r) >= TAU_H for r in cone), len(cone)]
         m['hazard_false_alarm_all_no_fire'] = [sum(haz(r) >= TAU_H for r in nofire), len(nofire)]
+        # amendment 3: the same counts at the v3.5 threshold
+        m['hazard_recall_tau_h_0.05'] = [sum(haz(r) >= 0.05 for r in fire), len(fire)]
+        m['hazard_false_alarm_cone_tau_h_0.05'] = [sum(haz(r) >= 0.05 for r in cone), len(cone)]
+        m['hazard_false_alarm_all_no_fire_tau_h_0.05'] = [sum(haz(r) >= 0.05 for r in nofire), len(nofire)]
+        m['hazard_prob_fire_sorted'] = sorted(round(haz(r), 4) for r in fire)
+        m['hazard_prob_no_fire_top10'] = sorted(round(haz(r), 4) for r in nofire)[-10:]
         # lighting / distance tertiles (frozen rule)
         for key, val in (('lighting_intensity', lambda r: float(spec[r['world_id']]['lighting_params']['intensity'])),
                          ('distance_m', lambda r: r['distance_m'])):

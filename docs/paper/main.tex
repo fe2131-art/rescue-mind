@@ -137,7 +137,9 @@ tokenizer variants. This gives $p_k(s)$ for $k\in\{1,2\}$ and $p_h$. The robot a
 \begin{equation}
 \bigwedge_{k=1,2}\Big[\arg\max_s p_k(s)=s^\ast \;\wedge\; p_k(s^\ast)\ge\taus\Big]\;\wedge\;\max_k p_{h,k}<\tauh,
 \label{eq:rule}\end{equation}
-with $\taus=\tauh=0.5$, fixed on development data and unchanged since the first registration.
+with $\taus=0.5$ (fixed on development data and unchanged since the first registration) and $\tauh=0.05$.
+The hazard threshold was 0.5 up to campaign D. It was lowered once (v3.5) after a pilot missed a mostly occluded fire
+(Sec.~\ref{sec:findings}). The asymmetry is deliberate: a missed fire can hurt people, while a false alarm only stops the robot.
 Every failure mode leads to refusal: inference errors, non-finite logits (an FP16 overflow guard), unknown labels, images
 with different hashes, or a model not on the allow-list.
 A refusal is followed by a 2.5\,s zero-velocity hold that the audit checks.
@@ -167,8 +169,10 @@ or the platform is taken into account. A view counts as \emph{visible} with at l
 with at most 20, and as \emph{ambiguous} in between. The \TNamb{} ambiguous images are excluded from the primary endpoints, as registered.
 
 \textbf{Closed-loop campaigns.} Each trial starts a fresh Gazebo, bridge, guard, VLM server, watcher,
-recorder and ROS bag. Campaign D (\DN{} trials) used the three controlled scenes plus fire, dim light and a box.
-Campaign E (\EN{} trials) gives every trial its own randomised world, generated before any E trial was run.
+recorder and ROS bag. Campaign D (\DN{} trials, v3.4 with $\tauh=0.5$) used the three controlled scenes plus fire, dim light and a box.
+Campaign E (\EN{} trials, v3.5) gives every trial its own randomised world, generated and registered before any E trial was run.
+The strata are nominal, swapped, empty, fire at the requested station, and fire at the \emph{other} station, where the
+search itself must stop.
 A trial counts only if an audit confirms it:
 \begin{itemize}
 \item \emph{Decision:} the decision is recomputed from the saved model outputs and image hash.
@@ -189,10 +193,13 @@ It is paired with the correct-approval rate. We report Wilson 95\% intervals. Pa
 \begin{table}[t]\centering\caption{Decision-rule ablations on T1: false approvals / false denials.
 $^{*}$: exact McNemar $p<0.05$ versus the full rule of the same model.}
 \label{tab:t1ablation}\resizebox{\linewidth}{!}{\input{tab_t1_ablation.tex}}\end{table}
-Table~\ref{tab:t1models} shows the frozen system and the alternative models on T1.
-Qwen3.5-9B approved \TFA{} of \TNdeny{} must-refuse images (\TFARate, 95\% CI \TFACI) and
-\TCA{} of \TNallow{} must-approve images (\TCARate, \TCACI). It detected the fire in \THazRecall{} images where the
-supply was correct, and raised a false hazard alarm in \TConeAlarm{} images with a traffic cone.
+Table~\ref{tab:t1models} shows the registered system and the alternative models on T1.
+With the registered v3.4 rule ($\tauh=0.5$), Qwen3.5-9B approved \TFA{} of \TNdeny{} must-refuse images
+(\TFARate, 95\% CI \TFACI) and \TCA{} of \TNallow{} must-approve images (\TCARate, \TCACI).
+Its hazard question flagged \THazRecall{} images with a visible fire. It raised false alarms on \TConeAlarm{} traffic-cone images
+and on \TNoFireAlarm{} images without fire.
+The pre-specified v3.5 rule ($\tauh=0.05$) gives \TvFA{} false approvals (\TvFACI) and \TvCA{} correct approvals
+(\TvCARate), with hazard recall \TvHazRecall{} and false alarms on \TvConeAlarm{} cone and \TvNoFireAlarm{} fire-free images.
 Table~\ref{tab:t1ablation} isolates the parts of the rule. Fig.~\ref{fig:riskcov} shows risk--coverage curves
 over $\taus$; these are descriptive only, since $\taus$ was not tuned on T1.
 \begin{figure}[t]\centering\fig{fig_risk_coverage.pdf}
@@ -244,9 +251,15 @@ remove the stalls. We therefore changed the guard: a stale zero request now hold
 With a 0.6\,s stall injected before departure, the old guard failed 2/2 runs and the new one completed 2/2.
 Raising priority with a file capability then had a side effect: it put the exec into the dynamic loader's secure mode,
 which stripped \texttt{LD\_LIBRARY\_PATH} and broke the ROS bag recorder. A regression run caught this before any campaign.
+\item \textbf{A pilot exposed a threshold that was not conservative enough.} Before campaign E we ran nine trials in
+separate pilot worlds. In one, the robot found the wrong item, searched the other station, and delivered from it although a fire
+burned behind it. The fire was almost entirely hidden by the first-aid kit, and $p_h=0.32$. On development data no fire-free
+image exceeded $p_h=0.0007$, so we lowered $\tauh$ to 0.05 (v3.5). The same pilot worlds then gave 9/9 expected outcomes.
+T1 was not involved: both thresholds were registered for T1 before any T1 image was scored.
 \item \textbf{A generator bug caught by looking at the data.} In the first T1 render, distractors meant to stand next to a supply were placed through it. The
 emptiness check ran after the supplies were moved. The render was discarded and the fix recorded as a
-pre-registration amendment, before any model scored a T1 image.
+pre-registration amendment, before any model scored a T1 image. A second amendment replaced the field-of-view fire
+label with the rendered-mask label, after we saw fires hidden behind supplies that the geometric label had called visible.
 \end{itemize}
 
 \section{Limitations}

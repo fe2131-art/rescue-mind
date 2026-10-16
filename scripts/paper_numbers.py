@@ -156,6 +156,16 @@ def main():
             m['TConeAlarm'] = f"{p['hazard_false_alarm_cone'][0]}/{p['hazard_false_alarm_cone'][1]}"
             m['TLatPass'] = f"{p['latency_per_pass_s']['median']:.2f}"
             m['TAmbAllowed'] = p['ambiguous_allowed']
+            v = p['rules'].get('v35_tau_h_0.05')
+            if v:
+                m['TvFA'] = v['false_approvals']; m['TvFARate'] = pct(v['fa_rate'])
+                m['TvFACI'] = f"[{100 * v['fa_ci95'][0]:.1f}, {100 * v['fa_ci95'][1]:.1f}]\\%"
+                m['TvCA'] = v['correct_approvals']; m['TvCARate'] = pct(v['ca_rate'])
+                m['TvCACI'] = f"[{100 * v['ca_ci95'][0]:.1f}, {100 * v['ca_ci95'][1]:.1f}]\\%"
+                m['TvHazRecall'] = '/'.join(map(str, p['hazard_recall_tau_h_0.05']))
+                m['TvConeAlarm'] = '/'.join(map(str, p['hazard_false_alarm_cone_tau_h_0.05']))
+                m['TvNoFireAlarm'] = '/'.join(map(str, p['hazard_false_alarm_all_no_fire_tau_h_0.05']))
+                m['TNoFireAlarm'] = '/'.join(map(str, p['hazard_false_alarm_all_no_fire']))
         # model table
         lines = [r'\begin{tabular}{lrrrrr}', r'\toprule',
                  r'Model & False approvals & Correct approvals & Hazard recall & Cone alarms & s/pass \\', r'\midrule']
@@ -225,7 +235,8 @@ def main():
     lines += [r'\bottomrule', r'\end{tabular}']
     tables['tab_dev_models.tex'] = '\n'.join(lines)
     m.pending(['TNimages', 'TNamb', 'TNdeny', 'TNallow', 'TFA', 'TFARate', 'TFACI', 'TCA', 'TCARate', 'TCACI', 'THazRecall',
-               'TConeAlarm', 'TLatPass', 'TAmbAllowed', 'EN', 'ECorrect', 'ECorrectCI', 'EWrong', 'EWrongCI', 'ELatMed',
+               'TConeAlarm', 'TLatPass', 'TAmbAllowed', 'TvFA', 'TvFARate', 'TvFACI', 'TvCA', 'TvCARate', 'TvCACI',
+               'TvHazRecall', 'TvConeAlarm', 'TvNoFireAlarm', 'TNoFireAlarm', 'EN', 'ECorrect', 'ECorrectCI', 'EWrong', 'EWrongCI', 'ELatMed',
                'ELatMax', 'ERetries', 'EWallMed', 'ESafeN', 'ETaskSuccess', 'ETaskSuccessCI', 'EBzeroWrong', 'EBzeroWrongCI',
                'EBzeroTask', 'EBoneWrong', 'EBoneTask'])
     for name in ('tab_t1_models.tex', 'tab_t1_ablation.tex', 'tab_e_strata.tex'):
