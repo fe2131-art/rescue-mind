@@ -1,6 +1,6 @@
 """Recalculate local checkpoint decisions; never claim Jev/cloud provenance."""
 from __future__ import annotations
-from .local_vision import validate_result, local_decision, combine_with_jev, ALLOWED_MODELS, SECONDARY_MODEL
+from .local_vision import validate_result, local_decision, combine_with_jev, combine_with_look_around, ALLOWED_MODELS, SECONDARY_MODEL
 
 class LocalReceiptError(ValueError):
     pass
@@ -24,6 +24,21 @@ def audit_local_checkpoint(checkpoint: dict, image_sha: str, *, expected: str) -
     if 'jev_call' in checkpoint:   # I-13: recompute the two-model rule from the saved Jev-role answer
         computed=combine_with_jev(computed,checkpoint['jev_call'],expected,
                                   hazard_threshold=checkpoint.get('jev_hazard_threshold',.35))
+    if 'look_around' in checkpoint:   # I-14: side views can only turn an approval into a hazard refusal
+        peeks=[]
+        for pk in checkpoint['look_around'].get('peeks',[]):
+            pa,pb=pk['model_calls']['first'],pk['model_calls']['second']
+            for call,idx in ((pa,1),(pb,2)):
+                validate_result(call,primary,pk['image_sha256'],idx)
+            if 'jev_call' in pk:
+                hz=combine_with_jev(local_decision(expected,pa,pb),pk['jev_call'],expected,
+                                    hazard_threshold=checkpoint.get('jev_hazard_threshold',.35))['reason']
+            else:
+                hz=local_decision(expected,pa,pb)['reason']
+            if (hz=='visible_hazard_at_checkpoint') != bool(pk.get('hazard')):
+                raise LocalReceiptError('look-around hazard flag does not match the saved side-view outputs')
+            peeks.append({'side':pk['side'],'hazard':hz=='visible_hazard_at_checkpoint'})
+        computed=combine_with_look_around(computed,peeks)
     if checkpoint.get('image_sha256')!=image_sha or checkpoint.get('decision')!=computed:
         raise LocalReceiptError('decision or image hash does not match original model outputs')
     return {'pass':True,'mode':mode,'reason':computed['reason'],'allow':computed['allow'],

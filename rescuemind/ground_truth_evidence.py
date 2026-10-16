@@ -59,7 +59,7 @@ def _odom_drift(gt, odom):
 
 
 def audit_ground_truth(path, *, station, shelter, expect_arrival: bool,
-                       tolerance=0.34, max_tilt_deg=8.0, max_drift_m=0.25):
+                       tolerance=0.34, max_tilt_deg=8.0, max_drift_m=0.25, look_around_m: float = 0.0):
     gt, odom = _rows(path)
     dist = lambda r, g: math.hypot(r['x'] - g[0], r['y'] - g[1])
     start = gt[0]
@@ -90,7 +90,7 @@ def audit_ground_truth(path, *, station, shelter, expect_arrival: bool,
     # Denial: after reaching the station the chassis must not head for the shelter.
     station_xy = (gt[i_station]['x'], gt[i_station]['y'])
     excursion = max(math.hypot(r['x'] - station_xy[0], r['y'] - station_xy[1]) for r in after)
-    if excursion > 0.45 or closest_shelter < 1.0:
+    if excursion > 0.45 + look_around_m or closest_shelter < 1.0:   # I-14: side views widen the dwell area
         raise GroundTruthError(f'robot left the station after denial (excursion {excursion:.2f} m)')
     report.update(max_excursion_after_station_m=round(excursion, 3), pass_=True)
     report['pass'] = report.pop('pass_')

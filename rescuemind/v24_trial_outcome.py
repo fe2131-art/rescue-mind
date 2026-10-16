@@ -43,7 +43,8 @@ def classify_negative_run(directory: Path, *, scene: str, run_id: str,
         raise TrialClassificationError('nonzero hold command')
     try:
         evidence=audit_denial(directory/'mission.json',directory/'independent_ros_topics.jsonl',
-                              station=waypoints[item],shelter=waypoints['B'])
+                              station=waypoints[item],shelter=waypoints['B'],
+                              extra_points=[p['xy'] for p in (m.get('look_around') or {}).get('points',[])])
     except (ValueError,OSError,TypeError,KeyError) as exc:
         raise TrialClassificationError(f'independent denial evidence invalid: {exc}') from exc
     return {'state':'COMPLETED_EXPECTED_DENIAL','scene':scene,'run_id':run_id,
