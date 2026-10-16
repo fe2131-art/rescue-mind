@@ -39,7 +39,10 @@ fires were large and fully in view.
 **Infrastructure failures.** As in campaign E: a stack failure before any VLM decision may be re-run once. All attempts are kept.
 
 ## Configuration B (filled in from the selection before the first trial)
-(pending)
+
+**B = `--hazard-prompt h36 --hazard-views tiles`.** This is the highest-ranked deployable configuration in
+`i13_selection.json`, `Q9B[h36_tiles] tau_h=0.05`. The rule's overall winner (Clef-Flash + Qwen3.5-9B) does not fit on one V100.
+The protocol file is `experiments/campaign_f_protocol.json` (sha256 `0f28b97fc15c7e5f…`), 48 trials.
 
 ## Amendments
 (none)

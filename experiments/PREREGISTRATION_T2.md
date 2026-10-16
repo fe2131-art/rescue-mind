@@ -36,8 +36,20 @@
 
 **Integrity:** T2 is not used to choose anything. A pipeline bug found after rendering is fixed, documented as an amendment, and all T2 scoring is re-run. Results are not dropped.
 
-## Selection record
-(filled in from experiments/results/i13_selection.json before T2 scoring)
+## Selection record (from `experiments/results/i13_selection.json`, committed before T2 scoring)
+
+**`I13*` = `J2(Clef-task,0.05)+Q9B[h36_tiles]`.** It approves only when both models approve:
+* Clef-Flash answering task-worded questions, with the Jev-role thresholds (confidence ≥ 0.65, presence ≥ 0.80) and τ_h = 0.05;
+* Qwen3.5-9B with the `h36` hazard wording asked on the full image plus three enlarged crops, with τ_s = 0.50 and τ_h = 0.05.
+
+Development results:
+* false approvals 15/413 (v3.5: 46/413);
+* correct approvals 350/360 (v3.5: 357/360);
+* visible fires refused 196/211 (v3.5: 165/211).
+
+This configuration needs about 37 GB of VRAM, so it is evaluated offline only. The best configuration that fits on one V100,
+`Q9B[h36_tiles] tau_h=0.05`, scored 17/413 false approvals, 357/360 correct approvals and 194/211 fires refused. It is reported as a
+secondary result and is configuration B of campaign F.
 
 ## Amendments
 **Amendment 1 (2026-10-18, before any T2 image was scored).** These changes were made after the development results
