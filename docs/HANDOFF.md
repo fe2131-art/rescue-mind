@@ -97,16 +97,15 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 * T1：物資の誤許可は 0/332。
 * 唯一の重大な弱点は**小さく写った火の見逃し**（1万画素未満では 1/7、1万画素以上では 68/69）。
 
-**実行中・この後の手順**
-1. T1 の自由JSON比較 → `CHAIN3_DONE` → 自動で `scripts/paper_chain_4.sh` を開始する。内容：Clef を v1/v2/DH に適用、Q4B を DH に適用、Q9B の I-11 案4種 → `scripts/i13_select.py` → `experiments/results/i13_selection.json`
-2. T2 の描画（`scripts/build_image_set.py --set t2`、ログ `experiments/results/t2_render.log`）。
-3. 選定結果を `experiments/PREREGISTRATION_T2.md` の Selection record に記入してコミット → T2 を採点する（v3.5 と選ばれた構成）。T2 の採点スクリプトは、v3.5 は `vlm_devset_eval.py`、Clef は `clef_devset_eval.py`、比較は i13_select の規則を T2 に適用（**要作成**）。
-4. 評価F：
-   * `python3 scripts/make_protocol_f.py --config-b '<採用構成のフラグ>'`（例：`--jev-local clef --model Qwen/Qwen3.5-4B` または `--hazard-views tiles`）
-   * `python3 scripts/fire_mask_at_pose.py --protocol experiments/campaign_f_protocol.json --design` で、隠れた火が少しは見えるかを確認する
-   * PREREGISTRATION_F を書いてコミットし、`run_campaign.py --protocol experiments/campaign_f_protocol.json --ledger experiments/results/campaign_F_ledger.jsonl` で実行する（共通フラグはプロトコルに入っている）
-   * 実行後に `fire_mask_at_pose.py --ledger ...` で見え方のラベルを付ける
-5. 仕上げ：論文（`bash scripts/build_paper.sh`）、説明資料PDF（`make_report.py`）、動画（欠品で停止する場面と新しい結果を追加、3分以内）、README、YouTube 説明文。
+**実行中・この後の手順**（2026-10-18）
+1. `scripts/paper_chain_7.sh` を実行中。内容：評価F（事前登録、48試行、A=v3.5、B=Qwen9B h36＋tiles）→ 確認時の姿勢で火災マスクを描画 → T2 の採点（全候補）。
+   * 終わったら `python3 scripts/f_analysis.py`（→ f_summary.json）と `python3 scripts/t2_analysis.py`（→ t2_summary.json）。
+2. 選定の記録：`experiments/PREREGISTRATION_T2.md`（I13* = Clef（課題向け）＋Qwen9B h36＋tiles、オフラインのみ）、`experiments/PREREGISTRATION_F.md`（B = Qwen9B h36＋tiles）。
+3. 結果が出たら、v3.6（h36＋tiles を既定にするか）を決める。
+   * F と T2 で効果が確認できた場合に限り、オーケストレータの既定を変える。
+   * 結果は IMPROVEMENT_LOG（I-11/I-13）、論文、README、レポートに反映する。
+4. 仕上げ：論文（独立レビュー `docs/paper/REVIEW_NOTES.md` の指摘のうち未対応分）、動画（欠品で停止する場面と新しい結果を加え、3分以内）、YouTube 説明文、SUBMISSION チェックリスト。
+5. サブエージェントは同時に1つまで（Sonnet 5.5）。ユーザーが許可済み。
 
 **このフェーズで済んだこと**
 * I-10（τ_h=0.05）、I-11（拡大切り出しと危険質問のキャッシュ、選定待ち）、I-12（DDS の非同期送信、5/10→0/10）、I-13（Clef-Flash を Jev の役割で使う。サーバ・2モデル判定・監査・オーケストレータ `--jev-local clef`）。
