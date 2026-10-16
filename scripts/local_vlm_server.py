@@ -262,12 +262,48 @@ class ModelWorker:
         question,mapping=prompts['supply'][pass_id]
         letter_probs=self._answer_probs(pic,question,('A','B','C'))
         supply_probs={mapping[k]:round(v,4) for k,v in letter_probs.items()}
-        hazard=self._answer_probs(pic,prompts['hazard'],('Yes','No'))
+        hazard_p,views,cached=self._hazard(pic,hashlib.sha256(image_bytes).hexdigest(),prompts['hazard'])
         supply=max(supply_probs,key=supply_probs.get)
         # I-10: hazard threshold is asymmetric by design (a missed fire is worse than a needless stop)
-        return {'supply':supply,'scene':'hazard' if hazard['Yes']>=self.hazard_threshold else 'clear',
+        return {'supply':supply,'scene':'hazard' if hazard_p>=self.hazard_threshold else 'clear',
                 '_scores':{'method':'closed_set_logprob','prompt_set':self.prompt_set,'supply_probs':supply_probs,
-                           'hazard_prob':round(hazard['Yes'],4),'hazard_threshold':self.hazard_threshold}}
+                           'hazard_prob':round(hazard_p,4),'hazard_threshold':self.hazard_threshold,
+                           'hazard_views':self.hazard_views,'hazard_prompt':self.hazard_prompt,
+                           'hazard_view_probs':views,'hazard_cached':cached}}
+
+    # I-11: hazard question variants. 'h35' = the v35 prompt; 'h36' asks explicitly about small, partly hidden or
+    # cut-off fire and smoke.  'tiles' also asks on three enlarged overlapping crops (left, right, top) and takes the max.
+    HAZARD_PROMPTS={'h36':('Look at the whole image, especially the edges and the area behind and above the objects. '
+                           'Is there any fire, flame, or smoke (a grey or black cloud), even if it is small, partly hidden '
+                           'behind something, or cut off at the edge of the image? Answer Yes or No.')}
+    hazard_views='full'
+    hazard_prompt='h35'
+
+    @staticmethod
+    def _crops(pic):
+        w,h=pic.size
+        out=[]
+        for box in ((0,0,int(.6*w),h),(int(.4*w),0,w,h),(0,0,w,int(.6*h))):
+            c=pic.crop(box)
+            scale=640/max(c.size)
+            out.append(c.resize((max(1,round(c.size[0]*scale)),max(1,round(c.size[1]*scale)))))
+        return out
+
+    def _hazard(self,pic,digest,default_prompt):
+        # the hazard question does not depend on the pass, so both passes share one answer per image
+        key=(digest,self.hazard_views,self.hazard_prompt,self.prompt_set)
+        cache=self.__dict__.setdefault('_hazard_cache',{})
+        if key in cache:
+            p,views=cache[key]
+            return p,views,True
+        q=default_prompt if self.hazard_prompt=='h35' else self.HAZARD_PROMPTS[self.hazard_prompt]
+        pics=[pic]+(self._crops(pic) if self.hazard_views=='tiles' else [])
+        views=[round(self._answer_probs(v,q,('Yes','No'))['Yes'],4) for v in pics]
+        p=max(views)
+        if len(cache)>64:
+            cache.clear()
+        cache[key]=(p,views)
+        return p,views,False
 
 
 def make_handler(worker):
@@ -338,6 +374,8 @@ def main():
     p.add_argument('--describe-prompt',choices=sorted(ModelWorker.DESCRIBE_PROMPTS),default='e0')
     p.add_argument('--intent-prompt',choices=sorted(ModelWorker.INTENT_PROMPTS),default='i34')
     p.add_argument('--hazard-threshold',type=float,default=0.5,help='p(Yes) at or above which the scene is a hazard (I-10)')
+    p.add_argument('--hazard-views',choices=['full','tiles'],default='full',help='I-11: also ask on enlarged crops')
+    p.add_argument('--hazard-prompt',choices=['h35','h36'],default='h35',help='I-11: hazard question wording')
     a=p.parse_args()
     if not 1024<=a.port<=65535: p.error('invalid port')
     if not 0<a.hazard_threshold<=1: p.error('hazard threshold must be in (0, 1]')
@@ -345,6 +383,8 @@ def main():
     worker.describe_prompt=a.describe_prompt
     worker.intent_prompt=a.intent_prompt
     worker.hazard_threshold=a.hazard_threshold
+    worker.hazard_views=a.hazard_views
+    worker.hazard_prompt=a.hazard_prompt
     ThreadingHTTPServer(('127.0.0.1',a.port),make_handler(worker)).serve_forever()
 
 if __name__=='__main__': main()
