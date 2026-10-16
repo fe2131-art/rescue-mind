@@ -52,6 +52,12 @@ def parse_instruction_llm(text: str, **kw) -> dict:
         return {'accept': False, 'item': None, 'reason': 'low_llm_confidence', 'probs': probs}
     if dest == 'other':
         return {'accept': False, 'item': None, 'reason': 'unsupported_shelter', 'probs': probs}
+    verify = r.get('verify_probs')
+    if verify is not None:
+        probs['verify'] = verify
+        # i36: second, differently worded Yes/No question must agree with the first answer
+        if not isinstance(verify.get(item), (int, float)) or verify[item] < 0.5:
+            return {'accept': False, 'item': None, 'reason': 'llm_self_check_disagrees', 'probs': probs}
     return {'accept': True, 'item': item, 'shelter': 'B', 'reason': 'llm_intent_accepted', 'probs': probs}
 
 

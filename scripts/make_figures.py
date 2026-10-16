@@ -251,6 +251,45 @@ def i01_drift():
     save(fig, 'i01_drift.png')
 
 
+def i08_models():
+    f = RES / 'i08_model_selection.json'
+    if not f.is_file():
+        return
+    rows = json.loads(f.read_text())
+    import re
+    def frac(v):
+        m = re.match(r'(\d+)/(\d+)', v or '')
+        return int(m.group(1)) / int(m.group(2)) if m else 0
+    def unsafe(v):
+        m = re.search(r'(FA|unsafe) (\d+)', v or '')
+        return int(m.group(2)) if m else 0
+    metrics = [('vision_v35', '視覚判定（開発176枚）'), ('explain', '状況説明の正確さ（128枚）'), ('intent_dev_i35', '指示理解（開発40文）')]
+    fig, axes = plt.subplots(1, 2, figsize=(13, 4.4), gridspec_kw={'width_ratios': [2.2, 1]})
+    ax = axes[0]
+    cols = [GRAY, AQUA, ORANGE, BLUE]
+    width = 0.2
+    for k, r in enumerate(rows):
+        vals = [frac(r.get(m)) * 100 for m, _ in metrics]
+        xs = [i + (k - 1.5) * width for i in range(len(metrics))]
+        ax.bar(xs, vals, width=width * 0.92, color=cols[k], label=f"{r['model']}（{r['released']}）")
+        for x, v in zip(xs, vals):
+            ax.text(x, v + 0.8, f'{v:.0f}', ha='center', fontsize=8)
+    ax.set_xticks(range(len(metrics))); ax.set_xticklabels([m[1] for m in metrics])
+    ax.set_ylim(50, 105); ax.set_ylabel('正解率 [%]')
+    ax.set_title('I-08 モデル比較（同一データ・同一プロンプトv35/i35）')
+    ax.legend(frameon=False, fontsize=8.5, ncol=4, loc='upper center', bbox_to_anchor=(0.5, -0.12))
+    ax = axes[1]
+    names = [r['model'] for r in rows]
+    fa = [unsafe(r.get('vision_v35')) for r in rows]
+    ua = [unsafe(r.get('intent_dev_i35')) for r in rows]
+    y = range(len(rows))
+    ax.barh([i + 0.2 for i in y], fa, height=0.38, color=BAD, label='視覚の誤許可')
+    ax.barh([i - 0.2 for i in y], ua, height=0.38, color=ORANGE, label='指示の危険な誤受理')
+    ax.set_yticks(list(y)); ax.set_yticklabels(names); ax.set_xlim(0, 3)
+    ax.set_title('危険側の誤り（少ないほど良い）'); ax.legend(frameon=False, fontsize=8.5)
+    save(fig, 'i08_models.png')
+
+
 if __name__ == '__main__':
     which = sys.argv[1:] or ['architecture', 'devset', 'campaign', 'trajectories', 'wheel']
     out = {}
@@ -260,5 +299,6 @@ if __name__ == '__main__':
     if 'trajectories' in which and (RES / 'campaign_ledger.jsonl').is_file(): trajectories()
     if 'wheel' in which: wheel_bug()
     if 'i01' in which or not sys.argv[1:]: i01_drift()
+    if 'i08' in which or not sys.argv[1:]: i08_models()
     if out:
         (RES / 'figure_stats.json').write_text(json.dumps(out, indent=1) + '\n')

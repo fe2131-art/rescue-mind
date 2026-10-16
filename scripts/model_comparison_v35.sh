@@ -4,7 +4,7 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 serve() {  # model prompt_set intent_prompt
-  pkill -f local_vlm_server; sleep 3
+  pkill -f local_vlm_server; while curl -s -m 2 http://127.0.0.1:8765/health >/dev/null 2>&1; do sleep 1; done
   python3 scripts/local_vlm_server.py --model "$1" --prompt-set "$2" --intent-prompt "$3" --port 8765 > /tmp/vlm_cmp.log 2>&1 &
   until curl -s http://127.0.0.1:8765/health | grep -q ready; do sleep 3; done
 }

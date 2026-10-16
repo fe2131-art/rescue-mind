@@ -31,7 +31,7 @@ def main():
         e = load(f'explain_e0_{tag}.json') or (load('explain_e0.json') if tag == 'qwen25vl3b' else None)
         if e:
             r['explain'] = f"{e['summary']['correct']}/{e['summary']['n']}"
-        for ip in ('i34', 'i35'):
+        for ip in ('i34', 'i35', 'i36', 'i37'):
             d = load(f'intent_hybrid_{ip}_{tag}_dev_v35.json')
             if d:
                 r[f'intent_dev_{ip}'] = f"{d['summary']['correct']}/{d['summary']['n']} (unsafe {d['summary']['unsafe_accepts']})"

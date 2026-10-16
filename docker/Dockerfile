@@ -15,10 +15,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         fonts-noto-cjk fonts-ipaexfont curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Model-stack versions are build args (I-08): the default image keeps the v3.3 stack;
+# Model-stack versions are build args (I-08): default = next (Qwen3.5); STACK=v33 rebuilds the v3.3 stack;
 #   docker build --build-arg STACK=next ...  -> torch 2.8 (cu126, still ships sm70 for V100)
 #   + transformers 5.x for Qwen3-VL / Qwen3.5.
-ARG STACK=v33
+ARG STACK=next
 # Isolated venv that still sees apt-installed rclpy (system site packages).
 RUN python3 -m venv --system-site-packages /opt/rescuemind-venv \
     && /opt/rescuemind-venv/bin/pip install -U 'pip<26' \

@@ -31,7 +31,7 @@ def run(method: str, text: str, model: str = 'Qwen/Qwen2.5-VL-3B-Instruct') -> d
         return {'accept': r['accept'], 'item': r['item'] if r['accept'] else None, 'reason': r['reason'], 'probs': r['probs']}
     if method == 'hybrid':
         r = decide_intent_hybrid(text, model=model)
-        return {'accept': r['accept'], 'item': r['item'] if r['accept'] else None, 'reason': r['reason']}
+        return {'accept': r['accept'], 'item': r['item'] if r['accept'] else None, 'reason': r['reason'], 'probs': r.get('probs')}
     raise ValueError(method)
 
 
