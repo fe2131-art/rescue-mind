@@ -156,6 +156,13 @@ def main():
             m['TConeAlarm'] = f"{p['hazard_false_alarm_cone'][0]}/{p['hazard_false_alarm_cone'][1]}"
             m['TLatPass'] = f"{p['latency_per_pass_s']['median']:.2f}"
             m['TAmbAllowed'] = p['ambiguous_allowed']
+            st = p['strata_full']
+            sup = [v for k, v in st.items() if v['expected'] == 'deny' and not k.startswith('fire_visible')]
+            m['TSupplyN'] = sum(v['n'] for v in sup); m['TSupplyFA'] = sum(v['allowed'] for v in sup)
+            m['TSupplyFACI'] = ci(m_supply := sum(v['allowed'] for v in sup), sum(v['n'] for v in sup))
+            fc = st.get('fire_visible_correct_supply', {'n': 0, 'allowed': 0})
+            m['TFireCorrectN'] = fc['n']; m['TFireCorrectFA'] = fc['allowed']
+            m['TAblNoHazFA'] = p['rules']['A3_no_hazard_question']['false_approvals']
             v = p['rules'].get('v35_tau_h_0.05')
             if v:
                 m['TvFA'] = v['false_approvals']; m['TvFARate'] = pct(v['fa_rate'])
@@ -236,7 +243,8 @@ def main():
     tables['tab_dev_models.tex'] = '\n'.join(lines)
     m.pending(['TNimages', 'TNamb', 'TNdeny', 'TNallow', 'TFA', 'TFARate', 'TFACI', 'TCA', 'TCARate', 'TCACI', 'THazRecall',
                'TConeAlarm', 'TLatPass', 'TAmbAllowed', 'TvFA', 'TvFARate', 'TvFACI', 'TvCA', 'TvCARate', 'TvCACI',
-               'TvHazRecall', 'TvConeAlarm', 'TvNoFireAlarm', 'TNoFireAlarm', 'EN', 'ECorrect', 'ECorrectCI', 'EWrong', 'EWrongCI', 'ELatMed',
+               'TvHazRecall', 'TvConeAlarm', 'TvNoFireAlarm', 'TNoFireAlarm', 'TSupplyN', 'TSupplyFA', 'TSupplyFACI',
+               'TFireCorrectN', 'TFireCorrectFA', 'TAblNoHazFA', 'EN', 'ECorrect', 'ECorrectCI', 'EWrong', 'EWrongCI', 'ELatMed',
                'ELatMax', 'ERetries', 'EWallMed', 'ESafeN', 'ETaskSuccess', 'ETaskSuccessCI', 'EBzeroWrong', 'EBzeroWrongCI',
                'EBzeroTask', 'EBoneWrong', 'EBoneTask'])
     for name in ('tab_t1_models.tex', 'tab_t1_ablation.tex', 'tab_e_strata.tex'):
