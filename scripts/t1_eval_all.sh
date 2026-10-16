@@ -11,6 +11,7 @@ serve() {  # model method
 }
 run() {  # model method tag
   [ -f "experiments/results/devset_$3.json" ] && { echo "skip $3"; return; }
+  [ -n "${T1_ONLY:-}" ] && [ "$T1_ONLY" != "$3" ] && return
   serve "$1" "$2"
   python3 scripts/vlm_devset_eval.py --model "$1" --devset experiments/vlm_testset_t1 --tag "$3" >/dev/null 2>&1
   echo "DONE $3"
