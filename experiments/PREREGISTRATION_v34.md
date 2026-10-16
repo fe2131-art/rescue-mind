@@ -25,3 +25,9 @@ explanation texts (reported verbatim).
 
 **Infrastructure failures:** a trial whose stack fails before any VLM decision may be re-run once; every attempt
 is kept in `experiments/results/campaign_D_ledger.jsonl`. No trial is discarded after a decision exists.
+
+## Note (bookkeeping only, no change to the configuration)
+The first launch stopped after R001 because the runner's summary step expected a `truth_supply` field that
+v3.4 protocol entries do not have (KeyError after the run had completed). R001's completed run
+(`0552cc0ffb6b4015`) was summarised with the fixed runner and recorded as its only attempt (ledger `note`);
+the campaign then resumed from R002. R001 was not re-run.

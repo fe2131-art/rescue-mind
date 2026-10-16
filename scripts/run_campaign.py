@@ -34,7 +34,7 @@ def latest_run_after(before: set[str]) -> Path | None:
 
 def summarize(trial: dict, run_dir: Path | None, rc: int, wall_s: float) -> dict:
     row = {'trial_id': trial['id'], 'order': trial['order'], 'scene': trial['scene'],
-           'expected_supply': trial['expected'], 'truth_supply': trial['truth_supply'],
+           'expected_supply': trial['expected'], 'truth_supply': trial.get('truth_supply'),
            'expected_action': trial['expected_action'], 'orchestrator_exit': rc,
            'wall_s': round(wall_s, 1), 'run_id': run_dir.name if run_dir else None}
     if run_dir is None:
