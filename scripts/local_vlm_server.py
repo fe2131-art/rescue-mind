@@ -305,6 +305,38 @@ class ModelWorker:
         cache[key]=(p,views)
         return p,views,False
 
+    def jev(self,request):
+        """I-13: local Jev-compatible decisions (the SemIf/OpenJev pattern: typed option probabilities read
+        directly from one forward pass, no generated text).  Accepts the Jev 1.14 request schema built by
+        rescuemind/jev.py (state + assets + choice/noul questions) and answers in the Jev response schema.
+        Box questions are not supported locally and are refused."""
+        assets=request.get('assets') or {}
+        images=[a for a in assets.values() if isinstance(a,dict) and a.get('type')=='image']
+        if len(images)!=1:
+            raise ValueError('local Jev expects exactly one image asset')
+        pic=self._picture(base64.b64decode(images[0]['data_base64'],validate=True))
+        task=str((request.get('state') or {}).get('task',''))[:200]
+        answers={}
+        letters='ABCD'
+        for name,q in (request.get('questions') or {}).items():
+            text=str(q.get('instructions','')).replace('`camera`','this camera image')
+            if q.get('type')=='choice':
+                keys=list(q['criteria'])
+                if not 2<=len(keys)<=4:
+                    raise ValueError('local Jev choice needs 2-4 options')
+                prompt=(f'Context: {task}.\n{text}\n'+''.join(f'{letters[i]}. {k}: {q["criteria"][k]}\n' for i,k in enumerate(keys))
+                        +'Answer with the letter only.')
+                probs=self._answer_probs(pic,prompt,tuple(letters[:len(keys)]))
+                by_key={k:round(probs[letters[i]],4) for i,k in enumerate(keys)}
+                best=max(by_key,key=by_key.get)
+                answers[name]={'type':'choice','choice':best,'confidence':by_key[best],'probabilities':by_key}
+            elif q.get('type')=='noul':
+                p=self._answer_probs(pic,f'Context: {task}.\n{text}\nAnswer Yes or No.',('Yes','No'))['Yes']
+                answers[name]={'type':'noul','noul':round(p,4)}
+            else:
+                raise ValueError(f'local Jev does not support question type {q.get("type")!r}')
+        return {'model':'local-jev/'+self.model_id,'answers':answers,'usage':{'backend':'local_transformers'}}
+
 
 def make_handler(worker):
     class Handler(BaseHTTPRequestHandler):
@@ -315,7 +347,7 @@ def make_handler(worker):
                             'method':getattr(worker,'method','json'),'prompt_set':getattr(worker,'prompt_set',None),
                             'hazard_threshold':getattr(worker,'hazard_threshold',0.5)})
         def do_POST(self):
-            if self.path not in ('/v1/classify','/v1/describe','/v1/intent'):
+            if self.path not in ('/v1/classify','/v1/describe','/v1/intent','/v1/jev'):
                 self.send_error(404);return
             n=int(self.headers.get('Content-Length','0'))
             if n<20 or n>9_000_000:
@@ -324,6 +356,9 @@ def make_handler(worker):
                 request=json.loads(self.rfile.read(n))
                 if type(request) is not dict or request.get('model')!=worker.model_id:
                     raise ValueError('wrong model')
+                if self.path=='/v1/jev':
+                    self.reply(200,{'backend':'local_transformers','real_inference':True,**worker.jev(request)})
+                    return
                 if self.path=='/v1/intent':
                     text=request.get('text')
                     if not isinstance(text,str) or not text.strip() or len(text)>500:
