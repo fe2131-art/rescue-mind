@@ -266,14 +266,27 @@ need 37\,GB together, which does not fit on one V100.
 \begin{table}[t]\centering\caption{Hazard fixes on development data (dev v1+v2, DH, DH2). $\tauh=0.05$ unless stated.}
 \label{tab:i13dev}\resizebox{\linewidth}{!}{\input{tab_i13_dev.tex}}\end{table}
 
-\emph{Held-out confirmation (T2, pre-registered, 600 new images).} v3.5 made \TTRefFA{} false approvals and \TTRefCA{}
-correct approvals. The selected two-model configuration made \TTSelFA{} and \TTSelCA{} (exact McNemar on false
-approvals, $p=\TTSelP$). The single-V100 configuration B made \TTBFA{} and \TTBCA{} ($p=\TTBP$).
-\emph{Closed loop (campaign F, pre-registered, paired).} The 24 worlds had a small fire just behind a station, or no fire;
-each world was run with v3.5 (A) and configuration B. In the \FPairs{} worlds where the fire was visible at the checkpoint
-in both runs, A delivered \FWrongA{} times and B \FWrongB{} times despite the fire (exact McNemar $p=\FMcNemarP$).
-There were \FFalseStopA{} (A) and \FFalseStopB{} (B) false hazard stops in fire-free runs. The median decision time was
-\FLatA\,s (A) and \FLatB\,s (B).
+\emph{Held-out confirmation (T2, pre-registered, 600 new images).} The new draw happened to be easy: v3.5 already made
+\TTRefFA{} false approvals (\TTRefCA{} correct approvals), so no configuration could improve on it. The selected two-model
+configuration made \TTSelFA{} false approvals with \TTSelCA{} correct approvals, and configuration B made \TTBFA{} with \TTBCA{}.
+One result stands out: Clef-Flash \emph{alone}, given the task-worded questions, made \TTClefFA{} false approvals with
+\TTClefCA{} correct approvals. It does this in a single forward pass of about 0.8\,s, against roughly 3.4\,s for the four scored
+Qwen queries.
+
+\emph{Closed loop: small fires (campaign F, pre-registered, paired).} Each of 24 worlds had either a small fire just behind
+a station or no fire, and was run once with v3.5 (A) and once with configuration B. In the \FPairs{} worlds where the fire
+was visible at the checkpoint in both runs, A delivered despite the fire \FWrongA{} times and B \FWrongB{} times (exact
+McNemar $p=\FMcNemarP$, not significant). Neither configuration stopped falsely in the fire-free runs
+(\FFalseStopA{} and \FFalseStopB{}). B's remaining misses were fires of 1\,100--2\,400 visible pixels, and their hazard
+probabilities ($\approx$0.003) overlap those of fire-free views. No threshold can separate them.
+
+\emph{Looking from the side (I-14).} Mask renders, which involve no model output, show that the same fires cover
+4\,600--22\,000 pixels from 0.4\,m to the left or right of the checkpoint. The robot therefore looks again from both sides
+after approving and stops if either view shows a hazard; supply answers from the side views are ignored.
+Campaign G (pre-registered, paired, new worlds) compares B with B plus look-around (C). In the \GPairs{} worlds whose fire
+was perceivable from at least one of the three views, B delivered despite the fire \GWrongB{} times and C \GWrongC{} times
+(exact McNemar $p=\GMcNemarP$). False hazard stops in fire-free runs were \GFalseStopB{} (B) and \GFalseStopC{} (C).
+The median mission time of delivered runs rose from \GWallB\,s to \GWallC\,s.
 
 \subsection{Instruction parsing}
 On the 60 held-out utterances the hybrid parser was correct for \IntCorrect{}/\IntN{} with \IntUnsafe{} unsafe acceptances.
