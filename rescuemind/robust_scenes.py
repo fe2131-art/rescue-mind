@@ -52,6 +52,44 @@ def cardboard_box(name, x, y, dx=0.0, dy=0.0):
     return m
 
 
+def plastic_crate(name, x, y, z=0.5, yaw=0.0):
+    """Open blue plastic crate (held-out distractor: never seen during development)."""
+    m = ET.Element('model', name=name)
+    ET.SubElement(m, 'static').text = 'true'
+    ET.SubElement(m, 'pose').text = f'{x:g} {y:g} {z:g} 0 0 {yaw:g}'
+    link = ET.SubElement(m, 'link', name='crate')
+    c = '.12 .32 .70 1'
+    _visual(link, 'bottom', '0 0 .01 0 0 0', '<box><size>.40 .30 .02</size></box>', c)
+    for k, (px, py, sx, sy) in enumerate([(.19, 0, .02, .30), (-.19, 0, .02, .30), (0, .14, .40, .02), (0, -.14, .40, .02)]):
+        _visual(link, f'wall{k}', f'{px} {py} .11 0 0 0', f'<box><size>{sx} {sy} .20</size></box>', c)
+    return m
+
+
+def traffic_cone(name, x, y):
+    """Orange traffic cone on the floor (held-out hazard confuser: orange but not fire)."""
+    m = ET.Element('model', name=name)
+    ET.SubElement(m, 'static').text = 'true'
+    ET.SubElement(m, 'pose').text = f'{x:g} {y:g} 0 0 0 0'
+    link = ET.SubElement(m, 'link', name='cone')
+    _visual(link, 'base', '0 0 .015 0 0 0', '<box><size>.36 .36 .03</size></box>', '.95 .38 .05 1')
+    _visual(link, 'body', '0 0 .30 0 0 0', '<cone><radius>.14</radius><length>.54</length></cone>', '.98 .42 .06 1')
+    _visual(link, 'band', '0 0 .34 0 0 0', '<cylinder><radius>.085</radius><length>.07</length></cylinder>', '.95 .95 .95 1')
+    return m
+
+
+def random_lighting(rng) -> dict:
+    """Continuous lighting draw (held-out): sun azimuth/elevation, intensity, ambient, colour tint."""
+    import math
+    az, el = rng.uniform(-math.pi, math.pi), rng.uniform(math.radians(25), math.radians(85))
+    warm = rng.uniform(0.0, 1.0)           # 0 = cool daylight, 1 = warm low sun
+    amb = rng.uniform(0.35, 0.95)
+    tint = (1.0, 1.0 - 0.22 * warm, 1.0 - 0.45 * warm) if warm > 0.5 else (0.88 + 0.24 * warm, 0.92 + 0.16 * warm, 1.0)
+    return {'ambient': ' '.join(f'{amb * t:.3f}' for t in tint) + ' 1',
+            'direction': f'{math.cos(el) * math.cos(az):.3f} {math.cos(el) * math.sin(az):.3f} {-math.sin(el):.3f}',
+            'intensity': f'{rng.uniform(0.35, 1.35):.3f}',
+            'diffuse': ' '.join(f'{t:.3f}' for t in tint) + ' 1'}
+
+
 FIRE_STYLE = 'tongues'   # v2 (I-05): ellipsoid flame tongues; 'cylinders' = first version
 
 
@@ -98,12 +136,34 @@ def fire_and_smoke(name, x, y, style: str | None = None):
     return m
 
 
-def hazard_xy(station: str) -> tuple[float, float]:
+def hazard_xy(station: str, back: float = 0.75, lateral: float = 0.5) -> tuple[float, float]:
     x, y = STATIONS[station]
     # approach comes from the arena origin side; put the fire on the opposite side
     ux, uy = x / (x * x + y * y) ** .5, y / (x * x + y * y) ** .5
     vx, vy = -uy, ux   # lateral offset: beside the supplies in the image, not hidden behind them
-    return x + 0.75 * ux + 0.5 * vx, y + 0.75 * uy + 0.5 * vy
+    return x + back * ux + lateral * vx, y + back * uy + lateral * vy
+
+
+FIRE_HALF_WIDTH_M = 0.40      # charred base radius; flames + smoke stay inside it laterally
+CAMERA_HALF_HFOV = 0.525      # horizontal_fov 1.05 rad in the robot SDF
+
+
+def hazard_visibility(station: str, hazard_at: str | None, pose_xy: tuple[float, float], yaw: float,
+                      hazard_pos: tuple[float, float] | None = None) -> str:
+    """Three-way label for the paper test set: 'visible' (whole fire inside the image),
+    'hidden' (whole fire outside), 'ambiguous' (partly in view; excluded from primary metrics)."""
+    import math
+    if hazard_at != station:
+        return 'hidden'
+    fx, fy = hazard_pos or hazard_xy(hazard_at)
+    dx, dy = fx - pose_xy[0], fy - pose_xy[1]
+    bearing = abs(math.atan2(math.sin(math.atan2(dy, dx) - yaw), math.cos(math.atan2(dy, dx) - yaw)))
+    extent = math.atan2(FIRE_HALF_WIDTH_M, math.hypot(dx, dy))
+    if bearing + extent < CAMERA_HALF_HFOV:
+        return 'visible'
+    if bearing - extent > CAMERA_HALF_HFOV:
+        return 'hidden'
+    return 'ambiguous'
 
 
 def hazard_visible(station: str, hazard_at: str | None, pose_xy: tuple[float, float], yaw: float,
@@ -127,30 +187,46 @@ def _platform_empty(world, x, y) -> bool:
 
 
 def build_variant(src: Path, *, lighting: str = 'default', distractor_at: str | None = None,
-                  hazard_at: str | None = None) -> bytes:
+                  hazard_at: str | None = None, lighting_params: dict | None = None,
+                  prop_offsets: dict | None = None, hazard_geom: tuple[float, float] | None = None,
+                  distractor_kind: str = 'box', distractor_side: float = 1.0) -> bytes:
+    """Controlled variants (dev sets, campaigns) and, with the extra keyword arguments,
+    the continuously randomised held-out test worlds (T1)."""
     tree = ET.parse(src)
     world = tree.getroot().find('world')
-    preset = LIGHTING[lighting]
+    preset = lighting_params or LIGHTING[lighting]
     if preset:
         world.find('scene/ambient').text = preset['ambient']
         sun = world.find("light[@name='sun']")
         sun.find('direction').text = preset['direction']
         sun.find('intensity').text = preset['intensity']
         sun.find('diffuse').text = preset['diffuse']
+    if prop_offsets:
+        # held-out: move/rotate each supply prop on its platform (dx, dy, yaw)
+        for m in world.findall('model'):
+            if m.get('name') in prop_offsets:
+                dx, dy, dyaw = prop_offsets[m.get('name')]
+                v = [float(t) for t in m.findtext('pose').split()]
+                m.find('pose').text = f'{v[0] + dx:g} {v[1] + dy:g} {v[2]:g} {v[3]:g} {v[4]:g} {v[5] + dyaw:g}'
     if distractor_at:
         x, y = STATIONS[distractor_at]
         names = {m.get('name') for m in world.findall('model')}
         empty_platform = not ({'sealed_water_bottles', 'first_aid_case'} & names) or _platform_empty(world, x, y)
-        box = cardboard_box(f'distractor_box_{distractor_at}', x, y)
-        if not empty_platform:
-            # beside the platform on the floor (never overlapping a supply prop)
-            box.find('pose').text = f'{x + 0.05:g} {y - 0.80:g} -0.5 0 0 0.35'
-        world.append(box)
+        if distractor_kind == 'cone':
+            world.append(traffic_cone(f'distractor_cone_{distractor_at}', x + 0.70 * distractor_side, y - 0.55))
+        elif distractor_kind == 'crate':
+            world.append(plastic_crate(f'distractor_crate_{distractor_at}', x, y, 0.5, 0.4) if empty_platform else
+                         plastic_crate(f'distractor_crate_{distractor_at}', x + 0.70 * distractor_side, y - 0.45, 0.0, 0.4))
+        else:
+            box = cardboard_box(f'distractor_box_{distractor_at}', x, y)
+            if not empty_platform:
+                # beside the platform on the floor (never overlapping a supply prop)
+                box.find('pose').text = f'{x + 0.05:g} {y - 0.80:g} -0.5 0 0 0.35'
+            world.append(box)
     if hazard_at:
-        x, y = STATIONS[hazard_at]
         # behind the platform on the far side from the approach: flames rise above the
         # platform into the checkpoint view, off the path and outside the lidar front zone
-        world.append(fire_and_smoke(f'hazard_fire_{hazard_at}', *hazard_xy(hazard_at)))
+        world.append(fire_and_smoke(f'hazard_fire_{hazard_at}', *hazard_xy(hazard_at, *(hazard_geom or (0.75, 0.5)))))
     ET.indent(tree, space='  ')
     return ET.tostring(tree.getroot(), encoding='utf-8', xml_declaration=True)
 
