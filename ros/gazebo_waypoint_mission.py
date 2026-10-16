@@ -563,13 +563,18 @@ def run_ros(route, args, record):
                     raise RuntimeError('drive progress watchdog: '+stall)
                 if cmd.arrived:
                     publish()
+                    if stage == 'peek':
+                        # I-14: a side-view pose is not a mission waypoint; keep the supply->shelter receipt intact
+                        record['events'].append({'stage':'look_around_arrival','target':target,'reached':True,
+                                                 'duration_wall_s':round(now-begun,3),'t_wall_s':round(now-start,3),
+                                                 'last_pose':list(ctx['pose'].__dict__.values())})
+                        record['trace'].extend(samples)
+                        look_around_peek(target, goal)
+                        break
                     record['events'].append({'stage':stage,'target':target,'arrived':True,
                                               'duration_wall_s':round(now-begun,3),'t_wall_s':round(now-start,3),'samples':len(samples),
                                               'last_pose':list(ctx['pose'].__dict__.values())})
                     record['trace'].extend(samples)
-                    if stage == 'peek':
-                        look_around_peek(target, goal)
-                        break
                     if stage == 'supply_station' and record.get('run_type') in ('jev_qwen_mission', 'jev_qwen_live_mission','local_vlm_live_mission'):
                         requested=(record.get('intent') or {}).get('item') or target
                         outcome=onsite_check(target,requested)
