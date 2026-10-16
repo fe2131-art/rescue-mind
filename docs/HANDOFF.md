@@ -84,20 +84,30 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 * Qwen3.5 は思考モードが既定 → `enable_thinking=False`（サーバで対応済み）。FP16 で非有限 logits なら判断拒否。
 * 動画は **3分以内**（現在 2:30）。倍速は区間ごとに画面表示（走行4倍、確認2倍、判断の瞬間は等速）。
 
-## 5. 進行中（論文化フェーズ、2026-10-17〜）
+## 5. 進行中（論文化フェーズ）— 最終更新 2026-10-17 夜
 
-| 作業 | 状態 | ファイル |
-|---|---|---|
-| 未使用テストセット T1（600枚、連続照明・物資移動・新規妨害物=青い箱/コーン） | 事前登録済み＋Amendment 1（配置バグ修正、採点前）。**レンダリング中** | `experiments/PREREGISTRATION_T1.md`, `scripts/build_testset_t1.py`, `experiments/vlm_testset_t1/` |
-| T1 の全モデル評価（4モデル＋自由JSON 2件） | 未実行。`scripts/t1_eval_all.sh` → `scripts/t1_analysis.py`（Wilson CI、McNemar、アブレーションA1–A4） | `experiments/results/devset_t1_*.json`, `t1_summary.json` |
-| 閉ループ評価E（60試行、試行ごとにランダム世界） | 予備走行（seed E-pilot、9試行）を T1 の後に自動実行。予備走行で問題が無ければ `python3 scripts/make_protocol_e.py` でプロトコル生成 → `PREREGISTRATION_E.md` とともにコミット → 実行 | `scripts/make_protocol_e.py`, `experiments/PREREGISTRATION_E.md`（未コミットの草稿） |
-| 論文（IEEE形式、英語） | 草稿あり。数値はすべて `scripts/paper_numbers.py` が結果ファイルから生成（未取得は赤字 TBD）。`bash scripts/build_paper.sh` でビルド | `docs/paper/main.tex`, `references.bib`（一次情報で確認した44件）, `related_work_notes.md` |
+**実行中**：`docker exec rm-next rescuemind-entrypoint bash scripts/paper_chain_3.sh`（バックグラウンド）
+1. T1 主モデル（Qwen3.5-9B）採点 → `experiments/results/devset_t1_qwen35_9b.json`、`t1_analysis.py` → `t1_summary.json`（ログ `T1_PRIMARY_DONE`）
+2. **評価E（登録済み60試行、v3.5）** → `experiments/results/campaign_E_ledger.jsonl`（`E_DONE`）。**実行中は実行時コード（scripts/local_vlm_server.py, v32_orchestrate.py, ros/*, rescuemind/*）を編集しない。**
+3. T1 残りモデル（4B, Qwen3-VL-8B, Qwen2.5-VL-3B, 自由JSON×2）→ 再解析（`CHAIN3_DONE`）
+* 中断された場合：`run_campaign.py` は台帳に無い試行から再開する。`t1_eval_all.sh` は既存の結果ファイルを飛ばす。同じコマンドを再実行すればよい。
 
-* 実行チェーン：`docker exec rm-next rescuemind-entrypoint bash scripts/paper_chain_1.sh`（T1描画 → E予備走行）。
-* 次の手順：(1) T1描画完了 → 画像を目視確認 → `scripts/t1_eval_all.sh`（GPUで約2時間）→ `t1_analysis.py`。
-  (2) E予備走行の台帳 `experiments/results/campaign_E_pilot_ledger.jsonl` を確認 → E登録 → 実行（約3時間）。
-  (3) `bash scripts/build_paper.sh` → 図・本文の推敲。
-* 論文のビルドは `rescuemind:latex` イメージ（`docker build -t rescuemind:latex docker/latex`、IEEEtran と poppler 入り）。
+**このフェーズで済んだこと**
+* T1 テストセット：600枚。事前登録＋Amendment 1〜3（すべて採点前）。
+  1. 配置バグを修正。
+  2. 火災ラベルをマゼンタのマスク画像で付け直し、遮蔽を考慮。visible 76 / hidden 83 / ambiguous 1。
+  3. v3.5 構成を副として追加。
+* I-10：危険の閾値 0.5→0.05（予備走行 8/9→9/9）。`--hazard-threshold`。
+* 評価E：登録済み（`experiments/PREREGISTRATION_E.md`、プロトコル sha `99f63f26…`）。
+* 論文：`docs/paper/main.tex`（数値は `scripts/paper_numbers.py` が生成）、`bash scripts/build_paper.sh` でビルド。文献は44件。
+
+**E 終了後にやること**
+* `python3 scripts/fire_visibility_check.py experiments/results/campaign_E_ledger.jsonl --protocol experiments/campaign_e_protocol.json`
+* `docker exec rm-dev rescuemind-entrypoint python3 scripts/export_evidence.py experiments/results/campaign_E_ledger.jsonl`（証拠の書き出しと個人パスの除去。動作を要確認）
+* `bash scripts/build_paper.sh` → TBD が消えたか確認 → 本文の推敲 → README・レポートに反映
+* 次の改善候補：
+  * I-11：危険質問が2パスで同一 → キャッシュして判断の遅延を約25%短縮できる見込み（E 終了後に計測して実施）
+  * 状況報告を走行と並列化（約4秒の短縮）
 
 ## 6. 論文化で残っている作業
 
