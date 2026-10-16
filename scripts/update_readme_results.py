@@ -1,22 +1,178 @@
 #!/usr/bin/env python3
-"""Rewrite the README results block from experiments/results (no hand-typed numbers) — v3.4 (campaign D)."""
+"""Rewrite the README results block from experiments/results (no hand-typed numbers).
+
+Three pre-registered evaluations: campaign E (closed loop, v3.5, primary), campaign D (v3.4) and the
+held-out test T1 (offline, 600 images). Every number is computed from the result files; a part whose
+input file is missing is skipped.
+"""
 from __future__ import annotations
 import json
+import sys
 from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from t1_analysis import decide, wilson  # noqa: E402
+
 RES = ROOT / 'experiments/results'
 GROUP = {'nominal': ('正常配置', '配達'), 'swapped': ('水と救急箱の取り違え', '別拠点を探索して配達'),
          'empty': ('欠品（両拠点とも空）', '両拠点で確認して停止'), 'fire': ('拠点の裏で火災', '探索せず即停止'),
          'dim': ('夕方の暗い照明', '配達'), 'box': ('空の台に段ボール箱', '停止')}
 OBS = {'ALLOW': '配達', 'ALLOW_AFTER_SEARCH': '探索して配達', 'DENY': '停止', 'DENY_HAZARD': '危険で停止',
+       'DENY_HAZARD_AFTER_SEARCH': '探索後に危険で停止',
        'DENY_UNVERIFIED': '停止（証拠不足）', 'FAILED': '失敗'}
+COND = {'plain': '通常', 'cone': 'コーン', 'crate': '木箱', 'box': '段ボール'}
+SAFE = ('ALLOW', 'DELIVER_AFTER_SEARCH')          # trials where a safe delivery is possible
+SMALL_FIRE_PX = 10000
+HAZ_DETECT = 0.05
 
 
-def main():
-    proto = {t['id']: t for t in json.loads((ROOT / 'experiments/v34_protocol.json').read_text())['trials']}
-    rows_all = [json.loads(x) for x in (RES / 'campaign_D_ledger.jsonl').read_text().splitlines()]
+def pct(x: float, nd: int = 1) -> str:
+    return f'{100 * x:.{nd}f}%'
+
+
+def ci_txt(k: int, n: int) -> str:
+    lo, hi = wilson(k, n)
+    return f'Wilson 95%CI {pct(lo)}〜{pct(hi)}'
+
+
+def read_jsonl(p: Path) -> list:
+    return [json.loads(x) for x in p.read_text().splitlines() if x.strip()]
+
+
+def section_e():
+    led, proto_f = RES / 'campaign_E_ledger.jsonl', ROOT / 'experiments/campaign_e_protocol.json'
+    if not (led.is_file() and proto_f.is_file()):
+        return None
+    cond = {t['id']: t['condition'] for t in json.loads(proto_f.read_text())['trials']}
+    allrows = read_jsonl(led)
+    rows = [r for r in allrows if r.get('final', True)]
+    n = len(rows)
+    ok = sum(r['correct'] for r in rows)
+    wrong = sum(bool(r.get('delivered')) and r['expected_action'] not in SAFE for r in rows)
+    safe = [r for r in rows if r['expected_action'] in SAFE]
+    safe_ok = sum(r['correct'] for r in safe)
+    # strata (scene x condition); the fire behind the OTHER station is its own stratum
+    def key(r):
+        c = cond[r['trial_id']]
+        return 'fire_other' if c == 'fire_other' else 'fire' if c == 'fire' else r['scene']
+    names = {'nominal': ('正常配置', '配達'), 'swapped': ('取り違え', '別拠点を探索して配達'),
+             'empty': ('欠品', '両拠点で確認して停止'), 'fire': ('要求拠点の裏で火災', '探索せず即停止'),
+             'fire_other': ('取り違え＋別拠点の裏で火災', '探索しても火災で停止')}
+    lines = ['| 条件 | 期待する行動 | 期待どおり | 内訳（妨害物・正解数） |', '|---|---|---|---|']
+    for k, (ja, want) in names.items():
+        rs = [r for r in rows if key(r) == k]
+        if not rs:
+            continue
+        by = Counter(); byok = Counter()
+        for r in rs:
+            c = cond[r['trial_id']]
+            c = 'plain' if c in ('fire', 'fire_other') else c
+            by[c] += 1; byok[c] += r['correct']
+        det = '、'.join(f'{COND.get(c, c)} {byok[c]}/{by[c]}' for c in by) if k not in ('fire', 'fire_other') else '火は全体が見える位置'
+        lines.append(f'| {ja} | {want} | **{sum(r["correct"] for r in rs)}/{len(rs)}** | {det} |')
+    fo = [r for r in rows if key(r) == 'fire_other']
+    fo_txt = ''
+    if fo:
+        fo_stop = sum(r['observed_action'] == 'DENY_HAZARD_AFTER_SEARCH' and r['correct'] for r in fo)
+        fo_txt = (f'* 「別拠点の裏の火災で、探索の途中で止まる」{len(fo)}試行：**{fo_stop}/{len(fo)}**'
+                  f'が探索後に火災で停止（未知の木箱・コーンを含む世界での再確認）\n')
+    # counterfactual baselines on the same trials
+    b0_wrong = sum(r['expected_action'] not in ('ALLOW',) for r in rows)
+    b0_ok = n - b0_wrong
+    b1_done = sum(r['expected_action'] == 'ALLOW' and r.get('first_checkpoint_allow') for r in rows)
+    b1_wrong = sum(bool(r.get('first_checkpoint_allow')) and r['expected_action'] not in SAFE for r in rows)
+    retries = len(allrows) - n
+    wrong_lo, wrong_hi = wilson(wrong, n)
+    ok_lo, ok_hi = wilson(ok, n)
+    s_lo, s_hi = wilson(safe_ok, len(safe))
+    txt = f"""### 評価E（v3.5・主結果）：試行ごとにランダムな世界で{n}試行
+
+照明・物資の位置と向き・妨害物（未知の木箱・コーンを含む）・火災を試行ごとに乱数で生成し、全スタック（Gazebo・ROS 2・ガード・ローカルVLM）を新規起動。
+Qwen3.5-9B、回復探索・状況報告・LLM指示理解あり。条件は結果を見る前に [`PREREGISTRATION_E.md`](experiments/PREREGISTRATION_E.md) に固定。
+
+{chr(10).join(lines)}
+
+{fo_txt}* **誤配達（誤った物資・欠品・火災の拠点へ届けた）{wrong}/{n}**（Wilson 95%CI {pct(wrong_lo)}〜{pct(wrong_hi)}）、期待どおりの行動 **{ok}/{n}**（{pct(ok_lo)}〜{pct(ok_hi)}）、安全に届けられる{len(safe)}試行の達成 **{safe_ok}/{len(safe)}**（{pct(s_lo)}〜{pct(s_hi)}）
+* 同じ{n}試行での反実仮想（実行せず、同じログから計算した方針比較）：
+  * **確認なしの配達**（在庫表を信じる）：誤配達 **{b0_wrong}/{n}**、期待どおり {b0_ok}/{n}（正常配置だけ正しい）
+  * **確認はするが回復探索なし**（v3.3方針）：誤配達 {b1_wrong}/{n}だが、安全に届けられる{len(safe)}試行のうち完了は **{b1_done}/{len(safe)}**（取り違えの{sum(r['expected_action'] == 'DELIVER_AFTER_SEARCH' for r in rows)}試行は停止で終わる）
+  * 本方式：誤配達 {wrong}/{n}、完了 **{safe_ok}/{len(safe)}**
+* VLM判断前のインフラ失敗による再試行：{retries}件（台帳に全件記録）。独立シーン数は{n}で、試行はすべて別の乱数世界。ただし**拠点の配置自体は固定**"""
+    return txt, dict(n=n, ok=ok, wrong=wrong)
+
+
+def t1_parts():
+    f, dev = RES / 't1_summary.json', RES / 'devset_t1_qwen35_9b.json'
+    if not f.is_file():
+        return None
+    s = json.loads(f.read_text())
+    m = s['models'].get('Qwen3.5-9B')
+    if m is None:
+        return None
+    full, v35 = m['rules']['full'], m['rules']['v35_tau_h_0.05']
+    n_img = m['n_images']
+    def fa_txt(r):
+        lo, hi = r['fa_ci95']
+        return f"**{r['false_approvals']}/{r['n_deny']}**（{pct(r['fa_rate'])}、95%CI {pct(lo)}〜{pct(hi)}）"
+    def ca_txt(r):
+        lo, hi = r['ca_ci95']
+        return f"**{r['correct_approvals']}/{r['n_allow']}**（{pct(r['ca_rate'])}、95%CI {pct(lo)}〜{pct(hi)}）"
+    claim_ok = full['fa_ci95'][1] < 0.02
+    claim = ('登録した主張「誤許可2%未満」は、Wilson上限が2%を下回り**支持された**。' if claim_ok else
+             f"登録した主張「誤許可2%未満」は**支持されなかった**（Wilson上限 {pct(full['fa_ci95'][1])} > 2%）。")
+    return s, m, full, v35, n_img, fa_txt, ca_txt, claim, dev
+
+
+def e_fire_note():
+    f = RES / 'campaign_E_ledger_fire_visibility.json'
+    if not f.is_file():
+        return ''
+    v = json.loads(f.read_text())
+    nv = sum(x['visibility'] == 'visible' for x in v)
+    some = 'すべて' if nv == len(v) else f'うち{nv}試行'
+    return f'評価Eの火災{len(v)}試行の{some}は、停止位置から火が視野内にある配置（物資の陰に隠れる度合いは評価Eの設計に含めていない）'
+
+
+def findings(s, m, dev):
+    E_FIRE = e_fire_note()
+    out = []
+    if dev.is_file():
+        recs = [r for r in json.loads(dev.read_text())['records'] if r['expected'] != 'ambiguous']
+        deny = [r for r in recs if r['expected'] == 'deny']
+        nofire = [r for r in deny if r['hazard_visibility'] == 'hidden']
+        fa_nofire = sum(decide(r) for r in nofire)
+        out.append(f'* **物資の確認は強い**：火災のない「拒否すべき」{len(nofire)}枚（取り違え・欠品・木箱・段ボールなど）で誤許可 **{fa_nofire}件**（登録済みv3.4規則）')
+        fas = [r for r in deny if decide(r)]
+        vis = [r for r in recs if r['hazard_visibility'] == 'visible']
+        haz = lambda r: max(r['passes'][k]['scores']['hazard_prob'] for k in '12' if 'scores' in r['passes'][k])
+        small = [r for r in vis if r['fire_pixels'] < SMALL_FIRE_PX]
+        big = [r for r in vis if r['fire_pixels'] >= SMALL_FIRE_PX]
+        det = lambda rs: sum(haz(r) >= HAZ_DETECT for r in rs)
+        fa_vis = sum(r['hazard_visibility'] == 'visible' for r in fas)
+        fa_small = sum(r['hazard_visibility'] == 'visible' and r['fire_pixels'] < SMALL_FIRE_PX for r in fas)
+        lead = '**すべて**' if fa_vis == len(fas) else f'うち**{fa_vis}件**'
+        out.append(f'* **残る弱点：物資の陰に一部しか見えない火災**。登録済みの誤許可{len(fas)}件の{lead}がこの型（物資は正しく、火が一部だけ見える）で、うち{fa_small}件は見える火が{SMALL_FIRE_PX:,}画素未満。'
+                   f'見える火の検出（p(危険)≥{HAZ_DETECT}、2パスの最大）は{SMALL_FIRE_PX:,}画素以上で **{det(big)}/{len(big)}**、未満で **{det(small)}/{len(small)}**。'
+                   f'{E_FIRE}')
+    jm = s.get('json_method', {}).get('Qwen3.5-9B')
+    if jm:
+        out.append(f"* **選択肢文字の確率スコア vs 自由記述JSON**（Qwen3.5-9B）：正しい許可 **{m['rules']['full']['correct_approvals']}** 対 {jm['correct_approvals']}"
+                   f"（誤許可 {m['rules']['full']['false_approvals']} 対 {jm['false_approvals']}）")
+    m3 = s['models'].get('Qwen2.5-VL-3B')
+    if m3 and 'A2_pass2_only' in m3['rules']:
+        out.append(f"* **選択肢の順序入れ替えの効果**（Qwen2.5-VL-3B）：2問目だけだと誤許可 **{m3['rules']['A2_pass2_only']['false_approvals']}** 件、"
+                   f"2問の合意で **{m3['rules']['full']['false_approvals']}** 件")
+    return out
+
+
+def section_d():
+    pf, lf = ROOT / 'experiments/v34_protocol.json', RES / 'campaign_D_ledger.jsonl'
+    if not (pf.is_file() and lf.is_file()):
+        return None
+    proto = {t['id']: t for t in json.loads(pf.read_text())['trials']}
+    rows_all = read_jsonl(lf)
     rows = [r for r in rows_all if r.get('final', True)]
     for r in rows:
         t = proto[r['trial_id']]
@@ -36,26 +192,59 @@ def main():
     misses = [r for r in rows if not r['correct']]
     miss_txt = ''.join(f"  * {r['trial_id']}（{GROUP[r['group']][0]}）：{OBS.get(r['observed_action'], r['observed_action'])}"
                        f"{' — ' + (r.get('error') or '')[:90] if r.get('error') else ''}\n" for r in misses)
-    block = f"""<!-- RESULTS:START -->
-## 結果：事前登録した閉ループ評価（評価D・v3.4、{len(rows)}試行）
+    fig = ('\n![results](docs/figures/campaign_d_results.png)\n' if (ROOT / 'docs/figures/campaign_d_results.png').is_file() else '')
+    lat_txt = f"* 判断遅延（静止画取得→判断）中央値 **{lat[len(lat) // 2]:.2f} 秒**（最大 {lat[-1]:.2f} 秒）\n" if lat else ''
+    txt = f"""<details>
+<summary>評価D（v3.4、{len(rows)}試行、固定配置の反復）の詳細</summary>
 
 Qwen3.5-9B（ローカル・V100）、回復探索・状況報告・LLM指示理解をすべて有効にした構成で、試行ごとに全スタックを新規起動。
 
 {chr(10).join(lines)}
 
 * 期待どおりの行動 **{ok}/{len(rows)}**、誤った物資・火災の拠点からの配達（誤許可）**{fa}件**
-{miss_txt}* 判断遅延（静止画取得→判断）中央値 **{lat[len(lat) // 2]:.2f} 秒**（最大 {lat[-1]:.2f} 秒）
-* 成功・停止はいずれも Gazebo 真値軌跡・ROS bag・判断の再計算・（回復時は）探索手順で独立に監査（[`experiments/results/`](experiments/results/)）
+{miss_txt}{lat_txt}* 成功・停止はいずれも Gazebo 真値軌跡・ROS bag・判断の再計算・（回復時は）探索手順で独立に監査（[`experiments/results/`](experiments/results/)）
 * VLM判断前のインフラ失敗による再試行：{len(rows_all) - len(rows)}件（台帳に全件記録）。同じワールドの反復であり独立シーン数ではない
 * 前バージョン v3.3（評価C、Qwen2.5-VL-3B、回復探索なし）の結果と経緯は [`docs/IMPROVEMENT_LOG.md`](docs/IMPROVEMENT_LOG.md)
+{fig}
+</details>"""
+    return txt, dict(n=len(rows), ok=ok, fa=fa)
 
-![results](docs/figures/campaign_d_results.png)
-<!-- RESULTS:END -->"""
+
+def main():
+    e, d, t = section_e(), section_d(), t1_parts()
+    head = ['| 評価（事前登録） | 内容 | 結果 |', '|---|---|---|']
+    if e:
+        E = e[1]
+        head.append(f"| **評価E（主結果）** v3.5 | 試行ごとにランダムな世界での閉ループ {E['n']}試行 | 期待どおり **{E['ok']}/{E['n']}**、誤配達 **{E['wrong']}/{E['n']}**（{ci_txt(E['wrong'], E['n'])}） |")
+    if d:
+        D = d[1]
+        head.append(f"| 評価D v3.4 | 固定配置の閉ループ {D['n']}試行 | 期待どおり **{D['ok']}/{D['n']}**、誤許可 **{D['fa']}件** |")
+    t1_block = ''
+    if t:
+        s, m, full, v35, n_img, fa_txt, ca_txt, claim, dev = t
+        head.append(f"| 未使用テスト T1（オフライン） | 開発に一度も使わない{n_img}枚（照明・位置・未知の妨害物・火災）、v3.4規則 | 誤許可 {fa_txt(full)}、正しい許可 {ca_txt(full)} |")
+        head.append(f"| 〃 v3.5（τ_h=0.05、副の事前指定） | 同じ画像・同じ保存済み確率から再計算 | 誤許可 {fa_txt(v35)}、正しい許可 {ca_txt(v35)} |")
+        t1_block = f"* T1：{claim}主な原因は下の「残る弱点」"
+    parts = ['<!-- RESULTS:START -->', '## 結果：事前登録した3つの評価', '',
+             'Qwen3.5-9B（ローカル・V100）。条件・閾値・解析は結果を見る前に `experiments/PREREGISTRATION_*.md` に固定し、台帳は全試行を記録。', '',
+             '\n'.join(head), '']
+    if t1_block:
+        parts += [t1_block, '']
+    if e:
+        parts += [e[0], '']
+    if t:
+        fl = findings(s, m, dev)
+        if fl:
+            parts += ['### 分かったこと', '', '\n'.join(fl), '']
+    if d:
+        parts += [d[0]]
+    parts.append('<!-- RESULTS:END -->')
+    block = '\n'.join(parts)
     readme = ROOT / 'README.md'
-    s = readme.read_text(encoding='utf8')
-    a, b = s.index('<!-- RESULTS:START -->'), s.index('<!-- RESULTS:END -->') + len('<!-- RESULTS:END -->')
-    readme.write_text(s[:a] + block + s[b:], encoding='utf8')
-    print('README results updated:', ok, '/', len(rows))
+    txt = readme.read_text(encoding='utf8')
+    a, b = txt.index('<!-- RESULTS:START -->'), txt.index('<!-- RESULTS:END -->') + len('<!-- RESULTS:END -->')
+    readme.write_text(txt[:a] + block + txt[b:], encoding='utf8')
+    print('README results updated: E', e[1] if e else None, '| D', d[1] if d else None, '| T1', bool(t))
 
 
 if __name__ == '__main__':
