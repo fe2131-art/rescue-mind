@@ -219,26 +219,26 @@
 
 ---
 
-## I-13 Restoring the original two-AI check: Clef-Flash (Jev role) + Qwen (written before any I-13 result)
+## I-13 当初計画の「2つのAIによる確認」の復活：Clef-Flash（Jevの役割）＋ Qwen（結果が出る前に記述）
 
-* **Background**
-  * The original plan's core idea was "two different AIs (Jev + Qwen) decide the next action".
-  * v3.2 handed off with the cloud Jev unused, and the local second model (SmolVLM2) was unusable (FINDINGS #10). After that I dropped to a single model **without trying an alternative** (a deviation).
-  * Cloudflare's **Clef-Flash** (2026-10, Apache-2.0, Jev/SystemOne-compatible, image input) runs locally on the V100.
-    * It answers the original Jev request (`rescuemind/jev.py`) unchanged.
-    * It answers all questions in one forward pass in ~0.8 s.
-    * It needs ~19 GB of VRAM, so it cannot be loaded together with Qwen3.5-9B.
-* **Candidates** (each scored on development data only: dev v1+v2 176 images, DH 300 images)
-  * `Q`: v3.5 (Qwen3.5-9B, τ_h=0.05)
-  * `Q-tiles` / `Q-h36` / `Q-h36-tiles`: I-11
-  * `J`: Clef-Flash alone, with the original Jev thresholds (confidence ≥0.65, presence ≥0.80, hazard <0.35); τ_h is also tried at 0.10 and 0.05
-  * `J+Q`: the original consensus (`checkpoint.decide_checkpoint`): approve only when both approve; a hazard from either side refuses
-  * `J+Q4B`: Clef-Flash + Qwen3.5-4B (both fit on the V100 at once)
-* **Selection rule** (fixed now, `scripts/i13_select.py`)
-  1. Zero false approvals on development data (wrong or missing supply, or a visible fire).
-  2. Correct approvals on development must-approve images ≥ 95%.
-  3. Highest recall on DH visible fires.
-  4. Ties: deployable live on one V100 (concurrent VRAM ≤ 30 GB) first, then lower latency.
-* **Confirmation**
-  * The winner and v3.5 are compared on the held-out T2, registered before it is rendered.
-  * Then a closed-loop campaign F that includes fires that are almost hidden.
+* **背景**：当初計画の中心は「異なる2つのAI（Jev＋Qwen）で次の行動を決める」ことだった。
+  * v3.2 の引継ぎ時点でクラウド版 Jev は使わない方針になり、ローカルの2つ目のモデル（SmolVLM2）も使えなかった（FINDINGS #10）。
+  * その後、**代わりのモデルを試さずに1モデルへ縮退させていた（計画からの逸脱）**。
+  * Cloudflare の **Clef-Flash**（2026-10、Apache-2.0、Jev/SystemOne 互換、画像入力可）は、V100 上でローカルに動く。
+    * 当初の Jev 要求（`rescuemind/jev.py`）にそのまま答える。
+    * 1回の順伝播で全質問に約0.8秒で答える。
+    * VRAM は約19 GB で、Qwen3.5-9B と同時には載らない。
+* **候補**（開発データだけで採点する：dev v1+v2 の176枚と DH の300枚）
+  * `Q`：v3.5（Qwen3.5-9B、τ_h=0.05）
+  * `Q-tiles` / `Q-h36` / `Q-h36-tiles`：I-11 の案
+  * `J`：Clef-Flash 単独。Jev の当初の閾値（確信度 ≥0.65、存在確率 ≥0.80、危険 <0.35）を使い、τ_h は 0.10 と 0.05 も試す
+  * `J+Q`：当初の合意則（`checkpoint.decide_checkpoint`）。両方が許可した場合だけ許可し、どちらかが危険と判断したら拒否
+  * `J+Q4B`：Clef-Flash と Qwen3.5-4B（V100 に同時に載る組み合わせ）
+* **選定規則**（いま固定、`scripts/i13_select.py`）：
+  1. 開発データで誤許可0件（物資違い・欠品・火災が見えているのに許可、をすべて含む）
+  2. 許可すべき開発画像の許可率 ≥ 95%
+  3. DH の見える火の検出が最多
+  4. 同点なら、1台の V100 に同時に載る（30 GB 以下）構成、次に低遅延の構成を優先
+* **確認**：
+  * 選んだ構成と v3.5 を、描画前に事前登録した T2 で比較する。
+  * その後、ほぼ隠れた火災を含む閉ループ評価Fで確認する。
