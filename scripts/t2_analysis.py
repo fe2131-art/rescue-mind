@@ -20,7 +20,7 @@ def load(tag):
 
 def configs():
     q = {f'{p}_{v}': load(f't2_i11_{p}_{v}') for p in ('h35', 'h36') for v in ('full', 'tiles')}
-    q4, j = load('t2_q4b'), load('t2_clef')
+    q4, j, j2 = load('t2_q4b'), load('t2_clef'), load('t2_clef2')
     c = {}
     for name, d in q.items():
         if d:
@@ -37,6 +37,14 @@ def configs():
         if q4:
             for t in (0.35, 0.05):
                 c[f'J(Clef,{t})+Q4B'] = (q4, lambda r, im, t=t: q_allows(q4[im], 0.05) and j_allows(j[im], t))
+    if j2:
+        for t in (0.35, 0.10, 0.05):
+            c[f'J2(Clef-task) tau_h={t}'] = (j2, lambda r, im, t=t: j_allows(j2[im], t))
+        if q4:
+            c['J2(Clef-task,0.05)+Q4B'] = (q4, lambda r, im: q_allows(q4[im], 0.05) and j_allows(j2[im], 0.05))
+        d = q.get('h36_tiles')
+        if d:
+            c['J2(Clef-task,0.05)+Q9B[h36_tiles]'] = (d, lambda r, im, d=d: q_allows(d[im], 0.05) and j_allows(j2[im], 0.05))
     return c
 
 
