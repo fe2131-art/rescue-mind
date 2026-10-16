@@ -76,3 +76,13 @@ I inspected a contact sheet of the fire images and found that the geometric fire
 * `expected` is derived as before from this label. The geometric label is kept as `hazard_visibility_geometric`.
 * The thresholds were fixed before the masks were rendered.
 * Code: `scripts/build_testset_t1.py --fire-masks` and then `--relabel` (sha256 `29c00fdb…`), with `rescuemind/robust_scenes.py` (`40a73e40…`).
+
+**Amendment 3 (2026-10-17, before any model scored any T1 image).**
+* Campaign E's mechanics pilot (development worlds, seed `E-pilot`) produced a missed hazard. The fire was mostly hidden
+  behind the supply, and p(hazard) = 0.32 < τ_h = 0.50.
+* On the development images, no image without fire exceeds p(hazard) = 0.0007, so a refusal threshold far below 0.5
+  costs nothing there. The system for campaign E is therefore **v3.5 = v3.4 with τ_h = 0.05** (I-10).
+* T1 reports both configurations:
+  * the registered primary (v3.4, τ_h = 0.50), with the primary endpoints unchanged;
+  * the pre-specified secondary (v3.5, τ_h = 0.05).
+* Both are computed offline from the same stored probabilities. τ_h = 0.05 was fixed from development data and the pilot only, before T1 scoring.

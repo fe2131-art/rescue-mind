@@ -182,6 +182,7 @@ class ModelWorker:
            '火や煙が見える場合は必ずそれも書いてください。'),
     }
     describe_prompt='e0'
+    hazard_threshold=0.5
 
     INTENT_PROMPTS={
      'i34':None,   # filled below from the class attributes
@@ -263,9 +264,10 @@ class ModelWorker:
         supply_probs={mapping[k]:round(v,4) for k,v in letter_probs.items()}
         hazard=self._answer_probs(pic,prompts['hazard'],('Yes','No'))
         supply=max(supply_probs,key=supply_probs.get)
-        return {'supply':supply,'scene':'hazard' if hazard['Yes']>=0.5 else 'clear',
+        # I-10: hazard threshold is asymmetric by design (a missed fire is worse than a needless stop)
+        return {'supply':supply,'scene':'hazard' if hazard['Yes']>=self.hazard_threshold else 'clear',
                 '_scores':{'method':'closed_set_logprob','prompt_set':self.prompt_set,'supply_probs':supply_probs,
-                           'hazard_prob':round(hazard['Yes'],4)}}
+                           'hazard_prob':round(hazard['Yes'],4),'hazard_threshold':self.hazard_threshold}}
 
 
 def make_handler(worker):
@@ -274,7 +276,8 @@ def make_handler(worker):
             if self.path!='/health':
                 self.send_error(404);return
             self.reply(200,{'status':'ready','model':worker.model_id,'backend':'local_transformers',
-                            'method':getattr(worker,'method','json'),'prompt_set':getattr(worker,'prompt_set',None)})
+                            'method':getattr(worker,'method','json'),'prompt_set':getattr(worker,'prompt_set',None),
+                            'hazard_threshold':getattr(worker,'hazard_threshold',0.5)})
         def do_POST(self):
             if self.path not in ('/v1/classify','/v1/describe','/v1/intent'):
                 self.send_error(404);return
@@ -334,11 +337,14 @@ def main():
     p.add_argument('--prompt-set',choices=sorted(PROMPT_SETS),default='v33')
     p.add_argument('--describe-prompt',choices=sorted(ModelWorker.DESCRIBE_PROMPTS),default='e0')
     p.add_argument('--intent-prompt',choices=sorted(ModelWorker.INTENT_PROMPTS),default='i34')
+    p.add_argument('--hazard-threshold',type=float,default=0.5,help='p(Yes) at or above which the scene is a hazard (I-10)')
     a=p.parse_args()
     if not 1024<=a.port<=65535: p.error('invalid port')
+    if not 0<a.hazard_threshold<=1: p.error('hazard threshold must be in (0, 1]')
     worker=ModelWorker(a.model,method=a.method,prompt_set=a.prompt_set,dtype=a.dtype)
     worker.describe_prompt=a.describe_prompt
     worker.intent_prompt=a.intent_prompt
+    worker.hazard_threshold=a.hazard_threshold
     ThreadingHTTPServer(('127.0.0.1',a.port),make_handler(worker)).serve_forever()
 
 if __name__=='__main__': main()
