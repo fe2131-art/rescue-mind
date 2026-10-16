@@ -84,19 +84,28 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 * Qwen3.5 は思考モードが既定 → `enable_thinking=False`（サーバで対応済み）。FP16 で非有限 logits なら判断拒否。
 * 動画は **3分以内**（現在 2:30）。倍速は区間ごとに画面表示（走行4倍、確認2倍、判断の瞬間は等速）。
 
-## 5. 進行中・未コミット
+## 5. 進行中（論文化フェーズ、2026-10-17〜）
 
-* なし（回帰確認 E2：最終コードで 6/6 期待どおり、コミット済み）。
-* 失敗した回帰確認 E（rosbag が LD_LIBRARY_PATH を失う、FINDINGS #14）も `regression_E_ledger.jsonl` として保存。
+| 作業 | 状態 | ファイル |
+|---|---|---|
+| 未使用テストセット T1（600枚、連続照明・物資移動・新規妨害物=青い箱/コーン） | 事前登録済み＋Amendment 1（配置バグ修正、採点前）。**レンダリング中** | `experiments/PREREGISTRATION_T1.md`, `scripts/build_testset_t1.py`, `experiments/vlm_testset_t1/` |
+| T1 の全モデル評価（4モデル＋自由JSON 2件） | 未実行。`scripts/t1_eval_all.sh` → `scripts/t1_analysis.py`（Wilson CI、McNemar、アブレーションA1–A4） | `experiments/results/devset_t1_*.json`, `t1_summary.json` |
+| 閉ループ評価E（60試行、試行ごとにランダム世界） | 予備走行（seed E-pilot、9試行）を T1 の後に自動実行。予備走行で問題が無ければ `python3 scripts/make_protocol_e.py` でプロトコル生成 → `PREREGISTRATION_E.md` とともにコミット → 実行 | `scripts/make_protocol_e.py`, `experiments/PREREGISTRATION_E.md`（未コミットの草稿） |
+| 論文（IEEE形式、英語） | 草稿あり。数値はすべて `scripts/paper_numbers.py` が結果ファイルから生成（未取得は赤字 TBD）。`bash scripts/build_paper.sh` でビルド | `docs/paper/main.tex`, `references.bib`（一次情報で確認した44件）, `related_work_notes.md` |
 
-## 6. 論文化に向けた次の作業（優先順）
+* 実行チェーン：`docker exec rm-next rescuemind-entrypoint bash scripts/paper_chain_1.sh`（T1描画 → E予備走行）。
+* 次の手順：(1) T1描画完了 → 画像を目視確認 → `scripts/t1_eval_all.sh`（GPUで約2時間）→ `t1_analysis.py`。
+  (2) E予備走行の台帳 `experiments/results/campaign_E_pilot_ledger.jsonl` を確認 → E登録 → 実行（約3時間）。
+  (3) `bash scripts/build_paper.sh` → 図・本文の推敲。
+* 論文のビルドは `rescuemind:latex` イメージ（`docker build -t rescuemind:latex docker/latex`、IEEEtran と poppler 入り）。
 
-1. **論文原稿**：`docs/paper/`（Markdown→PDF）。構成：Abstract / Introduction / Related Work / System / Methods（閉集合スコアリング、回復探索、真値監査、事前登録）/ Experimental Setup / Results / Ablations / Failure analysis（FINDINGS, I-09）/ Limitations / Reproducibility。日本語版と英語版を検討。
-2. **統計的な厳密さ**：比率に Wilson 95%信頼区間、試行数の拡大、**シーンを試行ごとにランダム化**（小道具位置・照明・視点・妨害物）して独立性を高めた評価E（事前登録）。
-3. **ベースラインとアブレーション**（同一プロトコル）：確認なし（盲目的配達）／回復なし／質問1つのみ／危険質問なし／自由生成JSON／Qwen2.5-VL-3B／TF-IDF 指示理解。誤配達率・配達成功率・所要時間で比較。
-4. **関連研究**（必ず一次情報で確認して引用）：ロボットの失敗検知・自己検証（例：REFLECT、AHA、Inner Monologue、SayCan、KnowNo の conformal prediction）、VLM による成功判定、Sim-to-Real。
-5. 遅延の内訳（画像取得・推論・説明）と VRAM・消費の表。
-6. 未解決：稀な 0.3 秒の送信停止の根本原因（I-09 で影響は除去済み）、小道具の写実性、実機（SO-101 等）での検証。
+## 6. 論文化で残っている作業
+
+1. T1・E の結果を反映し、Results と Abstract を確定する（TBD を消す）。
+2. 図：T1の例画像（`fig_t1_examples.pdf`）、リスク‐カバレッジ曲線、E の真値軌跡。
+3. 遅延の内訳と VRAM の表。モデル比較の開発データ表は付録に入れる。
+4. 推敲（主張と数値の整合、Limitations）。日本語版の要約を README に載せる。
+5. 未解決：稀に 0.3 秒間送信が止まる現象の根本原因（I-09 で影響は除去済み）、実機での検証。
 
 ## 7. 主要ファイルの地図
 
