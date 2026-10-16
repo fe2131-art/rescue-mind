@@ -9,7 +9,7 @@
 
 ![Gazebo上のRescueMind（俯瞰カメラ＋ロボット搭載カメラ、実レンダリング）](docs/figures/hero_gazebo.png)
 
-**提出物**：説明資料 [`docs/report/説明資料_PAI最終課題_tetsutetsu.pdf`](docs/report/説明資料_PAI最終課題_tetsutetsu.pdf) ／ デモ動画（YouTube、2分22秒、走行区間は2〜3倍速・AI判断は等速）／ 本リポジトリ
+**提出物**：説明資料 [`docs/report/説明資料_PAI最終課題_tetsutetsu.pdf`](docs/report/説明資料_PAI最終課題_tetsutetsu.pdf) ／ デモ動画（YouTube、2分30秒、日本語ナレーション付き。走行は4倍速・確認動作は2倍速・AI判断の瞬間は等速で、速度は画面に常時表示）／ 本リポジトリ
 
 ![architecture](docs/figures/architecture.png)
 
