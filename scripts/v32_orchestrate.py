@@ -124,13 +124,16 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
         # Demo footage only: Gazebo-rendered overview camera + robot camera frames.
         services.append(ManagedCommand('film_camera_bridge', ('bash', str(ROOT/'scripts/film_camera_bridge.sh'))))
         # Lower CPU priority than the guard/mission so demo footage never starves safety nodes.
-        services.append(ManagedCommand('film_recorder', shell_exec([
-            'nice', '-n', '15', 'python3', str(ROOT/'ros/film_recorder.py'), '--out', str(evidence_dir/'film')])))
+        services.append(ManagedCommand('film_recorder', prioritised(shell_exec([
+            'python3', str(ROOT/'ros/film_recorder.py'), '--out', str(evidence_dir/'film')]), 15)))
     if capture_rosbag and evidence_dir is not None:
-        services.append(ManagedCommand('rosbag_recorder', shell_exec([
-            'nice', '-n', '10', 'ros2', 'bag', 'record', '-o', str(evidence_dir/'rosbag2'), '--use-sim-time', '--topics',
+        # NOTE: `nice` carries a file capability (I-09); a capability exec runs in glibc secure
+        # mode and strips LD_LIBRARY_PATH, so it must wrap the shell that sources ROS, never
+        # sit between the sourced shell and a ROS binary.
+        services.append(ManagedCommand('rosbag_recorder', prioritised(shell_exec([
+            'ros2', 'bag', 'record', '-o', str(evidence_dir/'rosbag2'), '--use-sim-time', '--topics',
             '/clock', '/odom', '/cmd_vel', '/rescuemind/cmd_vel_request',
-            '/camera', '/scan', '/rescuemind/guard_ready', '/ground_truth/odom'])))
+            '/camera', '/scan', '/rescuemind/guard_ready', '/ground_truth/odom']), 10)))
     return {
         'scenario': scenario, 'scene': scene,
         'prerequisites': ['Ubuntu 24.04', 'ROS 2 Jazzy + ros_gz_bridge',

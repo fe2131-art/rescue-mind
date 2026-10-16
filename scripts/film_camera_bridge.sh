@@ -13,6 +13,7 @@ for attempt in $(seq 1 60); do
   fi
   sleep 1
 done
-exec nice -n 15 ros2 run ros_gz_bridge parameter_bridge \
+renice -n 15 -p $$ >/dev/null   # lower priority without exec'ing the capability-carrying nice
+exec ros2 run ros_gz_bridge parameter_bridge \
   '/film_camera_overview@sensor_msgs/msg/Image[gz.msgs.Image' \
   --ros-args -r __node:=rescuemind_film_bridge
