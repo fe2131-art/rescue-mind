@@ -114,9 +114,45 @@ def fig_t1_examples():
     plt.close(fig)
 
 
+def fig_e_trajectories():
+    from matplotlib.patches import Rectangle, Circle
+    f = RES / 'campaign_E_ledger.jsonl'
+    if not f.is_file():
+        return
+    rows = [r for r in (json.loads(x) for x in f.read_text().splitlines()) if r.get('final', True)]
+    fig, ax = plt.subplots(figsize=(3.45, 2.7))
+    for (x, y), name in (((1.55, 1.55), 'water station'), ((-2.45, 1.55), 'medicine station')):
+        ax.add_patch(Rectangle((x, y), .9, .9, fc='#e6e6e3', ec=GREY, lw=0.6))
+        ax.text(x + .45, y + 1.0, name, ha='center', fontsize=5.6, color=MUTED)
+    ax.add_patch(Rectangle((2.5, -2.4), 1, .8, fc='#dcefe2', ec=GREEN, lw=0.6))
+    ax.text(3, -2.62, 'shelter B', ha='center', fontsize=5.6, color=MUTED)
+    ax.add_patch(Circle((0, 0), .07, color=INK))
+    style = {'ALLOW': (BLUE, 'delivered'), 'ALLOW_AFTER_SEARCH': ('#5b8fd1', 'delivered after search'),
+             'DENY': (GREY, 'refused, stopped'), 'DENY_HAZARD': (RED, 'hazard, stopped'),
+             'DENY_HAZARD_AFTER_SEARCH': (ORANGE, 'hazard after search, stopped')}
+    seen = set()
+    for r in rows:
+        g = RES / 'evidence' / (r['run_id'] or 'none') / 'ground_truth_xy.json'
+        if not g.is_file():
+            continue
+        xy = json.loads(g.read_text())
+        col, lab = style.get(r['observed_action'], ('#000000', r['observed_action']))
+        ax.plot([q[0] for q in xy], [q[1] for q in xy], color=col, lw=0.8, alpha=0.7, label=None if lab in seen else lab)
+        seen.add(lab)
+        ax.plot(xy[-1][0], xy[-1][1], 'o', color=col, ms=2.2)
+    ax.set_aspect('equal'); ax.set_xlim(-2.8, 3.8); ax.set_ylim(-2.8, 2.8)
+    ax.set_xlabel('x [m] (Gazebo ground truth)'); ax.set_ylabel('y [m]')
+    for sp in ('top', 'right'):
+        ax.spines[sp].set_visible(False)
+    ax.legend(frameon=False, fontsize=5.2, loc='lower left')
+    fig.savefig(OUT / 'fig_e_trajectories.pdf', bbox_inches='tight', pad_inches=0.01)
+    plt.close(fig)
+
+
 if __name__ == '__main__':
     OUT.mkdir(parents=True, exist_ok=True)
     fig_system()
     fig_risk_coverage()
     fig_t1_examples()
+    fig_e_trajectories()
     print('figures written to', OUT)
