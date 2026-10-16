@@ -21,38 +21,43 @@ INK, MUTED = '#1f2933', '#616e7c'
 BLUE, ORANGE, GREEN, RED, GREY = '#2563a8', '#c4661f', '#2f7d4f', '#b3261e', '#9aa5b1'
 
 
-def box(ax, x, y, w, h, title, sub='', fc='#eef3f8', ec=BLUE):
-    ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle='round,pad=0.008,rounding_size=0.015', fc=fc, ec=ec, lw=0.8))
-    ax.text(x + w / 2, y + h * (0.64 if sub else 0.5), title, ha='center', va='center', fontsize=7, color=INK, weight='bold')
+def box(ax, x, y, w, h, title, sub='', fc='#eef3f8', ec=BLUE, fs=6.4, sfs=5.0):
+    ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle='round,pad=0.006,rounding_size=0.012', fc=fc, ec=ec, lw=0.8))
+    ax.text(x + w / 2, y + h - 0.075, title, ha='center', va='top', fontsize=fs, color=INK, weight='bold')
     if sub:
-        ax.text(x + w / 2, y + h * 0.3, sub, ha='center', va='center', fontsize=5.6, color=MUTED)
+        ax.text(x + w / 2, y + h - 0.20, sub, ha='center', va='top', fontsize=sfs, color=MUTED, linespacing=1.25)
 
 
-def arrow(ax, p, q, text='', color=INK, ls='-', off=(0, 0.018)):
+def arrow(ax, p, q, text='', color=INK, ls='-', off=(0, 0.018), fs=5.0):
     ax.annotate('', xy=q, xytext=p, arrowprops=dict(arrowstyle='-|>', lw=0.7, color=color, ls=ls, shrinkA=1, shrinkB=1))
     if text:
-        ax.text((p[0] + q[0]) / 2 + off[0], (p[1] + q[1]) / 2 + off[1], text, ha='center', va='bottom', fontsize=5.4, color=color)
+        ax.text((p[0] + q[0]) / 2 + off[0], (p[1] + q[1]) / 2 + off[1], text, ha='center', va='bottom', fontsize=fs, color=color)
 
 
 def fig_system():
-    fig, ax = plt.subplots(figsize=(3.45, 2.35))
-    ax.set_xlim(0, 1); ax.set_ylim(0, 1); ax.axis('off')
-    box(ax, 0.02, 0.70, 0.30, 0.22, 'Gazebo Harmonic', 'diff-drive, lidar, camera', fc='#f4f1ea', ec=GREY)
-    box(ax, 0.38, 0.70, 0.24, 0.22, 'ros_gz_bridge', '/odom /scan /camera', fc='#f4f1ea', ec=GREY)
-    box(ax, 0.68, 0.70, 0.30, 0.22, 'Local VLM server', 'Qwen3.5-9B, FP16, V100', fc='#fdf1e6', ec=ORANGE)
-    box(ax, 0.38, 0.38, 0.24, 0.20, 'Mission node', 'parse, navigate, check')
-    box(ax, 0.02, 0.38, 0.30, 0.20, 'Velocity guard', 'sole /cmd_vel publisher', fc='#eaf5ee', ec=GREEN)
-    box(ax, 0.68, 0.38, 0.30, 0.20, 'Graph watcher', 'e-stop on 2nd publisher', fc='#eaf5ee', ec=GREEN)
-    box(ax, 0.02, 0.05, 0.46, 0.20, 'Independent recorder + ROS bag', 'ground truth /ground_truth/odom', fc='#f2f2f2', ec=GREY)
-    box(ax, 0.54, 0.05, 0.44, 0.20, 'Post-run audit', 'decision recompute, GT arrival/stop', fc='#f2f2f2', ec=GREY)
-    arrow(ax, (0.32, 0.81), (0.38, 0.81))
-    arrow(ax, (0.50, 0.70), (0.50, 0.58), 'sensors', off=(0.055, -0.01))
-    arrow(ax, (0.62, 0.50), (0.68, 0.74), 'HTTP\nloopback', color=ORANGE, off=(-0.01, -0.03))
-    arrow(ax, (0.38, 0.47), (0.32, 0.47), 'request', off=(0.0, 0.012))
-    arrow(ax, (0.17, 0.58), (0.17, 0.70), '/cmd_vel', color=GREEN, off=(0.06, -0.01))
-    arrow(ax, (0.68, 0.45), (0.32, 0.43), '', color=RED, ls='--')
-    ax.text(0.50, 0.405, 'e-stop', color=RED, fontsize=5.4, ha='center')
-    arrow(ax, (0.48, 0.15), (0.54, 0.15))
+    fig, ax = plt.subplots(figsize=(7.0, 2.05))
+    ax.set_xlim(-0.012, 1.012); ax.set_ylim(0, 1.08); ax.axis("off")
+    sim, ai, safe, ev = ('#f4f1ea', GREY), ('#fdf1e6', ORANGE), ('#eaf5ee', GREEN), ('#f2f2f2', GREY)
+    box(ax, 0.0, 0.55, 0.14, 0.42, 'Gazebo Harmonic', 'differential-drive robot,\n2D lidar, mast camera', *sim, fs=5.8, sfs=4.7)
+    box(ax, 0.18, 0.55, 0.14, 0.42, 'ros_gz_bridge', '/odom /scan /camera\n/clock /ground_truth/odom', *sim, fs=5.8, sfs=4.7)
+    box(ax, 0.37, 0.55, 0.19, 0.42, 'Mission node', 'parse request, drive, stop,\ncheck, then deliver /\nsearch other station / stop', fs=5.8, sfs=4.7)
+    box(ax, 0.655, 0.55, 0.16, 0.42, 'Local VLM server', 'Qwen3.5-9B, FP16, V100\nloopback HTTP only\nanswer-letter scoring', *ai, fs=5.8, sfs=4.7)
+    box(ax, 0.37, 0.03, 0.19, 0.38, 'Velocity guard', 'sole /cmd_vel publisher; zero\non stale sensors, obstacle,\nstale request', *safe, fs=5.8, sfs=4.7)
+    box(ax, 0.18, 0.03, 0.14, 0.38, 'Graph watcher', 'e-stop if another\n/cmd_vel publisher\nappears', *safe, fs=5.8, sfs=4.7)
+    box(ax, 0.655, 0.03, 0.16, 0.38, 'Recorder, ROS bag', 'ground-truth odometry,\n/cmd_vel, sensors (MCAP)', *ev, fs=5.8, sfs=4.7)
+    box(ax, 0.855, 0.03, 0.145, 0.94, 'Post-run audit', 'decision recomputed from\nsaved outputs and image\nhash\n\nground-truth arrival or\nno motion after refusal\n\nodometry drift\nbag finalised', *ev, fs=5.8, sfs=4.7)
+    arrow(ax, (0.14, 0.76), (0.18, 0.76))
+    arrow(ax, (0.32, 0.76), (0.37, 0.76), 'sensors', off=(0, 0.012))
+    arrow(ax, (0.56, 0.84), (0.655, 0.84), 'image +\n3 questions', color=ORANGE, off=(0, 0.012))
+    arrow(ax, (0.655, 0.66), (0.56, 0.66), 'answer\nprobabilities', color=ORANGE, off=(0, 0.012))
+    arrow(ax, (0.465, 0.55), (0.465, 0.41), 'velocity request', off=(0.05, -0.02))
+    arrow(ax, (0.37, 0.30), (0.27, 0.55), '/cmd_vel', color=GREEN, off=(-0.035, 0.0))
+    arrow(ax, (0.32, 0.18), (0.37, 0.18), 'e-stop', color=RED, ls='--', off=(0, 0.012))
+    arrow(ax, (0.32, 0.60), (0.655, 0.30), '', color=GREY)
+    arrow(ax, (0.815, 0.22), (0.855, 0.22))
+    ax.plot([0.465, 0.465, 0.93], [0.97, 1.04, 1.04], lw=0.7, color=INK)
+    arrow(ax, (0.93, 1.04), (0.93, 0.97))
+    ax.text(0.69, 1.045, 'mission log (decisions, model outputs, frames)', fontsize=5.0, color=INK, ha='center', va='bottom')
     fig.savefig(OUT / 'fig_system.pdf', bbox_inches='tight', pad_inches=0.01)
     plt.close(fig)
 
