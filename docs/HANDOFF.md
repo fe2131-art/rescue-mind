@@ -23,7 +23,7 @@
 | 停止中の途絶（I-09） | 停止注入A/B：旧2/2失敗→新2/2完了 | `experiments/results/i09_*.jsonl` |
 | 動画 | 2:30、日本語ナレーション（VOICEVOX:四国めたん）、Git管理外 | `outputs/video/PAI最終課題_tetsutetsu.mp4`, `docs/video_plan.json`, `docs/video_chapters.json` |
 | レポートPDF | 6ページ | `docs/report/説明資料_PAI最終課題_tetsutetsu.pdf` |
-| ドキュメント | README, ARCHITECTURE, DESIGN_DECISIONS(D1–D8), FINDINGS(13件), IMPROVEMENT_LOG, REVIEW_AND_PLAN, SUBMISSION, YOUTUBE_DESCRIPTION | `docs/` |
+| ドキュメント | README, ARCHITECTURE, DESIGN_DECISIONS(D1–D8), FINDINGS(14件), IMPROVEMENT_LOG, REVIEW_AND_PLAN, SUBMISSION, YOUTUBE_DESCRIPTION | `docs/` |
 | テスト | 525件前後（`python3 -m unittest discover -s tests`）、GitHub Actions 緑 | `.github/workflows/test.yml` |
 
 **凍結構成（v3.4、評価Dと同じ）**：
@@ -84,12 +84,10 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 * Qwen3.5 は思考モードが既定 → `enable_thinking=False`（サーバで対応済み）。FP16 で非有限 logits なら判断拒否。
 * 動画は **3分以内**（現在 2:30）。倍速は区間ごとに画面表示（走行4倍、確認2倍、判断の瞬間は等速）。
 
-## 5. 進行中・未コミット（このファイル作成時点）
+## 5. 進行中・未コミット
 
-* 回帰確認 E2（最終コードで評価Dから6シナリオ）：`experiments/results/regression_E2_ledger.jsonl` に追記中。
-  最初の回帰確認 E は、I-09 の `nice` 変更で rosbag が LD_LIBRARY_PATH を失い全滅 → 修正済み（`regression_E_ledger.jsonl` は失敗記録として保存）。
-* 未コミット：`scripts/v32_orchestrate.py`（nice の配置修正）、`scripts/film_camera_bridge.sh`（renice）、`scripts/make_report.py`（I-09行）、`tests/test_v34_priority_wrapping.py`、`regression_E*`。
-  E2 の結果を確認後、IMPROVEMENT_LOG（I-09 追記）、FINDINGS(#14: setcap と LD_LIBRARY_PATH)、レポート再生成、コミット・push。
+* なし（回帰確認 E2：最終コードで 6/6 期待どおり、コミット済み）。
+* 失敗した回帰確認 E（rosbag が LD_LIBRARY_PATH を失う、FINDINGS #14）も `regression_E_ledger.jsonl` として保存。
 
 ## 6. 論文化に向けた次の作業（優先順）
 

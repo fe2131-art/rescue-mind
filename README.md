@@ -52,7 +52,7 @@ Qwen3.5-9B（ローカル・V100）、回復探索・状況報告・LLM指示理
 
 全体の処理フロー・プロセス構成・判定ロジックの図は [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)、
 v3.3 以降の改善の経緯（Before/After）は [`docs/IMPROVEMENT_LOG.md`](docs/IMPROVEMENT_LOG.md) にあります。
-実際に動かして初めて分かった13件の問題と対策は [`docs/FINDINGS.md`](docs/FINDINGS.md) にまとめています。
+実際に動かして初めて分かった14件の問題と対策は [`docs/FINDINGS.md`](docs/FINDINGS.md) にまとめています。
 
 ![devset](docs/figures/devset_ablation.png)
 
