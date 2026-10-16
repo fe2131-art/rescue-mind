@@ -1,0 +1,2019 @@
+{
+  "version": "3.2-local",
+  "run_id": "7a2849eaa5004dfb",
+  "camera_max_age_s": 3.0,
+  "lane": "Gazebo direct-drive through independent velocity relay, NOT Nav2",
+  "run_type": "local_vlm_live_mission",
+  "instruction": "Shelter B needs first aid supplies",
+  "intent": {
+    "item": "medicine",
+    "shelter": "B",
+    "confidence": 0.9867,
+    "classifier": "local_llm_closed_set"
+  },
+  "intent_gate": {
+    "allow": true,
+    "reason": "llm_intent_accepted",
+    "threshold": 0.6,
+    "backend": "llm",
+    "llm": {
+      "accept": true,
+      "item": "medicine",
+      "shelter": "B",
+      "reason": "llm_intent_accepted",
+      "probs": {
+        "item": {
+          "water": 0.0049,
+          "medicine": 0.9867,
+          "both": 0.0063,
+          "none": 0.002
+        },
+        "dest": {
+          "B": 0.8284,
+          "other": 0.127,
+          "unstated": 0.0446
+        }
+      }
+    }
+  },
+  "route": [
+    [
+      "supply_station",
+      "medicine",
+      [
+        -1.16,
+        1.1
+      ]
+    ],
+    [
+      "shelter_approach",
+      "B",
+      [
+        2.15,
+        -1.12
+      ]
+    ]
+  ],
+  "preflight": null,
+  "checkpoint": {
+    "checkpoint_type": "local_on_site_camera_supply_check",
+    "image_sha256": "b97b6ea959ed87acdc0637524d1a01217b1ed947a5112d1135a755afe8a252a7",
+    "backend": "LOCAL_ONLY_NO_CLOUD_API",
+    "mode": "single",
+    "model_calls": {
+      "first": {
+        "backend": "local_transformers",
+        "model": "Qwen/Qwen3.5-9B",
+        "real_inference": true,
+        "image_sha256": "b97b6ea959ed87acdc0637524d1a01217b1ed947a5112d1135a755afe8a252a7",
+        "pass_id": 1,
+        "result": {
+          "supply": "medicine",
+          "scene": "hazard"
+        },
+        "scores": {
+          "method": "closed_set_logprob",
+          "prompt_set": "v35",
+          "supply_probs": {
+            "water": 0.0014,
+            "medicine": 0.9923,
+            "other": 0.0063
+          },
+          "hazard_prob": 0.9744
+        }
+      },
+      "second": {
+        "backend": "local_transformers",
+        "model": "Qwen/Qwen3.5-9B",
+        "real_inference": true,
+        "image_sha256": "b97b6ea959ed87acdc0637524d1a01217b1ed947a5112d1135a755afe8a252a7",
+        "pass_id": 2,
+        "result": {
+          "supply": "medicine",
+          "scene": "hazard"
+        },
+        "scores": {
+          "method": "closed_set_logprob",
+          "prompt_set": "v35",
+          "supply_probs": {
+            "other": 0.053,
+            "medicine": 0.9398,
+            "water": 0.0072
+          },
+          "hazard_prob": 0.9744
+        }
+      }
+    },
+    "decision": {
+      "allow": false,
+      "reason": "visible_hazard_at_checkpoint",
+      "expected": "medicine",
+      "first_supply": "medicine",
+      "second_supply": "medicine",
+      "first_confidence": 0.9923,
+      "second_confidence": 0.9398,
+      "min_confidence": 0.5,
+      "model_diversity": false,
+      "limitations": "Supply identity only. Unknown corridor != corridor proven safe. No cargo pickup."
+    },
+    "limitations": "The two prompts in single mode use the SAME model. Model confidence and physical safety are not established.",
+    "explanation": {
+      "text_ja": "灰色の台の上に赤い十字の箱があり、その横で火と煙が上がっている。",
+      "image_sha256": "b97b6ea959ed87acdc0637524d1a01217b1ed947a5112d1135a755afe8a252a7",
+      "model": "Qwen/Qwen3.5-9B",
+      "purpose": "explanation_only_not_decision"
+    }
+  },
+  "success": false,
+  "events": [
+    {
+      "stage": "local_vision_selected",
+      "mode": "single",
+      "t_wall_s": 0.0,
+      "cloud_api_required": false
+    },
+    {
+      "stage": "intent_gate",
+      "allow": true,
+      "reason": "llm_intent_accepted",
+      "t_wall_s": 0.0
+    },
+    {
+      "stage": "supply_station",
+      "target": "medicine",
+      "arrived": true,
+      "duration_wall_s": 11.941,
+      "t_wall_s": 14.941,
+      "samples": 196,
+      "last_pose": [
+        -1.011511206732686,
+        0.9609332577777205,
+        2.388948790120377
+      ]
+    },
+    {
+      "stage": "camera_aim_aligned",
+      "target_station": "medicine",
+      "error_rad": -0.0588,
+      "duration_wall_s": 0.501,
+      "t_wall_s": 15.442
+    },
+    {
+      "stage": "checkpoint_stationary_verified",
+      "t_wall_s": 16.111,
+      "stable_elapsed_s": 0.6552,
+      "sample_count": 26,
+      "reset_count": 0,
+      "max_linear_mps": 0.025,
+      "max_angular_rps": 0.055,
+      "max_drift_m": 0.02,
+      "max_yaw_drift_rad": 0.04
+    },
+    {
+      "stage": "checkpoint_wait",
+      "t_wall_s": 16.111
+    },
+    {
+      "stage": "checkpoint_image_quality_verified",
+      "t_wall_s": 17.072,
+      "distinct_frames": 2,
+      "ros_stamps_ns": [
+        43400000000,
+        43600000000
+      ],
+      "capture_gap_wall_s": 0.2593,
+      "image_quality": {
+        "width": 640,
+        "height": 480,
+        "p01_luma": 63,
+        "p99_luma": 249,
+        "dark_fraction": 0.0,
+        "bright_fraction": 0.35167,
+        "quality_ok": true,
+        "reasons": [],
+        "scope": "gross_exposure_sanity_not_semantic_recognition_or_blur_calibration"
+      },
+      "selection": "second_consecutive_valid_post_stationarity_frame"
+    },
+    {
+      "stage": "checkpoint_camera_sim_clock_verified",
+      "t_wall_s": 17.072,
+      "basis": "Gazebo_clock_vs_camera_ROS_stamp",
+      "camera_lag_to_sim_clock_s": 0.1,
+      "sim_clock_ns": 43700000000,
+      "camera_ros_stamp_ns": 43600000000,
+      "clock_callback_idle_s": 0.0349,
+      "clock_progress_idle_s": 0.0349,
+      "clock_advances": 1743,
+      "limits_s": {
+        "max_lag": 1.2,
+        "max_lead": 0.25,
+        "max_clock_idle": 0.9
+      }
+    },
+    {
+      "stage": "checkpoint_frame",
+      "t_wall_s": 17.072,
+      "image_sha256": "b97b6ea959ed87acdc0637524d1a01217b1ed947a5112d1135a755afe8a252a7",
+      "captured_from_ros_topic": "/camera",
+      "ros_acquisition_stamp_ns": 43600000000
+    },
+    {
+      "stage": "checkpoint_decision",
+      "t_wall_s": 20.274,
+      "station": "medicine",
+      "expected": "medicine",
+      "allow": false,
+      "reason": "visible_hazard_at_checkpoint"
+    },
+    {
+      "stage": "checkpoint_explanation",
+      "t_wall_s": 24.447,
+      "latency_s": 4.172,
+      "text_ja": "灰色の台の上に赤い十字の箱があり、その横で火と煙が上がっている。"
+    },
+    {
+      "stage": "checkpoint_denial_dwell_finished",
+      "t_wall_s": 26.948,
+      "commanded_linear": 0.0,
+      "commanded_angular": 0.0
+    },
+    {
+      "stage": "error",
+      "type": "RuntimeError",
+      "message": "on-site checkpoint DENIED: visible_hazard_at_checkpoint"
+    }
+  ],
+  "trace": [
+    {
+      "t": 3.002,
+      "x": 0.0,
+      "y": -0.0,
+      "yaw": -0.0,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 3.063,
+      "x": 0.0,
+      "y": -0.0,
+      "yaw": -0.0,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 3.124,
+      "x": 0.0,
+      "y": -0.0,
+      "yaw": -0.0,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 3.187,
+      "x": 0.0,
+      "y": -0.0,
+      "yaw": -0.0,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 3.247,
+      "x": 0.0,
+      "y": -0.0,
+      "yaw": -0.0,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 3.308,
+      "x": 0.0,
+      "y": -0.0,
+      "yaw": -0.0,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 3.369,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 0.177,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 3.43,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 0.177,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 3.492,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 0.177,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 3.552,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 0.177,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 3.613,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 0.177,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 3.674,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 0.372,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 3.734,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 0.372,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 3.797,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 0.372,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 3.857,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 0.372,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 3.918,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 0.372,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 3.979,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 0.567,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 4.039,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 0.567,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 4.101,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 0.567,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 4.161,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 0.567,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 4.222,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 0.567,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 4.283,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 0.777,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 4.343,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 0.777,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 4.405,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 0.777,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 4.466,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 0.777,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 4.526,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 0.777,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 4.587,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 1.002,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 4.648,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 1.002,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 4.709,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 1.002,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 4.77,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 1.002,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 4.83,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 1.002,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 4.891,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 1.197,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 4.952,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 1.197,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 5.014,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 1.197,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 5.074,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 1.197,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 5.135,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 1.197,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 5.196,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 1.422,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 5.256,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 1.422,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 5.318,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 1.422,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 5.378,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 1.422,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 5.438,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 1.422,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 5.499,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 1.617,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 5.561,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 1.617,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 5.622,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 1.617,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 5.682,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 1.617,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 5.743,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 1.617,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 5.804,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 1.827,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 5.864,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 1.827,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 5.925,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 1.827,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 5.986,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 1.827,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 6.046,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 1.827,
+      "v": 0.0,
+      "w": 0.75,
+      "stage": "supply_station"
+    },
+    {
+      "t": 6.107,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 2.037,
+      "v": 0.179,
+      "w": 0.691,
+      "stage": "supply_station"
+    },
+    {
+      "t": 6.168,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 2.037,
+      "v": 0.179,
+      "w": 0.691,
+      "stage": "supply_station"
+    },
+    {
+      "t": 6.229,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 2.037,
+      "v": 0.179,
+      "w": 0.691,
+      "stage": "supply_station"
+    },
+    {
+      "t": 6.29,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 2.037,
+      "v": 0.179,
+      "w": 0.691,
+      "stage": "supply_station"
+    },
+    {
+      "t": 6.35,
+      "x": -0.0,
+      "y": -0.0,
+      "yaw": 2.037,
+      "v": 0.179,
+      "w": 0.691,
+      "stage": "supply_station"
+    },
+    {
+      "t": 6.411,
+      "x": -0.016,
+      "y": 0.023,
+      "yaw": 2.223,
+      "v": 0.187,
+      "w": 0.327,
+      "stage": "supply_station"
+    },
+    {
+      "t": 6.472,
+      "x": -0.016,
+      "y": 0.023,
+      "yaw": 2.223,
+      "v": 0.187,
+      "w": 0.327,
+      "stage": "supply_station"
+    },
+    {
+      "t": 6.533,
+      "x": -0.016,
+      "y": 0.023,
+      "yaw": 2.223,
+      "v": 0.187,
+      "w": 0.327,
+      "stage": "supply_station"
+    },
+    {
+      "t": 6.593,
+      "x": -0.016,
+      "y": 0.023,
+      "yaw": 2.223,
+      "v": 0.187,
+      "w": 0.327,
+      "stage": "supply_station"
+    },
+    {
+      "t": 6.654,
+      "x": -0.016,
+      "y": 0.023,
+      "yaw": 2.223,
+      "v": 0.187,
+      "w": 0.327,
+      "stage": "supply_station"
+    },
+    {
+      "t": 6.715,
+      "x": -0.047,
+      "y": 0.059,
+      "yaw": 2.344,
+      "v": 0.19,
+      "w": 0.09,
+      "stage": "supply_station"
+    },
+    {
+      "t": 6.776,
+      "x": -0.047,
+      "y": 0.059,
+      "yaw": 2.344,
+      "v": 0.19,
+      "w": 0.09,
+      "stage": "supply_station"
+    },
+    {
+      "t": 6.837,
+      "x": -0.047,
+      "y": 0.059,
+      "yaw": 2.344,
+      "v": 0.19,
+      "w": 0.09,
+      "stage": "supply_station"
+    },
+    {
+      "t": 6.898,
+      "x": -0.047,
+      "y": 0.059,
+      "yaw": 2.344,
+      "v": 0.19,
+      "w": 0.09,
+      "stage": "supply_station"
+    },
+    {
+      "t": 6.958,
+      "x": -0.047,
+      "y": 0.059,
+      "yaw": 2.344,
+      "v": 0.19,
+      "w": 0.09,
+      "stage": "supply_station"
+    },
+    {
+      "t": 7.019,
+      "x": -0.085,
+      "y": 0.095,
+      "yaw": 2.393,
+      "v": 0.19,
+      "w": -0.007,
+      "stage": "supply_station"
+    },
+    {
+      "t": 7.08,
+      "x": -0.085,
+      "y": 0.095,
+      "yaw": 2.393,
+      "v": 0.19,
+      "w": -0.007,
+      "stage": "supply_station"
+    },
+    {
+      "t": 7.141,
+      "x": -0.085,
+      "y": 0.095,
+      "yaw": 2.393,
+      "v": 0.19,
+      "w": -0.007,
+      "stage": "supply_station"
+    },
+    {
+      "t": 7.201,
+      "x": -0.085,
+      "y": 0.095,
+      "yaw": 2.393,
+      "v": 0.19,
+      "w": -0.007,
+      "stage": "supply_station"
+    },
+    {
+      "t": 7.262,
+      "x": -0.085,
+      "y": 0.095,
+      "yaw": 2.393,
+      "v": 0.19,
+      "w": -0.007,
+      "stage": "supply_station"
+    },
+    {
+      "t": 7.324,
+      "x": -0.119,
+      "y": 0.126,
+      "yaw": 2.4,
+      "v": 0.19,
+      "w": -0.021,
+      "stage": "supply_station"
+    },
+    {
+      "t": 7.384,
+      "x": -0.119,
+      "y": 0.126,
+      "yaw": 2.4,
+      "v": 0.19,
+      "w": -0.021,
+      "stage": "supply_station"
+    },
+    {
+      "t": 7.445,
+      "x": -0.119,
+      "y": 0.126,
+      "yaw": 2.4,
+      "v": 0.19,
+      "w": -0.021,
+      "stage": "supply_station"
+    },
+    {
+      "t": 7.506,
+      "x": -0.119,
+      "y": 0.126,
+      "yaw": 2.4,
+      "v": 0.19,
+      "w": -0.021,
+      "stage": "supply_station"
+    },
+    {
+      "t": 7.566,
+      "x": -0.119,
+      "y": 0.126,
+      "yaw": 2.4,
+      "v": 0.19,
+      "w": -0.021,
+      "stage": "supply_station"
+    },
+    {
+      "t": 7.627,
+      "x": -0.155,
+      "y": 0.159,
+      "yaw": 2.397,
+      "v": 0.19,
+      "w": -0.016,
+      "stage": "supply_station"
+    },
+    {
+      "t": 7.688,
+      "x": -0.155,
+      "y": 0.159,
+      "yaw": 2.397,
+      "v": 0.19,
+      "w": -0.016,
+      "stage": "supply_station"
+    },
+    {
+      "t": 7.749,
+      "x": -0.155,
+      "y": 0.159,
+      "yaw": 2.397,
+      "v": 0.19,
+      "w": -0.016,
+      "stage": "supply_station"
+    },
+    {
+      "t": 7.809,
+      "x": -0.155,
+      "y": 0.159,
+      "yaw": 2.397,
+      "v": 0.19,
+      "w": -0.016,
+      "stage": "supply_station"
+    },
+    {
+      "t": 7.87,
+      "x": -0.155,
+      "y": 0.159,
+      "yaw": 2.397,
+      "v": 0.19,
+      "w": -0.016,
+      "stage": "supply_station"
+    },
+    {
+      "t": 7.931,
+      "x": -0.192,
+      "y": 0.193,
+      "yaw": 2.392,
+      "v": 0.19,
+      "w": -0.006,
+      "stage": "supply_station"
+    },
+    {
+      "t": 7.991,
+      "x": -0.192,
+      "y": 0.193,
+      "yaw": 2.392,
+      "v": 0.19,
+      "w": -0.006,
+      "stage": "supply_station"
+    },
+    {
+      "t": 8.052,
+      "x": -0.192,
+      "y": 0.193,
+      "yaw": 2.392,
+      "v": 0.19,
+      "w": -0.006,
+      "stage": "supply_station"
+    },
+    {
+      "t": 8.114,
+      "x": -0.192,
+      "y": 0.193,
+      "yaw": 2.392,
+      "v": 0.19,
+      "w": -0.006,
+      "stage": "supply_station"
+    },
+    {
+      "t": 8.174,
+      "x": -0.192,
+      "y": 0.193,
+      "yaw": 2.392,
+      "v": 0.19,
+      "w": -0.006,
+      "stage": "supply_station"
+    },
+    {
+      "t": 8.235,
+      "x": -0.228,
+      "y": 0.227,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 8.296,
+      "x": -0.228,
+      "y": 0.227,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 8.357,
+      "x": -0.228,
+      "y": 0.227,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 8.418,
+      "x": -0.228,
+      "y": 0.227,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 8.479,
+      "x": -0.228,
+      "y": 0.227,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 8.541,
+      "x": -0.264,
+      "y": 0.261,
+      "yaw": 2.388,
+      "v": 0.19,
+      "w": 0.002,
+      "stage": "supply_station"
+    },
+    {
+      "t": 8.602,
+      "x": -0.264,
+      "y": 0.261,
+      "yaw": 2.388,
+      "v": 0.19,
+      "w": 0.002,
+      "stage": "supply_station"
+    },
+    {
+      "t": 8.665,
+      "x": -0.264,
+      "y": 0.261,
+      "yaw": 2.388,
+      "v": 0.19,
+      "w": 0.002,
+      "stage": "supply_station"
+    },
+    {
+      "t": 8.726,
+      "x": -0.264,
+      "y": 0.261,
+      "yaw": 2.388,
+      "v": 0.19,
+      "w": 0.002,
+      "stage": "supply_station"
+    },
+    {
+      "t": 8.786,
+      "x": -0.264,
+      "y": 0.261,
+      "yaw": 2.388,
+      "v": 0.19,
+      "w": 0.002,
+      "stage": "supply_station"
+    },
+    {
+      "t": 8.847,
+      "x": -0.3,
+      "y": 0.294,
+      "yaw": 2.388,
+      "v": 0.19,
+      "w": 0.002,
+      "stage": "supply_station"
+    },
+    {
+      "t": 8.909,
+      "x": -0.3,
+      "y": 0.294,
+      "yaw": 2.388,
+      "v": 0.19,
+      "w": 0.002,
+      "stage": "supply_station"
+    },
+    {
+      "t": 8.97,
+      "x": -0.3,
+      "y": 0.294,
+      "yaw": 2.388,
+      "v": 0.19,
+      "w": 0.002,
+      "stage": "supply_station"
+    },
+    {
+      "t": 9.03,
+      "x": -0.3,
+      "y": 0.294,
+      "yaw": 2.388,
+      "v": 0.19,
+      "w": 0.002,
+      "stage": "supply_station"
+    },
+    {
+      "t": 9.091,
+      "x": -0.3,
+      "y": 0.294,
+      "yaw": 2.388,
+      "v": 0.19,
+      "w": 0.002,
+      "stage": "supply_station"
+    },
+    {
+      "t": 9.152,
+      "x": -0.336,
+      "y": 0.328,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.001,
+      "stage": "supply_station"
+    },
+    {
+      "t": 9.212,
+      "x": -0.336,
+      "y": 0.328,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.001,
+      "stage": "supply_station"
+    },
+    {
+      "t": 9.273,
+      "x": -0.336,
+      "y": 0.328,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.001,
+      "stage": "supply_station"
+    },
+    {
+      "t": 9.335,
+      "x": -0.336,
+      "y": 0.328,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.001,
+      "stage": "supply_station"
+    },
+    {
+      "t": 9.395,
+      "x": -0.336,
+      "y": 0.328,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.001,
+      "stage": "supply_station"
+    },
+    {
+      "t": 9.457,
+      "x": -0.372,
+      "y": 0.362,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 9.517,
+      "x": -0.372,
+      "y": 0.362,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 9.578,
+      "x": -0.372,
+      "y": 0.362,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 9.639,
+      "x": -0.372,
+      "y": 0.362,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 9.699,
+      "x": -0.372,
+      "y": 0.362,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 9.76,
+      "x": -0.408,
+      "y": 0.396,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 9.821,
+      "x": -0.408,
+      "y": 0.396,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 9.882,
+      "x": -0.408,
+      "y": 0.396,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 9.943,
+      "x": -0.408,
+      "y": 0.396,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 10.003,
+      "x": -0.408,
+      "y": 0.396,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 10.064,
+      "x": -0.441,
+      "y": 0.427,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 10.125,
+      "x": -0.441,
+      "y": 0.427,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 10.186,
+      "x": -0.441,
+      "y": 0.427,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 10.247,
+      "x": -0.441,
+      "y": 0.427,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 10.308,
+      "x": -0.441,
+      "y": 0.427,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 10.368,
+      "x": -0.477,
+      "y": 0.461,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 10.429,
+      "x": -0.477,
+      "y": 0.461,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 10.49,
+      "x": -0.477,
+      "y": 0.461,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 10.551,
+      "x": -0.477,
+      "y": 0.461,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 10.611,
+      "x": -0.477,
+      "y": 0.461,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 10.672,
+      "x": -0.513,
+      "y": 0.494,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 10.733,
+      "x": -0.513,
+      "y": 0.494,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 10.794,
+      "x": -0.513,
+      "y": 0.494,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 10.854,
+      "x": -0.513,
+      "y": 0.494,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 10.915,
+      "x": -0.513,
+      "y": 0.494,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 10.976,
+      "x": -0.549,
+      "y": 0.528,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 11.037,
+      "x": -0.549,
+      "y": 0.528,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 11.098,
+      "x": -0.549,
+      "y": 0.528,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 11.158,
+      "x": -0.549,
+      "y": 0.528,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 11.219,
+      "x": -0.549,
+      "y": 0.528,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 11.28,
+      "x": -0.585,
+      "y": 0.562,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 11.34,
+      "x": -0.585,
+      "y": 0.562,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 11.401,
+      "x": -0.585,
+      "y": 0.562,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 11.462,
+      "x": -0.585,
+      "y": 0.562,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 11.525,
+      "x": -0.585,
+      "y": 0.562,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 11.586,
+      "x": -0.621,
+      "y": 0.596,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 11.646,
+      "x": -0.621,
+      "y": 0.596,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 11.707,
+      "x": -0.621,
+      "y": 0.596,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 11.768,
+      "x": -0.621,
+      "y": 0.596,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 11.829,
+      "x": -0.621,
+      "y": 0.596,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 11.89,
+      "x": -0.66,
+      "y": 0.632,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 11.95,
+      "x": -0.66,
+      "y": 0.632,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 12.012,
+      "x": -0.66,
+      "y": 0.632,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 12.072,
+      "x": -0.66,
+      "y": 0.632,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 12.133,
+      "x": -0.66,
+      "y": 0.632,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 12.194,
+      "x": -0.696,
+      "y": 0.666,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 12.254,
+      "x": -0.696,
+      "y": 0.666,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 12.315,
+      "x": -0.696,
+      "y": 0.666,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 12.376,
+      "x": -0.696,
+      "y": 0.666,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 12.436,
+      "x": -0.696,
+      "y": 0.666,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 12.498,
+      "x": -0.73,
+      "y": 0.697,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 12.558,
+      "x": -0.73,
+      "y": 0.697,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 12.619,
+      "x": -0.73,
+      "y": 0.697,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 12.68,
+      "x": -0.73,
+      "y": 0.697,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 12.74,
+      "x": -0.73,
+      "y": 0.697,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 12.801,
+      "x": -0.766,
+      "y": 0.731,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 12.862,
+      "x": -0.766,
+      "y": 0.731,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 12.923,
+      "x": -0.766,
+      "y": 0.731,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 12.983,
+      "x": -0.766,
+      "y": 0.731,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 13.044,
+      "x": -0.766,
+      "y": 0.731,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 13.105,
+      "x": -0.799,
+      "y": 0.762,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 13.17,
+      "x": -0.799,
+      "y": 0.762,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 13.231,
+      "x": -0.799,
+      "y": 0.762,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 13.292,
+      "x": -0.799,
+      "y": 0.762,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 13.352,
+      "x": -0.799,
+      "y": 0.762,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 13.413,
+      "x": -0.838,
+      "y": 0.798,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 13.474,
+      "x": -0.838,
+      "y": 0.798,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 13.535,
+      "x": -0.838,
+      "y": 0.798,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 13.595,
+      "x": -0.838,
+      "y": 0.798,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 13.665,
+      "x": -0.838,
+      "y": 0.798,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 13.726,
+      "x": -0.871,
+      "y": 0.829,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 13.786,
+      "x": -0.871,
+      "y": 0.829,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 13.847,
+      "x": -0.871,
+      "y": 0.829,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 13.908,
+      "x": -0.871,
+      "y": 0.829,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 13.968,
+      "x": -0.871,
+      "y": 0.829,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": -0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 14.029,
+      "x": -0.907,
+      "y": 0.863,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 14.09,
+      "x": -0.907,
+      "y": 0.863,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 14.151,
+      "x": -0.907,
+      "y": 0.863,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 14.211,
+      "x": -0.907,
+      "y": 0.863,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 14.272,
+      "x": -0.907,
+      "y": 0.863,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 14.333,
+      "x": -0.943,
+      "y": 0.897,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 14.393,
+      "x": -0.943,
+      "y": 0.897,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 14.455,
+      "x": -0.943,
+      "y": 0.897,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 14.515,
+      "x": -0.943,
+      "y": 0.897,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 14.576,
+      "x": -0.943,
+      "y": 0.897,
+      "yaw": 2.389,
+      "v": 0.19,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 14.638,
+      "x": -0.979,
+      "y": 0.931,
+      "yaw": 2.389,
+      "v": 0.173,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 14.698,
+      "x": -0.979,
+      "y": 0.931,
+      "yaw": 2.389,
+      "v": 0.173,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 14.759,
+      "x": -0.979,
+      "y": 0.931,
+      "yaw": 2.389,
+      "v": 0.173,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 14.82,
+      "x": -0.979,
+      "y": 0.931,
+      "yaw": 2.389,
+      "v": 0.173,
+      "w": 0.0,
+      "stage": "supply_station"
+    },
+    {
+      "t": 14.88,
+      "x": -0.979,
+      "y": 0.931,
+      "yaw": 2.389,
+      "v": 0.173,
+      "w": 0.0,
+      "stage": "supply_station"
+    }
+  ],
+  "physical_pickup": false,
+  "robot_runtime_verified_in_author_environment": false,
+  "mission_start_unix_ns": 1792138824804865834,
+  "wall_clock_time_basis": "host_unix_ns_plus_monotonic_event_offsets",
+  "checkpoint_image_path": "outputs/runs/7a2849eaa5004dfb/checkpoint.jpg",
+  "checkpoint_station": "medicine"
+}
