@@ -181,21 +181,19 @@
 
 ---
 
-## I-11 Detecting partly hidden fires (written before any I-11 result)
+## I-11 一部が隠れた火災の検知（結果が出る前に記述）
 
-* **Motivation (T1, held-out):** all 5 registered false approvals were images with the correct supply and a fire
-  mostly hidden behind it (only smoke or a flame edge in view). Seven visible fires had p(hazard) below 0.007.
-  T1 is NOT used to choose the fix.
-* **Hypotheses:**
-  * (a) The model attends to the supply. Asking explicitly about small, partly hidden or cut-off fire and smoke (`h36`) raises recall.
-  * (b) Small regions near the image edge get lost at 640 px. Asking the same question on three enlarged overlapping crops (`tiles`) and taking the max raises recall.
-* **Development data only:**
-  * a new hazard development set DH (seed `DH-2026`, 30 worlds, 300 images). It has many fires straight behind the supply, plus fire-free cones, crates and boxes. Labels come from magenta masks.
-  * the earlier dev v1/v2 (176 images), used to check for false alarms.
-* **Selection rule (fixed now, `scripts/i11_select.py`):**
-  1. zero hazard alarms on every fire-free development image;
-  2. then the highest recall on DH visible fires;
-  3. then fewer model calls, then the higher τ_h ∈ {0.05, 0.10, 0.20}.
-* **Confirmation:** the winner and v3.5 are compared on a NEW held-out set T2 (seed `T2-2026`, the same distribution as T1).
-  T2 is registered before it is rendered.
-* **Side change:** the hazard question does not depend on the pass, so each image now computes it once (cached per image hash). This saves one model call per check.
+* **動機（T1・未使用テスト）**：登録済みの誤許可5件はすべて、物資が正しく、その陰に火災がほぼ隠れた画像だった（煙か炎の端だけが見える）。
+  見えている火7枚で p(危険) が0.007未満。**修正の選定に T1 は使わない。**
+* **仮説**：
+  * (a) モデルは物資に注目している。「小さい・一部隠れた・画面の端で切れた火や煙」を明示して尋ねる（`h36`）と検出率が上がる。
+  * (b) 端の小さな領域が640 pxでは潰れる。重なりのある3つの拡大切り出し（左・右・上）でも同じ質問をして最大値を取る（`tiles`）と検出率が上がる。
+* **開発データのみ使う**：
+  * 新しい危険開発セット DH（seed `DH-2026`、30世界・300枚）。物資の真後ろの火を多く含み、火の無いコーン・木箱・段ボールも含む。ラベルはマゼンタのマスク画像から付ける。
+  * 誤警報の確認用に、既存の開発セット v1/v2（176枚）。
+* **選定規則**（いま固定、`scripts/i11_select.py`）：
+  1. 火の無い開発画像すべてで警報0件
+  2. その中で DH の見える火の検出率が最大
+  3. 同点ならモデル呼び出しが少ない方、さらに同点なら τ_h ∈ {0.05, 0.10, 0.20} の高い方
+* **確認**：選ばれた構成と v3.5 を、新しい未使用テストセット T2（seed `T2-2026`、T1 と同じ分布）で比較する。T2 は描画する前に事前登録する。
+* **付随変更**：危険の質問はパスに依存しないので、画像ごとに1回だけ計算する（画像ハッシュでキャッシュ）。1回の確認でモデル呼び出しが1回減る。
