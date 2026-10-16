@@ -89,6 +89,8 @@ def main():
     ap.add_argument('--protocol', required=True)
     ap.add_argument('--ledger')
     ap.add_argument('--design', action='store_true')
+    ap.add_argument('--design-sides', type=float, default=0.0,
+                    help='with --design: also render at the two side poses this far (m) left/right of the checkpoint')
     a = ap.parse_args()
     proto = json.loads(Path(a.protocol).read_text())
     jobs = []
@@ -100,6 +102,15 @@ def main():
                 seen.add(t['world'])
                 jobs.append({'key': t['world'], 'scene': t['scene'], 'world_spec': spec,
                              'pose': DESIGN_POSE[spec['hazard_at']]})
+                if a.design_sides:
+                    import math
+                    x, y, _ = DESIGN_POSE[spec['hazard_at']]
+                    sx, sy = (2.0, 2.0) if spec['hazard_at'] == 'water' else (-2.0, 2.0)
+                    n = math.hypot(sx - x, sy - y); vx, vy = -(sy - y) / n, (sx - x) / n
+                    for side, k in (('L', -1), ('R', 1)):
+                        px, py = x + k * a.design_sides * vx, y + k * a.design_sides * vy
+                        jobs.append({'key': t['world'] + side, 'scene': t['scene'], 'world_spec': spec,
+                                     'pose': (round(px, 3), round(py, 3), round(math.atan2(sy - py, sx - px), 3))})
         dest = Path(a.protocol).with_name(Path(a.protocol).stem + '_design_fire_masks.json')
     else:
         trials = {t['id']: t for t in proto['trials']}

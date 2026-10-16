@@ -31,7 +31,7 @@ COMMON = ['--model', 'Qwen/Qwen3.5-9B', '--prompt-set', 'v35', '--intent-backend
           '--recovery', '--explain', '--hazard-threshold', '0.05']
 
 
-def worlds(seed: str = SEED):
+def worlds(seed: str = SEED):  # also used by campaign G with its own seed
     rng = random.Random(seed)
     strata = [('nominal', 'fire_hidden')] * 12 + [('nominal', 'plain')] * 8 + [('swapped', 'fire_hidden_other')] * 4
     items = ['water', 'medicine'] * 12
