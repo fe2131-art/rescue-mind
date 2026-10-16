@@ -57,9 +57,27 @@ SUPPLY_QUESTIONS={
 HAZARD_QUESTION=('Is there any visible fire, smoke, flooding, or fallen debris in this image? '
                  'Answer Yes or No.')
 
+# v3.4 (I-05): chosen on the domain-randomised dev set v2.  Pass 2 offers an explicit
+# "neither" option instead of a hedge ("unclear"), which drew probability away from
+# correctly seen first-aid kits; the hazard question names flames/smoke and asks the
+# model to look behind objects (a fire behind the kit was missed by the v3.3 wording).
+PROMPT_SETS={
+ 'v33':{'supply':SUPPLY_QUESTIONS,'hazard':HAZARD_QUESTION},
+ 'v34':{'supply':{
+    1:SUPPLY_QUESTIONS[1],
+    2:('Which supply is placed on top of the grey platform in this robot camera image?\n'
+       'A. neither - the platform top is empty or holds a different object\n'
+       'B. a first-aid medical kit\n'
+       'C. bottles of drinking water\n'
+       'Answer with the letter only.',
+       {'A':'other','B':'medicine','C':'water'})},
+   'hazard':('Look at the whole image, including behind and around the objects. '
+             'Do you see any fire, flames, or smoke? Answer Yes or No.')},
+}
+
 
 class ModelWorker:
-    def __init__(self,model_id: str, max_pixels: int=321126, method: str='scored'):
+    def __init__(self,model_id: str, max_pixels: int=321126, method: str='scored', prompt_set: str='v33'):
         if model_id not in ALLOWED_MODELS:
             raise ValueError('model not on local allowlist')
         if method not in ('scored','json'):
@@ -73,6 +91,9 @@ class ModelWorker:
         self.device='cuda:0'
         self.model_id=model_id
         self.method=method
+        if prompt_set not in PROMPT_SETS:
+            raise ValueError('unknown prompt set')
+        self.prompt_set=prompt_set
         self.torch=torch
         kwargs={'local_files_only':True}
         if model_id.startswith('Qwen/'):
@@ -122,6 +143,31 @@ class ModelWorker:
             pic.thumbnail((640,640))
         return pic
 
+    DESCRIBE_PROMPTS={
+     'e0':('この画像は災害支援ロボットのカメラ画像です。灰色の台の上に何が置かれているか、'
+           'そして火や煙などの危険が見えるかを、日本語の1文（50文字以内）で事実だけ説明してください。'),
+     # I-03: anti-hallucination instruction for empty platforms
+     'e1':('この画像は災害支援ロボットのカメラ画像です。灰色の台の上に実際に見えている物だけを、日本語の1文（40文字以内）で答えてください。'
+           '台の上に何も無ければ「台の上には何もありません」と答えてください。見えない物を推測しないでください。'
+           '火や煙が見える場合は必ずそれも書いてください。'),
+     # I-03: vocabulary hint (names the kinds of objects that can appear)
+     'e2':('この画像は災害支援ロボットのカメラ画像です。灰色の台の上にある物を、日本語の1文（40文字以内）で答えてください。'
+           '例：ペットボトルの水、救急箱、段ボール箱、または何も無い。見えない物を推測しないでください。'
+           '火や煙が見える場合は必ずそれも書いてください。'),
+    }
+    describe_prompt='e0'
+
+    def describe(self,image_bytes):
+        """I-03: short Japanese situation report for people. NEVER used for the allow/deny decision."""
+        pic=self._picture(image_bytes)
+        inputs=self._inputs(pic,self.DESCRIBE_PROMPTS[self.describe_prompt])
+        with self.torch.inference_mode():
+            generation=self.model.generate(**inputs,max_new_tokens=56,do_sample=False,use_cache=True)
+        offset=inputs['input_ids'].shape[1]
+        text=self.processor.batch_decode(generation[:,offset:],skip_special_tokens=True,
+                                         clean_up_tokenization_spaces=False)[0]
+        return ' '.join(text.split())[:120]
+
     def classify(self,image_bytes,pass_id):
         pic=self._picture(image_bytes)
         if self.method=='json':
@@ -132,13 +178,14 @@ class ModelWorker:
             raw=self.processor.batch_decode(generation[:,offset:],skip_special_tokens=True,
                                             clean_up_tokenization_spaces=False)[0]
             return parse_model_json(raw)
-        question,mapping=SUPPLY_QUESTIONS[pass_id]
+        prompts=PROMPT_SETS[self.prompt_set]
+        question,mapping=prompts['supply'][pass_id]
         letter_probs=self._answer_probs(pic,question,('A','B','C'))
         supply_probs={mapping[k]:round(v,4) for k,v in letter_probs.items()}
-        hazard=self._answer_probs(pic,HAZARD_QUESTION,('Yes','No'))
+        hazard=self._answer_probs(pic,prompts['hazard'],('Yes','No'))
         supply=max(supply_probs,key=supply_probs.get)
         return {'supply':supply,'scene':'hazard' if hazard['Yes']>=0.5 else 'clear',
-                '_scores':{'method':'closed_set_logprob','supply_probs':supply_probs,
+                '_scores':{'method':'closed_set_logprob','prompt_set':self.prompt_set,'supply_probs':supply_probs,
                            'hazard_prob':round(hazard['Yes'],4)}}
 
 
@@ -148,9 +195,9 @@ def make_handler(worker):
             if self.path!='/health':
                 self.send_error(404);return
             self.reply(200,{'status':'ready','model':worker.model_id,'backend':'local_transformers',
-                            'method':getattr(worker,'method','json')})
+                            'method':getattr(worker,'method','json'),'prompt_set':getattr(worker,'prompt_set',None)})
         def do_POST(self):
-            if self.path!='/v1/classify':
+            if self.path not in ('/v1/classify','/v1/describe'):
                 self.send_error(404);return
             n=int(self.headers.get('Content-Length','0'))
             if n<100 or n>9_000_000:
@@ -159,15 +206,20 @@ def make_handler(worker):
                 request=json.loads(self.rfile.read(n))
                 if type(request) is not dict or request.get('model')!=worker.model_id:
                     raise ValueError('wrong model')
-                pass_id=request.get('pass_id')
-                if type(pass_id) is not int or pass_id not in (1,2):
-                    raise ValueError('unsupported pass')
                 blob=base64.b64decode(request['image_base64'],validate=True)
                 if not (300<=len(blob)<=5_000_000):
                     raise ValueError('image byte size invalid')
                 digest=hashlib.sha256(blob).hexdigest()
                 if request.get('image_sha256')!=digest:
                     raise ValueError('image hash mismatch')
+                if self.path=='/v1/describe':
+                    self.reply(200,{'backend':'local_transformers','model':worker.model_id,'real_inference':True,
+                                    'image_sha256':digest,'purpose':'explanation_only_not_decision',
+                                    'text_ja':worker.describe(blob)})
+                    return
+                pass_id=request.get('pass_id')
+                if type(pass_id) is not int or pass_id not in (1,2):
+                    raise ValueError('unsupported pass')
                 result=dict(worker.classify(blob,pass_id))
                 scores=result.pop('_scores',None)
                 body={'backend':'local_transformers','model':worker.model_id,
@@ -192,9 +244,12 @@ def main():
     p.add_argument('--model',choices=sorted(ALLOWED_MODELS),default='Qwen/Qwen2.5-VL-3B-Instruct')
     p.add_argument('--port',type=int,default=8765)
     p.add_argument('--method',choices=['scored','json'],default='scored')
+    p.add_argument('--prompt-set',choices=sorted(PROMPT_SETS),default='v33')
+    p.add_argument('--describe-prompt',choices=sorted(ModelWorker.DESCRIBE_PROMPTS),default='e0')
     a=p.parse_args()
     if not 1024<=a.port<=65535: p.error('invalid port')
-    worker=ModelWorker(a.model,method=a.method)
+    worker=ModelWorker(a.model,method=a.method,prompt_set=a.prompt_set)
+    worker.describe_prompt=a.describe_prompt
     ThreadingHTTPServer(('127.0.0.1',a.port),make_handler(worker)).serve_forever()
 
 if __name__=='__main__': main()
