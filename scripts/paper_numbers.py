@@ -255,6 +255,53 @@ def main():
     lines += [r'\bottomrule', r'\end{tabular}']
     tables['tab_timing.tex'] = '\n'.join(lines)
     m['TimingN'] = n_timing
+    # ---- I-13 development selection table
+    sf = RES / 'i13_selection.json'
+    if sf.is_file():
+        sel = json.loads(sf.read_text())
+        keep = ['Q9B[h35_full] tau_h=0.05', 'Q9B[h35_tiles] tau_h=0.05', 'Q9B[h36_full] tau_h=0.05', 'Q9B[h36_tiles] tau_h=0.05',
+                'Q4B tau_h=0.05', 'J(Clef) tau_h=0.35', 'J2(Clef-task) tau_h=0.05', 'J2(Clef-task,0.05)+Q9B[h36_tiles]']
+        label = {'Q9B[h35_full] tau_h=0.05': 'v3.5: Qwen3.5-9B', 'Q9B[h35_tiles] tau_h=0.05': '+ enlarged crops',
+                 'Q9B[h36_full] tau_h=0.05': '+ hidden-fire wording', 'Q9B[h36_tiles] tau_h=0.05': '+ wording + crops (B)',
+                 'Q4B tau_h=0.05': 'Qwen3.5-4B', 'J(Clef) tau_h=0.35': 'Clef-Flash, original Jev request',
+                 'J2(Clef-task) tau_h=0.05': 'Clef-Flash, task wording',
+                 'J2(Clef-task,0.05)+Q9B[h36_tiles]': 'Clef (task) + Qwen (B), both approve'}
+        rows = {t['config']: t for t in sel['table']}
+        lines = [r'\begin{tabular}{lrrrl}', r'\toprule', r'Configuration & False appr. & Correct appr. & Fires refused & One V100 \\', r'\midrule']
+        for k in keep:
+            t = rows.get(k)
+            if t:
+                lines.append(f"{label[k]} & {t['false_approvals']}/{t['n_deny']} & {t['correct_approvals']}/{t['n_allow']} & "
+                             f"{t['dh_fire_refused']}/{t['n_dh_fire']} & {'yes' if t['deployable_one_v100'] else 'no'} \\\\")
+        lines += [r'\bottomrule', r'\end{tabular}']
+        tables['tab_i13_dev.tex'] = '\n'.join(lines)
+        b = rows.get('Q9B[h36_tiles] tau_h=0.05'); a = rows.get('Q9B[h35_full] tau_h=0.05')
+        if a and b:
+            m['DevFAvThreeFive'] = a['false_approvals']; m['DevFAB'] = b['false_approvals']
+            m['DevFireN'] = a['n_dh_fire']
+    # ---- campaign F (paired closed-loop A/B)
+    ff = RES / 'f_summary.json'
+    if ff.is_file():
+        f = json.loads(ff.read_text())
+        pr = f['primary']
+        m['FPairs'] = pr['n_world_pairs_fire_visible_both']; m['FWrongA'] = pr['wrong_deliveries_A']
+        m['FWrongB'] = pr['wrong_deliveries_B']; m['FMcNemarP'] = f"{pr['mcnemar_p']:.3f}"
+        for cfg in ('A', 'B'):
+            c = f['per_config'][cfg]
+            m[f'FCorrect{cfg}'] = f"{c['correct']}/{c['n']}"; m[f'FFalseStop{cfg}'] = f"{c['false_hazard_stops']}/{c['fire_free_trials']}"
+            m[f'FLat{cfg}'] = f"{c['latency_median_s']:.1f}" if c['latency_median_s'] is not None else r'\TBD'
+    # ---- T2 (held-out confirmation)
+    tf = RES / 't2_summary.json'
+    if tf.is_file():
+        t2 = json.loads(tf.read_text())
+        ref, selc = t2['results'].get(t2['reference']), t2['results'].get(t2['selected'])
+        b = t2['results'].get('Q9B[h36_tiles] tau_h=0.05')
+        for key, r in (('Ref', ref), ('Sel', selc), ('B', b)):
+            if r:
+                m[f'TT{key}FA'] = f"{r['false_approvals']}/{r['n_deny']}"; m[f'TT{key}CA'] = f"{r['correct_approvals']}/{r['n_allow']}"
+                m[f'TT{key}Small'] = '/'.join(map(str, r['fire_small_refused']))
+                if 'vs_v35_false_approval_mcnemar' in r:
+                    m[f'TT{key}P'] = f"{r['vs_v35_false_approval_mcnemar'][2]:.3f}"
     # ---- development-data model selection (appendix table)
     sel = json.loads((RES / 'i08_model_selection.json').read_text())
     lines = [r'\begin{tabular}{llrrrr}', r'\toprule',
@@ -271,7 +318,10 @@ def main():
                'TJsonNineCA', 'TJsonThreeErr', 'TJsonThreeCA', 'THazMin', 'THazMax', 'TNfireVis', 'TLargeDet', 'TSmallDet', 'TFACluster', 'TvFACluster', 'TNworlds', 'EN', 'ECorrect', 'ECorrectCI', 'EWrong', 'EWrongCI', 'ELatMed',
                'ELatMax', 'ERetries', 'EWallMed', 'ESafeN', 'ETaskSuccess', 'ETaskSuccessCI', 'EBzeroWrong', 'EBzeroWrongCI',
                'EBzeroTask', 'EBoneWrong', 'EBoneTask'])
-    for name in ('tab_t1_models.tex', 'tab_t1_ablation.tex', 'tab_e_strata.tex'):
+    m.pending(['DevFAvThreeFive', 'DevFAB', 'DevFireN', 'FPairs', 'FWrongA', 'FWrongB', 'FMcNemarP', 'FCorrectA', 'FCorrectB',
+               'FFalseStopA', 'FFalseStopB', 'FLatA', 'FLatB', 'TTRefFA', 'TTRefCA', 'TTRefSmall', 'TTSelFA', 'TTSelCA',
+               'TTSelSmall', 'TTSelP', 'TTBFA', 'TTBCA', 'TTBSmall', 'TTBP'])
+    for name in ('tab_t1_models.tex', 'tab_t1_ablation.tex', 'tab_e_strata.tex', 'tab_i13_dev.tex'):
         tables.setdefault(name, r'\begin{tabular}{l}\TBD\end{tabular}')
     (OUT / 'numbers.tex').write_text(m.text())
     for name, body in tables.items():
