@@ -26,9 +26,10 @@ A wrong or missing item triggers a one-time search of the other station; a hazar
 Motion stays behind an independent velocity guard that the VLM cannot command.
 Every closed-loop trial is audited against simulator ground truth and a ROS bag, and all evaluations were
 pre-registered.
-On a held-out set of \TNimages{} rendered images with unseen lighting, object placement and distractors,
-the frozen system (Qwen3.5-9B) approved \TFA{} of \TNdeny{} images that should have been refused
-(95\% CI \TFACI) and \TCA{} of \TNallow{} that should have been approved (\TCARate).
+On a pre-registered held-out set of \TNimages{} rendered images with unseen lighting, object placement and distractors,
+the registered system (Qwen3.5-9B) approved \TFA{} of \TNdeny{} images that should have been refused (95\% CI \TFACI)
+and \TCA{} of \TNallow{} that should have been approved. The supply check alone made \TSupplyFA{} false approvals in
+\TSupplyN{} must-refuse images. Every false approval was a fire mostly hidden behind the supply.
 In \EN{} pre-registered closed-loop missions in freshly randomised Gazebo worlds, it behaved as expected in
 \ECorrect{}/\EN{} trials with \EWrong{} wrong deliveries. A blind-delivery baseline would have made \EBzeroWrong{}.
 We report the 14 failure causes we found only by running the full stack, and release everything needed to reproduce the results.
@@ -200,7 +201,13 @@ Its hazard question flagged \THazRecall{} images with a visible fire. It raised 
 and on \TNoFireAlarm{} images without fire.
 The pre-specified v3.5 rule ($\tauh=0.05$) gives \TvFA{} false approvals (\TvFACI) and \TvCA{} correct approvals
 (\TvCARate), with hazard recall \TvHazRecall{} and false alarms on \TvConeAlarm{} cone and \TvNoFireAlarm{} fire-free images.
-Table~\ref{tab:t1ablation} isolates the parts of the rule. Fig.~\ref{fig:riskcov} shows risk--coverage curves
+\emph{Where the errors are.} The supply check made \TSupplyFA{} false approvals on the \TSupplyN{} must-refuse images without
+fire (\TSupplyFACI), including swapped and empty stations and unseen crates. All registered false approvals came from the
+\TFireCorrectN{} images with the correct supply and a visible fire, \TFireCorrectFA{} of which were approved. In these
+images the fire was mostly hidden behind the supply, with only smoke or a flame edge in view.
+The registered claim of fewer than 2\% false approvals is therefore \emph{not} supported: the Wilson upper bound is above 2\%.
+Table~\ref{tab:t1ablation} isolates the parts of the rule. Removing the hazard question raises false approvals to \TAblNoHazFA{}.
+For the 9B model on these images, neither the permuted second question nor the confidence threshold changed the number of false approvals; their value shows up with weaker models (Table~\ref{tab:t1ablation}). Fig.~\ref{fig:riskcov} shows risk--coverage curves
 over $\taus$; these are descriptive only, since $\taus$ was not tuned on T1.
 \begin{figure}[t]\centering\fig{fig_risk_coverage.pdf}
 \caption{T1 risk--coverage: false-approval rate versus correct-approval rate as $\taus$ varies ($\tauh=0.5$).
