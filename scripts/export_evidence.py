@@ -33,8 +33,9 @@ def export(run_id: str) -> bool:
             # strip host paths (they contain the local user name) before publishing
             text = (src / name).read_text(encoding='utf8').replace(str(ROOT), '<repo>')
             (out / name).write_text(scrub(text), encoding='utf8')
-    if (src / 'checkpoint.jpg').is_file():
-        shutil.copy2(src / 'checkpoint.jpg', out / 'checkpoint.jpg')
+    for img in ('checkpoint.jpg', 'recovery_checkpoint.jpg'):
+        if (src / img).is_file():
+            shutil.copy2(src / img, out / img)
     meta = src / 'rosbag2' / 'metadata.yaml'
     if meta.is_file():
         (out / 'rosbag2_metadata.yaml').write_text(scrub(meta.read_text(encoding='utf8')), encoding='utf8')
@@ -51,10 +52,12 @@ def export(run_id: str) -> bool:
 
 
 def main(argv=None):
-    ids = (argv if argv is not None else sys.argv[1:])
+    args = list(argv if argv is not None else sys.argv[1:])
+    ledgers = [a for a in args if a.endswith('.jsonl')]
+    ids = [a for a in args if not a.endswith('.jsonl')]
     if not ids:
-        ledger = ROOT / 'experiments/results/campaign_ledger.jsonl'
-        ids = [json.loads(x)['run_id'] for x in ledger.read_text().splitlines() if json.loads(x).get('run_id')]
+        for ledger in ledgers or [ROOT / 'experiments/results/campaign_ledger.jsonl']:
+            ids += [json.loads(x)['run_id'] for x in Path(ledger).read_text().splitlines() if json.loads(x).get('run_id')]
     n = sum(export(i) for i in ids)
     print(f'exported {n} runs to {DEST}')
 

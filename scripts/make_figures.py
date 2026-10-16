@@ -56,17 +56,17 @@ def architecture():
         if label:
             ax.text((x1 + x2) / 2, (y1 + y2) / 2 + 0.14, label, fontsize=8.5, color=color, ha='center')
 
-    ax.text(0.1, 6.15, 'RescueMind v3.3 — 実行時アーキテクチャ（全てローカル、クラウドAPI不使用）',
+    ax.text(0.1, 6.15, 'RescueMind v3.4 — 実行時アーキテクチャ（全てローカル、クラウドAPI不使用）',
             fontsize=13, weight='bold', color=INK)
     X = (0.1, 3.25, 6.4, 9.55)   # column x; width 2.45 leaves 0.7 gaps for arrows
     Wb = 2.45
-    box(X[0], 3.9, Wb, 1.7, '① 自然言語指示', ['「避難所Bに飲料水を届けて」', 'TF-IDF+ロジスティック回帰', '曖昧/複数物資/未対応→拒否'], BLUE)
+    box(X[0], 3.9, Wb, 1.7, '① 自然言語指示', ['例「喉が渇いた人が多い」', 'ローカルLLM（選択式2問）', '＋避難所名の規則ガード'], BLUE)
     box(X[1], 3.9, Wb, 1.7, '② ミッション制御ノード', ['ウェイポイント追従', 'カメラ照準→静止確認', '新規2フレーム品質/時刻検査'], BLUE)
-    box(X[2], 3.9, Wb, 1.7, '③ ローカルVLMチェック', ['Qwen2.5-VL-3B FP16/V100', '閉集合 対数確率×2問', '選択肢順を入替・閾値0.50'], ORANGE)
-    box(X[3], 3.9, Wb, 1.7, '④ 判定', ['許可 → 避難所Bへ', '拒否 → その場で停止', '（危険検知も拒否）'], ORANGE)
-    box(X[0], 1.55, Wb, 1.75, '実行環境', ['Docker: ROS 2 Jazzy', 'Ubuntu 22.04ホスト', 'sudo不要（dockerのみ）'], GRAY)
+    box(X[2], 3.9, Wb, 1.7, '③ ローカルVLMチェック', ['Qwen3.5-9B FP16 / V100', '選択式2問＋火災Yes/No', '日本語の状況報告（判断外）'], ORANGE)
+    box(X[3], 3.9, Wb, 1.7, '④ 判定', ['許可 → 避難所Bへ', '物資違い → 別拠点を探索', '危険・2回目 → 停止'], ORANGE)
+    box(X[0], 1.55, Wb, 1.75, '実行環境', ['Docker: ROS 2 Jazzy', 'torch 2.8 / transformers 5', 'sudo不要（dockerのみ）'], GRAY)
     box(X[1], 1.55, Wb, 1.75, '独立速度ガード', ['唯一の /cmd_vel 発行者', 'センサー鮮度/前方障害物', '異常はラッチして停止'], AQUA)
-    box(X[2], 1.55, Wb, 1.75, 'Gazebo Harmonic', ['差動二輪＋LiDAR＋カメラ', '3シーン(正常/取違え/欠品)', 'EGLヘッドレス描画'], AQUA)
+    box(X[2], 1.55, Wb, 1.75, 'Gazebo Harmonic', ['差動二輪＋LiDAR＋カメラ', '取違え/欠品/火災/照明', 'EGLヘッドレス描画'], AQUA)
     box(X[3], 1.55, Wb, 1.75, '独立監査', ['Gazebo真値姿勢', 'ROS bag(MCAP)', 'Publisher監視'], AQUA)
     for k, lab in ((0, '物資・行先'), (1, '静止画'), (2, '確率')):
         arrow(X[k] + Wb, 4.75, X[k + 1], 4.75)
@@ -81,7 +81,7 @@ def architecture():
     ax.text(X[2] + 0.1, 3.6, '/camera', fontsize=8.5, color=MUTED)
     ax.annotate('', xy=(X[1] + 1.6, 5.62), xytext=(X[3] + 1.2, 5.62),
                 arrowprops=dict(arrowstyle='-|>', color=ORANGE, lw=1.6, connectionstyle='arc3,rad=0.18'))
-    ax.text((X[1] + X[3]) / 2 + 1.4, 5.66, '許可時のみ 第2区間（避難所Bへ）を再開', fontsize=8.5, color=ORANGE, ha='center')
+    ax.text((X[1] + X[3]) / 2 + 1.4, 5.66, '許可：避難所Bへ ／ 物資違い：別拠点で再確認', fontsize=8.5, color=ORANGE, ha='center')
     arrow(X[2] + Wb, 2.4, X[3], 2.4)
     ax.text(X[2] + Wb + 0.35, 2.55, '真値', fontsize=8, color=MUTED, ha='center')
     ax.text(0.1, 0.9, '凡例：', fontsize=9, color=MUTED, weight='bold')
@@ -290,6 +290,85 @@ def i08_models():
     save(fig, 'i08_models.png')
 
 
+GROUP_JA = {'nominal': '正常配置\n（期待：配達）', 'swapped': '取り違え\n（期待：探索→配達）',
+            'empty': '欠品\n（期待：両拠点で停止）', 'fire': '火災\n（期待：即停止）',
+            'dim': '夕方の照明\n（期待：配達）', 'box': '空の台＋段ボール\n（期待：停止）'}
+OBS_JA = [('ALLOW', '配達（1拠点目で確認）', BLUE), ('ALLOW_AFTER_SEARCH', '配達（別拠点を探索）', AQUA),
+          ('DENY', '停止（物資なし）', '#6250d6'), ('DENY_HAZARD', '停止（危険を検知）', '#e87ba4'),
+          ('DENY_UNVERIFIED', '停止（証拠不足）', GRAY), ('FAILED', '失敗', BAD)]
+
+
+def campaign_d_rows():
+    led = RES / 'campaign_D_ledger.jsonl'
+    if not led.is_file():
+        return []
+    proto = {t['id']: t for t in json.loads((ROOT / 'experiments/v34_protocol.json').read_text())['trials']}
+    rows = [json.loads(x) for x in led.read_text().splitlines()]
+    out = []
+    for r in rows:
+        if not r.get('final', True):
+            continue
+        t = proto[r['trial_id']]
+        r['group'] = ('fire' if t.get('hazard_at') else 'dim' if t.get('lighting') == 'dim_evening'
+                      else 'box' if t.get('distractor_at') else t['scene'])
+        out.append(r)
+    return out
+
+
+def campaign_d():
+    rows = campaign_d_rows()
+    if not rows:
+        return
+    groups = [g for g in ('nominal', 'swapped', 'empty', 'fire', 'dim', 'box') if any(r['group'] == g for r in rows)]
+    fig, ax = plt.subplots(figsize=(12.5, 4.6))
+    bottom = [0] * len(groups)
+    for key, lab, col in OBS_JA:
+        vals = [sum(1 for r in rows if r['group'] == g and r['observed_action'] == key) for g in groups]
+        if not sum(vals):
+            continue
+        ax.bar(range(len(groups)), vals, bottom=bottom, color=col, width=0.6, label=lab, edgecolor='#fcfcfb', linewidth=2)
+        for i, v in enumerate(vals):
+            if v:
+                ax.text(i, bottom[i] + v / 2, str(v), ha='center', va='center', color='white', weight='bold')
+        bottom = [b + v for b, v in zip(bottom, vals)]
+    ax.set_xticks(range(len(groups))); ax.set_xticklabels([GROUP_JA[g] for g in groups], fontsize=9.5)
+    ax.set_ylabel('試行数')
+    ok = sum(r['correct'] for r in rows)
+    ax.set_title(f'評価D（v3.4、事前登録{len(rows)}試行）：期待どおりの行動 {ok}/{len(rows)}', fontsize=12.5)
+    ax.legend(frameon=False, fontsize=9, ncol=3, loc='upper center', bbox_to_anchor=(0.5, -0.2))
+    save(fig, 'campaign_d_results.png')
+
+
+def trajectories_d():
+    rows = campaign_d_rows()
+    if not rows:
+        return
+    fig, ax = plt.subplots(figsize=(8.2, 6.4))
+    ax.add_patch(Rectangle((1.55, 1.55), .9, .9, fc='#e6e6e3', ec=MUTED)); ax.text(2, 2.62, '物資拠点 W', ha='center')
+    ax.add_patch(Rectangle((-2.45, 1.55), .9, .9, fc='#e6e6e3', ec=MUTED)); ax.text(-2, 2.62, '物資拠点 M', ha='center')
+    ax.add_patch(Rectangle((2.5, -2.4), 1, .8, fc='#cfe9d6', ec=GOOD)); ax.text(3, -2.68, '避難所 B', ha='center')
+    ax.add_patch(Circle((0, 0), .08, color=INK)); ax.text(0.1, -0.25, 'スタート')
+    seen = set()
+    colors = {k: c for k, _, c in OBS_JA}
+    labels = {k: l for k, l, _ in OBS_JA}
+    for r in rows:
+        f = RES / 'evidence' / (r['run_id'] or 'none') / 'ground_truth_xy.json'
+        if not f.is_file():
+            continue
+        xy = json.loads(f.read_text())
+        k = r['observed_action']
+        ax.plot([p[0] for p in xy], [p[1] for p in xy], color=colors.get(k, BAD), lw=1.3, alpha=.7,
+                label=None if k in seen else labels.get(k, k))
+        seen.add(k)
+        ax.plot(xy[-1][0], xy[-1][1], 'o', color=colors.get(k, BAD), ms=5, mec='#fcfcfb')
+    ax.set_aspect('equal'); ax.set_xlim(-3, 4); ax.set_ylim(-3, 3)
+    ax.set_xlabel('x [m]（Gazebo真値）'); ax.set_ylabel('y [m]')
+    ax.set_title('評価D 全試行の Gazebo 真値軌跡')
+    ax.legend(frameon=False, loc='lower left', fontsize=8.5)
+    ax.grid(color='#e9e8e4', lw=.6)
+    save(fig, 'trajectories_d.png')
+
+
 if __name__ == '__main__':
     which = sys.argv[1:] or ['architecture', 'devset', 'campaign', 'trajectories', 'wheel']
     out = {}
@@ -300,5 +379,7 @@ if __name__ == '__main__':
     if 'wheel' in which: wheel_bug()
     if 'i01' in which or not sys.argv[1:]: i01_drift()
     if 'i08' in which or not sys.argv[1:]: i08_models()
+    if 'campaign_d' in which or not sys.argv[1:]:
+        campaign_d(); trajectories_d()
     if out:
         (RES / 'figure_stats.json').write_text(json.dumps(out, indent=1) + '\n')
