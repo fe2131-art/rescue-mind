@@ -9,6 +9,8 @@ only the omnicampus account name is allowed by the assignment rules).
 from __future__ import annotations
 import argparse
 import json
+import sys
+from collections import Counter
 from pathlib import Path
 
 from reportlab.lib import colors
@@ -24,6 +26,9 @@ from reportlab.platypus import (BaseDocTemplate, Frame, Image, KeepTogether, Pag
 ROOT = Path(__file__).resolve().parents[1]
 RES = ROOT / 'experiments/results'
 FIG = ROOT / 'docs/figures'
+sys.path.insert(0, str(ROOT / 'scripts'))
+from t1_analysis import wilson  # noqa: E402  (Wilson 95% CI, shared with the T1 analysis)
+
 pdfmetrics.registerFont(TTFont('IPAexG', '/usr/share/fonts/opentype/ipaexfont-gothic/ipaexg.ttf'))
 pdfmetrics.registerFont(TTFont('IPAexM', '/usr/share/fonts/opentype/ipaexfont-mincho/ipaexm.ttf'))
 
@@ -37,8 +42,8 @@ S = {
     'title': ParagraphStyle('t', wordWrap='CJK', fontName='IPAexG', fontSize=21, leading=29, textColor=INK, spaceAfter=4),
     'sub': ParagraphStyle('s', wordWrap='CJK', fontName='IPAexG', fontSize=11.5, leading=17, textColor=ACC, spaceAfter=10),
     'h1': ParagraphStyle('h1', fontName='IPAexG', fontSize=14.5, leading=20, textColor=INK, spaceBefore=10,
-                         spaceAfter=6, borderPadding=(0, 0, 3, 0)),
-    'h2': ParagraphStyle('h2', fontName='IPAexG', fontSize=11.5, leading=16, textColor=ACC, spaceBefore=6, spaceAfter=3),
+                         spaceAfter=6, borderPadding=(0, 0, 3, 0), keepWithNext=1),
+    'h2': ParagraphStyle('h2', fontName='IPAexG', fontSize=11.5, leading=16, textColor=ACC, spaceBefore=6, spaceAfter=3, keepWithNext=1),
     'body': ParagraphStyle('b', wordWrap='CJK', fontName='IPAexM', fontSize=9.6, leading=15.2, textColor=INK, alignment=TA_LEFT),
     'bullet': ParagraphStyle('bl', wordWrap='CJK', fontName='IPAexM', fontSize=9.6, leading=14.6, textColor=INK, leftIndent=12,
                              bulletIndent=2),
@@ -98,7 +103,7 @@ def on_page(canvas, doc):
     canvas.setStrokeColor(ACC); canvas.setLineWidth(2)
     canvas.line(18 * mm, 287 * mm, 192 * mm, 287 * mm)
     canvas.setFont('IPAexG', 7.5); canvas.setFillColor(MUT)
-    canvas.drawString(18 * mm, 10 * mm, 'Physical AI 応用1講座 最終課題 ｜ RescueMind v3.4')
+    canvas.drawString(18 * mm, 10 * mm, 'Physical AI 応用1講座 最終課題 ｜ RescueMind v3.5')
     canvas.drawRightString(192 * mm, 10 * mm, f'{doc.page}')
     canvas.restoreState()
 
@@ -130,8 +135,115 @@ def campaign_d():
             'by': {g: [r for r in rows if r['group'] == g] for g in GROUP}}
 
 
+EXP_E = {'ALLOW': '配達', 'DELIVER_AFTER_SEARCH': '探索して配達', 'DENY': '停止（物資なし）', 'DENY_HAZARD': '停止（危険）',
+         'DENY_HAZARD_AFTER_SEARCH': '探索後に危険で停止'}
+COND_E = {'plain': '通常', 'crate': '木箱の妨害物', 'box': '段ボール箱', 'cone': 'コーン', 'fire': '拠点で火災',
+          'fire_other': '別拠点で火災'}
+
+
+def pct_ci(k, n):
+    lo, hi = wilson(k, n)
+    return f'{lo * 100:.0f}–{hi * 100:.0f} %'
+
+
+def campaign_e():
+    """Campaign E (v3.5, pre-registered): final rows only, stratified by expected action x protocol condition."""
+    f, pf = RES / 'campaign_E_ledger.jsonl', ROOT / 'experiments/campaign_e_protocol.json'
+    if not (f.is_file() and pf.is_file()):
+        return None
+    allr = ledger('campaign_E_ledger.jsonl')
+    rows = [r for r in allr if r.get('final') is not False]
+    if not rows:
+        return None
+    cond = {t['id']: t.get('condition', '-') for t in json.loads(pf.read_text())['trials']}
+    for r in rows:
+        r['cond'] = cond.get(r['trial_id'], '-')
+    n = len(rows)
+    ok = sum(bool(r['correct']) for r in rows)
+    fa = sum(1 for r in rows if r['observed_action'] in ('ALLOW', 'ALLOW_AFTER_SEARCH')
+             and r['expected_action'] not in ('ALLOW', 'DELIVER_AFTER_SEARCH'))
+    allow = sum(r['expected_action'] == 'ALLOW' for r in rows)
+    lat = sorted(r['vlm_latency_s'] for r in rows if r.get('vlm_latency_s') is not None)
+    order = list(EXP_E)
+    strata = Counter((r['expected_action'], r['cond']) for r in rows)
+    strata_ok = Counter((r['expected_action'], r['cond']) for r in rows if r['correct'])
+    keys = sorted(strata, key=lambda k: (order.index(k[0]) if k[0] in order else 99,
+                                              list(COND_E).index(k[1]) if k[1] in COND_E else 99))
+    return {'n': n, 'ok': ok, 'fa': fa, 'allow': allow, 'retries': len(allr) - n, 'keys': keys, 'strata': strata,
+            'strata_ok': strata_ok, 'lat_med': lat[len(lat) // 2] if lat else None,
+            'tau_h': next((r['stack_args'][r['stack_args'].index('--hazard-threshold') + 1] for r in rows
+                           if '--hazard-threshold' in (r.get('stack_args') or [])), None)}
+
+
+def t1_info():
+    t1 = jload('t1_summary.json')
+    if not t1 or 'Qwen3.5-9B' not in t1.get('models', {}):
+        return None
+    m = t1['models']['Qwen3.5-9B']
+    # must-refuse images that contain no fire: deny strata other than the fire_* strata
+    neg = [(k, v) for k, v in m['strata_full'].items() if v['expected'] == 'deny' and not k.startswith('fire')]
+    n_neg = sum(v['n'] for _, v in neg)
+    fa_neg = sum(v['allowed'] for _, v in neg)
+    info = {'t1': t1, 'n_neg': n_neg, 'fa_neg': fa_neg, 'small': None}
+    dev = jload('devset_t1_qwen35_9b.json')
+    if dev:
+        vis = [x for x in dev['records'] if x.get('hazard_visibility') == 'visible']
+        pmax = lambda x: max(p['scores']['hazard_prob'] for p in x['passes'].values())
+        det = lambda g: sum(1 for x in g if pmax(x) >= 0.05)
+        small = [x for x in vis if x['fire_pixels'] < 10000]
+        large = [x for x in vis if x['fire_pixels'] >= 10000]
+        fas = {e[0] for e in m.get('errors_full', []) if e[2] == 'FALSE_APPROVAL'}
+        fa_rec = [x for x in dev['records'] if x['image'] in fas]
+        info['small'] = {'ns': len(small), 'ds': det(small), 'nl': len(large), 'dl': det(large),
+                         'fa_px': [x['fire_pixels'] for x in fa_rec], 'fa_small': sum(x['fire_pixels'] < 10000 for x in fa_rec)}
+    return info
+
+
+def improvements_late(D, E):
+    """I-09..I-13 rows; every number comes from a committed result file."""
+    rows = []
+    ab = {r['mode']: r for r in ledger('i09_stall_ab.jsonl')}
+    if ab:
+        n = lambda m: sum(1 for r in ledger('i09_stall_ab.jsonl') if r['mode'] == m)
+        c = lambda m: sum(1 for r in ledger('i09_stall_ab.jsonl') if r['mode'] == m and r['state'] == 'COMPLETED')
+        rows.append(['I-09', f"停止中の一瞬の途絶で中止（評価Dの再試行{D['retries'] if D else '-'}件）",
+                     '計測で原因を切り分け、停止中の途絶は0を保持（動作中は従来どおり即停止）',
+                     f"停止注入の再現：旧 {c('legacy')}/{n('legacy')} 完了 → 新 {c('new')}/{n('new')} 完了"])
+    p1 = [r for r in ledger('campaign_E_pilot_ledger.jsonl') if r.get('final', True)]
+    p2 = [r for r in ledger('campaign_E_pilot2_ledger.jsonl') if r.get('final', True)]
+    t1 = jload('t1_summary.json')
+    if p1 and p2:
+        th = '-'
+        for r in p2:
+            a = r.get('stack_args') or []
+            if '--hazard-threshold' in a:
+                th = a[a.index('--hazard-threshold') + 1]
+        t1txt = ''
+        if t1:
+            ru = t1['models']['Qwen3.5-9B']['rules']
+            t1txt = f"。T1の誤許可 {ru['full']['false_approvals']} → {ru['v35_tau_h_0.05']['false_approvals']}"
+        rows.append(['I-10', '探索先の火災を見逃して配達（予備走行、火が物資の陰に隠れる）',
+                     f"危険の閾値を非対称に（見逃しは致命的、誤警報は停止で済む）：τ_h {t1['tau_h'] if t1 else '-'} → {th}",
+                     f"予備走行 {sum(r['correct'] for r in p1)}/{len(p1)} → {sum(r['correct'] for r in p2)}/{len(p2)}{t1txt}"])
+    pr = ledger('i12_dds_probe.jsonl')
+    if pr:
+        f = lambda m: (sum(1 for r in pr if r['mode'] == m and r['slow_publish']), sum(1 for r in pr if r['mode'] == m))
+        rows.append(['I-12', '送信停止の根本原因（評価Eで再計測）', 'DDSを非同期送信に（交互A/B/C、AIは不使用）',
+                     f"publishが0.27秒超ブロックした回：同期 {f('default')[0]}/{f('default')[1]} → 非同期 {f('async')[0]}/{f('async')[1]}"])
+    sel = (RES / 'i13_selection.json').is_file()
+    rows.append(['I-11', '小さく写った火の見逃し（T1の誤許可は全てこれ）',
+                 '小さい火・煙を明示した質問と、拡大切り出しの併用。開発データ（DH）のみで選定、未使用のT2で確認',
+                 '選定済み（結果は IMPROVEMENT_LOG）' if sel else '進行中（選定前・T2は未採点）'])
+    rows.append(['I-13', '当初計画の「2つのAIで確認」から縮退していた',
+                 'Clef-Flash（Jev互換、ローカル）をQwenと併用。選定規則は結果前に固定',
+                 '選定済み（結果は IMPROVEMENT_LOG）' if sel else '進行中（開発データで選定中）'])
+    return sorted(rows, key=lambda r: r[0])
+
+
 def build(account: str, video_url: str | None, repo_url: str):
     D = campaign_d()
+    E = campaign_e()
+    T = t1_info()
     C = [r for r in ledger('campaign_ledger.jsonl') if r.get('final', True)]
     c_ok = sum(r['correct'] for r in C)
     rob = jload('i05_robustness_summary.json') or {}
@@ -143,11 +255,17 @@ def build(account: str, video_url: str | None, repo_url: str):
     out.parent.mkdir(parents=True, exist_ok=True)
     doc = BaseDocTemplate(str(out), pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm,
                           topMargin=16 * mm, bottomMargin=16 * mm,
-                          title='RescueMind v3.4 説明資料', author=account, subject='Physical AI 応用1講座 最終課題')
+                          title='RescueMind v3.5 説明資料', author=account, subject='Physical AI 応用1講座 最終課題')
     doc.addPageTemplates([PageTemplate('p', [Frame(18 * mm, 16 * mm, 174 * mm, 266 * mm, id='f')], onPage=on_page)])
     s = []
     head = (f"事前登録した{D['n']}試行の閉ループ評価で期待どおりの行動 <b>{D['correct']}/{D['n']}</b>、"
             f"誤った物資・火災のある拠点からの配達（誤許可）<b>{D['false_approvals']} 件</b>、判断遅延の中央値 {D['lat_med']:.1f} 秒") if D else '（評価D実行中）'
+    if E:
+        head += (f"。v3.5の評価E（試行ごとにランダムな世界、{E['n']}試行）で <b>{E['ok']}/{E['n']}</b>、誤配達 {E['fa']} 件")
+    if T:
+        ru = T['t1']['models']['Qwen3.5-9B']['rules']['full']
+        head += (f"。未使用の画像{T['t1']['models']['Qwen3.5-9B']['n_images']}枚（T1）では、拒否すべき非火災画像 {T['n_neg']} 枚の誤許可 {T['fa_neg']} 件、"
+                 f"小さく写った火の見逃しが残る弱点")
     s += [P('RescueMind：現地で「目で確かめてから」届ける災害物資ロボット', 'title'),
           P('最新のローカルVLM（Qwen3.5-9B / V100）× ROS 2 Jazzy × Gazebo Harmonic — 誤った物資を届けず、無ければ探し、危険なら止まる', 'sub'),
           table([['項目', '内容'],
@@ -159,11 +277,11 @@ def build(account: str, video_url: str | None, repo_url: str):
                  ['主結果', head]],
                 [28, 146]), Spacer(1, 6)]
     crit = [['審査基準', '本作品での取り組み', '根拠（本資料の節・リポジトリ）'],
-            ['創造性', '「運ぶAI」ではなく「間違えたら動かないAI」。現物確認・別拠点の探索・火災時の停止・日本語の状況報告を1つの閉ループに統合', '1章, 3章, 動画デモ2・3'],
-            ['技術力', '選択肢の確率によるVLM判定、最新モデルの調査と公平比較、Gazebo真値による独立監査、独立速度ガード、事前登録した閉ループ評価、推測航法ドリフトの原因特定',
-             '2章, 4章, 5章, docs/IMPROVEMENT_LOG.md'],
-            ['実用性', 'オフライン・単一GPU・Apache-2.0、在庫と現物のずれへの対応、人への報告と判断の委譲、Docker（sudo不要）で再現可能', '7章, 10章, README'],
-            ['表現力', '実レンダリング映像にAR軌跡・確率バー・ロボットの報告を重ねた日本語ナレーション付き動画、全体フロー図・設計判断記録', '9章, docs/ARCHITECTURE.md, docs/DESIGN_DECISIONS.md']]
+            ['創造性', '「運ぶAI」ではなく「間違えたら動かないAI」。現物確認・別拠点の探索・火災時の停止・日本語の状況報告を1つの閉ループに統合', '1章, 3章, 4.2章（評価E）, 動画デモ2・3'],
+            ['技術力', '選択肢の確率によるVLM判定、最新モデルの調査と公平比較、Gazebo真値による独立監査、独立速度ガード、事前登録した閉ループ評価（D・E）と未使用画像の評価（T1）、弱点（小さな火）の特定と事前選定規則による改善、推測航法ドリフトの原因特定',
+             '2章, 4.1–4.3章, 5章, docs/IMPROVEMENT_LOG.md'],
+            ['実用性', 'オフライン・単一GPU・Apache-2.0、在庫と現物のずれへの対応、人への報告と判断の委譲、Docker（sudo不要）で再現可能。ランダム化した世界での評価Eと反事実との比較で、回復探索の実効果を示した', '4.2章, 7章, 10章, README'],
+            ['表現力', '実レンダリング映像にAR軌跡・確率バー・ロボットの報告を重ねた日本語ナレーション付き動画、全体フロー図・設計判断記録', '4.2・4.3章（区間推定つきの表）, 9章, docs/ARCHITECTURE.md']]
     s += [P('審査基準との対応', 'h2'), table(crit, [18, 100, 56]), Spacer(1, 4)]
     s += [P('1. 課題の概要と目的', 'h1'),
           P('災害時の物資配送では「在庫表では水があるはずの棚に救急箱が置かれていた／空だった」という<b>情報と現物の食い違い</b>や、'
@@ -220,7 +338,7 @@ def build(account: str, video_url: str | None, repo_url: str):
             from collections import Counter
             cnt = Counter(OBS.get(r['observed_action'], r['observed_action']) for r in rs)
             rows.append([ja, want, len(rs), f"{sum(r['correct'] for r in rs)}/{len(rs)}", '、'.join(f'{k} {v}' for k, v in cnt.items())])
-        s += [P('4. 評価結果：事前登録した閉ループ評価（評価D、v3.4）', 'h1'),
+        s += [P('4. 評価結果', 'h1'), P('4.1 事前登録した閉ループ評価D（v3.4）', 'h2'),
               P(f"試行ごとに Gazebo・ブリッジ・ガード・VLMを新規起動し、{D['n']}試行を事前に決めた順序で実行した。"
                 f"期待どおりの行動 <b>{D['correct']}/{D['n']}</b>、誤許可 <b>{D['false_approvals']}</b> 件、"
                 f"指示文の解釈 {D['intent_ok']}/{D['n']} 正解、判断遅延（静止画取得→判断）中央値 {D['lat_med']:.2f} 秒（最大 {D['lat_max']:.2f} 秒）。"
@@ -231,8 +349,60 @@ def build(account: str, video_url: str | None, repo_url: str):
         s += fig('trajectories_d.png', 112, '図4 評価D全試行のGazebo真値軌跡。取り違えでは別拠点を経由して避難所へ、欠品・火災では拠点で停止している。')
         s += [P(f"参考：v3.3（評価C、30試行、Qwen2.5-VL-3B、回復探索なし）は VLM判断 30/30・監査まで合格 {c_ok}/30。"
                 '取り違えシーンでは「停止」が正解であり、正しい物資を届けることはできなかった。', 'small')]
+    if E:
+        if not D:
+            s += [P('4. 評価結果', 'h1')]
+        s += [P('4.2 評価E（v3.5）：試行ごとにランダムな世界での事前登録評価', 'h2'),
+              P(f"照明・小道具の配置・妨害物・火災をランダム化した世界を試行ごとに生成し、{E['n']}試行を事前に決めた順序で実行した"
+                f"（<font name=\"IPAexG\">experiments/campaign_e_protocol.json</font>）。期待どおりの行動 <b>{E['ok']}/{E['n']}</b>、"
+                f"誤許可 <b>{E['fa']}</b> 件、判断遅延の中央値 {E['lat_med']:.2f} 秒。"
+                + (f"VLM判断前のインフラ失敗による再試行 {E['retries']} 件は台帳に記録（集計は最終試行のみ）。" if E['retries'] else '')
+                + f"Wilson 95%区間は試行数が少ないため広い（全体の下限 {wilson(E['ok'], E['n'])[0] * 100:.0f} %）。")]
+        rows = [['期待する行動', '条件', '試行', '期待どおり', 'Wilson 95%区間']]
+        for a, c in E['keys']:
+            k, n = E['strata_ok'][(a, c)], E['strata'][(a, c)]
+            rows.append([EXP_E.get(a, a), COND_E.get(c, c), n, f'{k}/{n}', pct_ci(k, n)])
+        rows.append(['<b>全体</b>', '', E['n'], f"{E['ok']}/{E['n']}", pct_ci(E['ok'], E['n'])])
+        nb = E['n'] - E['allow']
+        rows.append(['反事実：盲目的に配達', '常に配達（確認しない）', E['n'], f"{E['allow']}/{E['n']}（誤行動 {nb}）", pct_ci(E['allow'], E['n'])])
+        rows.append(['反事実：回復探索なし', '最初の拒否で停止', E['n'], f"{E['allow']}/{E['n']}", pct_ci(E['allow'], E['n'])])
+        s += [table(rows, [44, 40, 14, 38, 38]),
+              P('反事実は同じ試行に対する計算上の基準で、実行したものではない。盲目的な配達は期待行動が配達（ALLOW）以外の全試行で誤り、'
+                '回復探索なしは ALLOW の試行のみ成功とみなす保守的な定義（停止が正解の試行も成功に数えない）。', 'small'), Spacer(1, 4)]
+    if T:
+        t1 = T['t1']
+        m9 = t1['models']['Qwen3.5-9B']
+        if not (D or E):
+            s += [P('4. 評価結果', 'h1')]
+        s += [P(f"4.3 未使用の画像{m9['n_images']}枚（T1）での評価", 'h2'),
+              P(f"モデル選定・閾値決定に一度も使っていない{m9['n_images']}枚（描画前に <font name=\"IPAexG\">experiments/PREREGISTRATION_T1.md</font> で登録）。"
+                f"拒否すべき画像（{m9['rules']['full']['n_deny']}枚）での誤許可、許可すべき画像（{m9['rules']['full']['n_allow']}枚）での正しい許可、"
+                f"見えている火（{m9['hazard_recall'][1]}枚）の検出数を示す。τ_h は登録した主設定 {t1['tau_h']} と、事前指定の副設定 0.05（v3.5）。")]
+        rows = [['方式', '誤許可', '正しい許可', '火の検出', 'τ_h=0.05：誤許可', '正しい許可', '火の検出']]
+        for name, m in t1['models'].items():
+            a, b = m['rules']['full'], m['rules'].get('v35_tau_h_0.05')
+            rows.append([name + ('（採用）' if name == 'Qwen3.5-9B' else ''), a['false_approvals'], a['correct_approvals'],
+                         m['hazard_recall'][0], b['false_approvals'] if b else '-', b['correct_approvals'] if b else '-',
+                         m['hazard_recall_tau_h_0.05'][0] if 'hazard_recall_tau_h_0.05' in m else '-'])
+        for name, m in t1.get('json_method', {}).items():
+            if isinstance(m, dict):
+                rows.append([f'{name}・自由JSON生成（v3.2方式）', m['false_approvals'], m['correct_approvals'], '-', '-', '-', '-'])
+        s += [table(rows, [58, 16, 22, 18, 26, 18, 16]),
+              P('検出は 判定が危険（p(危険)が閾値以上）となった見える火の数。自由JSON生成では解析不能 または推論失敗 を拒否として数える'
+                + ('（3B：' + str(t1['json_method']['Qwen2.5-VL-3B']['parse_or_inference_errors']) + '件）。'
+                   if isinstance(t1.get('json_method', {}).get('Qwen2.5-VL-3B'), dict) else '。'), 'small'), Spacer(1, 3)]
+        sm = T['small']
+        txt = (f"<b>解釈</b>：物資の確認は、拒否すべき非火災画像 {T['n_neg']} 枚で誤許可 {T['fa_neg']} 件"
+               f"（Wilson 95%区間 {pct_ci(T['fa_neg'], T['n_neg'])}）。採用モデルの誤許可 {m9['rules']['full']['false_approvals']} 件は、すべて物資が正しく火が一部しか見えない画像だった")
+        if sm:
+            txt += (f"（火の面積 {min(sm['fa_px'])}–{max(sm['fa_px'])} 画素、1万画素未満 {sm['fa_small']}/{len(sm['fa_px'])} 件）。"
+                    f"見えている火の検出（p(危険)が0.05以上）は、面積1万画素以上で <b>{sm['dl']}/{sm['nl']}</b>、1万画素未満で <b>{sm['ds']}/{sm['ns']}</b>。"
+                    '残る弱点は、小さく写った・物資の陰に隠れた火の見逃しである（I-11, I-13）。')
+        else:
+            txt += '。'
+        s += [P(txt)]
     # ---- 5. improvements
-    s += [P('5. 改善の軌跡（v3.3 → v3.4）', 'h1'),
+    s += [P('5. 改善の軌跡（v3.3 → v3.5）', 'h1'),
           P('審査基準（創造性・技術力・実用性・表現力）に沿って自己レビューし、弱点ごとに改善項目を立て、すべて「仮説 → 変更 → 計測（Before/After）」で記録した'
             '（<font name="IPAexG">docs/REVIEW_AND_PLAN.md</font>、<font name="IPAexG">docs/IMPROVEMENT_LOG.md</font>、コミットは <font name="IPAexG">git log --grep I-0</font> で追跡可能）。')]
     imp = [['ID', '弱点・動機', '改善', 'Before → After（計測）']]
@@ -254,8 +424,7 @@ def build(account: str, video_url: str | None, repo_url: str):
     imp.append(['I-06', '新機能が未評価', '事前登録した42試行の閉ループ評価',
                 f"{D['correct']}/{D['n']}（誤許可{D['false_approvals']}）" if D else '実行中'])
     imp.append(['I-08', 'モデルが古く研究用途限定', '最新世代の調査・公平比較 → Qwen3.5-9B', '説明 84→125、指示 50→55/60、誤許可0維持'])
-    imp.append(['I-09', '停止中の一瞬の途絶で中止（評価Dの再試行2件）', '計測で原因を切り分け、停止中の途絶は0を保持（動作中は従来どおり即停止）',
-                '停止注入の再現：旧 2/2 失敗 → 新 2/2 完了'])
+    imp += improvements_late(D, E)
     s += [table(imp, [12, 38, 64, 60]), Spacer(1, 4)]
     s += fig('i01_drift.png', 160, '図5 I-01 推測航法ドリフトの原因切り分け（棄却した仮説も含む）。')
     # ---- 6. findings
