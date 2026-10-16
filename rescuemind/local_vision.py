@@ -130,11 +130,43 @@ def local_decision(expected: str, first: dict, second: dict, *, dual_model: bool
             'limitations':'Supply identity only. Unknown corridor != corridor proven safe. No cargo pickup.'}
 
 
+JEV_ROLE_MODEL = 'Cloudflare/clef-flash'
+
+
+def combine_with_jev(q_decision: dict, j: dict, expected: str, *, hazard_threshold: float = .35) -> dict:
+    """I-13: the original plan's two-AI rule (rescuemind.checkpoint.decide_checkpoint), locally.
+
+    Approve only when BOTH the Qwen checkpoint and the Jev-role model (Clef-Flash answering the original Jev
+    request) approve.  Refusal reasons keep the mission's semantics: a hazard seen by EITHER model stops the
+    robot without search; a wrong/missing supply seen by either allows the one-time recovery search; anything
+    else is low confidence (stop).  Deterministic, so post-run audits can recompute it.
+    """
+    if j.get('model') != JEV_ROLE_MODEL or j.get('real_model') is not True:
+        raise LocalInferenceError('unverified Jev-role result')
+    jhaz = j['hazard_probability'] >= hazard_threshold or j['scene'] == 'hazard'
+    jsupply_ok = j['supply'] == expected
+    jconfident = j['supply_confidence'] >= .65 and j['supply_present_probability'] >= .80
+    q = q_decision['reason']
+    if q == 'visible_hazard_at_checkpoint' or jhaz:
+        reason = 'visible_hazard_at_checkpoint'
+    elif q == 'local_vlm_disagree_or_wrong_supply' or not jsupply_ok:
+        reason = 'local_vlm_disagree_or_wrong_supply'
+    elif q == 'low_confidence_supply_match' or not jconfident:
+        reason = 'low_confidence_supply_match'
+    else:
+        reason = 'on_site_supply_confirmed'
+    return {**q_decision, 'allow': reason == 'on_site_supply_confirmed', 'reason': reason, 'qwen_reason': q,
+            'jev_role': {'model': JEV_ROLE_MODEL, 'supply': j['supply'], 'supply_confidence': j['supply_confidence'],
+                         'supply_present_probability': j['supply_present_probability'],
+                         'hazard_probability': j['hazard_probability'], 'scene': j['scene'],
+                         'hazard_threshold': hazard_threshold, 'hazard': jhaz}}
+
+
 def verify_station_local(image_path: str | Path, expected: str, *,
                          mode: str='single', primary_url: str=DEFAULT_PRIMARY_URL,
                          secondary_url: str=DEFAULT_SECONDARY_URL,
                          primary_model: str=PRIMARY_MODEL, secondary_model: str=SECONDARY_MODEL,
-                         transport=None) -> dict:
+                         transport=None, jev_url: str | None = None, jev_hazard_threshold: float = .35) -> dict:
     """Use only real local HTTP inference in production; injection is unit-test only."""
     if mode not in ('single','dual'):
         raise LocalInferenceError('mode must be single or dual')
@@ -149,11 +181,23 @@ def verify_station_local(image_path: str | Path, expected: str, *,
     second=_client_call(secondary_url if mode=='dual' else primary_url,
                         secondary_model if mode=='dual' else primary_model,raw,2,transport=transport)
     decision=local_decision(expected,first,second,dual_model=mode=='dual')
-    return {'checkpoint_type':'local_on_site_camera_supply_check',
-            'image_sha256':hashlib.sha256(raw).hexdigest(),
-            'backend':'LOCAL_ONLY_NO_CLOUD_API', 'mode':mode,
-            'model_calls':{'first':first,'second':second}, 'decision':decision,
-            'limitations':'The two prompts in single mode use the SAME model. Model confidence and physical safety are not established.'}
+    out={'checkpoint_type':'local_on_site_camera_supply_check',
+         'image_sha256':hashlib.sha256(raw).hexdigest(),
+         'backend':'LOCAL_ONLY_NO_CLOUD_API', 'mode':mode,
+         'model_calls':{'first':first,'second':second}, 'decision':decision,
+         'limitations':'The two prompts in single mode use the SAME model. Model confidence and physical safety are not established.'}
+    if jev_url:
+        # I-13: second, differently trained model in the original plan's Jev role (fail closed on any error)
+        from .clef_local import infer as clef_infer
+        try:
+            jev_call=clef_infer(image, jev_url)
+        except Exception as exc:
+            raise LocalInferenceError(f'Jev-role model failed: {exc}') from exc
+        out['jev_call']=jev_call
+        out['jev_hazard_threshold']=jev_hazard_threshold
+        out['decision']=combine_with_jev(decision, jev_call, expected, hazard_threshold=jev_hazard_threshold)
+        out['limitations']='Two differently trained local models (Qwen + Clef-Flash in the Jev role); not a safety certification.'
+    return out
 
 
 DEFAULT_DESCRIBE_URL = 'http://127.0.0.1:8765/v1/describe'
