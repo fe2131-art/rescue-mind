@@ -18,7 +18,7 @@ sys.path.insert(0, str(ROOT))
 from rescuemind.clef_local import jev_role_allows  # noqa: E402
 
 RES = ROOT / 'experiments/results'
-SETS = ('v1', 'v2', 'dh')
+SETS = ('v1', 'v2', 'dh', 'dh2')
 
 
 def load(tag):
@@ -64,7 +64,7 @@ def sources(name):
 def main():
     q = {f'{p}_{v}': sources(f'i11_{p}_{v}') for p in ('h35', 'h36') for v in ('full', 'tiles')}
     q4 = {}
-    for s, tag in (('v1', 'v1_v35_qwen35_4b'), ('v2', 'v2_v35_qwen35_4b'), ('dh', 'dh_q4b')):
+    for s, tag in (('v1', 'v1_v35_qwen35_4b'), ('v2', 'v2_v35_qwen35_4b'), ('dh', 'dh_q4b'), ('dh2', 'dh2_q4b')):
         d = load(tag)
         q4 = None if d is None or q4 is None else {**q4, **{k.split('|')[0] + '|' + s: v for k, v in d.items()}}
     j = sources('clef')
@@ -100,7 +100,7 @@ def main():
                 n_deny += 1; fa += a
             else:
                 n_allow += 1; fd += not a
-            if key.endswith('|dh') and r.get('hazard_visibility') == 'visible':
+            if (key.endswith('|dh') or key.endswith('|dh2')) and r.get('hazard_visibility') == 'visible':
                 n_fire += 1; rec += not a
         table.append({'config': cname, 'false_approvals': fa, 'n_deny': n_deny, 'correct_approvals': n_allow - fd,
                       'n_allow': n_allow, 'ca_rate': round((n_allow - fd) / max(n_allow, 1), 4),
