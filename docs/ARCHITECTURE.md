@@ -12,7 +12,7 @@ flowchart LR
       ORC["v32_orchestrate.py<br/>起動・準備確認・監査の統括"]
       GZ["Gazebo Harmonic<br/>EGLヘッドレス描画<br/>差動二輪＋LiDAR＋カメラ"]
       BR["ros_gz_bridge<br/>/clock /odom /scan /camera<br/>/cmd_vel /ground_truth/odom"]
-      VLM["local_vlm_server.py<br/>ローカルVLM（GPU）<br/>/v1/classify /v1/describe /v1/intent"]
+      VLM["local_vlm_server.py<br/>Qwen3.5-9B（V100, FP16）<br/>/v1/classify /v1/describe /v1/intent"]
       MIS["gazebo_waypoint_mission.py<br/>ミッション制御"]
       GRD["guarded_cmd_relay.py<br/>独立速度ガード"]
       WAT["runtime_guard_graph_watch.py<br/>/cmd_vel 発行者監視"]
@@ -50,7 +50,9 @@ sequenceDiagram
   O->>O: Gazebo・ブリッジ・ガード・VLM・監視・レコーダ・bag を起動
   O->>O: 準備確認（Gazebo Transport、センサー鮮度、シミュレーション時計、VLM health）
   O->>M: ミッション開始（指示文）
-  M->>M: 指示理解（物資・行先）。曖昧・未対応は出発前に拒否
+  M->>V: 指示文（選択式2問：物資は？届け先は？）
+  V-->>M: 各選択肢の確率
+  M->>M: 指示理解＋避難所名の規則ガード。曖昧・未対応は出発前に拒否
   M->>G: 物資拠点へ速度要求（ウェイポイント追従）
   M->>M: 到着 → 拠点中心へカメラを向ける → オドメトリで静止を確認
   M->>M: 静止後の新しいカメラフレーム2枚（画質・ROS時刻・Sim時計を検査）
