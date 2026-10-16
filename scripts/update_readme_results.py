@@ -1,62 +1,61 @@
 #!/usr/bin/env python3
-"""Rewrite the README results block from experiments/results (no hand-typed numbers)."""
+"""Rewrite the README results block from experiments/results (no hand-typed numbers) — v3.4 (campaign D)."""
 from __future__ import annotations
 import json
+from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RES = ROOT / 'experiments/results'
+GROUP = {'nominal': ('正常配置', '配達'), 'swapped': ('水と救急箱の取り違え', '別拠点を探索して配達'),
+         'empty': ('欠品（両拠点とも空）', '両拠点で確認して停止'), 'fire': ('拠点の裏で火災', '探索せず即停止'),
+         'dim': ('夕方の暗い照明', '配達'), 'box': ('空の台に段ボール箱', '停止')}
+OBS = {'ALLOW': '配達', 'ALLOW_AFTER_SEARCH': '探索して配達', 'DENY': '停止', 'DENY_HAZARD': '危険で停止',
+       'DENY_UNVERIFIED': '停止（証拠不足）', 'FAILED': '失敗'}
 
 
 def main():
-    rows = [json.loads(x) for x in (RES / 'campaign_ledger.jsonl').read_text().splitlines()]
-    final = [r for r in rows if r.get('final', True)]
-    retries = len(rows) - len(final)
-    lat = sorted(r['vlm_latency_s'] for r in final if r.get('vlm_latency_s') is not None)
-    dec = [r for r in final if r.get('vlm_reason')]
-    allow = lambda r: r['vlm_reason'] == 'on_site_supply_confirmed'
-    dec_ok = sum(allow(r) == (r['expected_action'] == 'ALLOW') for r in dec)
-    fa = sum(allow(r) and r['expected_action'] == 'DENY' for r in dec)
-    fd = sum((not allow(r)) and r['expected_action'] == 'ALLOW' for r in dec)
-    correct = sum(r['correct'] for r in final)
-    misses = [r for r in final if not r['correct']]
-
-    def why(r):
-        e = r.get('error') or ''
-        if 'odometry diverged' in e:
-            return f"{r['trial_id']}（{r['scene']}・{r['expected_supply']}）：VLMは正しく許可し避難所へ走行したが、車輪オドメトリの累積誤差（0.27 m）が監査上限0.25 mを超え、真値では目標点の0.34 m手前で停止"
-        if r['observed_action'] == 'DENY_UNVERIFIED':
-            return f"{r['trial_id']}（{r['scene']}・{r['expected_supply']}）：VLMは正しく拒否しロボットも停止したが、静止証拠の時刻整合チェックが3 ms差で不合格（修正済み）"
-        return f"{r['trial_id']}：{e[:80]}"
-
-    def cell(scene, act):
-        return sum(r['scene'] == scene and r['observed_action'] == act for r in final)
-    aborted = []
-    for k in ('A', 'B'):
-        f = RES / f'campaign_{k}_aborted_ledger.jsonl'
-        if f.is_file():
-            aborted.append(k)
+    proto = {t['id']: t for t in json.loads((ROOT / 'experiments/v34_protocol.json').read_text())['trials']}
+    rows_all = [json.loads(x) for x in (RES / 'campaign_D_ledger.jsonl').read_text().splitlines()]
+    rows = [r for r in rows_all if r.get('final', True)]
+    for r in rows:
+        t = proto[r['trial_id']]
+        r['group'] = ('fire' if t.get('hazard_at') else 'dim' if t.get('lighting') == 'dim_evening'
+                      else 'box' if t.get('distractor_at') else t['scene'])
+    lat = sorted(r['vlm_latency_s'] for r in rows if r.get('vlm_latency_s') is not None)
+    fa = sum(r['observed_action'] in ('ALLOW', 'ALLOW_AFTER_SEARCH') and r['expected_action'] in ('DENY', 'DENY_HAZARD')
+             for r in rows)
+    ok = sum(r['correct'] for r in rows)
+    lines = ['| シナリオ | 期待する行動 | 期待どおり | 実際の行動 |', '|---|---|---|---|']
+    for g, (ja, want) in GROUP.items():
+        rs = [r for r in rows if r['group'] == g]
+        if rs:
+            c = sum(r['correct'] for r in rs)
+            got = '、'.join(f'{OBS.get(k, k)} {v}' for k, v in Counter(r['observed_action'] for r in rs).items())
+            lines.append(f'| {ja} | {want} | **{c}/{len(rs)}** | {got} |')
+    misses = [r for r in rows if not r['correct']]
+    miss_txt = ''.join(f"  * {r['trial_id']}（{GROUP[r['group']][0]}）：{OBS.get(r['observed_action'], r['observed_action'])}"
+                       f"{' — ' + (r.get('error') or '')[:90] if r.get('error') else ''}\n" for r in misses)
     block = f"""<!-- RESULTS:START -->
-## 結果（事前登録した30試行・自律走行＋実撮影＋実推論）
+## 結果：事前登録した閉ループ評価（評価D・v3.4、{len(rows)}試行）
 
-| シーン（期待動作） | 許可→避難所Bに到着 | 拒否→拠点で停止 | 拒否（停止証拠が不合格） | 失敗 |
-|---|---|---|---|---|
-| 正常配置（許可） | **{cell('nominal','ALLOW')}** | {cell('nominal','DENY')} | {cell('nominal','DENY_UNVERIFIED')} | {cell('nominal','FAILED')} |
-| 水と救急箱の取り違え（拒否） | {cell('swapped','ALLOW')} | **{cell('swapped','DENY')}** | {cell('swapped','DENY_UNVERIFIED')} | {cell('swapped','FAILED')} |
-| 欠品・棚が空（拒否） | {cell('empty','ALLOW')} | **{cell('empty','DENY')}** | {cell('empty','DENY_UNVERIFIED')} | {cell('empty','FAILED')} |
+Qwen3.5-9B（ローカル・V100）、回復探索・状況報告・LLM指示理解をすべて有効にした構成で、試行ごとに全スタックを新規起動。
 
-* **VLMの判断（許可／拒否）は {dec_ok}/{len(dec)} で正解**：危険側の誤り（誤許可）**{fa}件**、誤拒否 {fd}件
-* 判断に加えて Gazebo真値・ROS bag・時系列の**独立監査まで全て合格**：**{correct}/{len(final)}**
-""" + ''.join(f"  * {why(r)}\n" for r in misses) + f"""* VLM判断遅延（静止画取得→判断、2問）中央値 **{lat[len(lat)//2]:.2f} 秒**（最大 {lat[-1]:.2f} 秒）、V100 FP16、VRAM 約8 GB
-* VLM判断前のインフラ失敗による再試行：{retries}件（台帳に全件記録）。3シーン×5反復は30個の独立シーンではない
-""" + (f"* この評価（C）の前に、起動時の競合と孤立プロセスが原因で評価{'・'.join(aborted)}を中断（台帳は公開、詳細は [`docs/FINDINGS.md`](docs/FINDINGS.md) #12・#13）\n" if aborted else '') + """
-![results](docs/figures/campaign_results.png)
+{chr(10).join(lines)}
+
+* 期待どおりの行動 **{ok}/{len(rows)}**、誤った物資・火災の拠点からの配達（誤許可）**{fa}件**
+{miss_txt}* 判断遅延（静止画取得→判断）中央値 **{lat[len(lat) // 2]:.2f} 秒**（最大 {lat[-1]:.2f} 秒）
+* 成功・停止はいずれも Gazebo 真値軌跡・ROS bag・判断の再計算・（回復時は）探索手順で独立に監査（[`experiments/results/`](experiments/results/)）
+* VLM判断前のインフラ失敗による再試行：{len(rows_all) - len(rows)}件（台帳に全件記録）。同じワールドの反復であり独立シーン数ではない
+* 前バージョン v3.3（評価C、Qwen2.5-VL-3B、回復探索なし）の結果と経緯は [`docs/IMPROVEMENT_LOG.md`](docs/IMPROVEMENT_LOG.md)
+
+![results](docs/figures/campaign_d_results.png)
 <!-- RESULTS:END -->"""
     readme = ROOT / 'README.md'
     s = readme.read_text(encoding='utf8')
     a, b = s.index('<!-- RESULTS:START -->'), s.index('<!-- RESULTS:END -->') + len('<!-- RESULTS:END -->')
     readme.write_text(s[:a] + block + s[b:], encoding='utf8')
-    print('README results updated:', correct, '/', len(final))
+    print('README results updated:', ok, '/', len(rows))
 
 
 if __name__ == '__main__':

@@ -1,10 +1,10 @@
 # RescueMind — 現地で「目で確かめてから」届ける災害物資ロボット
 
-**Physical AI 応用1講座 最終課題** ｜ ROS 2 Jazzy × Gazebo Harmonic × ローカル VLM（Qwen2.5-VL-3B, Tesla V100）
+**Physical AI 応用1講座 最終課題** ｜ ROS 2 Jazzy × Gazebo Harmonic × ローカル VLM（**Qwen3.5-9B**, Tesla V100）
 
-> 「避難所Bに飲料水を届けて」と頼まれたロボットが物資拠点まで自律移動し、**その場で静止して搭載カメラで現物を確認**、
-> ローカルVLMが「依頼された物資がある」と高い確信で一致したときだけ避難所Bへ向かう。
-> 取り違えや欠品なら**動かずに止まり、人に判断を委ねる**。
+> 「避難所Bで喉が渇いた人が多い」のような自然な依頼をローカルLLMが解釈し、ロボットが物資拠点へ自律移動。**その場で静止して搭載カメラで現物を確認**し、
+> ローカルVLMが依頼物資を高い確信で確認したときだけ避難所Bへ向かう。物資が違えば**もう一方の拠点を探して**正しい物資を届け、
+> 火災を見たら**探索せずに停止**して、見たものを日本語で報告する。
 > AIの判断と、ロボットが実際にどう動いたかを、Gazebo の物理真値・ROS bag・判断ログで第三者が検証できる形で記録する。
 
 ![Gazebo上のRescueMind（俯瞰カメラ＋ロボット搭載カメラ、実レンダリング）](docs/figures/hero_gazebo.png)
@@ -37,6 +37,9 @@
 
 | 工夫 | 内容 |
 |---|---|
+| **最新ローカルVLMの調査と公平な選定** | Qwen2.5-VL-3B（2025-01）／Qwen3-VL-8B／Qwen3.5-4B／**Qwen3.5-9B（2026-02、Apache-2.0）** を同一データ・同一手順で比較し、誤許可・危険な誤受理がともに0の 9B を採用（[I-08](docs/IMPROVEMENT_LOG.md)）。V100（FP16）向けに torch 2.8＋transformers 5 の実行環境を用意。 |
+| **探索と回復・危険時の停止** | 物資違い・欠品なら別拠点を1回だけ確認し、確認できれば配達。火災・煙を見たら探索せず停止。最初の拒否から探索・再判断までの手順を監査（[I-02](docs/IMPROVEMENT_LOG.md)）。 |
+| **LLMによる指示理解と日本語の状況報告** | 物資名の無い間接的な依頼も解釈（未知の60文で 31→55/60、危険な誤受理0）。判断後に「台の上に何があり、火や煙が見えるか」を日本語1文で報告（判断には不使用）。 |
 | **閉集合の対数確率スコアリング** | VLMに文章を生成させず、3択の選択肢文字（A/B/C）の次トークン確率を1回の順伝播で読む。2問で**選択肢の順序を入れ替え**て文字位置バイアスを打ち消し、危険は別のYes/No質問で判定。解析不能な出力がゼロになり、判断に確信度が付く。 |
 | **開発セットと評価の分離・事前登録** | プロンプトと閾値（0.50）は、視点をランダム化した開発画像48枚だけで決定し [`experiments/PREREGISTRATION_v33.md`](experiments/PREREGISTRATION_v33.md) に固定。その後、順序まで決めた30試行を一度だけ実行。 |
 | **Gazebo真値による独立監査** | 制御器が使う車輪オドメトリではなく、シミュレータのモデル真値（`/ground_truth/odom`）で到着・停止・転倒・オドメトリ乖離を監査。これで**引継ぎ版の車輪軸バグ**（オドメトリ上は前進、実際は横滑り＋40°傾斜）を発見した。 |
@@ -54,18 +57,20 @@ v3.3 以降の改善の経緯（Before/After）は [`docs/IMPROVEMENT_LOG.md`](d
 
 ```bash
 # 0) 前提: NVIDIA GPU (V100で検証) + docker（nvidia-container-toolkit）。sudoは不要（dockerグループのみ）
-bash docker/build.sh                                   # ROS 2 Jazzy + Gazebo Harmonic + PyTorch 2.5.1/cu121
+bash docker/build.sh                                   # ROS 2 Jazzy + Gazebo Harmonic + PyTorch 2.8/cu126 + transformers 5（STACK=v33 で旧環境）
 # 1) モデル重みを一度だけ取得（以降の実行は HF_HUB_OFFLINE=1）
-HF_HUB_OFFLINE=0 bash docker/run.sh python3 -c "from huggingface_hub import snapshot_download as s; s('Qwen/Qwen2.5-VL-3B-Instruct')"
+HF_HUB_OFFLINE=0 bash docker/run.sh python3 -c "from huggingface_hub import snapshot_download as s; s('Qwen/Qwen3.5-9B')"
 # 2) テスト（514件。ROS/Gazebo不要の部分はDockerなしでも実行可）
 bash docker/run.sh python3 -m unittest discover -s tests -q
 # 3) 1回のAIミッション（Gazebo・ブリッジ・ガード・VLMを自動起動、証拠は outputs/runs/<run_id>/）
-bash docker/run.sh python3 scripts/v32_orchestrate.py --run --scenario live --scene nominal \
-     --capture-rosbag --instruction '避難所Bに飲料水を届けて'
-#    --scene swapped / empty で取り違え・欠品（期待動作は「拒否して停止」）
+V34="--model Qwen/Qwen3.5-9B --prompt-set v35 --intent-backend llm --intent-prompt i35 --recovery --explain"
+bash docker/run.sh python3 scripts/v32_orchestrate.py --run --scenario live --scene swapped $V34 \
+     --capture-rosbag --instruction '避難所Bで飲み水が足りないそうです'
+#    --scene nominal / empty、--hazard-at medicine（火災）、--lighting dim_evening、--distractor-at water
 # 4) 事前登録30試行の評価 → 図とレポート
-bash docker/run.sh python3 scripts/run_campaign.py
-bash docker/run.sh python3 scripts/export_evidence.py
+bash docker/run.sh python3 scripts/run_campaign.py --protocol experiments/v34_protocol.json \
+     --ledger experiments/results/campaign_D_ledger.jsonl -- $V34
+bash docker/run.sh python3 scripts/export_evidence.py experiments/results/campaign_D_ledger.jsonl
 bash docker/run.sh python3 scripts/make_figures.py
 ```
 
@@ -93,10 +98,11 @@ bash docker/run.sh python3 scripts/make_figures.py
 ## 限界
 
 物資の把持・運搬は行いません（現物確認と避難所への接近まで）。Nav2 ではなく既知配置のウェイポイント追従です。
-評価は単純形状の小道具・3シーン・固定照明の反復であり、30試行は30個の独立シーンではありません。
+評価は単純形状の小道具・拠点2か所の固定配置の反復（照明・火災・妨害物のバリエーション付き）であり、試行数は独立シーン数ではありません。
 ROSグラフ監視は認証機構ではなく、実機の安全認証を意味しません。
 
 ## ライセンス
 
-MIT（`LICENSE`）。使用モデル：[Qwen/Qwen2.5-VL-3B-Instruct](https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct)（Qwen Research License、重みは同梱しない）、
-比較実験で [HuggingFaceTB/SmolVLM2-2.2B-Instruct](https://huggingface.co/HuggingFaceTB/SmolVLM2-2.2B-Instruct)（Apache-2.0）。
+MIT（`LICENSE`）。使用モデル：[Qwen/Qwen3.5-9B](https://huggingface.co/Qwen/Qwen3.5-9B)（Apache-2.0、重みは同梱しない）。
+比較実験で [Qwen3-VL-8B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct)・[Qwen3.5-4B](https://huggingface.co/Qwen/Qwen3.5-4B)（Apache-2.0）、
+v3.3 の [Qwen2.5-VL-3B-Instruct](https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct)（Qwen Research License）、[SmolVLM2-2.2B-Instruct](https://huggingface.co/HuggingFaceTB/SmolVLM2-2.2B-Instruct)（Apache-2.0）。
