@@ -51,7 +51,8 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
                evidence_dir: Path | None = None, capture_rosbag: bool = False,
                local_mode: str = "single", gz_mode: str = 'auto', film: bool = False,
                recovery: bool = False, explain: bool = False, world: Path | None = None,
-               prompt_set: str = 'v33', model: str | None = None, intent_backend: str = 'tfidf') -> dict:
+               prompt_set: str = 'v33', model: str | None = None, intent_backend: str = 'tfidf',
+               intent_prompt: str = 'i34', describe_prompt: str = 'e0') -> dict:
     if scenario not in ('motion-check', 'live'):
         raise ValueError('invalid scenario')
     from rescuemind.scene_variants import SCENES
@@ -84,7 +85,7 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
         from rescuemind.local_vision import PRIMARY_MODEL, SECONDARY_MODEL
         services.insert(0,ManagedCommand('primary_local_vlm', shell_exec([
             'python3',str(ROOT/'scripts/local_vlm_server.py'),'--model',model or PRIMARY_MODEL,'--port','8765',
-            '--prompt-set',prompt_set])))
+            '--prompt-set',prompt_set,'--intent-prompt',intent_prompt,'--describe-prompt',describe_prompt])))
         if local_mode=='dual':
             services.insert(1,ManagedCommand('secondary_local_vlm', shell_exec([
                 'python3',str(ROOT/'scripts/local_vlm_server.py'),'--model',SECONDARY_MODEL,'--port','8766'])))
@@ -173,6 +174,8 @@ def main(argv=None):
     p.add_argument('--prompt-set', choices=['v33', 'v34', 'v35'], default='v33', help='VLM checkpoint prompts (v34 = I-05)')
     p.add_argument('--model', default=None, help='local VLM model id (I-08); default Qwen2.5-VL-3B')
     p.add_argument('--intent-backend', choices=['tfidf', 'llm'], default='tfidf', help='I-04 instruction parser')
+    p.add_argument('--intent-prompt', choices=['i34', 'i35', 'i36', 'i37'], default='i34')
+    p.add_argument('--describe-prompt', choices=['e0', 'e1', 'e2'], default='e0')
     p.add_argument('--lighting', choices=['default', 'dim_evening', 'harsh_noon'], default='default')
     p.add_argument('--hazard-at', choices=['water', 'medicine'], default=None, help='I-05: fire behind this station')
     p.add_argument('--distractor-at', choices=['water', 'medicine'], default=None, help='I-05: cardboard box at this station')
@@ -197,7 +200,8 @@ def main(argv=None):
         validate_static(w, ROOT/'configs/ros_gz_bridge_v20.yaml')
         return w
     extra = dict(recovery=args.recovery, explain=args.explain, prompt_set=args.prompt_set, model=args.model,
-                 intent_backend=args.intent_backend)
+                 intent_backend=args.intent_backend, intent_prompt=args.intent_prompt,
+                 describe_prompt=args.describe_prompt)
     placeholder=ROOT/'outputs'/'runs'/'<run_id>'
     plan = build_plan(args.scenario, args.instruction, mission_timeout=args.mission_timeout, scene=args.scene,
                       evidence_dir=placeholder, capture_rosbag=args.capture_rosbag,local_mode=args.local_mode,
@@ -227,6 +231,8 @@ def main(argv=None):
     summary['prompt_set'] = args.prompt_set
     summary['model'] = args.model or 'Qwen/Qwen2.5-VL-3B-Instruct'
     summary['intent_backend'] = args.intent_backend
+    summary['intent_prompt'] = args.intent_prompt
+    summary['describe_prompt'] = args.describe_prompt
     # Replace every planning placeholder with the actual run ID, including
     # independent recorder / bag paths, not just mission output paths.
     summary['run_id'] = run_id

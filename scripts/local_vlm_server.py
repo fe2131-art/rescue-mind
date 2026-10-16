@@ -193,7 +193,16 @@ class ModelWorker:
             ('次の依頼文で、物資の届け先はどれですか。\n依頼文：「{text}」\n'
              'A. 避難所B\nB. 避難所B以外の場所（別の避難所や、学校・病院・公共施設などの建物）\nC. 届け先が書かれていない\n'
              '記号だけで答えてください。')),
+     # I-08: i35 + a self-consistency check (like the two vision questions): a Yes/No
+     # confirmation for each supply, asked in different words.
+     'i36':'i35+verify',
+     # i37: purpose-based self-check (would receiving the supply serve the requester's purpose?)
+     'i37':'i35+purpose',
     }
+    INTENT_PURPOSE_Q=('依頼文：「{text}」\nこの依頼をした人は、ロボットから{item}を受け取れば目的を果たせますか。'
+                      'Yes か No で答えてください。')
+    INTENT_VERIFY_Q=('依頼文：「{text}」\nこの依頼は、ロボットに{item}を運んでほしいという意味ですか。'
+                     'Yes か No で答えてください。')
     intent_prompt='i34'
     INTENT_ITEM_Q=('次の依頼文で、届けてほしい物資はどれですか。\n依頼文：「{text}」\n'
                    'A. 飲料水（水・飲み物）\nB. 医療物資（救急箱・薬・包帯など）\nC. 飲料水と医療物資の両方\n'
@@ -214,10 +223,16 @@ class ModelWorker:
     def intent(self,text):
         """I-04: closed-set parse of a natural-language request (supply + destination)."""
         text=' '.join(str(text).split())[:200].replace('「','').replace('」','')
-        item_q,dest_q=(self.INTENT_ITEM_Q,self.INTENT_DEST_Q) if self.intent_prompt=='i34' else self.INTENT_PROMPTS[self.intent_prompt]
+        key='i35' if self.intent_prompt in ('i36','i37') else self.intent_prompt
+        item_q,dest_q=(self.INTENT_ITEM_Q,self.INTENT_DEST_Q) if key=='i34' else self.INTENT_PROMPTS[key]
         item=self._text_probs(item_q.format(text=text),('A','B','C','D'))
         dest=self._text_probs(dest_q.format(text=text),('A','B','C'))
-        return {'item_probs':{'water':round(item['A'],4),'medicine':round(item['B'],4),'both':round(item['C'],4),
+        extra={}
+        if self.intent_prompt in ('i36','i37'):
+            vq=self.INTENT_VERIFY_Q if self.intent_prompt=='i36' else self.INTENT_PURPOSE_Q
+            extra['verify_probs']={k:round(self._text_probs(vq.format(text=text,item=ja),('Yes','No'))['Yes'],4)
+                                   for k,ja in (('water','飲み水（飲料水）'),('medicine','救急箱や薬などの医療物資'))}
+        return {**extra,'item_probs':{'water':round(item['A'],4),'medicine':round(item['B'],4),'both':round(item['C'],4),
                               'none':round(item['D'],4)},
                 'dest_probs':{'B':round(dest['A'],4),'other':round(dest['B'],4),'unstated':round(dest['C'],4)}}
 
