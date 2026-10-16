@@ -18,18 +18,18 @@
 In disaster relief, the inventory a delivery robot is told to trust often disagrees with what is actually at
 a supply point: items are swapped, shelves are empty, or the site has become dangerous.
 We present \sys, a mobile delivery robot that stops at the supply station and checks the item
-with a vision-language model (VLM) running entirely on board before it carries anything to a shelter.
+with a vision-language model (VLM) that runs on a local GPU, with no cloud service, before it carries anything to a shelter.
 The check is built to fail closed. The VLM never generates free text for the decision. Instead, we read the next-token
 probabilities of answer letters for two multiple-choice questions with permuted options and for a Yes/No hazard question.
 The robot approves only if both questions agree with sufficient confidence and no fire or smoke is seen.
 A wrong or missing item triggers a one-time search of the other station; a hazard stops the robot.
 Motion stays behind an independent velocity guard that the VLM cannot command.
-Every closed-loop trial is audited against simulator ground truth and a ROS bag, and all evaluations were
-pre-registered.
+Every closed-loop trial is audited against simulator ground truth and a ROS bag. The held-out image tests and the closed-loop
+campaigns were pre-registered, and every amendment is published.
 On a pre-registered held-out set of \TNimages{} rendered images with unseen lighting, object placement and distractors,
 the registered system (Qwen3.5-9B) approved \TFA{} of \TNdeny{} images that should have been refused (95\% CI \TFACI)
 and \TCA{} of \TNallow{} that should have been approved. The supply check alone made \TSupplyFA{} false approvals in
-\TSupplyN{} must-refuse images. Every false approval was a fire mostly hidden behind the supply.
+\TSupplyN{} must-refuse images. Every false approval was a fire only partly visible behind the supply.
 In \EN{} pre-registered closed-loop missions in freshly randomised Gazebo worlds, it behaved as expected in
 \ECorrect{}/\EN{} trials with \EWrong{} wrong deliveries. A blind-delivery baseline would have made \EBzeroWrong{}.
 We report the 14 failure causes we found only by running the full stack, and release everything needed to reproduce the results.
@@ -55,7 +55,7 @@ methodology:
 options plus a Yes/No hazard question are scored by answer-letter probabilities. The robot approves only if they agree
 and clear a confidence threshold. This turns the VLM into a selective classifier \cite{geifman2017selective}.
 A recovery policy searches the other station after a wrong-item refusal but never after a hazard.
-\item \textbf{A Simplex-style separation of decision and motion} \cite{seto1998simplex,sha2001simplicity}.
+\item \textbf{A separation of decision and motion in the spirit of Simplex} \cite{seto1998simplex,sha2001simplicity}.
 The mission node only \emph{requests} velocities. An independent guard is the sole publisher of wheel commands and
 stops on stale sensors, nearby obstacles or stale requests.
 \item \textbf{Auditable, pre-registered evaluation} (Sec.~\ref{sec:method}). Prompts and thresholds were chosen
@@ -139,6 +139,7 @@ tokenizer variants. This gives $p_k(s)$ for $k\in\{1,2\}$ and $p_h$. The robot a
 \bigwedge_{k=1,2}\Big[\arg\max_s p_k(s)=s^\ast \;\wedge\; p_k(s^\ast)\ge\taus\Big]\;\wedge\;\max_k p_{h,k}<\tauh,
 \label{eq:rule}\end{equation}
 with $\taus=0.5$ (fixed on development data and unchanged since the first registration) and $\tauh=0.05$.
+The hazard question does not depend on the pass, so $p_{h,1}=p_{h,2}$; it is asked once per image and reused.
 The hazard threshold was 0.5 up to campaign D. It was lowered once (v3.5) after a pilot missed a mostly occluded fire
 (Sec.~\ref{sec:findings}). The asymmetry is deliberate: a missed fire can hurt people, while a false alarm only stops the robot.
 Every failure mode leads to refusal: inference errors, non-finite logits (an FP16 overflow guard), unknown labels, images
@@ -164,11 +165,14 @@ covering paraphrases, negation, lexical traps, other shelters and irrelevant req
 \emph{Images (T1):} 60 Gazebo worlds $\times$ 2 stations $\times$ 5 viewpoints. These worlds use continuous random
 lighting, supplies moved by up to $\pm$0.15\,m and freely rotated, random fire positions, and three distractors. Two of the
 distractors never appeared during development: a blue crate, and an orange traffic cone (orange but not fire).
-Labels come from the generator, never from a model. Whether the fire is visible is measured, not assumed. Each view of
+Fig.~\ref{fig:t1ex} shows examples. Labels come from the generator, never from a model. Whether the fire is visible is measured, not assumed. Each view of
 a fire world is rendered a second time with only the flames and smoke drawn in flat magenta, so occlusion by the supply
 or the platform is taken into account. A view counts as \emph{visible} with at least 614 fire pixels (0.2\%), as \emph{hidden}
 with at most 20, and as \emph{ambiguous} in between. The \TNamb{} ambiguous images are excluded from the primary endpoints, as registered.
 
+\begin{figure}[t]\centering\fig{fig_t1_examples.pdf}
+\caption{Held-out T1 images (robot camera, 640$\times$480) with the generator's expected decision. The crate and the
+traffic cone never appeared during development.}\label{fig:t1ex}\end{figure}
 \textbf{Closed-loop campaigns.} Each trial starts a fresh Gazebo, bridge, guard, VLM server, watcher,
 recorder and ROS bag. Campaign D (\DN{} trials, v3.4 with $\tauh=0.5$) used the three controlled scenes plus fire, dim light and a box.
 Campaign E (\EN{} trials, v3.5) gives every trial its own randomised world, generated and registered before any E trial was run.
@@ -204,8 +208,11 @@ The pre-specified v3.5 rule ($\tauh=0.05$) gives \TvFA{} false approvals (\TvFAC
 \emph{Where the errors are.} The supply check made \TSupplyFA{} false approvals on the \TSupplyN{} must-refuse images without
 fire (\TSupplyFACI), including swapped and empty stations and unseen crates. All registered false approvals came from the
 \TFireCorrectN{} images with the correct supply and a visible fire, \TFireCorrectFA{} of which were approved. In these
-images the fire was mostly hidden behind the supply, with only smoke or a flame edge in view.
+images the fire was partly hidden behind the supply, with only smoke or a flame edge in view. Detection depends on the visible
+fire area: the hazard question flagged \TLargeDet{} visible fires of at least 10\,000 pixels but only \TSmallDet{} smaller ones.
 The registered claim of fewer than 2\% false approvals is therefore \emph{not} supported: the Wilson upper bound is above 2\%.
+Wilson intervals treat the images as independent, but the five views of a world share its lighting, props and fire.
+A bootstrap that resamples the \TNworlds{} worlds gives \TFACluster{} for v3.4 and \TvFACluster{} for v3.5.
 Table~\ref{tab:t1ablation} isolates the parts of the rule. Removing the hazard question raises false approvals to \TAblNoHazFA{}.
 For the 9B model on these images, neither the permuted second question nor the confidence threshold changed the number
 of false approvals. Their value shows up with a weaker model: for Qwen2.5-VL-3B, the second question alone approved
@@ -214,11 +221,12 @@ of false approvals. Their value shows up with a weaker model: for Qwen2.5-VL-3B,
 \emph{Free-form generation.} Asking the same model for free JSON (A5) gave no parse errors with Qwen3.5-9B, the
 same \TJsonNineFA{} false approvals, but only \TJsonNineCA{} correct approvals against \TCA{} with scoring. With
 Qwen2.5-VL-3B, \TJsonThreeErr{} of the 1200 generations could not be parsed and \TJsonThreeCA{} images were approved.
-All models missed largely the same small fires: hazard recall ranged from \THazMin{} to \THazMax{} of the visible fires. Fig.~\ref{fig:riskcov} shows risk--coverage curves
+All models missed largely the same small fires: hazard recall ranged from \THazMin{} to \THazMax{} of the \TNfireVis{} visible fires. Fig.~\ref{fig:riskcov} shows risk--coverage curves
 over $\taus$; these are descriptive only, since $\taus$ was not tuned on T1.
 \begin{figure}[t]\centering\fig{fig_risk_coverage.pdf}
-\caption{T1 risk--coverage: false-approval rate versus correct-approval rate as $\taus$ varies ($\tauh=0.5$).
-Markers show the frozen $\taus=0.5$.}\label{fig:riskcov}\end{figure}
+\caption{T1 risk--coverage: false-approval rate versus correct-approval rate as $\taus$ varies ($\tauh=0.05$, v3.5).
+Markers show the frozen $\taus=0.5$. The curves are flat over most of the range: the remaining errors are missed fires,
+which $\taus$ cannot fix.}\label{fig:riskcov}\end{figure}
 
 \subsection{Closed-loop missions}
 \begin{figure}[t]\centering\fig{fig_e_trajectories.pdf}
@@ -254,7 +262,8 @@ child-link frame after a 90$^\circ$ roll, so the wheels spun about the vertical 
 body slid sideways by 0.75\,m. An audit based on \texttt{/odom} would have passed the run.
 Audits now use Gazebo's ground-truth odometry. Changing the wheel collision from a cylinder to a sphere reduced
 dead-reckoning drift from 0.16 to 0.011\,m.
-\item \textbf{Free-form JSON from the VLM was unusable} on real renders. 21 of 48 outputs could not be parsed, and the model hallucinated water on empty shelves.
+\item \textbf{Free-form JSON from the first VLM was unusable} on our renders. With Qwen2.5-VL-3B, 21 of 48 outputs could not be parsed and the model hallucinated water on empty shelves.
+A newer model parses reliably, but it still approves fewer correct deliveries than scoring does (Table~\ref{tab:t1models}).
 This motivated closed-set scoring. T1 measures the free-JSON method again (Table~\ref{tab:t1models}).
 \item \textbf{Middleware effects.} Best-effort QoS silently dropped 92 of 102 0.9\,MB camera frames under load. The GPU lidar
 detected the robot's own camera mast. Slow DDS discovery on a 4-core host failed 4 of 12 starts in an aborted campaign.

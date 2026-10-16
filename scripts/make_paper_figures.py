@@ -70,10 +70,10 @@ def fig_risk_coverage():
     fig, ax = plt.subplots(figsize=(3.4, 2.1))
     colors = {'Qwen3.5-9B': BLUE, 'Qwen3.5-4B': '#5b8fd1', 'Qwen3-VL-8B': GREEN, 'Qwen2.5-VL-3B': ORANGE}
     for name, m in t1['models'].items():
-        c = m['risk_coverage']
+        c = m.get('risk_coverage_tau_h_0.05', m['risk_coverage'])
         ax.plot([100 * x[2] for x in c], [100 * x[1] for x in c], lw=1.4 if name == 'Qwen3.5-9B' else 1.0,
                 color=colors.get(name, GREY), label=name)
-        f50 = m['rules']['full']
+        f50 = m['rules'].get('v35_tau_h_0.05', m['rules']['full'])
         ax.plot(100 * f50['ca_rate'], 100 * f50['fa_rate'], 'o', ms=4, color=colors.get(name, GREY), mec='white', mew=0.8)
     for name, v in t1.get('json_method', {}).items():
         if isinstance(v, dict):

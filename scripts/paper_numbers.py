@@ -156,6 +156,11 @@ def main():
             m['TConeAlarm'] = f"{p['hazard_false_alarm_cone'][0]}/{p['hazard_false_alarm_cone'][1]}"
             m['TLatPass'] = f"{p['latency_per_pass_s']['median']:.2f}"
             m['TAmbAllowed'] = p['ambiguous_allowed']
+            cb, cb35 = p.get('cluster_bootstrap_full'), p.get('cluster_bootstrap_v35')
+            if cb:
+                fmt = lambda v: f"[{100 * v[0]:.1f}, {100 * v[1]:.1f}]\\%"
+                m['TFACluster'] = fmt(cb['fa_ci95_cluster']); m['TvFACluster'] = fmt(cb35['fa_ci95_cluster'])
+                m['TNworlds'] = cb['n_worlds']
             st = p['strata_full']
             sup = [v for k, v in st.items() if v['expected'] == 'deny' and not k.startswith('fire_visible')]
             m['TSupplyN'] = sum(v['n'] for v in sup); m['TSupplyFA'] = sum(v['allowed'] for v in sup)
@@ -184,7 +189,13 @@ def main():
             m['TJsonThreeErr'] = jm['Qwen2.5-VL-3B']['parse_or_inference_errors']
             m['TJsonThreeCA'] = jm['Qwen2.5-VL-3B']['correct_approvals']
         rec = [mm['hazard_recall'] for mm in t1['models'].values()]
-        m['THazMin'] = min(r[0] for r in rec); m['THazMax'] = f"{max(r[0] for r in rec)}/{rec[0][1]}"
+        m['THazMin'] = min(r[0] for r in rec); m['THazMax'] = max(r[0] for r in rec); m['TNfireVis'] = rec[0][1]
+        recs9 = json.loads((RES / 'devset_t1_qwen35_9b.json').read_text())['records']
+        vis = [r for r in recs9 if r['hazard_visibility'] == 'visible']
+        hz = lambda r: max(r['passes'][k]['scores']['hazard_prob'] for k in '12')
+        big = [r for r in vis if r['fire_pixels'] >= 10000]; small = [r for r in vis if r['fire_pixels'] < 10000]
+        m['TLargeDet'] = f"{sum(hz(r) >= 0.05 for r in big)}/{len(big)}"
+        m['TSmallDet'] = f"{sum(hz(r) >= 0.05 for r in small)}/{len(small)}"
         # model table
         lines = [r'\begin{tabular}{lrrrrr}', r'\toprule',
                  r'Model & False approvals & Correct approvals & Hazard recall & Cone alarms & s/pass \\', r'\midrule']
@@ -257,7 +268,7 @@ def main():
                'TConeAlarm', 'TLatPass', 'TAmbAllowed', 'TvFA', 'TvFARate', 'TvFACI', 'TvCA', 'TvCARate', 'TvCACI',
                'TvHazRecall', 'TvConeAlarm', 'TvNoFireAlarm', 'TNoFireAlarm', 'TSupplyN', 'TSupplyFA', 'TSupplyFACI',
                'TFireCorrectN', 'TFireCorrectFA', 'TAblNoHazFA', 'TThreeBPassTwoFA', 'TThreeBFullFA', 'TJsonNineFA',
-               'TJsonNineCA', 'TJsonThreeErr', 'TJsonThreeCA', 'THazMin', 'THazMax', 'EN', 'ECorrect', 'ECorrectCI', 'EWrong', 'EWrongCI', 'ELatMed',
+               'TJsonNineCA', 'TJsonThreeErr', 'TJsonThreeCA', 'THazMin', 'THazMax', 'TNfireVis', 'TLargeDet', 'TSmallDet', 'TFACluster', 'TvFACluster', 'TNworlds', 'EN', 'ECorrect', 'ECorrectCI', 'EWrong', 'EWrongCI', 'ELatMed',
                'ELatMax', 'ERetries', 'EWallMed', 'ESafeN', 'ETaskSuccess', 'ETaskSuccessCI', 'EBzeroWrong', 'EBzeroWrongCI',
                'EBzeroTask', 'EBoneWrong', 'EBoneTask'])
     for name in ('tab_t1_models.tex', 'tab_t1_ablation.tex', 'tab_e_strata.tex'):

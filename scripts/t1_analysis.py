@@ -83,6 +83,27 @@ def metrics(rows: list, allow: list) -> dict:
             'accuracy': round((len(neg) - fa + ca) / (len(neg) + len(pos)), 4)}
 
 
+def cluster_bootstrap(rows, allow, n_boot: int = 4000, seed: int = 7) -> dict:
+    """Images from one world are not independent (shared lighting, props, fire): resample whole worlds."""
+    import random
+    rng = random.Random(seed)
+    by = {}
+    for r, a in zip(rows, allow):
+        w = by.setdefault(r.get('world_id', r['image']), [0, 0, 0, 0])   # FA, n_deny, CA, n_allow
+        if r['expected'] == 'deny':
+            w[0] += a; w[1] += 1
+        else:
+            w[2] += a; w[3] += 1
+    worlds = list(by.values())
+    fa, ca = [], []
+    for _ in range(n_boot):
+        sample = [worlds[rng.randrange(len(worlds))] for _ in worlds]
+        nd = sum(w[1] for w in sample); na = sum(w[3] for w in sample)
+        fa.append(sum(w[0] for w in sample) / max(nd, 1)); ca.append(sum(w[2] for w in sample) / max(na, 1))
+    q = lambda v: [round(sorted(v)[int(.025 * n_boot)], 4), round(sorted(v)[int(.975 * n_boot) - 1], 4)]
+    return {'n_worlds': len(worlds), 'fa_ci95_cluster': q(fa), 'ca_ci95_cluster': q(ca)}
+
+
 def paired(rows, a, b) -> dict:
     ok_a = [x == (r['expected'] == 'allow') for r, x in zip(rows, a)]
     ok_b = [x == (r['expected'] == 'allow') for r, x in zip(rows, b)]
@@ -122,6 +143,8 @@ def main():
             s = strata.setdefault(stratum(r), {'n': 0, 'allowed': 0, 'expected': r['expected']})
             s['n'] += 1; s['allowed'] += a
         m['strata_full'] = strata
+        m['cluster_bootstrap_full'] = cluster_bootstrap(rows, full)
+        m['cluster_bootstrap_v35'] = cluster_bootstrap(rows, decisions['v35_tau_h_0.05'])
         m['ambiguous_allowed'] = sum(decide(r) for r in amb)
         # hazard detector alone (any pass >= tau_h) on correct-supply images
         haz = lambda r: max(r['passes'][k]['scores']['hazard_prob'] for k in '12' if 'scores' in r['passes'][k])
@@ -156,6 +179,12 @@ def main():
             mm = metrics(rows, d)
             curve.append([t, mm['fa_rate'], mm['ca_rate']])
         m['risk_coverage'] = curve
+        curve35 = []
+        for i in range(0, 101, 2):
+            t = i / 100
+            mm = metrics(rows, [decide(r, tau_s=t, tau_h=0.05) for r in rows])
+            curve35.append([t, mm['fa_rate'], mm['ca_rate']])
+        m['risk_coverage_tau_h_0.05'] = curve35
         lat = [p['latency_s'] for r in recs for p in r['passes'].values() if 'latency_s' in p]
         m['latency_per_pass_s'] = {'median': round(sorted(lat)[len(lat) // 2], 3), 'mean': round(sum(lat) / len(lat), 3)}
         m['errors_full'] = [(r['image'], stratum(r), 'FALSE_APPROVAL' if a else 'false_denial')
