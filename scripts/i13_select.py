@@ -68,11 +68,12 @@ def main():
         d = load(tag)
         q4 = None if d is None or q4 is None else {**q4, **{k.split('|')[0] + '|' + s: v for k, v in d.items()}}
     j = sources('clef')
+    j2 = sources('clef2')   # fairness check: Clef-Flash with task-worded questions
     configs = {}
     for name, d in q.items():
         if d:
             for t in (0.05,):
-                configs[f'Q9B[{name}] tau_h={t}'] = (d, lambda r, d=d, t=t: q_allows(r, t), name == 'h35_full', 18.3, 1 + (3 if 'tiles' in name else 0))
+                configs[f'Q9B[{name}] tau_h={t}'] = (d, lambda r, d=d, t=t: q_allows(r, t), True, 18.3, 1 + (3 if 'tiles' in name else 0))
     if q4:
         configs['Q4B tau_h=0.05'] = (q4, lambda r: q_allows(r, 0.05), True, 9.1, 1)
     if j:
@@ -87,6 +88,14 @@ def main():
         if q4:
             for t in (0.35, 0.05):
                 configs[f'J(Clef,{t})+Q4B'] = (q4, lambda r, t=t: q_allows(r, 0.05) and j_allows(j[r['_key']], t), True, 28.1, 1)
+    if j2:
+        for t in (0.35, 0.10, 0.05):
+            configs[f'J2(Clef-task) tau_h={t}'] = (j2, lambda r, t=t: j_allows(r, t), True, 19.0, 0)
+        if q4:
+            configs['J2(Clef-task,0.05)+Q4B'] = (q4, lambda r: q_allows(r, 0.05) and j_allows(j2[r['_key']], 0.05), True, 28.1, 1)
+        d = q.get('h36_tiles')
+        if d:
+            configs['J2(Clef-task,0.05)+Q9B[h36_tiles]'] = (d, lambda r: q_allows(r, 0.05) and j_allows(j2[r['_key']], 0.05), False, 37.3, 4)
     table = []
     for cname, (d, rule, deployable, vram, extra_calls) in configs.items():
         fa = fd = n_deny = n_allow = rec = n_fire = 0
@@ -108,13 +117,20 @@ def main():
                       'vram_gb': vram})
     ok = [t for t in table if t['false_approvals'] == 0 and t['ca_rate'] >= 0.95]
     ok.sort(key=lambda t: (-t['dh_fire_refused'], not t['deployable_one_v100'], t['vram_gb']))
-    out = {'rule': __doc__, 'table': table, 'selected': ok[0] if ok else None}
+    if not ok:
+        # amendment (2026-10-18, before T2 scoring): DH2's small fires defeat every candidate, so rule 1 (zero false
+        # approvals) selects nothing.  Fallback: fewest false approvals among CA >= 95%, then rules 3-4 as before.
+        ok = [t for t in table if t['ca_rate'] >= 0.95]
+        ok.sort(key=lambda t: (t['false_approvals'], -t['dh_fire_refused'], not t['deployable_one_v100'], t['vram_gb']))
+    deployable = [t for t in ok if t['deployable_one_v100']]
+    out = {'rule': __doc__, 'table': table, 'selected': ok[0] if ok else None,
+           'selected_deployable': deployable[0] if deployable else None}
     (RES / 'i13_selection.json').write_text(json.dumps(out, indent=1) + '\n')
     for t in sorted(table, key=lambda t: t['config']):
         print(f"{t['config']:38s} FA {t['false_approvals']:2d}/{t['n_deny']}  CA {t['correct_approvals']}/{t['n_allow']} "
               f"({t['ca_rate']:.3f})  DH fire refused {t['dh_fire_refused']}/{t['n_dh_fire']}  "
               f"{'deployable' if t['deployable_one_v100'] else 'NOT co-loadable'}")
-    print('SELECTED', out['selected'])
+    print('SELECTED', out['selected']); print('SELECTED (deployable, for campaign F)', out['selected_deployable'])
 
 
 if __name__ == '__main__':
