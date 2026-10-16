@@ -302,6 +302,25 @@ def main():
                 m[f'TT{key}Small'] = '/'.join(map(str, r['fire_small_refused']))
                 if 'vs_v35_false_approval_mcnemar' in r:
                     m[f'TT{key}P'] = f"{r['vs_v35_false_approval_mcnemar'][2]:.3f}"
+    # ---- T2: Clef-Flash alone (task wording)
+    if tf.is_file():
+        cj = t2['results'].get('J2(Clef-task) tau_h=0.05')
+        if cj:
+            m['TTClefFA'] = f"{cj['false_approvals']}/{cj['n_deny']}"; m['TTClefCA'] = f"{cj['correct_approvals']}/{cj['n_allow']}"
+    # ---- campaign G (look-around, paired)
+    gf = RES / 'g_summary.json'
+    if gf.is_file():
+        g = json.loads(gf.read_text()); pr = g['primary']
+        m['GPairs'] = pr['n_world_pairs_fire_perceivable']; m['GWrongB'] = pr['wrong_deliveries_B']
+        m['GWrongC'] = pr['wrong_deliveries_C']; m['GMcNemarP'] = f"{pr['mcnemar_p']:.4f}"
+        for cfg in ('B', 'C'):
+            c = g['per_config'][cfg]
+            m[f'GCorrect{cfg}'] = f"{c['correct']}/{c['n']}"; m[f'GFalseStop{cfg}'] = f"{c['false_hazard_stops']}/{c['fire_free_trials']}"
+        led = [json.loads(x) for x in (RES / 'campaign_G_ledger.jsonl').read_text().splitlines()]
+        led = [r for r in led if r.get('final', True) and r['observed_action'] in ('ALLOW', 'ALLOW_AFTER_SEARCH') and r.get('wall_s')]
+        for cfg in ('B', 'C'):
+            w = sorted(r['wall_s'] for r in led if r.get('config') == cfg)
+            m[f'GWall{cfg}'] = f"{w[len(w) // 2]:.0f}" if w else r'\TBD'
     # ---- development-data model selection (appendix table)
     sel = json.loads((RES / 'i08_model_selection.json').read_text())
     lines = [r'\begin{tabular}{llrrrr}', r'\toprule',
@@ -320,7 +339,8 @@ def main():
                'EBzeroTask', 'EBoneWrong', 'EBoneTask'])
     m.pending(['DevFAvThreeFive', 'DevFAB', 'DevFireN', 'FPairs', 'FWrongA', 'FWrongB', 'FMcNemarP', 'FCorrectA', 'FCorrectB',
                'FFalseStopA', 'FFalseStopB', 'FLatA', 'FLatB', 'TTRefFA', 'TTRefCA', 'TTRefSmall', 'TTSelFA', 'TTSelCA',
-               'TTSelSmall', 'TTSelP', 'TTBFA', 'TTBCA', 'TTBSmall', 'TTBP'])
+               'TTSelSmall', 'TTSelP', 'TTBFA', 'TTBCA', 'TTBSmall', 'TTBP', 'TTClefFA', 'TTClefCA', 'GPairs', 'GWrongB',
+               'GWrongC', 'GMcNemarP', 'GCorrectB', 'GCorrectC', 'GFalseStopB', 'GFalseStopC', 'GWallB', 'GWallC'])
     for name in ('tab_t1_models.tex', 'tab_t1_ablation.tex', 'tab_e_strata.tex', 'tab_i13_dev.tex'):
         tables.setdefault(name, r'\begin{tabular}{l}\TBD\end{tabular}')
     (OUT / 'numbers.tex').write_text(m.text())
