@@ -1,0 +1,266 @@
+\documentclass[conference]{IEEEtran}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx,booktabs,amsmath,amssymb,xcolor,url,multirow}
+\usepackage[hidelinks]{hyperref}
+\usepackage{cite}
+\input{numbers.tex}
+\newcommand{\sys}{RescueMind}
+\newcommand{\fig}[2][\linewidth]{\IfFileExists{#2}{\includegraphics[width=#1]{#2}}{\fbox{\parbox{0.9\linewidth}{\centering\TBD: \detokenize{#2}}}}}
+\newcommand{\taus}{\tau_{s}}
+\newcommand{\tauh}{\tau_{h}}
+
+\begin{document}
+\title{Verify, Search, or Stop: A Fail-Closed On-Site Check\\with a Local Vision-Language Model for Relief-Supply Delivery Robots}
+\author{\IEEEauthorblockN{Anonymous Authors}\IEEEauthorblockA{Code, data and every trial log: \url{https://github.com/fe2131-art/rescue-mind}}}
+\maketitle
+
+\begin{abstract}
+In disaster relief, the inventory a delivery robot is told to trust often disagrees with what is actually at
+a supply point: items are swapped, shelves are empty, or the site has become dangerous.
+We present \sys, a mobile delivery robot that stops at the supply station and checks the item
+with a vision-language model (VLM) running entirely on board before it carries anything to a shelter.
+The check is built to fail closed. The VLM never generates free text for the decision. Instead, we read the next-token
+probabilities of answer letters for two multiple-choice questions with permuted options and for a Yes/No hazard question.
+The robot approves only if both questions agree with sufficient confidence and no fire or smoke is seen.
+A wrong or missing item triggers a one-time search of the other station; a hazard stops the robot.
+Motion stays behind an independent velocity guard that the VLM cannot command.
+Every closed-loop trial is audited against simulator ground truth and a ROS bag, and all evaluations were
+pre-registered.
+On a held-out set of \TNimages{} rendered images with unseen lighting, object placement and distractors,
+the frozen system (Qwen3.5-9B) approved \TFA{} of \TNdeny{} images that should have been refused
+(95\% CI \TFACI) and \TCA{} of \TNallow{} that should have been approved (\TCARate).
+In \EN{} pre-registered closed-loop missions in freshly randomised Gazebo worlds, it behaved as expected in
+\ECorrect{}/\EN{} trials with \EWrong{} wrong deliveries. A blind-delivery baseline would have made \EBzeroWrong{}.
+We report the 14 failure causes we found only by running the full stack, and release everything needed to reproduce the results.
+\end{abstract}
+
+\section{Introduction}
+Relief logistics is a ``last-mile'' problem: goods move from local depots to the people who need them
+\cite{balcik2008lastmile}, under conditions in which records are stale and sites change by the hour
+\cite{murphy2014disaster}. A robot that delivers whatever its inventory says is at a station will hand a
+shelter a first-aid kit when it asked for water, report a delivery from an empty shelf, or drive into a
+fire. Vision-language models (VLMs) can now recognise such situations zero-shot, and recent work uses them
+to detect and explain robot failures \cite{liu2023reflect,duan2025aha,du2023successdetectors,agia2025sentinel}.
+Their outputs, however, are biased by option order and answer letters \cite{zheng2024mcselectors,pezeshkpour2024order},
+they hallucinate objects that are not there \cite{li2023pope}, and free-form generation can be unparseable.
+We observed all three on our own images (Sec.~\ref{sec:findings}).
+
+We therefore ask a narrow, safety-motivated question: \emph{can an off-the-shelf VLM running on the robot
+serve as a pre-action gate that rarely approves a wrong delivery, while still approving correct ones, and can
+we show this with evidence a skeptical reader can audit?} Our answers are a system design and an evaluation
+methodology:
+\begin{itemize}
+\item \textbf{A fail-closed checkpoint} (Sec.~\ref{sec:checkpoint}). Two multiple-choice questions with permuted
+options plus a Yes/No hazard question are scored by answer-letter probabilities. The robot approves only if they agree
+and clear a confidence threshold. This turns the VLM into a selective classifier \cite{geifman2017selective}.
+A recovery policy searches the other station after a wrong-item refusal but never after a hazard.
+\item \textbf{A Simplex-style separation of decision and motion} \cite{seto1998simplex,sha2001simplicity}.
+The mission node only \emph{requests} velocities. An independent guard is the sole publisher of wheel commands and
+stops on stale sensors, nearby obstacles or stale requests.
+\item \textbf{Auditable, pre-registered evaluation} (Sec.~\ref{sec:method}). Prompts and thresholds were chosen
+on development images only. We registered a 600-image held-out test set with unseen variation and two
+closed-loop campaigns before running them \cite{nosek2018preregistration,hofman2023preregistration}.
+Each closed-loop trial is checked against Gazebo ground truth, a ROS bag and a recomputation of the decision.
+Every attempt is kept, including aborted campaigns.
+\item \textbf{Lessons from running the real stack} (Sec.~\ref{sec:findings}). There are 14 failure causes that unit tests and
+mocks did not reveal, such as a wheel-axis frame error that made odometry-based audits pass a robot that never arrived.
+\end{itemize}
+
+\section{Related Work}
+\textbf{Failure detection and verification with foundation models.}
+REFLECT \cite{liu2023reflect} and AHA \cite{duan2025aha} explain manipulation failures in natural language
+after the fact. Inner Monologue \cite{huang2023innermonologue} feeds success detection back into a planner.
+Du et al.\ \cite{du2023successdetectors} fine-tune a VLM as a success detector.
+Sentinel \cite{agia2025sentinel}, FAIL-Detect \cite{xu2025faildetect} and Code-as-Monitor \cite{zhou2025codeasmonitor}
+monitor learned policies at run time. Our check runs \emph{before} the robot acts and is closed-set and zero-shot. Its output is a
+thresholded accept/reject that is audited against simulator ground truth.
+The closest methodological relative is KnowNo \cite{ren2023knowno}, which scores multiple-choice answers by
+next-token probability and asks a human for help, with a conformal guarantee \cite{angelopoulos2021conformal}.
+SayCan \cite{ichter2023saycan} likewise scores a fixed candidate set by language-model likelihood.
+We share the scoring, but we respond to uncertainty by refusing or searching, and we add permuted-option agreement as a
+test-time defence against letter bias.
+
+\textbf{Multiple-choice scoring and its biases.}
+Scoring answer symbols works well when a model binds symbols to options \cite{robinson2023mcqa}. Language models are reasonably calibrated on
+well-formatted multiple-choice questions \cite{kadavath2022know}, but they prefer certain option IDs \cite{zheng2024mcselectors} and orders
+\cite{pezeshkpour2024order}, and their raw confidence needs validation \cite{guo2017calibration,zhao2021calibrate}.
+Our two permuted questions are a minimal, deterministic form of self-consistency \cite{wang2023selfconsistency}.
+The Yes/No hazard question follows the polling style of POPE \cite{li2023pope}.
+
+\textbf{Safety architectures.} Simplex \cite{seto1998simplex,sha2001simplicity}, shields \cite{alshiekh2018shielding}
+and control barrier functions \cite{ames2019cbf} keep a simple verified layer between a complex decision maker and
+the actuators. LLM-controlled robots can be manipulated into harmful actions \cite{robey2025jailbreaking}, and
+guardrails such as RoboGuard \cite{ravichandran2026guardrails} check plans before execution.
+In contrast to vision-language-action models \cite{zitkovich2023rt2,kim2025openvla}, our VLM never commands motion.
+
+\textbf{Evaluation practice.} We follow recommendations to report conditions, multiple metrics, uncertainty
+and failure modes \cite{kressgazit2024empirical}. We use Wilson intervals \cite{wilson1927probable} and exact McNemar
+tests \cite{mcnemar1947note}. Domain randomisation \cite{tobin2017domain} is used here to build a held-out \emph{test} distribution, not for training.
+
+\section{System}\label{sec:system}
+\begin{figure}[t]
+\centering\fig{fig_system.pdf}
+\caption{Processes and data flow. The mission node only requests velocities; the guard is the only
+publisher of \texttt{/cmd\_vel}. The VLM server listens on the loopback interface; no cloud API is used.
+Ground truth is used only by the recorder and the post-run audit, never for control.}
+\label{fig:system}
+\end{figure}
+\textbf{Platform.} A differential-drive robot with a 2D lidar and a mast camera (640$\times$480, 1.05\,rad
+horizontal field of view) runs in Gazebo Harmonic with ROS~2 Jazzy \cite{macenski2022ros2,koenig2004gazebo}
+(Fig.~\ref{fig:system}). The arena has two supply stations (water, medicine) and a shelter.
+The VLM runs in FP16 on a single Tesla V100 (32\,GB) in the same container. We use Qwen3.5-9B \cite{qwen2026qwen35}
+(Apache-2.0), selected over Qwen2.5-VL-3B \cite{bai2025qwen25vl}, Qwen3-VL-8B \cite{bai2025qwen3vl} and Qwen3.5-4B on
+development data (Sec.~\ref{sec:method}).
+
+\textbf{Mission.} A natural-language request (Japanese or English) is parsed into a supply and a
+destination. The VLM answers two closed-set questions (supply: water / medicine / both / other; destination:
+shelter~B / another place / unstated). The robot accepts the parse only under three conditions; otherwise it refuses
+before moving:
+\begin{itemize}
+\item the most likely item is water or medicine with $p\ge 0.6$;
+\item the most likely destination is not ``another place'' (shelter~B is the only shelter);
+\item an explicit rule finds no other shelter name.
+\end{itemize} It then drives to the station, aims the camera at the station centre, waits until odometry shows
+it is stationary, and captures fresh frames whose ROS time, simulation clock and image quality are checked.
+
+\subsection{Fail-closed checkpoint}\label{sec:checkpoint}
+For an image $x$ and requested supply $s^\ast$, the VLM is asked two differently worded questions about what is on
+the platform, with permuted options:
+\begin{itemize}
+\item $q_1$: A drinking water / B first-aid kit / C nothing or another object;
+\item $q_2$: A neither (empty or a different object) / B first-aid kit / C drinking water.
+\end{itemize}
+It is also asked the hazard question $q_h$: ``Look at the whole image, including behind and around the objects.
+Do you see any fire, flames, or smoke? Yes/No''. Each prompt asks for the letter (or Yes/No) only.
+For each question we compute a softmax over the log-sum-exp of the next-token logits of each answer symbol's
+tokenizer variants. This gives $p_k(s)$ for $k\in\{1,2\}$ and $p_h$. The robot approves iff
+\begin{equation}
+\bigwedge_{k=1,2}\Big[\arg\max_s p_k(s)=s^\ast \;\wedge\; p_k(s^\ast)\ge\taus\Big]\;\wedge\;\max_k p_{h,k}<\tauh,
+\label{eq:rule}\end{equation}
+with $\taus=\tauh=0.5$, fixed on development data and unchanged since the first registration.
+Every failure mode leads to refusal: inference errors, non-finite logits (an FP16 overflow guard), unknown labels, images
+with different hashes, or a model not on the allow-list.
+A refusal is followed by a 2.5\,s zero-velocity hold that the audit checks.
+
+\textbf{Recovery and hazard policy.} After a refusal because the item is wrong or missing, the robot checks the
+other station once with the same rule. After a hazard refusal it never searches; it stops and reports.
+A Japanese one-sentence situation report is generated for people but is never used for the decision.
+
+\textbf{Velocity guard.} The guard publishes zero unless camera, lidar and odometry are fresh and the
+front sector is clear. A stale \emph{motion} request latches the guard and ends the mission.
+A stale \emph{zero} request holds zero without latching (Sec.~\ref{sec:findings}). A graph watcher triggers an
+emergency stop if any other node publishes \texttt{/cmd\_vel}.
+
+\section{Evaluation Methodology}\label{sec:method}
+\textbf{Development data.} Prompts, the scoring method, thresholds and model choice were selected on 176 development images.
+These are 48 with randomised viewpoints plus 128 with lighting presets, a cardboard-box distractor and fire.
+The instruction parser was tuned on 40 development utterances.
+
+\textbf{Held-out test sets.} \emph{Instructions:} 60 utterances frozen before the parser was built,
+covering paraphrases, negation, lexical traps, other shelters and irrelevant requests.
+\emph{Images (T1):} 60 Gazebo worlds $\times$ 2 stations $\times$ 5 viewpoints. These worlds use continuous random
+lighting, supplies moved by up to $\pm$0.15\,m and freely rotated, random fire positions, and three distractors. Two of the
+distractors never appeared during development: a blue crate, and an orange traffic cone (orange but not fire).
+Labels come from the generator. Fire visibility is computed geometrically as visible / hidden / ambiguous. Ambiguous images (\TNamb{}) are excluded from
+the primary endpoints, as registered.
+
+\textbf{Closed-loop campaigns.} Each trial starts a fresh Gazebo, bridge, guard, VLM server, watcher,
+recorder and ROS bag. Campaign D (\DN{} trials) used the three controlled scenes plus fire, dim light and a box.
+Campaign E (\EN{} trials) gives every trial its own randomised world, generated before any E trial was run.
+A trial counts only if an audit confirms it:
+\begin{itemize}
+\item \emph{Decision:} the decision is recomputed from the saved model outputs and image hash.
+\item \emph{Arrival or stop:} the ground-truth trajectory (Gazebo odometry publisher) shows arrival at the shelter after approval, or no motion toward it after a refusal.
+\item \emph{Odometry:} it agrees with ground truth.
+\item \emph{Bag:} the ROS bag is finalised.
+\end{itemize}
+Only stack failures \emph{before} any VLM decision may be re-run once. All attempts stay in the ledger.
+
+\textbf{Metrics and statistics.} The primary safety metric is the false-approval rate: approvals among
+cases that must be refused because of a wrong or missing item or a visible fire.
+It is paired with the correct-approval rate. We report Wilson 95\% intervals. Paired comparisons on the same images use exact McNemar tests.
+
+\section{Results}\label{sec:results}
+\subsection{Held-out image test (T1)}
+\begin{table}[t]\centering\caption{T1 held-out test, frozen rule (Eq.~\ref{eq:rule}), non-ambiguous images.}
+\label{tab:t1models}\resizebox{\linewidth}{!}{\input{tab_t1_models.tex}}\end{table}
+\begin{table}[t]\centering\caption{Decision-rule ablations on T1: false approvals / false denials.
+$^{*}$: exact McNemar $p<0.05$ versus the full rule of the same model.}
+\label{tab:t1ablation}\resizebox{\linewidth}{!}{\input{tab_t1_ablation.tex}}\end{table}
+Table~\ref{tab:t1models} shows the frozen system and the alternative models on T1.
+Qwen3.5-9B approved \TFA{} of \TNdeny{} must-refuse images (\TFARate, 95\% CI \TFACI) and
+\TCA{} of \TNallow{} must-approve images (\TCARate, \TCACI). It detected the fire in \THazRecall{} images where the
+supply was correct, and raised a false hazard alarm in \TConeAlarm{} images with a traffic cone.
+Table~\ref{tab:t1ablation} isolates the parts of the rule. Fig.~\ref{fig:riskcov} shows risk--coverage curves
+over $\taus$; these are descriptive only, since $\taus$ was not tuned on T1.
+\begin{figure}[t]\centering\fig{fig_risk_coverage.pdf}
+\caption{T1 risk--coverage: false-approval rate versus correct-approval rate as $\taus$ varies ($\tauh=0.5$).
+Markers show the frozen $\taus=0.5$.}\label{fig:riskcov}\end{figure}
+
+\subsection{Closed-loop missions}
+\begin{table}[t]\centering\caption{Campaign E (randomised worlds) by stratum.}\label{tab:e}
+\resizebox{\linewidth}{!}{\input{tab_e_strata.tex}}\end{table}
+In campaign D the system behaved as expected in \DCorrect{}/\DN{} trials (\DCorrectCI) with \DWrong{} wrong deliveries.
+The median decision latency, from frame capture to decision, was \DLatMed\,s (maximum \DLatMax\,s).
+There were \DRetries{} pre-decision infrastructure retries.
+In campaign E, with a new random world in every trial, it behaved as expected in \ECorrect{}/\EN{} (\ECorrectCI) with
+\EWrong{} wrong deliveries (\EWrongCI). It completed \ETaskSuccess{} of the \ESafeN{} missions in which a safe delivery was possible
+(\ETaskSuccessCI), see Table~\ref{tab:e}.
+\emph{Counterfactual baselines on the same trials:} blind delivery (B0), which trusts the inventory, would have made \EBzeroWrong{} wrong
+deliveries (\EBzeroWrongCI) and completed only \EBzeroTask{} correctly. Checking without recovery (B1, our earlier
+policy) would have completed \EBoneTask{} with \EBoneWrong{} wrong deliveries.
+
+\subsection{Instruction parsing}
+On the 60 held-out utterances the hybrid parser was correct for \IntCorrect{}/\IntN{} with \IntUnsafe{} unsafe acceptances.
+The previous TF-IDF parser was correct for \IntTfidfCorrect{} with \IntTfidfUnsafe{} unsafe acceptances.
+The five errors were all refusals of valid requests, so they fail closed.
+
+\section{Failure Analysis and Lessons}\label{sec:findings}
+Running the full stack on a GPU revealed problems that 506 offline unit tests and mocked ROS runs had not.
+\begin{itemize}
+\item \textbf{The auditor trusted the controller's sensor.} The wheel joint axis was expressed in the
+child-link frame after a 90$^\circ$ roll, so the wheels spun about the vertical axis. Odometry reported 1.5\,m forward motion while the
+body slid sideways by 0.75\,m. An audit based on \texttt{/odom} would have passed the run.
+Audits now use Gazebo's ground-truth odometry. Changing the wheel collision from a cylinder to a sphere reduced
+dead-reckoning drift from 0.16 to 0.011\,m.
+\item \textbf{Free-form JSON from the VLM was unusable} on real renders. 21 of 48 outputs could not be parsed, and the model hallucinated water on empty shelves.
+This motivated closed-set scoring. T1 measures the free-JSON method again (Table~\ref{tab:t1models}).
+\item \textbf{Middleware effects.} Best-effort QoS silently dropped 92 of 102 0.9\,MB camera frames under load. The GPU lidar
+detected the robot's own camera mast. Slow DDS discovery on a 4-core host failed 4 of 12 starts in an aborted campaign.
+An interrupted supervisor left an orphaned stack that made every trial of the next campaign stop with two
+\texttt{/cmd\_vel} publishers. All of these are recorded with their fixes; the aborted campaigns are published.
+\item \textbf{Stale-request latch.} Two pre-decision retries in campaign D happened while the robot was stationary: the mission node's
+request stream stalled for $\approx$0.3\,s on the saturated CPU. We instrumented the mission loop, the guard
+and garbage collection and rejected two hypotheses (guard starvation, GC pauses). Raising control-loop priority did not
+remove the stalls. We therefore changed the guard: a stale zero request now holds zero, while a stale motion request still latches.
+With a 0.6\,s stall injected before departure, the old guard failed 2/2 runs and the new one completed 2/2.
+Raising priority with a file capability then had a side effect: it put the exec into the dynamic loader's secure mode,
+which stripped \texttt{LD\_LIBRARY\_PATH} and broke the ROS bag recorder. A regression run caught this before any campaign.
+\item \textbf{A generator bug caught by looking at the data.} In the first T1 render, distractors meant to stand next to a supply were placed through it. The
+emptiness check ran after the supplies were moved. The render was discarded and the fix recorded as a
+pre-registration amendment, before any model scored a T1 image.
+\end{itemize}
+
+\section{Limitations}
+All results are from simulation. The props are simple meshes, there are two supply types, the station geometry is fixed, and there is one robot.
+The VLM sees rendered images whose domain gap to real cameras we have not measured. Our ``hazard'' is a stylised fire.
+The counterfactual baselines describe decision policies under identical observations; they were not executed physically.
+T1 labels are geometric, and partially visible fires are excluded rather than adjudicated.
+The guard is hand-written, not formally synthesised \cite{alshiekh2018shielding,ames2019cbf}.
+The next step is a real platform with real supplies.
+
+\section{Conclusion}
+A local VLM can serve as a fail-closed gate for relief-supply delivery when its role is limited to scored
+multiple-choice verification and motion is kept behind an independent guard. Evidence for such a gate should
+be pre-registered, audited against ground truth, and include its failures. We release the code, worlds,
+test sets, protocols, ledgers and per-trial evidence.
+
+\section*{Reproducibility}
+One Dockerfile builds the full stack: ROS~2 Jazzy, Gazebo Harmonic, PyTorch, transformers. All test sets are
+generated from seeded specifications whose hashes are recorded in the pre-registrations. All campaigns, including
+the aborted ones, are in \texttt{experiments/results}. Every number in this paper is produced by
+\texttt{scripts/paper\_numbers.py} from those files.
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+\end{document}
