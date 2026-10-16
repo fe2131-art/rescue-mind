@@ -368,7 +368,9 @@ def run_ros(route, args, record):
                 if getattr(args,'inference_backend','cloud') == 'local':
                     finished['result']=verify_station_local(f,expected,mode=args.local_mode,
                         primary_url=args.local_primary_url,secondary_url=args.local_secondary_url,
-                        primary_model=getattr(args,'vlm_model','Qwen/Qwen2.5-VL-3B-Instruct'))
+                        primary_model=getattr(args,'vlm_model','Qwen/Qwen2.5-VL-3B-Instruct'),
+                        **({'jev_url':args.jev_url,'jev_hazard_threshold':args.jev_hazard_threshold}
+                           if getattr(args,'jev_url',None) else {}))
                 else:
                     finished['result']=verify_station(f,expected,qwen_model=args.qwen_model,endpoint=args.qwen_endpoint)
             except Exception as e:
@@ -579,6 +581,8 @@ def main():
     ap.add_argument('--vlm-model',default='Qwen/Qwen2.5-VL-3B-Instruct',help='model id served on the local endpoint')
     ap.add_argument('--recovery',action='store_true',help='I-02: if the supply is missing/wrong, check the other station once')
     ap.add_argument('--explain',action='store_true',help='I-03: one-sentence Japanese report after each checkpoint (not used for decisions)')
+    ap.add_argument('--jev-url',default=None,help='I-13: local Jev-role model (Clef-Flash) URL; both models must approve')
+    ap.add_argument('--jev-hazard-threshold',type=float,default=.35)
     ap.add_argument('--control-qos',choices=['reliable','best_effort'],default='reliable',
                     help='I-12: QoS of /rescuemind/cmd_vel_request and /rescuemind/guard_ready')
     ap.add_argument('--inject-warmup-stall',type=float,default=0.0,help='I-09 fault injection (seconds); tests only')

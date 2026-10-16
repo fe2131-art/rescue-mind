@@ -78,7 +78,7 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
                prompt_set: str = 'v33', model: str | None = None, intent_backend: str = 'tfidf',
                intent_prompt: str = 'i34', describe_prompt: str = 'e0', inject_stall: float = 0.0,
                hazard_threshold: float = 0.5, control_qos: str = 'reliable', hazard_views: str = 'full',
-               hazard_prompt: str = 'h35') -> dict:
+               hazard_prompt: str = 'h35', jev_local: str = 'off', jev_hazard_threshold: float = .35) -> dict:
     if scenario not in ('motion-check', 'live'):
         raise ValueError('invalid scenario')
     from rescuemind.scene_variants import SCENES
@@ -115,6 +115,11 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
             'python3',str(ROOT/'scripts/local_vlm_server.py'),'--model',model or PRIMARY_MODEL,'--port','8765',
             '--prompt-set',prompt_set,'--intent-prompt',intent_prompt,'--describe-prompt',describe_prompt,
             '--hazard-threshold',str(hazard_threshold),'--hazard-views',hazard_views,'--hazard-prompt',hazard_prompt])))
+        if jev_local == 'clef':
+            # I-13: the original plan's Jev role, answered locally by Clef-Flash (Jev/SystemOne API)
+            services.insert(1,ManagedCommand('jev_role_clef', shell_exec([
+                'python3',str(ROOT/'scripts/clef_server.py'),'--port','8767'])))
+            cmd += ['--jev-url','http://127.0.0.1:8767/v1/systemone','--jev-hazard-threshold',str(jev_hazard_threshold)]
         if local_mode=='dual':
             services.insert(1,ManagedCommand('secondary_local_vlm', shell_exec([
                 'python3',str(ROOT/'scripts/local_vlm_server.py'),'--model',SECONDARY_MODEL,'--port','8766'])))
@@ -213,6 +218,9 @@ def main(argv=None):
                    help='I-12 (v3.5 default: async): default = reliable control topics, synchronous Fast DDS publication; '
                         'async = RMW_FASTRTPS_PUBLICATION_MODE=ASYNCHRONOUS for the whole stack; '
                         'best_effort = best-effort request/heartbeat topics')
+    p.add_argument('--jev-local', choices=['off', 'clef'], default='off',
+                   help='I-13: add the Jev-role model (Clef-Flash, local) - both models must approve')
+    p.add_argument('--jev-hazard-threshold', type=float, default=.35)
     p.add_argument('--hazard-views', choices=['full', 'tiles'], default='full', help='I-11: hazard question on crops too')
     p.add_argument('--hazard-prompt', choices=['h35', 'h36'], default='h35', help='I-11: hazard question wording')
     p.add_argument('--inject-warmup-stall', type=float, default=0.0, help='I-09 fault injection (A/B tests only)')
@@ -261,7 +269,8 @@ def main(argv=None):
                  intent_backend=args.intent_backend, intent_prompt=args.intent_prompt,
                  describe_prompt=args.describe_prompt, inject_stall=args.inject_warmup_stall,
                  hazard_threshold=args.hazard_threshold, hazard_views=args.hazard_views,
-                 hazard_prompt=args.hazard_prompt,
+                 hazard_prompt=args.hazard_prompt, jev_local=args.jev_local,
+                 jev_hazard_threshold=args.jev_hazard_threshold,
                  control_qos='best_effort' if args.dds_mode == 'best_effort' else 'reliable')
     if args.dds_mode == 'async':
         os.environ['RMW_FASTRTPS_PUBLICATION_MODE'] = 'ASYNCHRONOUS'
@@ -300,6 +309,8 @@ def main(argv=None):
     summary['intent_prompt'] = args.intent_prompt
     summary['hazard_threshold'] = args.hazard_threshold
     summary['dds_mode'] = args.dds_mode
+    summary['jev_local'] = args.jev_local
+    summary['jev_hazard_threshold'] = args.jev_hazard_threshold
     summary['hazard_views'] = args.hazard_views
     summary['hazard_prompt'] = args.hazard_prompt
     summary['describe_prompt'] = args.describe_prompt
@@ -336,7 +347,8 @@ def main(argv=None):
                 if args.scenario=='live':
                     import urllib.request
                     from rescuemind.local_vision import PRIMARY_MODEL,SECONDARY_MODEL
-                    for port,model in ([(8765,args.model or PRIMARY_MODEL)] + ([(8766,SECONDARY_MODEL)] if args.local_mode=='dual' else [])):
+                    for port,model in ([(8765,args.model or PRIMARY_MODEL)] + ([(8766,SECONDARY_MODEL)] if args.local_mode=='dual' else [])
+                                       + ([(8767,'Cloudflare/clef-flash')] if args.jev_local=='clef' else [])):
                         try:
                             with urllib.request.urlopen('http://127.0.0.1:'+str(port)+'/health',timeout=3) as f:
                                 h=json.load(f)
