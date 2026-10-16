@@ -14,7 +14,7 @@ covered by campaigns C/D and the planned campaign E.
   * expected = `allow` iff the supply on the platform is the one requested at that station AND the fire is `hidden`.
   * Fire visibility is three-way from geometry (bearing ± angular half-width of the fire vs the camera's 1.05 rad HFOV).
   * `ambiguous` = supply correct and fire partly in view. These images are excluded from the primary endpoints and reported separately.
-* Expected counts from the spec: allow 191, deny 399, ambiguous 10. The deny images include 39 with the correct supply and the fire visible.
+* Expected counts from the spec (as amended, see Amendment 1): allow 190, deny 396 (36 of them with the correct supply and the fire visible), ambiguous 14.
 * No model has seen any T1 image. The images are rendered only after this file is committed.
 
 **Frozen system (primary).** Qwen/Qwen3.5-9B, FP16, prompts `v35`, closed-set log-probability scoring.
@@ -53,4 +53,12 @@ An inference error counts as a denial (fail-closed) and is reported.
 * Prompts and thresholds are not changed because of T1 results. Any change would need a new held-out set (T2).
 
 ## Amendments
-(none)
+**Amendment 1 (2026-10-17, during the first render; no model had scored any T1 image).**
+I inspected rendered images and found that box/crate distractors in nominal/swapped worlds stood at the platform
+centre, intersecting the supply.
+* Cause: `build_variant` decided "is this platform empty?" AFTER moving the supplies, so every platform with a moved supply looked empty.
+* Fix: emptiness is decided from the scene definition before any prop is moved (regression test added).
+* Placement change: a distractor beside a supply now stands ON the platform next to it, with the supply kept on the other half. This is the same layout as campaign E. A distractor on an empty platform stands at its centre.
+* The partial render (15 worlds) was deleted, the spec regenerated, and the full set rendered again.
+* New hashes: spec `e000fa18…`, generator `scripts/build_testset_t1.py` `d8a234fb…`, `rescuemind/robust_scenes.py` `51cc933a…`.
+  The original hashes in the Data section above are superseded.

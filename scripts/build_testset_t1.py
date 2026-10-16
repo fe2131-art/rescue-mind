@@ -9,7 +9,8 @@ Factors drawn from seed 'T1-2026' (see experiments/PREREGISTRATION_T1.md):
   * lighting   : continuous sun azimuth/elevation, intensity, ambient level, warm/cool tint
   * props      : each supply moved +-0.15 m on its platform and rotated freely
   * fire       : 16 worlds (10 nominal), random station, random position behind the platform
-  * distractor : 27 worlds, cardboard box (seen in dev) / blue crate / orange traffic cone (both new)
+  * distractor : 27 worlds, cardboard box (seen in dev) / blue crate / orange traffic cone (both new),
+                 standing on the platform beside the supply (alone and centred on an empty platform)
   * viewpoint  : 0.8-1.9 m, bearing +-0.75 rad around the approach direction, yaw jitter +-0.15 rad
 Labels come from the generator (never from a model).  The fire label is three-way
 (visible / hidden / ambiguous) from the image geometry; see hazard_visibility().
@@ -29,7 +30,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from rescuemind.robust_scenes import (STATIONS, build_variant, hazard_visibility, hazard_xy,  # noqa: E402
-                                      random_lighting, truth_for)
+                                      platform_side_offset, random_lighting, truth_for)
+
+PROP = {'water': 'sealed_water_bottles', 'medicine': 'first_aid_case'}
 
 SEED = 'T1-2026'
 OUT = ROOT / 'experiments/vlm_testset_t1'
@@ -57,16 +60,23 @@ def make_spec(seed: str = SEED) -> list[dict]:
             w['hazard_at'] = rng.choice(sorted(STATIONS))
             w['hazard_geom'] = [round(rng.uniform(.75, 1.10), 3), round(rng.uniform(-.8, .8), 3)]
         if distract:
-            w['distractor_at'] = rng.choice(sorted(STATIONS))
+            st = rng.choice(sorted(STATIONS))
+            w['distractor_at'] = st
             w['distractor_kind'] = distract
             w['distractor_side'] = rng.choice([-1.0, 1.0])
+            # amendment 1: the distractor stands on the platform beside the supply (campaign-E layout);
+            # the supply on that platform is kept on the other half
+            w['distractor_layout'] = 'platform'
+            if scene != 'empty':
+                other = {'water': 'medicine', 'medicine': 'water'}
+                prop = PROP[st] if scene == 'nominal' else PROP[other[st]]
+                ox, oy = platform_side_offset(st, -w['distractor_side'], 0.10)
+                w['prop_offsets'][prop][:2] = [round(ox + rng.uniform(-.04, .04), 3), round(oy + rng.uniform(-.04, .04), 3)]
         w['views'] = {}
         for station, (sx, sy) in sorted(STATIONS.items()):
             keep_out = []
             if w.get('hazard_at') == station:
                 keep_out.append(hazard_xy(station, *w['hazard_geom']))
-            if w.get('distractor_at') == station and w['distractor_kind'] in ('cone', 'crate'):
-                keep_out.append((sx + .70 * w['distractor_side'], sy - .5))
             views = []
             while len(views) < VIEWS:
                 dist = rng.uniform(0.8, 1.9)
@@ -116,7 +126,7 @@ def render(spec: list[dict]):
     for wi, w in enumerate(spec):
         world = wdir / f"rescuemind_{w['id']}.sdf"
         kw = {k: w[k] for k in ('lighting_params', 'prop_offsets', 'hazard_at', 'distractor_at',
-                                'distractor_kind', 'distractor_side') if k in w}
+                                'distractor_kind', 'distractor_side', 'distractor_layout') if k in w}
         if 'hazard_geom' in w:
             kw['hazard_geom'] = tuple(w['hazard_geom'])
         world.write_bytes(build_variant(ROOT / f"worlds/scenarios/rescuemind_{w['scene']}.sdf", **kw))

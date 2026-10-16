@@ -74,8 +74,9 @@ def summarize(trial: dict, run_dir: Path | None, rc: int, wall_s: float) -> dict
     if row['state'] == 'COMPLETED':
         row['observed_action'] = 'ALLOW_AFTER_SEARCH' if rec else 'ALLOW'
     elif row['state'] == 'COMPLETED_EXPECTED_DENIAL':
-        row['observed_action'] = ('DENY_HAZARD' if decision.get('reason') == 'visible_hazard_at_checkpoint' and not rec
-                                  else 'DENY')
+        hazard = decision.get('reason') == 'visible_hazard_at_checkpoint'
+        row['observed_action'] = ('DENY_HAZARD' if hazard and not rec else
+                                  'DENY_HAZARD_AFTER_SEARCH' if hazard else 'DENY')
     elif decision.get('allow') is False:
         row['observed_action'] = 'DENY_UNVERIFIED'
     else:
@@ -83,6 +84,9 @@ def summarize(trial: dict, run_dir: Path | None, rc: int, wall_s: float) -> dict
     expected = trial['expected_action']
     want = {'DELIVER_AFTER_SEARCH': 'ALLOW_AFTER_SEARCH'}.get(expected, expected)
     row['correct'] = row['observed_action'] == want
+    # mission-level outcome for the paper (what reached the shelter, if anything)
+    row['delivered'] = row['observed_action'] in ('ALLOW', 'ALLOW_AFTER_SEARCH')
+    row['first_checkpoint_allow'] = (not rec) and row['delivered']
     return row
 
 
@@ -115,7 +119,12 @@ def main(argv=None):
             cmd = [sys.executable, str(ROOT/'scripts/v32_orchestrate.py'), '--run', '--scenario', 'live',
                    '--scene', trial['scene'], '--local-mode', a.local_mode,
                    '--instruction', trial.get('instruction') or f"避難所Bに{ITEM_JA[trial['expected']]}を届けて"]
+            if trial.get('world_spec'):
+                # campaign E: a randomised world (lighting, props, fire, distractor) per trial
+                cmd += ['--world-spec', json.dumps(trial['world_spec'], sort_keys=True)]
             for key, flag in (('lighting', '--lighting'), ('hazard_at', '--hazard-at'), ('distractor_at', '--distractor-at')):
+                if trial.get('world_spec'):
+                    break
                 if trial.get(key) and not (key == 'lighting' and trial[key] == 'default'):
                     cmd += [flag, trial[key]]
             cmd += a.stack_args
