@@ -145,8 +145,47 @@ def run_ros(route, args, record):
         subs.append(node.create_subscription(Bool,'/rescuemind/guard_ready',on_guard,10))
     ctl=WaypointController()
     progress=ProgressWatch()
+    # I-09: instrument gaps between velocity requests (the guard latches after 0.45 s)
+    gap_state={'last':None,'phase':'startup','max':0.0}
+    import gc
+    gc_t={'t0':None}
+    def gc_probe(phase, info):
+        if phase=='start':
+            gc_t['t0']=time.monotonic()
+        elif gc_t['t0'] is not None:
+            dur=time.monotonic()-gc_t['t0']
+            if dur>0.03:
+                record['events'].append({'stage':'gc_pause','generation':info.get('generation'),'pause_s':round(dur,3),
+                                         'phase':gap_state['phase'],'t_wall_s':round(time.monotonic()-start,3)})
+    gc.callbacks.append(gc_probe)
+    def spin(timeout):
+        t0=time.monotonic()
+        rclpy.spin_once(node,timeout_sec=timeout)
+        dur=time.monotonic()-t0
+        if dur>timeout+0.12:
+            record['events'].append({'stage':'slow_spin','dur_s':round(dur,3),'timeout_s':timeout,
+                                     'phase':gap_state['phase'],'t_wall_s':round(time.monotonic()-start,3)})
+    if getattr(args,'gc_freeze',False):
+        # move every object created during start-up (sklearn, LLM client, ...) out of the
+        # collector's reach so later full collections stay short
+        gc.collect(); gc.freeze()
+        record['gc_frozen_objects']=gc.get_freeze_count()
+    def set_phase(name):
+        gap_state['phase']=name
     def publish(linear=0.,angular=0.):
+        now_p=time.monotonic()
+        if gap_state['last'] is not None:
+            gap=now_p-gap_state['last']
+            gap_state['max']=max(gap_state['max'],gap)
+            if gap>0.25:
+                record['events'].append({'stage':'request_gap','gap_s':round(gap,3),'phase':gap_state['phase'],
+                                         't_wall_s':round(now_p-start,3)})
+        gap_state['last']=now_p
         t=Twist();t.linear.x=float(linear);t.angular.z=float(angular);pub.publish(t)
+        pub_dur=time.monotonic()-now_p
+        if pub_dur>0.1:
+            record['events'].append({'stage':'slow_publish','dur_s':round(pub_dur,3),'phase':gap_state['phase'],
+                                     't_wall_s':round(now_p-start,3)})
     start=time.monotonic()
     record['mission_start_unix_ns']=time.time_ns()
     record['wall_clock_time_basis']='host_unix_ns_plus_monotonic_event_offsets'
@@ -172,7 +211,7 @@ def run_ros(route, args, record):
         started=time.monotonic()
         while thread.is_alive():
             publish()
-            rclpy.spin_once(node,timeout_sec=.09)
+            spin(.09)
             now=time.monotonic()
             if watch.check(now):
                 raise RuntimeError(label+' watchdog: '+watch.latched_reason)
@@ -205,10 +244,11 @@ def run_ros(route, args, record):
         centers=station_centers(json.loads((ROOT/'configs/gazebo_station_centers.json').read_text()))
         if station not in centers:
             raise RuntimeError('Unknown camera aiming station; do not infer')
+        set_phase('aim:'+station)
         aim_started=time.monotonic()
         aligned_since=None
         while True:
-            rclpy.spin_once(node,timeout_sec=.06)
+            spin(.06)
             now=time.monotonic()
             why=watch.check(now)
             if why:
@@ -238,6 +278,7 @@ def run_ros(route, args, record):
         # pose/yaw drift before the camera exposure, then monitor the same
         # locked pose throughout on-site inference and any denial dwell.
         stationary=StationaryGate()
+        set_phase('settle:'+station)
         settle_started=time.monotonic()
         # v3.3 (campaign C, R001): the first stationarity sample must not be the odometry
         # message received *before* alignment finished, otherwise the reported stable
@@ -255,7 +296,7 @@ def run_ros(route, args, record):
         enforce_stationary_ref[0]=enforce_stationary
         while not stationary.locked:
             publish()
-            rclpy.spin_once(node,timeout_sec=.08)
+            spin(.08)
             now=time.monotonic()
             why=watch.check(now)
             if why: raise RuntimeError('stationary settle watchdog: '+why)
@@ -279,9 +320,10 @@ def run_ros(route, args, record):
         last_examined_camera_time=ctx['frame_time']
         last_clock_proof=None
         record['events'].append({'stage':'checkpoint_wait','t_wall_s':round(arrived_at-start,3)})
+        set_phase('frames:'+station)
         while time.monotonic()-arrived_at < args.camera_wait:
             publish()
-            rclpy.spin_once(node,timeout_sec=.1)
+            spin(.1)
             now=time.monotonic()
             if watch.check(now):
                 raise RuntimeError('checkpoint sensor watchdog: '+watch.latched_reason)
@@ -330,6 +372,7 @@ def run_ros(route, args, record):
             except Exception as e:
                 finished['error']=e
         t=Thread(target=inference,daemon=True)
+        set_phase('inference:'+station)
         t.start()
         hold_stationary_while(t,args.checkpoint_timeout,'checkpoint inference')
         if finished['error'] is not None:
@@ -351,6 +394,7 @@ def run_ros(route, args, record):
                                                           model=getattr(args,'vlm_model','Qwen/Qwen2.5-VL-3B-Instruct'))
                 except Exception as e:
                     said['error']=e
+            set_phase('explanation:'+station)
             te=Thread(target=explain,daemon=True); te.start(); t0=time.monotonic()
             hold_stationary_while(te,60.,'explanation')
             entry={'stage':'checkpoint_explanation','t_wall_s':round(time.monotonic()-start,3),
@@ -366,10 +410,11 @@ def run_ros(route, args, record):
             # Keep the velocity guard alive, command ZERO, and retain new ROS
             # odometry samples after the AI denial for independent audit.
             # Any sensor/guard error during this dwell is a real FAILURE.
+            set_phase('denial_dwell:'+station)
             denied_at=time.monotonic()
             while time.monotonic()-denied_at < 2.5:
                 publish()
-                rclpy.spin_once(node,timeout_sec=.1)
+                spin(.1)
                 now=time.monotonic()
                 why=watch.check(now)
                 if why:
@@ -385,6 +430,7 @@ def run_ros(route, args, record):
         return outcome
 
     try:
+        set_phase('warmup')
         # Sensor warmup, no motion allowed during startup.  v3.3: a fixed 3 s
         # window lost DDS discovery races on a loaded host (campaign A: 4 of 12
         # attempts saw no /odom or /scan).  Keep the minimum warmup, then keep
@@ -395,9 +441,15 @@ def run_ros(route, args, record):
             return (ctx['pose'] is not None and watch.last_scan_at is not None
                     and (not live_run or ctx['frame_msg'] is not None)
                     and (not guard_required or ctx['guard_ready']))
+        injected=False
         while (time.monotonic()-start < args.warmup
                or (not streams_ready() and time.monotonic()-start < args.sensor_wait)):
-            rclpy.spin_once(node,timeout_sec=.08)
+            if getattr(args,'inject_warmup_stall',0) and not injected and time.monotonic()-start>1.0:
+                injected=True   # I-09 fault injection: reproduce a planner stall while stationary
+                record['events'].append({'stage':'injected_stall','stall_s':args.inject_warmup_stall,
+                                         't_wall_s':round(time.monotonic()-start,3)})
+                time.sleep(args.inject_warmup_stall)
+            spin(.08)
             publish()
             if watch.check(time.monotonic()):
                 raise RuntimeError('watchdog during startup: '+watch.latched_reason)
@@ -420,9 +472,10 @@ def run_ros(route, args, record):
             stage,target,goal=route[index]
             index+=1
             progress.anchor_at=None; progress.anchor_xy=None
+            set_phase('drive:'+stage+':'+str(target))
             begun=time.monotonic();samples=[]
             while True:
-                rclpy.spin_once(node,timeout_sec=.06)
+                spin(.06)
                 now=time.monotonic()
                 why=watch.check(now)
                 if why:
@@ -483,9 +536,10 @@ def run_ros(route, args, record):
                 time.sleep(.06)
         record['success']=True
     finally:
+        record['max_request_gap_s']=round(gap_state['max'],3)
         # Publish redundant zeros as this is not safety-certified hardware.
         for _ in range(5):
-            publish();rclpy.spin_once(node,timeout_sec=.05)
+            publish();spin(.05)
         _=subs
         node.destroy_node();rclpy.shutdown()
 
@@ -523,6 +577,8 @@ def main():
     ap.add_argument('--vlm-model',default='Qwen/Qwen2.5-VL-3B-Instruct',help='model id served on the local endpoint')
     ap.add_argument('--recovery',action='store_true',help='I-02: if the supply is missing/wrong, check the other station once')
     ap.add_argument('--explain',action='store_true',help='I-03: one-sentence Japanese report after each checkpoint (not used for decisions)')
+    ap.add_argument('--inject-warmup-stall',type=float,default=0.0,help='I-09 fault injection (seconds); tests only')
+    ap.add_argument('--gc-freeze',action='store_true',help='I-09: freeze start-up objects out of the cyclic GC before the control loop')
     ap.add_argument('--estop-topic',default='/rescuemind/estop')
     ap.add_argument('--min-front-m',type=float,default=.26)
     ap.add_argument('--scan-max-age',type=float,default=1.5)

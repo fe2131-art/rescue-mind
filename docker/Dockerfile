@@ -39,6 +39,13 @@ ENV RESCUEMIND_VENV=/opt/rescuemind-venv \
     NVIDIA_DRIVER_CAPABILITIES=all \
     QT_X11_NO_MITSHM=1
 
+# I-09: let the (non-root) runtime user raise the priority of the control loops.
+# docker run --cap-add SYS_NICE puts the capability in the bounding set; the file
+# capability on `nice` makes it effective for a non-root caller (no sudo needed).
+RUN apt-get update && apt-get install -y --no-install-recommends libcap2-bin \
+    && rm -rf /var/lib/apt/lists/* \
+    && setcap cap_sys_nice+ep "$(readlink -f /usr/bin/nice)"
+
 COPY entrypoint.sh /usr/local/bin/rescuemind-entrypoint
 RUN chmod +x /usr/local/bin/rescuemind-entrypoint
 ENTRYPOINT ["/usr/local/bin/rescuemind-entrypoint"]

@@ -31,6 +31,7 @@ class VelocityRelay:
     max_linear: float = 0.30
     max_angular: float = 1.30
     min_front_m: float = 0.26
+    latch_stale_zero: bool = False   # True = pre-v3.4 behaviour (for A/B tests)
     last_odom_at: float | None = None
     last_cmd_at: float | None = None
     last_cmd: tuple[float, float] = (0., 0.)
@@ -124,8 +125,13 @@ class VelocityRelay:
         if self.last_cmd_at is None:
             return RelayDecision(True,0.,0.,'awaiting_command')
         if now<self.last_cmd_at or now-self.last_cmd_at>self.cmd_max_age_s+1e-9:
-            self.latched='stale_velocity_command'
-            return RelayDecision(False,0.,0.,self.latched)
+            # I-09: a stale ZERO request is not a hazard (the output is zero either way);
+            # hold zero without latching so a brief planner stall while stationary does
+            # not abort the mission.  A stale MOTION request still latches immediately.
+            if self.latch_stale_zero or now<self.last_cmd_at or self.last_cmd!=(0.,0.):
+                self.latched='stale_velocity_command'
+                return RelayDecision(False,0.,0.,self.latched)
+            return RelayDecision(True,0.,0.,'stale_zero_request_hold')
         return RelayDecision(True,*self.last_cmd,'command_fresh')
 
 
