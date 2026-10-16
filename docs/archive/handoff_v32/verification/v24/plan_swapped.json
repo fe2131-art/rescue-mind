@@ -1,0 +1,34 @@
+{
+  "scenario": "live",
+  "scene": "swapped",
+  "scene_sha256": "cacad9511d1373fc084e5a22c903648573d6488b5e7a96069789b3d04dac50bd",
+  "services": [
+    [
+      "gz",
+      "sim",
+      "-r",
+      "-v",
+      "4",
+      "/mnt/data/rescuemind_v24/worlds/scenarios/rescuemind_swapped.sdf"
+    ],
+    [
+      "bash",
+      "/mnt/data/rescuemind_v24/scripts/bridge_direct_gazebo.sh"
+    ],
+    [
+      "bash",
+      "/mnt/data/rescuemind_v24/scripts/start_velocity_guard.sh"
+    ]
+  ],
+  "readiness": [
+    "bash",
+    "/mnt/data/rescuemind_v24/scripts/v21_live_readiness.sh"
+  ],
+  "mission": [
+    "bash",
+    "-c",
+    "source /opt/ros/jazzy/setup.bash && source /mnt/data/rescuemind_v24/.venv/bin/activate && exec python3 /mnt/data/rescuemind_v24/ros/gazebo_waypoint_mission.py --run-live --instruction '避難所Bに飲料水を届けて' --stage-timeout 120"
+  ],
+  "capture_rosbag": false,
+  "notes": "Plan is not execution evidence. v2.1 first validates Gazebo Transport topic names, then sensor/clock/guard readiness; real live requires Jev+Qwen3.8 API."
+}

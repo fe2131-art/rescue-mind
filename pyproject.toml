@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rescuemind"
+version = "3.3.0"
+description = "RescueMind: on-site local-VLM verification for a ROS 2 Jazzy / Gazebo Harmonic disaster-supply robot"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["scikit-learn>=1.3,<2", "Pillow>=9", "PyYAML>=6,<7"]
+
+[project.optional-dependencies]
+semantic = ["sentence-transformers>=3,<6"]
+local-v100 = ["transformers==4.53.3", "accelerate==1.9.0", "huggingface_hub==0.33.4", "num2words>=0.5", "safetensors>=0.4"]
+# Qwen 3.5 inference runs in an independently started local vLLM server.
+# Jev uses HTTPS; both API clients below use the Python standard library.
+
+[project.scripts]
+rescuemind-demo = "rescuemind.demo:main"
+rescuemind-eval = "rescuemind.evaluate:main"
+rescuemind-multimodal = "rescuemind.multimodal_demo:main"
+rescuemind-benchmark = "rescuemind.benchmark_vision:main"
+rescuemind-capture-case = "rescuemind.record_real_case:main"
+rescuemind-paired = "rescuemind.paired_benchmark:main"
+
+[tool.setuptools.packages.find]
+include = ["rescuemind*"]
+
+# FP16 CUDA-enabled PyTorch is installed separately using the V100 installer.
+# Vision dependencies must not be pulled into CPU-only / ROS test installations.
+# pip install -e '.[local-v100]' after installing CUDA PyTorch.
