@@ -108,6 +108,7 @@ def main(argv=None):
             r = json.loads(line)
             if r.get('local_mode', 'single') == a.local_mode and r.get('final', True):
                 done.add(r['trial_id'])
+    common = json.loads(Path(a.protocol).read_text(encoding='utf8')).get('common_stack_args', []) if a.protocol else []
     for trial in load_protocol(a.protocol):
         if a.only and trial['id'] not in a.only:
             continue
@@ -127,7 +128,8 @@ def main(argv=None):
                     break
                 if trial.get(key) and not (key == 'lighting' and trial[key] == 'default'):
                     cmd += [flag, trial[key]]
-            cmd += a.stack_args
+            cmd += a.stack_args or common
+            cmd += trial.get('stack_args') or []      # campaign F: per-trial configuration (A/B)
             if not a.no_rosbag:
                 cmd.append('--capture-rosbag')
             started = time.monotonic()
@@ -141,7 +143,9 @@ def main(argv=None):
                 raise
             row = summarize(trial, latest_run_after(before), rc, time.monotonic() - started)
             row['local_mode'] = a.local_mode
-            row['stack_args'] = a.stack_args
+            row['stack_args'] = (a.stack_args or common) + (trial.get('stack_args') or [])
+            if trial.get('config'):
+                row['config'] = trial['config']; row['world'] = trial.get('world'); row['condition'] = trial.get('condition')
             row['instruction'] = trial.get('instruction')
             row['attempt'] = attempt + 1
             infra_failure = row['observed_action'] == 'FAILED' and row.get('vlm_reason') is None
