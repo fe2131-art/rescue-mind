@@ -38,4 +38,4 @@ Fixed before any G trial, after campaign F.
 **Infrastructure failures.** A stack failure before any VLM decision may be re-run once. All attempts are kept.
 
 ## Amendments
-(none)
+**Amendment 1 (before any G trial).** The I-14 mechanics pilot (`experiments/results/i14_pilot_ledger.jsonl`) ran on F worlds and E pilot worlds, which are development data. In one fire-free run the robot delivered correctly, but the completion audit rejected the run: the side-view arrival events had been logged as mission waypoint arrivals. They are now logged as `look_around_arrival` without the `arrived` flag. After the fix, all three approval paths passed every audit (plain, box and deliver-after-search). The G protocol and the configurations are unchanged.
