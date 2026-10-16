@@ -146,6 +146,7 @@ def run_ros(route, args, record):
         subs.append(node.create_subscription(Bool,'/rescuemind/guard_ready',on_guard,
                                              control_qos(getattr(args,'control_qos','reliable'))))
     ctl=WaypointController()
+    peek_ctl=WaypointController(tolerance=.08)   # I-14: side views must really be beside the station
     progress=ProgressWatch()
     # I-09: instrument gaps between velocity requests (the guard latches after 0.45 s)
     gap_state={'last':None,'phase':'startup','max':0.0}
@@ -228,7 +229,7 @@ def run_ros(route, args, record):
 
     enforce_stationary_ref=[lambda: None]
 
-    def onsite_check(station, expected=None):
+    def onsite_check(station, expected=None, peek=False):
         """Align camera to `station`, capture NEW frame, then keep zero velocity during AI.
 
         `expected` is the requested supply (defaults to the station name); in a
@@ -387,6 +388,8 @@ def run_ros(route, args, record):
         record['events'].append({'stage':'checkpoint_decision','t_wall_s':round(time.monotonic()-start,3),
                                   'station':station,'expected':expected,
                                   'allow':outcome['decision']['allow'],'reason':outcome['decision']['reason']})
+        if peek:
+            return outcome      # I-14 side view: no explanation, no denial dwell (the caller decides)
         if getattr(args,'explain',False) and getattr(args,'inference_backend','cloud')=='local':
             # I-03: one-sentence Japanese report of what the camera saw (explanation only;
             # the decision above is already final and never reads this text).
@@ -432,6 +435,68 @@ def run_ros(route, args, record):
                                      't_wall_s':round(time.monotonic()-start,3),
                                      'commanded_linear':0.,'commanded_angular':0.})
         return outcome
+
+    def schedule_look_around(station, waypoint):
+        centers=station_centers(json.loads((ROOT/'configs/gazebo_station_centers.json').read_text()))
+        cx,cy=centers[station][:2] if isinstance(centers[station],(list,tuple)) else (centers[station].x,centers[station].y)
+        wx,wy=waypoint[:2]
+        n=math.hypot(cx-wx,cy-wy) or 1.
+        vx,vy=-(cy-wy)/n,(cx-wx)/n
+        d=float(args.look_around)
+        pts=[('L',(round(wx-d*vx,3),round(wy-d*vy,3))),('R',(round(wx+d*vx,3),round(wy+d*vy,3)))]
+        la=record.setdefault('look_around',{'offset_m':d,'station':station,'points':[],'peeks':[]})
+        la['points']=[{'side':sd,'xy':list(xy)} for sd,xy in pts]
+        record['events'].append({'stage':'look_around_scheduled','station':station,'points':la['points'],
+                                 't_wall_s':round(time.monotonic()-start,3)})
+        return [('peek',f'{station}:{sd}',xy) for sd,xy in pts]
+
+    def look_around_peek(target, goal):
+        station,side=target.split(':')
+        requested=(record.get('intent') or {}).get('item') or station
+        n0=len(record['events'])
+        saved=(record.get('checkpoint'),record.get('checkpoint_station'),args.checkpoint_image)
+        img=Path(saved[2]).with_name(f'peek_{side}_'+Path(saved[2]).name)
+        args.checkpoint_image=str(img)
+        try:
+            po=onsite_check(station,requested,peek=True)
+        finally:
+            args.checkpoint_image=saved[2]
+            record['checkpoint'],record['checkpoint_station']=saved[0],saved[1]
+        for e in record['events'][n0:]:
+            e['stage']=f'peek_{side}_'+e['stage']
+        hazard=po['decision']['reason']=='visible_hazard_at_checkpoint'
+        entry={'side':side,'xy':list(goal[:2]),'image':img.name,'image_sha256':po['image_sha256'],
+               'model_calls':po['model_calls'],'hazard':hazard,'reason':po['decision']['reason']}
+        if 'jev_call' in po:
+            entry['jev_call']=po['jev_call']
+        la=record['look_around']; la['peeks'].append(entry)
+        cp=record['checkpoint']; cp['look_around']=la
+        if not hazard:
+            return
+        # a hazard seen from the side: the approval becomes a hazard refusal, exactly as at the front
+        from rescuemind.local_vision import combine_with_look_around
+        cp['decision']=combine_with_look_around(cp['decision'],[{'side':q['side'],'hazard':q['hazard']} for q in la['peeks']])
+        for e in record['events']:
+            if e.get('stage')=='checkpoint_decision':
+                e['stage']='front_checkpoint_decision'
+        record['events'].append({'stage':'checkpoint_decision','t_wall_s':round(time.monotonic()-start,3),
+                                 'station':station,'expected':requested,'allow':False,
+                                 'reason':'visible_hazard_at_checkpoint','source':'look_around_'+side})
+        set_phase('denial_dwell:look_around')
+        denied_at=time.monotonic()
+        while time.monotonic()-denied_at < 2.5:
+            publish(); spin(.1)
+            now=time.monotonic()
+            why=watch.check(now)
+            if why:
+                raise RuntimeError('denial dwell watchdog: '+why)
+            check_camera(now); check_guard(now)
+            if ctx['pose_time'] is None or now-ctx['pose_time']>1.3:
+                raise RuntimeError('denial dwell odometry stale')
+            enforce_stationary_ref[0]()
+        record['events'].append({'stage':'checkpoint_denial_dwell_finished','t_wall_s':round(time.monotonic()-start,3),
+                                 'commanded_linear':0.,'commanded_angular':0.})
+        raise RuntimeError('on-site checkpoint DENIED: visible_hazard_at_checkpoint (look-around '+side+')')
 
     try:
         set_phase('warmup')
@@ -492,7 +557,7 @@ def run_ros(route, args, record):
                     raise RuntimeError('camera timestamp regression or invalid header')
                 if now-begun>args.stage_timeout:
                     raise TimeoutError(f'waypoint timeout: {stage}/{target}')
-                cmd=ctl.command(ctx['pose'],goal)
+                cmd=(peek_ctl if stage=='peek' else ctl).command(ctx['pose'],goal)
                 stall=progress.update(ctx['pose'],cmd.linear,now)
                 if stall:
                     raise RuntimeError('drive progress watchdog: '+stall)
@@ -502,9 +567,16 @@ def run_ros(route, args, record):
                                               'duration_wall_s':round(now-begun,3),'t_wall_s':round(now-start,3),'samples':len(samples),
                                               'last_pose':list(ctx['pose'].__dict__.values())})
                     record['trace'].extend(samples)
+                    if stage == 'peek':
+                        look_around_peek(target, goal)
+                        break
                     if stage == 'supply_station' and record.get('run_type') in ('jev_qwen_mission', 'jev_qwen_live_mission','local_vlm_live_mission'):
                         requested=(record.get('intent') or {}).get('item') or target
                         outcome=onsite_check(target,requested)
+                        if outcome['decision']['allow'] and getattr(args,'look_around',0) > 0:
+                            # I-14: before leaving, look again from beside the station (a fire hidden behind the
+                            # supply from the front is often plainly visible from the side)
+                            route[index:index]=schedule_look_around(target, goal)
                         if not outcome['decision']['allow']:
                             reason=outcome['decision']['reason']
                             other='medicine' if target=='water' else 'water'
@@ -581,6 +653,8 @@ def main():
     ap.add_argument('--vlm-model',default='Qwen/Qwen2.5-VL-3B-Instruct',help='model id served on the local endpoint')
     ap.add_argument('--recovery',action='store_true',help='I-02: if the supply is missing/wrong, check the other station once')
     ap.add_argument('--explain',action='store_true',help='I-03: one-sentence Japanese report after each checkpoint (not used for decisions)')
+    ap.add_argument('--look-around',type=float,default=0.0,
+                    help='I-14: after an approval, look again from this far (m) left and right of the station waypoint')
     ap.add_argument('--jev-url',default=None,help='I-13: local Jev-role model (Clef-Flash) URL; both models must approve')
     ap.add_argument('--jev-hazard-threshold',type=float,default=.35)
     ap.add_argument('--control-qos',choices=['reliable','best_effort'],default='reliable',

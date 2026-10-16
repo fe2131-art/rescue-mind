@@ -16,7 +16,7 @@ def _strict_num(x):
     return type(x) in (int,float) and math.isfinite(x)
 
 def audit_denial(mission_path, telemetry_path, *, station, shelter, tolerance=0.43,
-                 min_samples_after=2) -> dict:
+                 min_samples_after=2, extra_points=()) -> dict:
     m=json.loads(Path(mission_path).read_text(encoding='utf-8'))
     if m.get('run_type') not in ('jev_qwen_live_mission','local_vlm_live_mission') or m.get('success') is not False:
         raise DenialEvidenceError('not a failed live AI mission')
@@ -89,7 +89,9 @@ def audit_denial(mission_path, telemetry_path, *, station, shelter, tolerance=0.
     after=[o for o in samples if o[0]>=t_decision]
     if len(dwell)<2 or len(after)<min_samples_after:
         raise DenialEvidenceError('insufficient independent stationary evidence')
-    if any(dist(o,station)>tolerance for o in dwell+after):
+    # I-14: look-around side views are logged checkpoint poses; the robot may stand at any of them
+    allowed=[tuple(station)]+[tuple(x) for x in extra_points]
+    if any(min(dist(o,xy) for xy in allowed)>tolerance for o in dwell+after):
         raise DenialEvidenceError('left station before/after denial')
     # Cannot prove actual physics. This requires continued recorder samples after the denial.
     return {'pass':True,'run_id':run_id,'scope':'INDEPENDENT_ROS_OBSERVATION_NOT_AUTHENTICATED_GAZEBO',

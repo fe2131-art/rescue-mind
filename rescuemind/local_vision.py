@@ -162,6 +162,17 @@ def combine_with_jev(q_decision: dict, j: dict, expected: str, *, hazard_thresho
                          'hazard_threshold': hazard_threshold, 'hazard': jhaz}}
 
 
+def combine_with_look_around(front_decision: dict, peeks: list) -> dict:
+    """I-14: after an approving front check the robot looks again from beside the station; a hazard seen from ANY
+    side view turns the approval into a hazard refusal (no search).  Supply answers from side views are ignored
+    (the supply may be out of view there).  Deterministic, so audits can recompute it."""
+    sides = [p['side'] for p in peeks if p.get('hazard')]
+    if not sides or not front_decision.get('allow'):
+        return front_decision
+    return {**front_decision, 'allow': False, 'reason': 'visible_hazard_at_checkpoint',
+            'front_reason': front_decision['reason'], 'look_around_hazard_sides': sides}
+
+
 def verify_station_local(image_path: str | Path, expected: str, *,
                          mode: str='single', primary_url: str=DEFAULT_PRIMARY_URL,
                          secondary_url: str=DEFAULT_SECONDARY_URL,

@@ -78,7 +78,8 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
                prompt_set: str = 'v33', model: str | None = None, intent_backend: str = 'tfidf',
                intent_prompt: str = 'i34', describe_prompt: str = 'e0', inject_stall: float = 0.0,
                hazard_threshold: float = 0.5, control_qos: str = 'reliable', hazard_views: str = 'full',
-               hazard_prompt: str = 'h35', jev_local: str = 'off', jev_hazard_threshold: float = .35) -> dict:
+               hazard_prompt: str = 'h35', jev_local: str = 'off', jev_hazard_threshold: float = .35,
+               look_around: float = 0.0) -> dict:
     if scenario not in ('motion-check', 'live'):
         raise ValueError('invalid scenario')
     from rescuemind.scene_variants import SCENES
@@ -88,6 +89,8 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
     cmd = ['python3', script, '--motion-check'] if scenario == 'motion-check' else \
           ['python3', script, '--run-live', '--instruction', instruction]
     cmd += ['--stage-timeout', '120', '--control-qos', control_qos]
+    if look_around:
+        cmd += ['--look-around', str(look_around)]
     if inject_stall:
         cmd += ['--inject-warmup-stall', str(inject_stall)]
     if scenario=='live':
@@ -218,6 +221,8 @@ def main(argv=None):
                    help='I-12 (v3.5 default: async): default = reliable control topics, synchronous Fast DDS publication; '
                         'async = RMW_FASTRTPS_PUBLICATION_MODE=ASYNCHRONOUS for the whole stack; '
                         'best_effort = best-effort request/heartbeat topics')
+    p.add_argument('--look-around', type=float, default=0.0,
+                   help='I-14: after an approval, look again from this far (m) left and right of the station')
     p.add_argument('--jev-local', choices=['off', 'clef'], default='off',
                    help='I-13: add the Jev-role model (Clef-Flash, local) - both models must approve')
     p.add_argument('--jev-hazard-threshold', type=float, default=.35)
@@ -269,7 +274,7 @@ def main(argv=None):
                  intent_backend=args.intent_backend, intent_prompt=args.intent_prompt,
                  describe_prompt=args.describe_prompt, inject_stall=args.inject_warmup_stall,
                  hazard_threshold=args.hazard_threshold, hazard_views=args.hazard_views,
-                 hazard_prompt=args.hazard_prompt, jev_local=args.jev_local,
+                 hazard_prompt=args.hazard_prompt, jev_local=args.jev_local, look_around=args.look_around,
                  jev_hazard_threshold=args.jev_hazard_threshold,
                  control_qos='best_effort' if args.dds_mode == 'best_effort' else 'reliable')
     if args.dds_mode == 'async':
@@ -310,6 +315,7 @@ def main(argv=None):
     summary['hazard_threshold'] = args.hazard_threshold
     summary['dds_mode'] = args.dds_mode
     summary['jev_local'] = args.jev_local
+    summary['look_around'] = args.look_around
     summary['jev_hazard_threshold'] = args.jev_hazard_threshold
     summary['hazard_views'] = args.hazard_views
     summary['hazard_prompt'] = args.hazard_prompt
@@ -482,7 +488,7 @@ def main(argv=None):
                 from rescuemind.ground_truth_evidence import audit_ground_truth
                 outcome['ground_truth_evidence']=audit_ground_truth(
                     log_dir/'independent_ros_topics.jsonl',station=config[final_station],shelter=config['B'],
-                    expect_arrival=False)
+                    expect_arrival=False, look_around_m=float((denied.get('look_around') or {}).get('offset_m', 0.0)))
                 # If a rosbag was specifically requested, it is evidence
                 # required even for a deliberately denied mission.
                 if args.capture_rosbag:
