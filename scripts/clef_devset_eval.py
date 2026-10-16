@@ -21,6 +21,7 @@ def main():
     ap.add_argument('--devset', required=True)
     ap.add_argument('--tag', required=True)
     ap.add_argument('--url', default=clef_local.DEFAULT_URL)
+    ap.add_argument('--schema', choices=['jev', 'task'], default='jev', help="'jev' = original plan's request; 'task' = task wording")
     a = ap.parse_args()
     dev = Path(a.devset)
     rows = [json.loads(x) for x in (dev / 'labels.jsonl').read_text().splitlines()]
@@ -28,7 +29,7 @@ def main():
     for r in rows:
         t0 = time.perf_counter()
         try:
-            res = clef_local.infer(dev / r['image'], a.url)
+            res = clef_local.infer(dev / r['image'], a.url, schema=a.schema)
         except Exception as exc:  # recorded; counts as a refusal in every rule
             res = {'error': f'{type(exc).__name__}: {exc}'[:200]}
         out.append(dict(r, clef=res, clef_wall_s=round(time.perf_counter() - t0, 3)))

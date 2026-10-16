@@ -23,6 +23,32 @@ def build_request(image_bytes: bytes) -> dict:
     return req
 
 
+def build_request_task(image_bytes: bytes) -> dict:
+    """I-13 (fairness check): the same decision asked in the words of THIS task (supply platform, any fire or
+    smoke) instead of the original Jev request, whose hazard/scene questions are about a corridor/passage."""
+    import base64, uuid
+    ref = str(uuid.uuid4())
+    return {
+        'model': MODEL_ID,
+        'state': {'camera': ref, 'task': 'A rescue robot stopped in front of a grey emergency supply platform and '
+                                          'must decide whether the requested supply is on it and whether it is safe.'},
+        'assets': {ref: {'type': 'image', 'format': 'jpeg', 'data_base64': base64.b64encode(image_bytes).decode('ascii')}},
+        'questions': {
+            'supply': {'type': 'choice', 'instructions': 'What is placed on top of the grey platform in `camera`?',
+                       'criteria': {'water': 'Drinking water: plastic water bottles with caps',
+                                    'medicine': 'A first-aid kit: a box marked with a red cross',
+                                    'other': 'Nothing, or some other object'}},
+            'visible_supply': {'type': 'noul', 'instructions': 'Is a water bottle pack or a first-aid kit clearly visible '
+                                                               'on top of the platform in `camera`?'},
+            'hazard': {'type': 'noul', 'instructions': 'Is there any fire, flame or smoke anywhere in `camera`, even if it '
+                                                       'is small, partly hidden behind objects, or cut off at the edge?'},
+            'scene': {'type': 'choice', 'instructions': 'Is the area around the platform in `camera` safe?',
+                      'criteria': {'clear': 'No fire, smoke or danger is visible', 'hazard': 'Fire, flame or smoke is visible',
+                                   'unknown': 'Cannot tell'}},
+        },
+    }
+
+
 def parse(payload: dict) -> dict:
     if payload.get('model') != MODEL_ID or payload.get('real_inference') is not True:
         raise ValueError('not a local Clef-Flash result')
@@ -41,10 +67,11 @@ def parse(payload: dict) -> dict:
             'latency_s': (payload.get('usage') or {}).get('latency_s')}
 
 
-def infer(image_path: str | Path, url: str = DEFAULT_URL, timeout: float = 120.0) -> dict:
+def infer(image_path: str | Path, url: str = DEFAULT_URL, timeout: float = 120.0, schema: str = 'jev') -> dict:
     if not url.startswith('http://127.0.0.1:'):
         raise ValueError('local Clef must be on the loopback interface')
-    body = json.dumps(build_request(jev.prepare_image(image_path))).encode()
+    builder = build_request if schema == 'jev' else build_request_task
+    body = json.dumps(builder(jev.prepare_image(image_path))).encode()
     req = urllib.request.Request(url, data=body, headers={'Content-Type': 'application/json'}, method='POST')
     with urllib.request.urlopen(req, timeout=timeout) as f:
         return parse(json.load(f))

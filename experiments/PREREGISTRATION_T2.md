@@ -40,4 +40,10 @@
 (filled in from experiments/results/i13_selection.json before T2 scoring)
 
 ## Amendments
-(none)
+**Amendment 1 (2026-10-18, before any T2 image was scored).** These changes were made after the development results
+were seen and before T2 scoring:
+1. **DH2 added.** DH contained only 4 visible fires below 10 000 px, so DH2 (small early-stage fires, development data) was added to the development sets.
+2. **Bug fix in `i13_select.py`.** Single-model Qwen3.5-9B variants had been flagged as not deployable on one V100.
+3. **Fallback rule.** No candidate reached zero false approvals on development data, because DH2's small fires defeat every one of them, so rule 1 selected nothing. The fallback is: fewest development false approvals among candidates with correct approvals ≥ 95%, then the remaining tie-breaks as before.
+4. **Fairness check for Clef-Flash.** With the original Jev request, Clef-Flash approved only 51% of correct deliveries. Its hazard and scene questions ask about a corridor. Clef-Flash was therefore also scored with task-worded questions (`clef_local.build_request_task`) and entered as additional candidates.
+T2 itself is untouched.
