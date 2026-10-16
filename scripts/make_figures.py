@@ -225,6 +225,32 @@ def wheel_bug():
     save(fig, 'wheel_axis_regression.png')
 
 
+def i01_drift():
+    d = RES / 'i01_drift'
+    if not (d / 'baseline.json').is_file() or not (d / 'sphere_wheels.json').is_file():
+        return
+    variants = [('baseline', '円柱コリジョン（v3.3）', GRAY), ('accel_1.0_3.0', '＋加速度制限', ORANGE),
+                ('front_caster', '＋前キャスター', AQUA), ('sphere_wheels', '球コリジョン（採用）', BLUE)]
+    pats = [('straight_2m', '直進2m'), ('turn_360', 'その場1回転'), ('medicine_route', '医療物資ルートの指令列')]
+    fig, ax = plt.subplots(figsize=(11, 4))
+    width = 0.2
+    for k, (v, lab, col) in enumerate(variants):
+        f = d / f'{v}.json'
+        if not f.is_file():
+            continue
+        r = json.loads(f.read_text())['patterns']
+        vals = [max(x['pos_error_m'] for x in r[pk]) if pk in r else 0 for pk, _ in pats]
+        xs = [i + (k - 1.5) * width for i in range(len(pats))]
+        ax.bar(xs, vals, width=width * 0.92, color=col, label=lab)
+        for x, val in zip(xs, vals):
+            ax.text(x, val + 0.005, f'{val:.3f}', ha='center', fontsize=8, color=INK)
+    ax.set_xticks(range(len(pats))); ax.set_xticklabels([p[1] for p in pats])
+    ax.set_ylabel('最終位置の誤差 [m]（オドメトリ − Gazebo真値）')
+    ax.set_title('I-01 推測航法ドリフトの原因切り分け：車輪の円柱コリジョンが原因（球に変更で約1/15）')
+    ax.legend(frameon=False, fontsize=9)
+    save(fig, 'i01_drift.png')
+
+
 if __name__ == '__main__':
     which = sys.argv[1:] or ['architecture', 'devset', 'campaign', 'trajectories', 'wheel']
     out = {}
@@ -233,5 +259,6 @@ if __name__ == '__main__':
     if 'campaign' in which and (RES / 'campaign_ledger.jsonl').is_file(): out['campaign'] = campaign_results()
     if 'trajectories' in which and (RES / 'campaign_ledger.jsonl').is_file(): trajectories()
     if 'wheel' in which: wheel_bug()
+    if 'i01' in which or not sys.argv[1:]: i01_drift()
     if out:
         (RES / 'figure_stats.json').write_text(json.dumps(out, indent=1) + '\n')
