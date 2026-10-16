@@ -186,6 +186,43 @@ def main():
             lines.append(label + ' & ' + ' & '.join(cells) + r' \\')
         lines += [r'\bottomrule', r'\end{tabular}']
         tables['tab_t1_ablation.tex'] = '\n'.join(lines)
+    # ---- timing breakdown of delivered, non-recovery missions (campaign D, and E when present)
+    phases = [('drive to station', None, 'supply_station'), ('aim camera', 'supply_station', 'camera_aim_aligned'),
+              ('wait until stationary', 'camera_aim_aligned', 'checkpoint_stationary_verified'),
+              ('acquire and check frames', 'checkpoint_stationary_verified', 'checkpoint_frame'),
+              ('VLM decision (4 scored queries)', 'checkpoint_frame', 'checkpoint_decision'),
+              ('situation report (not used to decide)', 'checkpoint_decision', 'checkpoint_explanation'),
+              ('drive to shelter', 'checkpoint_explanation', 'shelter_approach')]
+    lines = [r'\begin{tabular}{lrrr}', r'\toprule', r'Phase & Median [s] & Min & Max \\', r'\midrule']
+    durs = defaultdict(list)
+    for rows in (d_rows or [], e_rows or []):
+        for r in rows:
+            if r['observed_action'] != 'ALLOW':
+                continue
+            mf = ROOT / 'outputs/runs' / r['run_id'] / 'mission.json'
+            if not mf.is_file():
+                continue
+            ev = {e['stage']: e.get('t_wall_s') for e in json.loads(mf.read_text())['events']}
+            for name, a, b in phases:
+                if b in ev and (a is None or a in ev):
+                    durs[name].append(ev[b] - (ev[a] if a else 0.0))
+    for name, _, _ in phases:
+        v = durs.get(name)
+        if v:
+            lines.append(f'{name} & {statistics.median(v):.2f} & {min(v):.2f} & {max(v):.2f} \\\\')
+    n_timing = len(durs.get('drive to shelter', []))
+    lines += [r'\bottomrule', r'\end{tabular}']
+    tables['tab_timing.tex'] = '\n'.join(lines)
+    m['TimingN'] = n_timing
+    # ---- development-data model selection (appendix table)
+    sel = json.loads((RES / 'i08_model_selection.json').read_text())
+    lines = [r'\begin{tabular}{llrrrr}', r'\toprule',
+             r'Model & Released & Images (176) & Explanations (128) & Intent dev (40) & VRAM \\', r'\midrule']
+    for r in sel:
+        lines.append(f"{r['model']} & {r['released']} & {r['vision_v35'].replace('(', '(').replace(', ', '/')} & {r['explain']} & "
+                     f"{r.get('intent_dev_i35', '--').replace(' (unsafe ', ', unsafe ').rstrip(')')} & {r.get('vram', '--').replace(' MiB', '')} \\\\")
+    lines += [r'\bottomrule', r'\end{tabular}']
+    tables['tab_dev_models.tex'] = '\n'.join(lines)
     m.pending(['TNimages', 'TNamb', 'TNdeny', 'TNallow', 'TFA', 'TFARate', 'TFACI', 'TCA', 'TCARate', 'TCACI', 'THazRecall',
                'TConeAlarm', 'TLatPass', 'TAmbAllowed', 'EN', 'ECorrect', 'ECorrectCI', 'EWrong', 'EWrongCI', 'ELatMed',
                'ELatMax', 'ERetries', 'EWallMed', 'ESafeN', 'ETaskSuccess', 'ETaskSuccessCI', 'EBzeroWrong', 'EBzeroWrongCI',

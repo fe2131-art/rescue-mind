@@ -210,6 +210,12 @@ In campaign E, with a new random world in every trial, it behaved as expected in
 deliveries (\EBzeroWrongCI) and completed only \EBzeroTask{} correctly. Checking without recovery (B1, our earlier
 policy) would have completed \EBoneTask{} with \EBoneWrong{} wrong deliveries.
 
+\textbf{Where the time goes.} Table~\ref{tab:timing} breaks down the \TimingN{} delivered missions that needed no search.
+The check itself takes about 5\,s: aiming, waiting until stationary, frame checks, and four scored VLM queries. This is short
+compared with driving. The situation report adds about 4\,s but could run in parallel with the drive to the shelter.
+\begin{table}[t]\centering\caption{Wall-clock phases of delivered missions without search (campaigns D and E).}\label{tab:timing}
+\resizebox{0.92\linewidth}{!}{\input{tab_timing.tex}}\end{table}
+
 \subsection{Instruction parsing}
 On the 60 held-out utterances the hybrid parser was correct for \IntCorrect{}/\IntN{} with \IntUnsafe{} unsafe acceptances.
 The previous TF-IDF parser was correct for \IntTfidfCorrect{} with \IntTfidfUnsafe{} unsafe acceptances.
@@ -254,6 +260,16 @@ A local VLM can serve as a fail-closed gate for relief-supply delivery when its 
 multiple-choice verification and motion is kept behind an independent guard. Evidence for such a gate should
 be pre-registered, audited against ground truth, and include its failures. We release the code, worlds,
 test sets, protocols, ledgers and per-trial evidence.
+
+\appendices
+\section{Model selection on development data}\label{app:models}
+\begin{table}[h]\centering\caption{Candidate models with the final prompts (\texttt{v35}, \texttt{i35}) on development data only.
+Images: correct decisions with false approvals (FA) and false denials (FD). Explanations: one-sentence reports judged
+correct against the generator labels. Intent: development utterances, with unsafe acceptances. VRAM in MiB.}
+\label{tab:devmodels}\resizebox{\linewidth}{!}{\input{tab_dev_models.tex}}\end{table}
+Models were ranked lexicographically. The first key was zero false approvals and zero unsafe intent acceptances, and the
+second was explanation and intent accuracy. Qwen3-VL-8B parsed more development utterances but accepted two unsafe
+ones. Qwen3.5-4B produced a false approval. Qwen3.5-9B was therefore chosen and frozen before the T1 and E registrations.
 
 \section*{Reproducibility}
 One Dockerfile builds the full stack: ROS~2 Jazzy, Gazebo Harmonic, PyTorch, transformers. All test sets are
