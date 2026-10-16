@@ -323,7 +323,8 @@ def run_ros(route, args, record):
             try:
                 if getattr(args,'inference_backend','cloud') == 'local':
                     finished['result']=verify_station_local(f,expected,mode=args.local_mode,
-                        primary_url=args.local_primary_url,secondary_url=args.local_secondary_url)
+                        primary_url=args.local_primary_url,secondary_url=args.local_secondary_url,
+                        primary_model=getattr(args,'vlm_model','Qwen/Qwen2.5-VL-3B-Instruct'))
                 else:
                     finished['result']=verify_station(f,expected,qwen_model=args.qwen_model,endpoint=args.qwen_endpoint)
             except Exception as e:
@@ -346,7 +347,8 @@ def run_ros(route, args, record):
             said={'result':None,'error':None}
             def explain():
                 try:
-                    said['result']=describe_station_local(f,url=args.local_primary_url.replace('/v1/classify','/v1/describe'))
+                    said['result']=describe_station_local(f,url=args.local_primary_url.replace('/v1/classify','/v1/describe'),
+                                                          model=getattr(args,'vlm_model','Qwen/Qwen2.5-VL-3B-Instruct'))
                 except Exception as e:
                     said['error']=e
             te=Thread(target=explain,daemon=True); te.start(); t0=time.monotonic()
@@ -517,6 +519,8 @@ def main():
     ap.add_argument('--aim-timeout',type=float,default=14.0)
     ap.add_argument('--settle-timeout',type=float,default=7.0)
     ap.add_argument('--checkpoint-timeout',type=float,default=155.0)
+    ap.add_argument('--intent-backend',choices=['tfidf','llm'],default='tfidf',help='I-04: llm = local model closed-set parse + shelter guard')
+    ap.add_argument('--vlm-model',default='Qwen/Qwen2.5-VL-3B-Instruct',help='model id served on the local endpoint')
     ap.add_argument('--recovery',action='store_true',help='I-02: if the supply is missing/wrong, check the other station once')
     ap.add_argument('--explain',action='store_true',help='I-03: one-sentence Japanese report after each checkpoint (not used for decisions)')
     ap.add_argument('--estop-topic',default='/rescuemind/estop')
@@ -556,11 +560,26 @@ def main():
     a.relay_required=not a.legacy_direct_motion_check
     selection=decide_intent(a.instruction,min_confidence=a.intent_min_score)
     intent=selection.intent
+    llm_intent=None
+    if a.intent_backend=='llm':
+        # I-04: on-board LLM parse (+ explicit shelter-name guard).  If the local model is
+        # unreachable the mission refuses to start rather than silently using TF-IDF.
+        from rescuemind.intent_llm import decide_intent_hybrid
+        from rescuemind.intent import Intent
+        from rescuemind.mission_policy import IntentGate
+        llm_intent=decide_intent_hybrid(a.instruction,model=a.vlm_model,
+                                        url=a.local_primary_url.replace('/v1/classify','/v1/intent'))
+        item=llm_intent['item'] or 'water'
+        conf=(llm_intent.get('probs') or {}).get('item',{}).get(item,0.0)
+        selection=IntentGate(bool(llm_intent['accept']),llm_intent['reason'],
+                             Intent(item,'B',float(conf),'local_llm_closed_set'))
+        intent=selection.intent
     route=route_from_config(a.config,intent.item)
     record={'version':'3.1','run_id':run_id,'camera_max_age_s':a.camera_max_age,'lane':'Gazebo direct-drive through independent velocity relay, NOT Nav2',
             'run_type':(('local_vlm_live_mission' if a.inference_backend=='local' else 'jev_qwen_live_mission') if a.run_live else ('jev_qwen_mission' if a.run else ('motion_check_non_ai' if a.motion_check else 'dry_run'))),
             'instruction':a.instruction,'intent':intent.__dict__,
-            'intent_gate':{'allow':selection.allow,'reason':selection.reason,'threshold':a.intent_min_score},'route':route,
+            'intent_gate':{'allow':selection.allow,'reason':selection.reason,'threshold':a.intent_min_score,
+                           'backend':a.intent_backend,'llm':llm_intent},'route':route,
             'preflight':None,'checkpoint':None,'success':False,'events':[],'trace':[],
             'physical_pickup':False,
             'robot_runtime_verified_in_author_environment':False}

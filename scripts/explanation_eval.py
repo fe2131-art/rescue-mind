@@ -41,13 +41,14 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--tag', required=True)
     ap.add_argument('--devset', default=str(ROOT / 'experiments/vlm_devset_v2'))
+    ap.add_argument('--model', default='Qwen/Qwen2.5-VL-3B-Instruct')
     a = ap.parse_args()
     dev = Path(a.devset)
     rows = [json.loads(x) for x in (dev / 'labels.jsonl').read_text().splitlines()]
     out = []
     for r in rows:
         t0 = time.perf_counter()
-        text = describe_station_local(dev / r['image'])['text_ja']
+        text = describe_station_local(dev / r['image'], model=a.model)['text_ja']
         j = judge(text, r['truth_supply'], r.get('truth_hazard_visible', False))
         out.append({'image': r['image'], 'truth_supply': r['truth_supply'], 'fire': r.get('truth_hazard_visible', False),
                     'distractor': bool(r.get('distractor_at')), 'text_ja': text,

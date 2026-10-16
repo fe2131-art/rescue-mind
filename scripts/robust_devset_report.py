@@ -71,14 +71,23 @@ def margins(rows):
 
 
 def main():
-    variants = {'M0_v33': ('qwen3b_scored', 'v2_M0_qwen3b_scored'), 'M1_v34': ('v1_M1_v34', 'v2_M1_v34')}
+    variants = {'M0_v33': ('qwen3b_scored', 'v2_M0_qwen3b_scored'), 'M1_v34': ('v1_M1_v34', 'v2_M1_v34'),
+                # I-08: same v3.4 prompts, newer models
+                'Qwen3-VL-8B_v34': ('v1_qwen3vl8b', 'v2_qwen3vl8b'), 'Qwen3.5-9B_v34': ('v1_qwen35_9b', 'v2_qwen35_9b'),
+                'Qwen3.5-4B_v34': ('v1_qwen35_4b', 'v2_qwen35_4b'),
+                # I-08 round 2: model-agnostic v35 prompts, all on the transformers-5 stack
+                'Qwen2.5-VL-3B_v35': ('v1_v35_qwen25vl3b', 'v2_v35_qwen25vl3b'),
+                'Qwen3-VL-8B_v35': ('v1_v35_qwen3vl8b', 'v2_v35_qwen3vl8b'),
+                'Qwen3.5-9B_v35': ('v1_v35_qwen35_9b', 'v2_v35_qwen35_9b'),
+                'Qwen3.5-4B_v35': ('v1_v35_qwen35_4b', 'v2_v35_qwen35_4b')}
     out = {}
     for name, (t1, t2) in variants.items():
-        if not (RES / f'devset_{t2}.json').is_file():
+        if not ((RES / f'devset_{t2}.json').is_file() and (RES / f'devset_{t1}.json').is_file()):
             continue
         rows = load(t1, t2)
         grid = [evaluate(rows, ts, th) for ts in (0.3, 0.4, 0.5) for th in (0.2, 0.3, 0.5)]
-        out[name] = {'margins': margins(rows), 'grid': [{k: v for k, v in g.items() if k != 'errors'} for g in grid],
+        lat = [p['latency_s'] for r in rows for p in r['passes'].values()]
+        out[name] = {'margins': margins(rows), 'mean_latency_per_pass_s': round(sum(lat) / len(lat), 3), 'grid': [{k: v for k, v in g.items() if k != 'errors'} for g in grid],
                      'errors_at_0.5_0.5': evaluate(rows, 0.5, 0.5)['errors']}
         print(name, json.dumps(out[name]['margins'], ensure_ascii=False))
         for g in grid:

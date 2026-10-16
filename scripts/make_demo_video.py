@@ -26,6 +26,8 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
+import sys  # noqa: E402
+sys.path.insert(0, str(ROOT))
 W, H, FPS = 1920, 1080, 30
 FONT_R = '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc'
 FONT_B = '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc'
@@ -98,6 +100,11 @@ def load_run(run_dir: Path):
     for e in mission['events']:
         if isinstance(e.get('t_wall_s'), (int, float)):
             events.setdefault(e['stage'], start + int(e['t_wall_s'] * 1e9))
+    plan_file = run_dir / 'stack_plan.json'
+    if plan_file.is_file():
+        sp = json.loads(plan_file.read_text(encoding='utf8'))
+        mission['world_variant'] = sp.get('world_variant')
+        mission['model_label'] = (sp.get('model') or '').split('/')[-1]
     truth = []
     for line in (run_dir / 'independent_ros_topics.jsonl').read_text(encoding='utf8').splitlines():
         r = json.loads(line)
@@ -157,33 +164,59 @@ SCENE_JA = {'nominal': '正常配置', 'swapped': '物資の取り違え', 'empt
 
 
 # ---------------------------------------------------------------- mission segment
+def checkpoint_episodes(run):
+    """Every on-site check in time order (a recovery run has two)."""
+    m, ev = run['mission'], run['events']
+    eps = []
+    rec = m.get('recovery')
+    if rec and 'recovery_checkpoint_decision' in ev:
+        cp = rec.get('first_checkpoint') or {}
+        eps.append({'station': rec['first_station'], 'arrive': ev.get('recovery_supply_station'),
+                    'frame': ev.get('recovery_checkpoint_frame'), 'decision_t': ev['recovery_checkpoint_decision'],
+                    'end': ev.get('recovery_search_started') or ev['recovery_checkpoint_decision'] + int(3e9),
+                    'decision': cp.get('decision') or {}, 'calls': cp.get('model_calls') or {},
+                    'explain': (cp.get('explanation') or {}).get('text_ja')})
+    if 'checkpoint_decision' in ev:
+        cp = m.get('checkpoint') or {}
+        dec = cp.get('decision') or {}
+        eps.append({'station': m.get('checkpoint_station') or m['intent']['item'], 'arrive': ev.get('supply_station'),
+                    'frame': ev.get('checkpoint_frame'), 'decision_t': ev['checkpoint_decision'],
+                    'end': ev.get('checkpoint_denial_dwell_finished') or ev['checkpoint_decision'] + int(2.5e9),
+                    'decision': dec, 'calls': cp.get('model_calls') or {},
+                    'explain': (cp.get('explanation') or {}).get('text_ja')})
+    return eps
+
+
+STATION_JA = {'water': '拠点W', 'medicine': '拠点M'}
+
+
 def mission_segment(run_dir: Path, spec: dict, cam: FilmCamera, emit):
     run = load_run(run_dir)
     ev, mission = run['events'], run['mission']
-    cp = mission.get('checkpoint') or {}
-    decision = cp.get('decision') or {}
-    calls = cp.get('model_calls') or {}
+    eps = checkpoint_episodes(run)
     t0 = run['film'][0][0] + int(spec.get('skip_s', 0.5) * 1e9)
-    t_station = ev.get('supply_station')
-    t_frame = ev.get('checkpoint_frame')
-    t_decision = ev.get('checkpoint_decision')
-    t_end_motion = ev.get('shelter_approach') or ev.get('checkpoint_denial_dwell_finished') or run['film'][-1][0]
+    t_end_motion = ev.get('shelter_approach') or (eps[-1]['end'] if eps else run['film'][-1][0])
     t1 = min(run['film'][-1][0], t_end_motion + int(spec.get('tail_s', 2.0) * 1e9))
     fast = spec.get('fast', 3.0)
-    # (source_start, source_end, speed)
-    plan = []
-    if t_station and t_decision:
-        a = t_station - int(1.0e9)
-        b = t_decision + int(2.5e9)
-        plan = [(t0, a, fast), (a, b, 1.0), (b, t1, fast if 'shelter_approach' in ev else 1.0)]
-    else:
-        plan = [(t0, t1, fast)]
+    plan, cur = [], t0
+    for e in eps:   # drive fast, every on-site check at real speed
+        a = (e['arrive'] or e['frame']) - int(1.0e9)
+        b = e['end'] + int(0.8e9)
+        plan += [(cur, a, fast), (a, b, 1.0)]
+        cur = b
+    plan.append((cur, t1, fast if 'shelter_approach' in ev else 1.0))
     item = mission['intent']['item']
-    allow = decision.get('allow')
     route_pts = [(0.0, 0.0)] + [tuple(r[2]) for r in mission['route']]
     labels = [((2.0, 2.0, 1.05), '物資拠点 W', WATER), ((-2.0, 2.0, 1.05), '物資拠点 M', MED),
               ((3.0, -2.0, 0.95), '避難所 B', GOOD)]
+    hz = (mission.get('world_variant') or {}).get('hazard_at') or spec.get('hazard_at')
+    if hz:
+        from rescuemind.robust_scenes import hazard_xy
+        hx, hy = hazard_xy(hz)
+        labels.append(((hx, hy, 1.9), '火災', BAD))
     instr = mission['instruction']
+    intent_gate = mission.get('intent_gate') or {}
+    total = spec.get('total', 3)
 
     for (sa, sb, speed) in plan:
         if sb <= sa:
@@ -193,80 +226,101 @@ def mission_segment(run_dir: Path, spec: dict, cam: FilmCamera, emit):
             t = sa + int(i * speed * 1e9 / FPS)
             img = Image.new('RGB', (W, H), BG)
             d = ImageDraw.Draw(img, 'RGBA')
-            # header
             text(d, (40, 26), 'RescueMind', 40, ACCENT, True)
-            text(d, (318, 36), f'デモ {spec["index"]}/3 ｜ シーン：{SCENE_JA[spec["scene"]]}', 28, INK, True)
+            text(d, (318, 36), f'デモ {spec["index"]}/{total} ｜ {spec.get("title") or SCENE_JA[spec["scene"]]}', 28, INK, True)
             rounded(d, (1150, 20, 1880, 84), PANEL, 16)
-            text(d, (1172, 34), f'指示：「{instr}」', 28, INK, True)
-            # main view
+            text(d, (1172, 34), f'指示：「{instr}」'[:30], 28, INK, True)
             main = Image.open(nearest(run['film'], t)).convert('RGB').resize((1280, 720), Image.BILINEAR)
             md = ImageDraw.Draw(main, 'RGBA')
             pts = [cam.project((x, y, 0.02)) for (tt, x, y) in run['truth'] if tt <= t]
-            pts = [p for p in pts if p]
-            plan_px = [cam.project((x, y, 0.01)) for x, y in route_pts]
-            plan_px = [p for p in plan_px if p]
-            if len(plan_px) > 1:
-                for p, q in zip(plan_px, plan_px[1:]):
-                    md.line([p, q], fill=(255, 255, 255, 110), width=3)
+            pts = [q for q in pts if q]
+            plan_px = [q for q in (cam.project((x, y, 0.01)) for x, y in route_pts) if q]
+            for q1, q2 in zip(plan_px, plan_px[1:]):
+                md.line([q1, q2], fill=(255, 255, 255, 110), width=3)
             if len(pts) > 1:
                 md.line(pts, fill=(255, 140, 30, 235), width=6, joint='curve')
             for pos, lab, col in labels:
-                p = cam.project(pos)
-                if p:
+                q = cam.project(pos)
+                if q:
                     w_ = font(24, True).getlength(lab) + 24
-                    md.rounded_rectangle((p[0] - w_ / 2, p[1] - 44, p[0] + w_ / 2, p[1] - 8), radius=10,
+                    md.rounded_rectangle((q[0] - w_ / 2, q[1] - 44, q[0] + w_ / 2, q[1] - 8), radius=10,
                                          fill=(15, 22, 35, 210), outline=col + (255,), width=2)
-                    md.text((p[0], p[1] - 26), lab, font=font(24, True), fill=INK, anchor='mm')
+                    md.text((q[0], q[1] - 26), lab, font=font(24, True), fill=INK, anchor='mm')
             img.paste(main, (40, 104))
             d.rectangle((40, 104, 1320, 824), outline=(60, 75, 100), width=2)
-            # speed badge
             badge = '等速 ×1' if speed == 1.0 else f'{speed:g}倍速'
             rounded(d, (60, 124, 60 + 30 + font(28, True).getlength(badge), 172),
                     (255, 140, 30, 230) if speed != 1.0 else (60, 200, 120, 230), 12)
             text(d, (75, 128), badge, 28, (10, 10, 10), True)
             wm = 'Gazebo Harmonic 実レンダリング（俯瞰カメラ）'
-            wl = font(20).getlength(wm)
-            d.rounded_rectangle((60, 772, 84 + wl, 806), radius=8, fill=(15, 22, 35, 190))
+            d.rounded_rectangle((60, 772, 84 + font(20).getlength(wm), 806), radius=8, fill=(15, 22, 35, 190))
             text(d, (72, 777), wm, 20, (220, 228, 240))
-            # robot camera
             rcam = Image.open(nearest(run['robot'], t)).convert('RGB').resize((540, 405), Image.BILINEAR)
             img.paste(rcam, (1340, 130))
             text(d, (1340, 100), 'ロボット搭載カメラ  /camera', 22, MUTED, True)
             d.rectangle((1340, 130, 1880, 535), outline=(60, 75, 100), width=2)
-            # AI panel
+            # ---- AI panel
             rounded(d, (1340, 552, 1880, 1048), PANEL, 18)
             text(d, (1362, 566), 'AI 判断パネル', 28, ACCENT, True)
-            text(d, (1362, 610), f'① 指示理解 → 物資：{ITEM_JA[item]} / 行先：避難所B', 22, INK)
-            phase2 = '② 物資拠点へ移動' + (' ✓' if t_station and t >= t_station else ' …')
-            text(d, (1362, 644), phase2, 22, INK)
-            if t_frame and t >= t_frame:
-                text(d, (1362, 678), '③ 現地VLM確認  Qwen2.5-VL-3B（V100ローカル）', 22, INK)
-                if t_decision and t >= t_decision and calls:
-                    y = 716
-                    for k, title in (('first', '質問1'), ('second', '質問2')):
-                        sc = (calls.get(k) or {}).get('scores') or {}
-                        probs = sc.get('supply_probs') or {}
-                        text(d, (1362, y), title, 20, MUTED, True)
-                        y += 28
+            how = 'ローカルLLM' if intent_gate.get('backend') == 'llm' else 'TF-IDF'
+            text(d, (1362, 608), f'指示理解（{how}）→ {ITEM_JA[item]} を避難所Bへ', 21, INK)
+            y = 640
+            active = None
+            for k, e in enumerate(eps):
+                if e['frame'] and t >= e['frame']:
+                    active = e
+                if e['decision_t'] and t >= e['decision_t'] and e is not eps[-1] and (len(eps) > 1 and t >= eps[-1]['arrive'] - int(1e9)):
+                    ok = e['decision'].get('allow')
+                    text(d, (1362, y), f"確認{k + 1}（{STATION_JA[e['station']]}）：{'許可' if ok else '依頼物資なし → 別拠点へ'}", 21, MUTED)
+                    y += 30
+            if active is None:
+                text(d, (1362, y), '物資拠点へ移動中 …', 22, INK)
+            else:
+                text(d, (1362, y), f"現地確認：{STATION_JA[active['station']]}  {mission.get('model_label') or spec.get('model_label', '')}", 21, INK)
+                y += 32
+                if t >= active['decision_t']:
+                    for kk, title in (('first', '質問1'), ('second', '質問2')):
+                        probs = ((active['calls'].get(kk) or {}).get('scores') or {}).get('supply_probs') or {}
+                        text(d, (1362, y), title, 19, MUTED, True)
+                        y += 24
                         for lab, col in (('water', WATER), ('medicine', MED), ('other', OTHER)):
-                            prob_bar(d, 1380, y, 250, ITEM_JA[lab], float(probs.get(lab, 0.0)), col)
-                            y += 30
-                        y += 6
-                    ok = bool(allow)
-                    rounded(d, (1362, 962, 1858, 1030), (30, 90, 60) if ok else (110, 35, 40), 14)
-                    verdict = '判定：許可 → 避難所Bへ出発' if ok else '判定：拒否 → その場で停止'
-                    text(d, (1610, 996), verdict, 30, INK, True, anchor='mm')
+                            prob_bar(d, 1380, y, 240, ITEM_JA[lab], float(probs.get(lab, 0.0)), col)
+                            y += 27
+                    dec = active['decision']
+                    reason = dec.get('reason')
+                    if dec.get('allow'):
+                        verdict, colr = '判定：許可 → 避難所Bへ出発', (30, 90, 60)
+                    elif reason == 'visible_hazard_at_checkpoint':
+                        verdict, colr = '判定：危険（火災）→ 停止', (110, 35, 40)
+                    elif active is not eps[-1]:
+                        verdict, colr = '判定：依頼物資なし → 別拠点を確認', (120, 80, 20)
+                    else:
+                        verdict, colr = '判定：拒否 → その場で停止', (110, 35, 40)
+                    rounded(d, (1362, 980, 1858, 1036), colr, 14)
+                    text(d, (1610, 1008), verdict, 26, INK, True, anchor='mm')
                 else:
                     dots = '.' * (1 + int((t / 3e8) % 3))
-                    text(d, (1380, 730), '静止確認 → 新規フレーム取得 → 推論中' + dots, 22, ACCENT)
-            # caption
-            cap = spec['captions']
-            phase = 'go' if (not t_station or t < t_station) else (
-                'check' if (not t_decision or t < t_decision) else 'after')
+                    text(d, (1380, y + 10), '静止確認 → 新規フレーム → 推論中' + dots, 22, ACCENT)
+            # ---- caption + robot report (explanation, never used for the decision)
+            phase = 'go'
+            for e in eps:
+                if e['frame'] and t >= (e['arrive'] or e['frame']):
+                    phase = 'check'
+                if t >= e['decision_t']:
+                    phase = 'after' if e is eps[-1] else 'search'
+            cap = spec['captions'].get(phase) or spec['captions'].get('after')
             rounded(d, (40, 846, 1320, 1048), PANEL, 18)
-            lines = wrap_lines(cap[phase], 32, 1220, True)
-            for k, ln in enumerate(lines[:4]):
-                text(d, (64, 866 + k * 44), ln, 32, INK, True)
+            lines = wrap_lines(cap, 30, 1230, True)
+            for k, ln in enumerate(lines[:2]):
+                text(d, (64, 862 + k * 42), ln, 30, INK, True)
+            said = None
+            for e in eps:
+                if e['explain'] and t >= e['decision_t']:
+                    said = e['explain']
+            if said:
+                text(d, (64, 958), 'ロボットの報告（VLMの説明文・判断には不使用）', 19, MUTED, True)
+                for k, ln in enumerate(wrap_lines(f'「{said}」', 25, 1230)[:2]):
+                    text(d, (64, 984 + k * 30), ln, 25, (255, 214, 150))
             emit(img)
 
 
