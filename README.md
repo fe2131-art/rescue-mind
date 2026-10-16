@@ -63,14 +63,14 @@ v3.3 以降の改善の経緯（Before/After）は [`docs/IMPROVEMENT_LOG.md`](d
 bash docker/build.sh                                   # ROS 2 Jazzy + Gazebo Harmonic + PyTorch 2.8/cu126 + transformers 5（STACK=v33 で旧環境）
 # 1) モデル重みを一度だけ取得（以降の実行は HF_HUB_OFFLINE=1）
 HF_HUB_OFFLINE=0 bash docker/run.sh python3 -c "from huggingface_hub import snapshot_download as s; s('Qwen/Qwen3.5-9B')"
-# 2) テスト（514件。ROS/Gazebo不要の部分はDockerなしでも実行可）
+# 2) テスト（約550件。ROS/Gazebo不要の部分はDockerなしでも実行可）
 bash docker/run.sh python3 -m unittest discover -s tests -q
 # 3) 1回のAIミッション（Gazebo・ブリッジ・ガード・VLMを自動起動、証拠は outputs/runs/<run_id>/）
 V34="--model Qwen/Qwen3.5-9B --prompt-set v35 --intent-backend llm --intent-prompt i35 --recovery --explain"
 bash docker/run.sh python3 scripts/v32_orchestrate.py --run --scenario live --scene swapped $V34 \
      --capture-rosbag --instruction '避難所Bで飲み水が足りないそうです'
 #    --scene nominal / empty、--hazard-at medicine（火災）、--lighting dim_evening、--distractor-at water
-# 4) 事前登録30試行の評価 → 図とレポート
+# 4) 事前登録した閉ループ評価（評価D: 42試行。評価Eは experiments/campaign_e_protocol.json） → 図とレポート
 bash docker/run.sh python3 scripts/run_campaign.py --protocol experiments/v34_protocol.json \
      --ledger experiments/results/campaign_D_ledger.jsonl -- $V34
 bash docker/run.sh python3 scripts/export_evidence.py experiments/results/campaign_D_ledger.jsonl
@@ -91,7 +91,7 @@ bash docker/run.sh python3 scripts/make_figures.py
 | `scripts/v32_orchestrate.py` | スタック起動・準備確認・ミッション・証拠監査の統括 |
 | `rescuemind/ground_truth_evidence.py` | Gazebo真値による到着・停止・転倒・乖離の監査 |
 | `worlds/` | `rescuemind_test_arena.sdf`（原本）と自動生成した3シーン（正常／取り違え／欠品） |
-| `experiments/` | 事前登録、30試行プロトコル、開発セット画像、結果台帳、各試行の証拠 |
+| `experiments/` | 事前登録（v33・v34・T1・E）、プロトコル、開発セット・未使用テストセット T1 の画像、結果台帳、各試行の証拠 |
 | `docker/` | 再現環境（Dockerfile・実行ラッパー） |
 | `docs/` | 図、[FINDINGS](docs/FINDINGS.md)、レポートPDF、動画の章立て、引継ぎ資料のアーカイブ |
 | `scripts/make_figures.py` / `make_report.py` / `make_demo_video.py` | 図・PDF・動画をすべて結果ファイルから再生成（数値の手入力なし） |
