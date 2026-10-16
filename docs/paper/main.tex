@@ -249,6 +249,32 @@ compared with driving. The situation report adds about 4\,s but could run in par
 \begin{table}[t]\centering\caption{Wall-clock phases of delivered missions without search (campaigns D and E).}\label{tab:timing}
 \resizebox{0.92\linewidth}{!}{\input{tab_timing.tex}}\end{table}
 
+\subsection{Fixing the remaining weakness}\label{sec:fix}
+T1 left one failure mode: fires that are only partly visible behind the supply. Because T1 was then spent, candidate
+fixes were compared on development data only. This included a new development set of small early-stage fires (DH2),
+since the first hazard set contained just four visible fires under 10\,000 pixels. The candidates were:
+\begin{itemize}
+\item enlarged overlapping crops for the hazard question;
+\item a hazard wording that names small, partly hidden or cut-off fire and smoke;
+\item Cloudflare's Clef-Flash decision model, which answers the original plan's Jev request locally.
+\end{itemize}
+Table~\ref{tab:i13dev} shows the results. The wording did most of the work: missed fires fell from \DevFAvThreeFive{} to
+\DevFAB{} of \DevFireN{} when combined with crops, and correct approvals did not change. Clef-Flash refused half of the
+correct deliveries when it was asked the original Jev questions, which concern the safety of a \emph{passage}. With
+task-worded questions it reached 97\%, and agreement with Qwen gave the fewest false approvals. However, the two models
+need 37\,GB together, which does not fit on one V100.
+\begin{table}[t]\centering\caption{Hazard fixes on development data (dev v1+v2, DH, DH2). $\tauh=0.05$ unless stated.}
+\label{tab:i13dev}\resizebox{\linewidth}{!}{\input{tab_i13_dev.tex}}\end{table}
+
+\emph{Held-out confirmation (T2, pre-registered, 600 new images).} v3.5 made \TTRefFA{} false approvals and \TTRefCA{}
+correct approvals. The selected two-model configuration made \TTSelFA{} and \TTSelCA{} (exact McNemar on false
+approvals, $p=\TTSelP$). The single-V100 configuration B made \TTBFA{} and \TTBCA{} ($p=\TTBP$).
+\emph{Closed loop (campaign F, pre-registered, paired).} The 24 worlds had a small fire just behind a station, or no fire;
+each world was run with v3.5 (A) and configuration B. In the \FPairs{} worlds where the fire was visible at the checkpoint
+in both runs, A delivered \FWrongA{} times and B \FWrongB{} times despite the fire (exact McNemar $p=\FMcNemarP$).
+There were \FFalseStopA{} (A) and \FFalseStopB{} (B) false hazard stops in fire-free runs. The median decision time was
+\FLatA\,s (A) and \FLatB\,s (B).
+
 \subsection{Instruction parsing}
 On the 60 held-out utterances the hybrid parser was correct for \IntCorrect{}/\IntN{} with \IntUnsafe{} unsafe acceptances.
 The previous TF-IDF parser was correct for \IntTfidfCorrect{} with \IntTfidfUnsafe{} unsafe acceptances.
