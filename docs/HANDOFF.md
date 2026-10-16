@@ -84,30 +84,35 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 * Qwen3.5 は思考モードが既定 → `enable_thinking=False`（サーバで対応済み）。FP16 で非有限 logits なら判断拒否。
 * 動画は **3分以内**（現在 2:30）。倍速は区間ごとに画面表示（走行4倍、確認2倍、判断の瞬間は等速）。
 
-## 5. 進行中（論文化フェーズ）— 最終更新 2026-10-17 夜
+## 5. 進行中（最終改善フェーズ）— 最終更新 2026-10-18
 
-**実行中**：`docker exec rm-next rescuemind-entrypoint bash scripts/paper_chain_3.sh`（バックグラウンド）
-1. T1 主モデル（Qwen3.5-9B）採点 → `experiments/results/devset_t1_qwen35_9b.json`、`t1_analysis.py` → `t1_summary.json`（ログ `T1_PRIMARY_DONE`）
-2. **評価E（登録済み60試行、v3.5）** → `experiments/results/campaign_E_ledger.jsonl`（`E_DONE`）。**実行中は実行時コード（scripts/local_vlm_server.py, v32_orchestrate.py, ros/*, rescuemind/*）を編集しない。**
-3. T1 残りモデル（4B, Qwen3-VL-8B, Qwen2.5-VL-3B, 自由JSON×2）→ 再解析（`CHAIN3_DONE`）
-* 中断された場合：`run_campaign.py` は台帳に無い試行から再開する。`t1_eval_all.sh` は既存の結果ファイルを飛ばす。同じコマンドを再実行すればよい。
+**ユーザーからの重要な指示（このフェーズ）**
+* 当初計画（引継ぎ：Jev＋Qwen の2つのAIによる確認）から**勝手に外れない**。外れる場合は根拠と記録を残す。
+* Jev は **Cloudflare Clef-Flash**（ローカル、Jev 互換）で使う（ユーザー指定）。
+* 改善をだらだら続けない。**結果を分析し、最大の弱点に集中し、確認したら仕上げに入る。**
+* 評価基準（創造性・技術力・実用性・表現力）と、論文としての水準を常に意識する。
+
+**結果の分析**（docs/REVIEW_AND_PLAN.md の末尾）
+* 評価E：60/60。
+* T1：物資の誤許可は 0/332。
+* 唯一の重大な弱点は**小さく写った火の見逃し**（1万画素未満では 1/7、1万画素以上では 68/69）。
+
+**実行中・この後の手順**
+1. T1 の自由JSON比較 → `CHAIN3_DONE` → 自動で `scripts/paper_chain_4.sh` を開始する。内容：Clef を v1/v2/DH に適用、Q4B を DH に適用、Q9B の I-11 案4種 → `scripts/i13_select.py` → `experiments/results/i13_selection.json`
+2. T2 の描画（`scripts/build_image_set.py --set t2`、ログ `experiments/results/t2_render.log`）。
+3. 選定結果を `experiments/PREREGISTRATION_T2.md` の Selection record に記入してコミット → T2 を採点する（v3.5 と選ばれた構成）。T2 の採点スクリプトは、v3.5 は `vlm_devset_eval.py`、Clef は `clef_devset_eval.py`、比較は i13_select の規則を T2 に適用（**要作成**）。
+4. 評価F：
+   * `python3 scripts/make_protocol_f.py --config-b '<採用構成のフラグ>'`（例：`--jev-local clef --model Qwen/Qwen3.5-4B` または `--hazard-views tiles`）
+   * `python3 scripts/fire_mask_at_pose.py --protocol experiments/campaign_f_protocol.json --design` で、隠れた火が少しは見えるかを確認する
+   * PREREGISTRATION_F を書いてコミットし、`run_campaign.py --protocol experiments/campaign_f_protocol.json --ledger experiments/results/campaign_F_ledger.jsonl` で実行する（共通フラグはプロトコルに入っている）
+   * 実行後に `fire_mask_at_pose.py --ledger ...` で見え方のラベルを付ける
+5. 仕上げ：論文（`bash scripts/build_paper.sh`）、説明資料PDF（`make_report.py`）、動画（欠品で停止する場面と新しい結果を追加、3分以内）、README、YouTube 説明文。
 
 **このフェーズで済んだこと**
-* T1 テストセット：600枚。事前登録＋Amendment 1〜3（すべて採点前）。
-  1. 配置バグを修正。
-  2. 火災ラベルをマゼンタのマスク画像で付け直し、遮蔽を考慮。visible 76 / hidden 83 / ambiguous 1。
-  3. v3.5 構成を副として追加。
-* I-10：危険の閾値 0.5→0.05（予備走行 8/9→9/9）。`--hazard-threshold`。
-* 評価E：登録済み（`experiments/PREREGISTRATION_E.md`、プロトコル sha `99f63f26…`）。
-* 論文：`docs/paper/main.tex`（数値は `scripts/paper_numbers.py` が生成）、`bash scripts/build_paper.sh` でビルド。文献は44件。
-
-**E 終了後にやること**
-* `python3 scripts/fire_visibility_check.py experiments/results/campaign_E_ledger.jsonl --protocol experiments/campaign_e_protocol.json`
-* `docker exec rm-dev rescuemind-entrypoint python3 scripts/export_evidence.py experiments/results/campaign_E_ledger.jsonl`（証拠の書き出しと個人パスの除去。動作を要確認）
-* `bash scripts/build_paper.sh` → TBD が消えたか確認 → 本文の推敲 → README・レポートに反映
-* 次の改善候補：
-  * I-11：危険質問が2パスで同一 → キャッシュして判断の遅延を約25%短縮できる見込み（E 終了後に計測して実施）
-  * 状況報告を走行と並列化（約4秒の短縮）
+* I-10（τ_h=0.05）、I-11（拡大切り出しと危険質問のキャッシュ、選定待ち）、I-12（DDS の非同期送信、5/10→0/10）、I-13（Clef-Flash を Jev の役割で使う。サーバ・2モデル判定・監査・オーケストレータ `--jev-local clef`）。
+* 評価E：60/60（台帳・証拠・論文に反映済み）。T1 は全モデル、DH は描画済み。
+* 個人情報：ユーザー名の混入を除去し、git 履歴も書き換えて強制プッシュした（ユーザーの許可あり）。再発防止のテスト `tests/test_no_personal_paths.py` を追加。
+* Clef-Flash の重みは `~/.cache/huggingface`（約19 GB、FP16）。Qwen3.5-9B とは同時に載らないが、Qwen3.5-4B とは載る。
 
 ## 6. 論文化で残っている作業
 
