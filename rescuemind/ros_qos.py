@@ -13,3 +13,20 @@ def image_qos(depth: int = 2):
     from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
     return QoSProfile(depth=depth, reliability=ReliabilityPolicy.RELIABLE,
                       history=HistoryPolicy.KEEP_LAST, durability=DurabilityPolicy.VOLATILE)
+
+
+def control_qos(mode: str = 'reliable', depth: int = 10):
+    """I-12: QoS for the small, high-rate control topics (/rescuemind/cmd_vel_request, /rescuemind/guard_ready).
+
+    'reliable' is the ROS default (depth 10).  'best_effort' keeps only the newest sample and never waits for
+    acknowledgements; a lost sample is harmless because the guard treats a missing request as stale (zero) and
+    the mission treats a missing heartbeat as 'guard not ready'.
+    """
+    from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
+    if mode == 'best_effort':
+        return QoSProfile(depth=1, reliability=ReliabilityPolicy.BEST_EFFORT, history=HistoryPolicy.KEEP_LAST,
+                          durability=DurabilityPolicy.VOLATILE)
+    if mode != 'reliable':
+        raise ValueError('control QoS must be reliable or best_effort')
+    return QoSProfile(depth=depth, reliability=ReliabilityPolicy.RELIABLE, history=HistoryPolicy.KEEP_LAST,
+                      durability=DurabilityPolicy.VOLATILE)

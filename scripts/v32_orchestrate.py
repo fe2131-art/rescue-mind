@@ -77,7 +77,7 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
                recovery: bool = False, explain: bool = False, world: Path | None = None,
                prompt_set: str = 'v33', model: str | None = None, intent_backend: str = 'tfidf',
                intent_prompt: str = 'i34', describe_prompt: str = 'e0', inject_stall: float = 0.0,
-               hazard_threshold: float = 0.5) -> dict:
+               hazard_threshold: float = 0.5, control_qos: str = 'reliable') -> dict:
     if scenario not in ('motion-check', 'live'):
         raise ValueError('invalid scenario')
     from rescuemind.scene_variants import SCENES
@@ -86,7 +86,7 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
     script = str(ROOT/'ros/gazebo_waypoint_mission.py')
     cmd = ['python3', script, '--motion-check'] if scenario == 'motion-check' else \
           ['python3', script, '--run-live', '--instruction', instruction]
-    cmd += ['--stage-timeout', '120']
+    cmd += ['--stage-timeout', '120', '--control-qos', control_qos]
     if inject_stall:
         cmd += ['--inject-warmup-stall', str(inject_stall)]
     if scenario=='live':
@@ -208,6 +208,10 @@ def main(argv=None):
     p.add_argument('--intent-prompt', choices=['i34', 'i35', 'i36', 'i37'], default='i34')
     p.add_argument('--hazard-threshold', type=float, default=0.5,
                    help='I-10: VLM p(fire/smoke) at or above which the checkpoint refuses (v3.5: 0.05)')
+    p.add_argument('--dds-mode', choices=['default', 'async', 'best_effort'], default='async',
+                   help='I-12 (v3.5 default: async): default = reliable control topics, synchronous Fast DDS publication; '
+                        'async = RMW_FASTRTPS_PUBLICATION_MODE=ASYNCHRONOUS for the whole stack; '
+                        'best_effort = best-effort request/heartbeat topics')
     p.add_argument('--inject-warmup-stall', type=float, default=0.0, help='I-09 fault injection (A/B tests only)')
     p.add_argument('--describe-prompt', choices=['e0', 'e1', 'e2'], default='e0')
     p.add_argument('--lighting', choices=['default', 'dim_evening', 'harsh_noon'], default='default')
@@ -253,7 +257,12 @@ def main(argv=None):
     extra = dict(recovery=args.recovery, explain=args.explain, prompt_set=args.prompt_set, model=args.model,
                  intent_backend=args.intent_backend, intent_prompt=args.intent_prompt,
                  describe_prompt=args.describe_prompt, inject_stall=args.inject_warmup_stall,
-                 hazard_threshold=args.hazard_threshold)
+                 hazard_threshold=args.hazard_threshold,
+                 control_qos='best_effort' if args.dds_mode == 'best_effort' else 'reliable')
+    if args.dds_mode == 'async':
+        os.environ['RMW_FASTRTPS_PUBLICATION_MODE'] = 'ASYNCHRONOUS'
+    if args.dds_mode == 'best_effort':
+        os.environ['RESCUEMIND_GUARD_ARGS'] = (os.environ.get('RESCUEMIND_GUARD_ARGS', '') + ' --control-qos best_effort').strip()
     placeholder=ROOT/'outputs'/'runs'/'<run_id>'
     plan = build_plan(args.scenario, args.instruction, mission_timeout=args.mission_timeout, scene=args.scene,
                       evidence_dir=placeholder, capture_rosbag=args.capture_rosbag,local_mode=args.local_mode,
@@ -286,6 +295,7 @@ def main(argv=None):
     summary['intent_backend'] = args.intent_backend
     summary['intent_prompt'] = args.intent_prompt
     summary['hazard_threshold'] = args.hazard_threshold
+    summary['dds_mode'] = args.dds_mode
     summary['describe_prompt'] = args.describe_prompt
     summary['control_priority_raised'] = PRIORITY_OK
     summary['guard_args'] = os.environ.get('RESCUEMIND_GUARD_ARGS', '')
