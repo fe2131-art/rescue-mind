@@ -82,6 +82,29 @@ class FilmCamera:
         return (u * self.sx, v * self.sy)
 
 
+# ---------------------------------------------------------------- narration (I-07)
+class Narration:
+    """Queue of narration clips on the output timeline; clips never overlap."""
+    def __init__(self, speaker):
+        self.speaker = speaker
+        self.clips = []
+        self.busy_until = 0.0
+
+    def clip(self, text):
+        sys.path.insert(0, str(ROOT / 'scripts'))
+        from tts_voicevox import synthesize, duration
+        wav = synthesize(text, self.speaker)
+        return wav, duration(wav)
+
+    def say(self, text, t_now):
+        if not text:
+            return
+        wav, dur = self.clip(text)
+        start = max(t_now, self.busy_until)
+        self.clips.append((start, wav))
+        self.busy_until = start + dur + 0.2
+
+
 # ---------------------------------------------------------------- run data
 def frames_in(folder: Path):
     rows = []
@@ -190,7 +213,7 @@ def checkpoint_episodes(run):
 STATION_JA = {'water': '拠点W', 'medicine': '拠点M'}
 
 
-def mission_segment(run_dir: Path, spec: dict, cam: FilmCamera, emit):
+def mission_segment(run_dir: Path, spec: dict, cam: FilmCamera, emit, narr=None, now=None):
     run = load_run(run_dir)
     ev, mission = run['events'], run['mission']
     eps = checkpoint_episodes(run)
@@ -308,6 +331,9 @@ def mission_segment(run_dir: Path, spec: dict, cam: FilmCamera, emit):
                     phase = 'check'
                 if t >= e['decision_t']:
                     phase = 'after' if e is eps[-1] else 'search'
+            if narr is not None and phase != spec.get('_last_phase'):
+                spec['_last_phase'] = phase
+                narr.say((spec.get('narration') or {}).get(phase), now())
             cap = spec['captions'].get(phase) or spec['captions'].get('after')
             rounded(d, (40, 846, 1320, 1048), PANEL, 18)
             lines = wrap_lines(cap, 30, 1230, True)
@@ -322,6 +348,11 @@ def mission_segment(run_dir: Path, spec: dict, cam: FilmCamera, emit):
                 for k, ln in enumerate(wrap_lines(f'「{said}」', 25, 1230)[:2]):
                     text(d, (64, 984 + k * 30), ln, 25, (255, 214, 150))
             emit(img)
+            last = img
+    # hold the final frame until the narration of this demo has finished
+    if narr is not None and now is not None:
+        while narr.busy_until > now() + 0.05:
+            emit(last)
 
 
 # ---------------------------------------------------------------- cards
@@ -397,8 +428,10 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--plan', required=True)
     ap.add_argument('--out', required=True)
+    ap.add_argument('--narrate', type=int, default=None, help='VOICEVOX speaker id (engine on 127.0.0.1:50021)')
     a = ap.parse_args(argv)
     plan = json.loads(Path(a.plan).read_text(encoding='utf8'))
+    narr = Narration(a.narrate) if a.narrate is not None else None
     out = Path(a.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     cam = FilmCamera(ROOT / 'worlds/film/film_camera_overview.sdf', 1280, 720)
@@ -416,6 +449,10 @@ def main(argv=None):
     for part in plan['parts']:
         kind = part['kind']
         start = count['n'] / FPS
+        now = lambda: count['n'] / FPS
+        if narr is not None and kind in ('card', 'table') and part.get('narration'):
+            narr.say(part['narration'], start + 0.3)
+            part['seconds'] = max(part['seconds'], narr.busy_until - start + 0.4)
         if kind == 'card':
             image = Image.open(ROOT / part['image']).convert('RGB') if part.get('image') else None
             card(part['title'], part.get('body', []), part['seconds'], emit, part.get('sub'), image=image,
@@ -425,7 +462,7 @@ def main(argv=None):
             table_card(part['title'], part['sub'], part['header'], rows, part.get('notes', []),
                        part['seconds'], emit)
         elif kind == 'mission':
-            mission_segment(ROOT / part['run_dir'], part, cam, emit)
+            mission_segment(ROOT / part['run_dir'], part, cam, emit, narr=narr, now=now)
         print(f"{kind}: total {count['n'] / FPS:.1f}s", flush=True)
         label = part.get('title') if kind != 'mission' else f"デモ{part['index']}：{SCENE_JA[part['scene']]}"
         chapters.append({'start_s': round(start, 2), 'end_s': round(count['n'] / FPS, 2), 'title': label,
@@ -433,6 +470,21 @@ def main(argv=None):
                          'run_id': Path(part['run_dir']).name if kind == 'mission' else None})
     ff.stdin.close()
     ff.wait()
+    if narr is not None and narr.clips:
+        silent = out.with_suffix('.silent.mp4')
+        out.replace(silent)
+        cmd = ['ffmpeg', '-y', '-loglevel', 'error', '-i', str(silent)]
+        filt = []
+        for k, (t, wav) in enumerate(narr.clips):
+            cmd += ['-i', str(wav)]
+            ms = int(t * 1000)
+            filt.append(f'[{k + 1}:a]adelay={ms}|{ms},aformat=channel_layouts=stereo[a{k}]')
+        filt.append(''.join(f'[a{k}]' for k in range(len(narr.clips))) +
+                    f'amix=inputs={len(narr.clips)}:normalize=0,volume=1.6[aout]')
+        cmd += ['-filter_complex', ';'.join(filt), '-map', '0:v', '-map', '[aout]', '-c:v', 'copy',
+                '-c:a', 'aac', '-b:a', '160k', '-t', f"{count['n'] / FPS:.2f}", '-movflags', '+faststart', str(out)]
+        subprocess.run(cmd, check=True)
+        silent.unlink()
     (ROOT / 'docs/video_chapters.json').write_text(json.dumps(chapters, ensure_ascii=False, indent=1) + '\n', encoding='utf8')
     print(json.dumps({'out': str(out), 'seconds': round(count['n'] / FPS, 2)}))
 
