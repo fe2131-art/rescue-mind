@@ -77,7 +77,7 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
                recovery: bool = False, explain: bool = False, world: Path | None = None,
                prompt_set: str = 'v33', model: str | None = None, intent_backend: str = 'tfidf',
                intent_prompt: str = 'i34', describe_prompt: str = 'e0', inject_stall: float = 0.0,
-               hazard_threshold: float = 0.5) -> dict:
+               hazard_threshold: float = 0.5, hazard_views: str = 'full', hazard_prompt: str = 'h35') -> dict:
     if scenario not in ('motion-check', 'live'):
         raise ValueError('invalid scenario')
     from rescuemind.scene_variants import SCENES
@@ -113,7 +113,7 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
         services.insert(0,ManagedCommand('primary_local_vlm', shell_exec([
             'python3',str(ROOT/'scripts/local_vlm_server.py'),'--model',model or PRIMARY_MODEL,'--port','8765',
             '--prompt-set',prompt_set,'--intent-prompt',intent_prompt,'--describe-prompt',describe_prompt,
-            '--hazard-threshold',str(hazard_threshold)])))
+            '--hazard-threshold',str(hazard_threshold),'--hazard-views',hazard_views,'--hazard-prompt',hazard_prompt])))
         if local_mode=='dual':
             services.insert(1,ManagedCommand('secondary_local_vlm', shell_exec([
                 'python3',str(ROOT/'scripts/local_vlm_server.py'),'--model',SECONDARY_MODEL,'--port','8766'])))
@@ -208,6 +208,8 @@ def main(argv=None):
     p.add_argument('--intent-prompt', choices=['i34', 'i35', 'i36', 'i37'], default='i34')
     p.add_argument('--hazard-threshold', type=float, default=0.5,
                    help='I-10: VLM p(fire/smoke) at or above which the checkpoint refuses (v3.5: 0.05)')
+    p.add_argument('--hazard-views', choices=['full', 'tiles'], default='full', help='I-11: hazard question on crops too')
+    p.add_argument('--hazard-prompt', choices=['h35', 'h36'], default='h35', help='I-11: hazard question wording')
     p.add_argument('--inject-warmup-stall', type=float, default=0.0, help='I-09 fault injection (A/B tests only)')
     p.add_argument('--describe-prompt', choices=['e0', 'e1', 'e2'], default='e0')
     p.add_argument('--lighting', choices=['default', 'dim_evening', 'harsh_noon'], default='default')
@@ -253,7 +255,8 @@ def main(argv=None):
     extra = dict(recovery=args.recovery, explain=args.explain, prompt_set=args.prompt_set, model=args.model,
                  intent_backend=args.intent_backend, intent_prompt=args.intent_prompt,
                  describe_prompt=args.describe_prompt, inject_stall=args.inject_warmup_stall,
-                 hazard_threshold=args.hazard_threshold)
+                 hazard_threshold=args.hazard_threshold, hazard_views=args.hazard_views,
+                 hazard_prompt=args.hazard_prompt)
     placeholder=ROOT/'outputs'/'runs'/'<run_id>'
     plan = build_plan(args.scenario, args.instruction, mission_timeout=args.mission_timeout, scene=args.scene,
                       evidence_dir=placeholder, capture_rosbag=args.capture_rosbag,local_mode=args.local_mode,
@@ -286,6 +289,8 @@ def main(argv=None):
     summary['intent_backend'] = args.intent_backend
     summary['intent_prompt'] = args.intent_prompt
     summary['hazard_threshold'] = args.hazard_threshold
+    summary['hazard_views'] = args.hazard_views
+    summary['hazard_prompt'] = args.hazard_prompt
     summary['describe_prompt'] = args.describe_prompt
     summary['control_priority_raised'] = PRIORITY_OK
     summary['guard_args'] = os.environ.get('RESCUEMIND_GUARD_ARGS', '')
