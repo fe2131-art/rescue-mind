@@ -55,7 +55,7 @@ def dh_spec(seed: str = 'DH-2026') -> list[dict]:
                 w['prop_offsets'][prop][:2] = [round(ox + rng.uniform(-.04, .04), 3), round(oy + rng.uniform(-.04, .04), 3)]
         w['views'] = {}
         for station, (sx, sy) in sorted(STATIONS.items()):
-            keep_out = [hazard_xy(station, *w['hazard_geom'])] if w.get('hazard_at') == station else []
+            keep_out = [hazard_xy(station, *w['hazard_geom'][:2])] if w.get('hazard_at') == station else []
             views = []
             while len(views) < 5:
                 dist = rng.uniform(0.8, 1.9)
@@ -70,8 +70,49 @@ def dh_spec(seed: str = 'DH-2026') -> list[dict]:
     return worlds
 
 
+def dh2_spec(seed: str = 'DH2-2026') -> list[dict]:
+    """Hazard development set 2: SMALL early-stage fires (0.40-0.70 x) straight behind the supply, the size range
+    where T1 showed misses.  DH turned out to contain only 4 visible fires below 10 000 px (I-13 log)."""
+    rng = random.Random(seed)
+    strata = [('nominal', 'fire')] * 20 + [('swapped', 'fire')] * 2 + [('empty', 'fire')] * 2 + \
+             [('nominal', 'cone')] * 3 + [('nominal', 'crate')] * 1 + [('empty', 'crate')] * 2
+    rng.shuffle(strata)
+    worlds = dh_spec(seed + '-base')[:len(strata)]
+    out = []
+    for i, ((scene, cond), w) in enumerate(zip(strata, worlds)):
+        w = {k: v for k, v in w.items() if k not in ('hazard_at', 'hazard_geom', 'distractor_at', 'distractor_kind',
+                                                      'distractor_side', 'distractor_layout')}
+        w['id'] = f'dh2_{i:02d}'; w['scene'] = scene
+        if cond == 'fire':
+            w['hazard_at'] = rng.choice(sorted(STATIONS))
+            w['hazard_geom'] = [round(rng.uniform(.55, .80), 3), round(rng.uniform(-.30, .30), 3), round(rng.uniform(.40, .70), 3)]
+        else:
+            st = rng.choice(sorted(STATIONS))
+            w.update(distractor_at=st, distractor_kind=cond, distractor_side=rng.choice([-1.0, 1.0]), distractor_layout='platform')
+            if scene != 'empty':
+                prop = t1.PROP[st]
+                ox, oy = platform_side_offset(st, -w['distractor_side'], 0.10)
+                w['prop_offsets'][prop][:2] = [round(ox + rng.uniform(-.04, .04), 3), round(oy + rng.uniform(-.04, .04), 3)]
+        w['views'] = {}
+        for station, (sx, sy) in sorted(STATIONS.items()):
+            keep_out = [hazard_xy(station, *w['hazard_geom'][:2])] if w.get('hazard_at') == station else []
+            views = []
+            while len(views) < 5:
+                dist = rng.uniform(0.9, 1.8)
+                bearing = math.atan2(-sy, -sx) + rng.uniform(-0.6, 0.6)
+                x, y = sx + dist * math.cos(bearing), sy + dist * math.sin(bearing)
+                if any(math.hypot(x - kx, y - ky) < 0.55 for kx, ky in keep_out):
+                    continue
+                yaw = math.atan2(sy - y, sx - x) + rng.uniform(-0.12, 0.12)
+                views.append([round(x, 3), round(y, 3), round(yaw, 3), round(dist, 3)])
+            w['views'][station] = views
+        out.append(w)
+    return out
+
+
 SETS = {
     'dh': dict(out='experiments/vlm_devset_hazard', spec=lambda: dh_spec('DH-2026'), role='development'),
+    'dh2': dict(out='experiments/vlm_devset_hazard2', spec=lambda: dh2_spec('DH2-2026'), role='development'),
     't2': dict(out='experiments/vlm_testset_t2', role='held-out test',
                spec=lambda: [dict(w, id=w['id'].replace('t1_', 't2_')) for w in t1.make_spec('T2-2026')]),
 }
@@ -128,7 +169,10 @@ def render(spec: list[dict], out: Path, masks: bool):
                     PImage.fromarray(arr).save(img_dir / f'{name}.jpg', quality=90)
                     rows.append({'image': f'images/{name}.jpg', 'world_id': w['id'], 'station': station, 'scene': w['scene'],
                                  'hazard_at': w.get('hazard_at'), 'distractor_at': w.get('distractor_at'),
-                                 'distractor_kind': w.get('distractor_kind'), **t1.labels_for(w, station, view),
+                                 'distractor_kind': w.get('distractor_kind'),
+                                 # geometric pre-label only (replaced by the mask label); size scale is not geometry
+                                 **t1.labels_for(dict(w, hazard_geom=w['hazard_geom'][:2]) if 'hazard_geom' in w else w,
+                                                 station, view),
                                  'pose': view[:3], 'distance_m': view[3]})
             print(f'[{wi + 1}/{len(todo)}] {w["id"]} {w["scene"]}{" mask" if masks else ""}', flush=True)
         finally:
