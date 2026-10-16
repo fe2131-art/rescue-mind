@@ -62,3 +62,17 @@ centre, intersecting the supply.
 * The partial render (15 worlds) was deleted, the spec regenerated, and the full set rendered again.
 * New hashes: spec `e000fa18…`, generator `scripts/build_testset_t1.py` `d8a234fb…`, `rescuemind/robust_scenes.py` `51cc933a…`.
   The original hashes in the Data section above are superseded.
+
+**Amendment 2 (2026-10-17, after the full render, before any model scored any T1 image).**
+I inspected a contact sheet of the fire images and found that the geometric fire label ignores occlusion: some
+"visible" fires were almost completely hidden behind the supply.
+* The images given to the models are unchanged.
+* The fire label is recomputed from a second render of every view of the 16 fire worlds, in which only the flames and smoke
+  are drawn in flat emissive magenta without shadows. The burnt ground disk is not counted.
+* Per view, `fire_pixels` is the number of magenta pixels:
+  * ≥ 614 pixels (0.2% of the image) → `visible`;
+  * ≤ 20 pixels → `hidden`;
+  * in between → `ambiguous`.
+* `expected` is derived as before from this label. The geometric label is kept as `hazard_visibility_geometric`.
+* The thresholds were fixed before the masks were rendered.
+* Code: `scripts/build_testset_t1.py --fire-masks` and then `--relabel` (sha256 `29c00fdb…`), with `rescuemind/robust_scenes.py` (`40a73e40…`).

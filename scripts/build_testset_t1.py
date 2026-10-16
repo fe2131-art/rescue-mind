@@ -109,13 +109,34 @@ def set_pose(x, y, yaw):
                     '--reptype', 'gz.msgs.Boolean', '--timeout', '3000', '--req', req], check=True, capture_output=True)
 
 
-def render(spec: list[dict]):
+# Amendment 2: fire visibility from rendered masks (occlusion-aware) instead of field-of-view geometry
+MASK_VISIBLE_FRAC = 0.002   # >= 614 of 307200 pixels of fire/smoke -> visible
+MASK_HIDDEN_PX = 20         # <= 20 pixels -> hidden; in between -> ambiguous
+
+
+def mask_label(frac_px: int) -> str:
+    if frac_px <= MASK_HIDDEN_PX:
+        return 'hidden'
+    return 'visible' if frac_px >= MASK_VISIBLE_FRAC * 640 * 480 else 'ambiguous'
+
+
+def fire_pixels(path: Path) -> int:
+    import numpy as np
+    from PIL import Image as PImage
+    a = np.asarray(PImage.open(path).convert('RGB')).astype(int)
+    return int(((a[..., 0] > 150) & (a[..., 2] > 150) & (a[..., 1] < 100)).sum())
+
+
+def render(spec: list[dict], masks: bool = False):
     import numpy as np
     import rclpy
     from PIL import Image as PImage
     from sensor_msgs.msg import Image
     from rescuemind.ros_qos import image_qos
-    (OUT / 'images').mkdir(parents=True, exist_ok=True)
+    img_dir = OUT / ('fire_masks' if masks else 'images')
+    img_dir.mkdir(parents=True, exist_ok=True)
+    if masks:
+        spec = [w for w in spec if w.get('hazard_at')]
     wdir = ROOT / 'worlds/testset_t1'
     wdir.mkdir(parents=True, exist_ok=True)
     rows = []
@@ -124,11 +145,13 @@ def render(spec: list[dict]):
     latest = {'msg': None}
     node.create_subscription(Image, '/camera', lambda m: latest.__setitem__('msg', m), image_qos())
     for wi, w in enumerate(spec):
-        world = wdir / f"rescuemind_{w['id']}.sdf"
+        world = wdir / f"rescuemind_{w['id']}{'_mask' if masks else ''}.sdf"
         kw = {k: w[k] for k in ('lighting_params', 'prop_offsets', 'hazard_at', 'distractor_at',
                                 'distractor_kind', 'distractor_side', 'distractor_layout') if k in w}
         if 'hazard_geom' in w:
             kw['hazard_geom'] = tuple(w['hazard_geom'])
+        if masks:
+            kw['hazard_mask'] = True
         world.write_bytes(build_variant(ROOT / f"worlds/scenarios/rescuemind_{w['scene']}.sdf", **kw))
         procs = [subprocess.Popen(['gz', 'sim', '-s', '-r', '--headless-rendering', '-v', '1', str(world)],
                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True),
@@ -146,7 +169,10 @@ def render(spec: list[dict]):
                     m = latest['msg']
                     arr = np.frombuffer(bytes(m.data), np.uint8).reshape(m.height, m.width, 3)
                     name = f"{w['id']}_{station}_{k}.jpg"
-                    PImage.fromarray(arr).save(OUT / 'images' / name, quality=90)
+                    if masks:
+                        PImage.fromarray(arr).save(img_dir / name.replace('.jpg', '.png'))
+                        continue
+                    PImage.fromarray(arr).save(img_dir / name, quality=90)
                     rows.append({'image': f'images/{name}', 'world_id': w['id'], 'station': station, 'scene': w['scene'],
                                  'hazard_at': w.get('hazard_at'), 'distractor_at': w.get('distractor_at'),
                                  'distractor_kind': w.get('distractor_kind'), **labels_for(w, station, view),
@@ -160,15 +186,43 @@ def render(spec: list[dict]):
                     except Exception:
                         continue
             time.sleep(2)
-    (OUT / 'labels.jsonl').write_text(''.join(json.dumps(r) + '\n' for r in rows))
-    print('images', len(rows))
+    if not masks:
+        (OUT / 'labels.jsonl').write_text(''.join(json.dumps(r) + '\n' for r in rows))
+        print('images', len(rows))
+    else:
+        print('masks rendered')
     node.destroy_node(); rclpy.shutdown()
+
+
+def relabel():
+    """Amendment 2: replace the geometric fire label with the rendered-mask label (keeps the old one)."""
+    rows = [json.loads(x) for x in (OUT / 'labels.jsonl').read_text().splitlines()]
+    for r in rows:
+        r.setdefault('hazard_visibility_geometric', r['hazard_visibility'])
+        mask = OUT / 'fire_masks' / Path(r['image']).name.replace('.jpg', '.png')
+        px = fire_pixels(mask) if mask.is_file() else 0
+        if r.get('hazard_at') and not mask.is_file():
+            raise SystemExit(f'missing fire mask for {r["image"]}')
+        r['fire_pixels'] = px
+        r['hazard_visibility'] = mask_label(px)
+        r['truth_hazard_visible'] = r['hazard_visibility'] == 'visible'
+        ok = r['truth_supply'] == r['station']
+        r['expected'] = ('ambiguous' if ok and r['hazard_visibility'] == 'ambiguous' else
+                         'allow' if ok and r['hazard_visibility'] == 'hidden' else 'deny')
+    (OUT / 'labels.jsonl').write_text(''.join(json.dumps(r) + '\n' for r in rows))
+    from collections import Counter
+    print(Counter(r['expected'] for r in rows), Counter((r['hazard_visibility_geometric'], r['hazard_visibility'])
+                                                        for r in rows if r.get('hazard_at')))
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--spec-only', action='store_true')
+    ap.add_argument('--fire-masks', action='store_true', help='amendment 2: render magenta fire masks for fire worlds')
+    ap.add_argument('--relabel', action='store_true', help='amendment 2: fire labels from the rendered masks')
     a = ap.parse_args()
+    if a.relabel:
+        return relabel()
     OUT.mkdir(parents=True, exist_ok=True)
     spec = make_spec()
     sp = OUT / 'spec.json'
@@ -182,7 +236,9 @@ def main():
                 e = labels_for(w, st, v)['expected']
                 counts[e] = counts.get(e, 0) + 1
     print('worlds', len(spec), 'expected labels', counts)
-    if not a.spec_only:
+    if a.fire_masks:
+        render(spec, masks=True)
+    elif not a.spec_only:
         render(spec)
 
 
