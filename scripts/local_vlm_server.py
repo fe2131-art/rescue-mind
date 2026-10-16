@@ -262,12 +262,80 @@ class ModelWorker:
         question,mapping=prompts['supply'][pass_id]
         letter_probs=self._answer_probs(pic,question,('A','B','C'))
         supply_probs={mapping[k]:round(v,4) for k,v in letter_probs.items()}
-        hazard=self._answer_probs(pic,prompts['hazard'],('Yes','No'))
+        hazard_p,views,cached=self._hazard(pic,hashlib.sha256(image_bytes).hexdigest(),prompts['hazard'])
         supply=max(supply_probs,key=supply_probs.get)
         # I-10: hazard threshold is asymmetric by design (a missed fire is worse than a needless stop)
-        return {'supply':supply,'scene':'hazard' if hazard['Yes']>=self.hazard_threshold else 'clear',
+        return {'supply':supply,'scene':'hazard' if hazard_p>=self.hazard_threshold else 'clear',
                 '_scores':{'method':'closed_set_logprob','prompt_set':self.prompt_set,'supply_probs':supply_probs,
-                           'hazard_prob':round(hazard['Yes'],4),'hazard_threshold':self.hazard_threshold}}
+                           'hazard_prob':round(hazard_p,4),'hazard_threshold':self.hazard_threshold,
+                           'hazard_views':self.hazard_views,'hazard_prompt':self.hazard_prompt,
+                           'hazard_view_probs':views,'hazard_cached':cached}}
+
+    # I-11: hazard question variants. 'h35' = the v35 prompt; 'h36' asks explicitly about small, partly hidden or
+    # cut-off fire and smoke.  'tiles' also asks on three enlarged overlapping crops (left, right, top) and takes the max.
+    HAZARD_PROMPTS={'h36':('Look at the whole image, especially the edges and the area behind and above the objects. '
+                           'Is there any fire, flame, or smoke (a grey or black cloud), even if it is small, partly hidden '
+                           'behind something, or cut off at the edge of the image? Answer Yes or No.')}
+    hazard_views='full'
+    hazard_prompt='h35'
+
+    @staticmethod
+    def _crops(pic):
+        w,h=pic.size
+        out=[]
+        for box in ((0,0,int(.6*w),h),(int(.4*w),0,w,h),(0,0,w,int(.6*h))):
+            c=pic.crop(box)
+            scale=640/max(c.size)
+            out.append(c.resize((max(1,round(c.size[0]*scale)),max(1,round(c.size[1]*scale)))))
+        return out
+
+    def _hazard(self,pic,digest,default_prompt):
+        # the hazard question does not depend on the pass, so both passes share one answer per image
+        key=(digest,self.hazard_views,self.hazard_prompt,self.prompt_set)
+        cache=self.__dict__.setdefault('_hazard_cache',{})
+        if key in cache:
+            p,views=cache[key]
+            return p,views,True
+        q=default_prompt if self.hazard_prompt=='h35' else self.HAZARD_PROMPTS[self.hazard_prompt]
+        pics=[pic]+(self._crops(pic) if self.hazard_views=='tiles' else [])
+        views=[round(self._answer_probs(v,q,('Yes','No'))['Yes'],4) for v in pics]
+        p=max(views)
+        if len(cache)>64:
+            cache.clear()
+        cache[key]=(p,views)
+        return p,views,False
+
+    def jev(self,request):
+        """I-13: local Jev-compatible decisions (the SemIf/OpenJev pattern: typed option probabilities read
+        directly from one forward pass, no generated text).  Accepts the Jev 1.14 request schema built by
+        rescuemind/jev.py (state + assets + choice/noul questions) and answers in the Jev response schema.
+        Box questions are not supported locally and are refused."""
+        assets=request.get('assets') or {}
+        images=[a for a in assets.values() if isinstance(a,dict) and a.get('type')=='image']
+        if len(images)!=1:
+            raise ValueError('local Jev expects exactly one image asset')
+        pic=self._picture(base64.b64decode(images[0]['data_base64'],validate=True))
+        task=str((request.get('state') or {}).get('task',''))[:200]
+        answers={}
+        letters='ABCD'
+        for name,q in (request.get('questions') or {}).items():
+            text=str(q.get('instructions','')).replace('`camera`','this camera image')
+            if q.get('type')=='choice':
+                keys=list(q['criteria'])
+                if not 2<=len(keys)<=4:
+                    raise ValueError('local Jev choice needs 2-4 options')
+                prompt=(f'Context: {task}.\n{text}\n'+''.join(f'{letters[i]}. {k}: {q["criteria"][k]}\n' for i,k in enumerate(keys))
+                        +'Answer with the letter only.')
+                probs=self._answer_probs(pic,prompt,tuple(letters[:len(keys)]))
+                by_key={k:round(probs[letters[i]],4) for i,k in enumerate(keys)}
+                best=max(by_key,key=by_key.get)
+                answers[name]={'type':'choice','choice':best,'confidence':by_key[best],'probabilities':by_key}
+            elif q.get('type')=='noul':
+                p=self._answer_probs(pic,f'Context: {task}.\n{text}\nAnswer Yes or No.',('Yes','No'))['Yes']
+                answers[name]={'type':'noul','noul':round(p,4)}
+            else:
+                raise ValueError(f'local Jev does not support question type {q.get("type")!r}')
+        return {'model':'local-jev/'+self.model_id,'answers':answers,'usage':{'backend':'local_transformers'}}
 
 
 def make_handler(worker):
@@ -279,7 +347,7 @@ def make_handler(worker):
                             'method':getattr(worker,'method','json'),'prompt_set':getattr(worker,'prompt_set',None),
                             'hazard_threshold':getattr(worker,'hazard_threshold',0.5)})
         def do_POST(self):
-            if self.path not in ('/v1/classify','/v1/describe','/v1/intent'):
+            if self.path not in ('/v1/classify','/v1/describe','/v1/intent','/v1/jev'):
                 self.send_error(404);return
             n=int(self.headers.get('Content-Length','0'))
             if n<20 or n>9_000_000:
@@ -288,6 +356,9 @@ def make_handler(worker):
                 request=json.loads(self.rfile.read(n))
                 if type(request) is not dict or request.get('model')!=worker.model_id:
                     raise ValueError('wrong model')
+                if self.path=='/v1/jev':
+                    self.reply(200,{'backend':'local_transformers','real_inference':True,**worker.jev(request)})
+                    return
                 if self.path=='/v1/intent':
                     text=request.get('text')
                     if not isinstance(text,str) or not text.strip() or len(text)>500:
@@ -338,6 +409,8 @@ def main():
     p.add_argument('--describe-prompt',choices=sorted(ModelWorker.DESCRIBE_PROMPTS),default='e0')
     p.add_argument('--intent-prompt',choices=sorted(ModelWorker.INTENT_PROMPTS),default='i34')
     p.add_argument('--hazard-threshold',type=float,default=0.5,help='p(Yes) at or above which the scene is a hazard (I-10)')
+    p.add_argument('--hazard-views',choices=['full','tiles'],default='full',help='I-11: also ask on enlarged crops')
+    p.add_argument('--hazard-prompt',choices=['h35','h36'],default='h35',help='I-11: hazard question wording')
     a=p.parse_args()
     if not 1024<=a.port<=65535: p.error('invalid port')
     if not 0<a.hazard_threshold<=1: p.error('hazard threshold must be in (0, 1]')
@@ -345,6 +418,8 @@ def main():
     worker.describe_prompt=a.describe_prompt
     worker.intent_prompt=a.intent_prompt
     worker.hazard_threshold=a.hazard_threshold
+    worker.hazard_views=a.hazard_views
+    worker.hazard_prompt=a.hazard_prompt
     ThreadingHTTPServer(('127.0.0.1',a.port),make_handler(worker)).serve_forever()
 
 if __name__=='__main__': main()
