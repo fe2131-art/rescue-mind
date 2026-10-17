@@ -662,6 +662,58 @@ def main():
             m['WNDist'] = sum(bool(S[n_].get('mechanism_matters')) for n_ in wb['primary_baselines'])
     wce, wcc, wnd = m.lookup('WClaimEps'), m.lookup('WClaimCost'), m.lookup('WNDist')
     m['StatW'] = f"bound: {wce}; cost: {wcc}; prior art distinguished: {wnd}/3" if (wce and wcc and wnd is not None) else 'pending'
+    # ---- study A (adversarial advice, closed loop; scripts/a_analysis.py -> a_summary.json) -- absent until it ran
+    af = RES / 'a_summary.json'
+    if af.is_file():
+        a = json.loads(af.read_text())
+        a1, a2, a3 = a['A1_unsafe_naive_vs_monotone'], a['A2_time_saved_truthful'], a['A3_dos_cost_vs_bound']
+        m['APairs'] = a1['n_world_pairs']
+        m['AUnsafeNaive'] = f"{a1['runs']['naive']['unsafe']}/{a1['runs']['naive']['n']}"
+        m['AUnsafeOurs'] = f"{a1['runs']['monotone']['unsafe']}/{a1['runs']['monotone']['n']}"
+        m['AUnsafeCtrl'] = f"{a1['control_runs_F_N']['unsafe']}/{a1['control_runs_F_N']['n']}"
+        m['AMcNemarP'] = _pfmt(a1['discordant_naive_only'], a1['discordant_monotone_only'])
+        m['AViol'] = len(a1['monotone_unsafe_where_control_safe'])
+        m['AAuditFail'] = a1['n_audit_failures']
+        m['ATimeSave'] = f"{a2['monotone']['median_saved_s']:.0f}" if a2['monotone']['median_saved_s'] is not None else r'\TBD'
+        m['AWilcoxonP'] = a2['monotone']['wilcoxon_exact_p']
+        m['ADoSVisits'] = a3['max_extra_visits'] if a3['max_extra_visits'] is not None else 0
+        m['ADoSFalseRef'] = a3['false_refusals_monotone']
+        m['ADoSN'] = a3['n_monotone_runs']
+        m['ADoSAllowed'] = f"{a3['allowed_max_false_refusals_95']} at the 95th percentile"
+        m['AClaimSafety'] = sup(a1['supported'])
+        m['AClaimTime'] = sup(a2['supported']) if a2['monotone']['testable'] else 'not testable'
+        m['AClaimCost'] = sup(a3['supported'])
+        m['AClaim'] = sup(a['headline_supported'])
+        m['AExtract'] = f"{a['extraction']['exact_match']}/{a['extraction']['n_operator_runs']}"
+    ac_ = [m.lookup(k_) for k_ in ('AClaimSafety', 'AClaimTime', 'AClaimCost')]
+    m['StatA'] = f"safety: {ac_[0]}; time: {ac_[1]}; cost: {ac_[2]}" if all(ac_) else 'pending'
+    # ---- study S (scene-text injection, image level; scripts/s_analysis.py -> s_summary.json) -- absent until it ran
+    sf = RES / 's_summary.json'
+    if sf.is_file():
+        sj = json.loads(sf.read_text())
+        so, s1_, sff = sj['systems'].get('OURS'), sj['systems'].get('ONE-PASS'), sj['systems'].get('FREE-FORM')
+        m['SNPairs'] = sj['n_valid_pairs']
+        if so:
+            tx, st = so['by_text'], so['by_sign_type']
+            fl = lambda g: g['attack_vs_none']['flips']
+            m['SFlipsC'], m['SNC'] = fl(tx['letter_C']), tx['letter_C']['n_pairs']
+            m['SFlipsA'], m['SNA'] = fl(tx['letter_A']), tx['letter_A']['n_pairs']
+            m['SFlipsB'], m['SNB'] = fl(tx['letter_B']), tx['letter_B']['n_pairs']
+            m['SFlipsMis'], m['SNMis'] = fl(st['mislabel']), st['mislabel']['n_pairs']
+            m['SFlipsSafe'], m['SNSafe'] = fl(st['false_safe']), st['false_safe']['n_pairs']
+        if s1_:
+            m['SFlipsOneA'] = f"{s1_['by_text']['letter_A']['attack_vs_none']['flips']} of {s1_['by_text']['letter_A']['n_pairs']}"
+        if sff:
+            m['SFlipsMisFree'] = f"{sff['by_sign_type']['mislabel']['attack_vs_none']['flips']} of {sff['by_sign_type']['mislabel']['n_pairs']}"
+        lg_ = (sj.get('legibility') or {}).get('S0_signs_legible')
+        m['SLegible'] = {True: 'yes', False: 'no'}[lg_] if lg_ is not None else r'\TBD'
+        cr_ = sj.get('criteria') or {}
+        hyp_ = [cr_.get(k_) for k_ in ('S1_naive_letter_C_not_effective_on_OURS', 'S2_permutation_helps_against_letter_A', 'S3_adaptive_letter_B_effective_on_OURS',
+                                       'S4_mislabel_residual_on_OURS', 'S5_false_safe_not_effective_on_OURS', 'S6_letter_C_availability_attack_on_OURS', 'S7_benign_text_inert')]
+        if all(h_ is not None for h_ in hyp_) and lg_ is not None:
+            m['SClaim'] = sup(hyp_[0] and hyp_[1] and lg_)      # registered claim: the permuted check is not fooled by a letter written for one option order (H1, H2, S0)
+            m['SHyp'] = f"{sum(hyp_)}/7"
+    m['StatS'] = f"letters: {m.lookup('SClaim')}; {m.lookup('SHyp')} hypotheses" if m.lookup('SClaim') else 'pending'
     # ---- registration audit: each registration commit must precede the first commit of its results
     import subprocess
 
@@ -674,7 +726,8 @@ def main():
                ('G', 'PREREGISTRATION_G.md', 'campaign_G_ledger.jsonl'), ('R', 'PREREGISTRATION_R.md', 'devset_r_gaussian_noise_M.json'),
                ('H', 'PREREGISTRATION_H.md', 'campaign_H_ledger.jsonl'), ('J', 'PREREGISTRATION_J.md', 'campaign_J_ledger.jsonl'), ('L', 'PREREGISTRATION_L.md', 'campaign_L_ledger.jsonl'),
                ('V', 'PREREGISTRATION_V.md', 'v_summary.json'), ('W', 'PREREGISTRATION_W.md', 'w_summary.json'),
-               ('Z', 'PREREGISTRATION_Z.md', 'z_summary.json'), ('K', 'PREREGISTRATION_K.md', 'k_summary.json'), ('P', 'PREREGISTRATION_P.md', 'p_summary.json'), ('P2', 'PREREGISTRATION_P2.md', 'p2_summary.json')]
+               ('Z', 'PREREGISTRATION_Z.md', 'z_summary.json'), ('K', 'PREREGISTRATION_K.md', 'k_summary.json'), ('P', 'PREREGISTRATION_P.md', 'p_summary.json'), ('P2', 'PREREGISTRATION_P2.md', 'p2_summary.json'),
+               ('A', 'PREREGISTRATION_A.md', 'a_summary.json'), ('S', 'PREREGISTRATION_S.md', 's_summary.json')]
     rows = [r'\begin{tabular}{llllc}', r'\toprule', r'Study & Registered (commit, date) & First results (commit, date) & Amendments & Order \\', r'\midrule']
     ok_all = True
     for name, reg, res in studies:
@@ -731,7 +784,10 @@ def main():
                'VSeqP', 'VClaimModel', 'VClaimMemory',
                'WNPerc', 'WMissLA', 'WMissFront', 'WMissLARate', 'WMissLACI', 'WExtraStop', 'WClaimEps', 'WClaimCost',
                'WFAOursFull', 'WFAVote', 'WFAKnowFive', 'WFAKnowTen', 'WNDist', 'PRecall', 'PFalseAlarm', 'PRecallCI', 'PFalseAlarmCI', 'PAuroc',
-               'PTwoWording', 'PTwoTau', 'PTwoRecall', 'PTwoRecallCI', 'PTwoFA', 'PTwoFACI', 'PTwoClaim', 'PTwoFrozenRecall', 'PTwoFrozenFA'])
+               'PTwoWording', 'PTwoTau', 'PTwoRecall', 'PTwoRecallCI', 'PTwoFA', 'PTwoFACI', 'PTwoClaim', 'PTwoFrozenRecall', 'PTwoFrozenFA',
+               'APairs', 'AUnsafeNaive', 'AUnsafeOurs', 'AUnsafeCtrl', 'AMcNemarP', 'AViol', 'AAuditFail', 'ATimeSave', 'AWilcoxonP', 'ADoSVisits', 'ADoSFalseRef', 'ADoSN',
+               'ADoSAllowed', 'AClaimSafety', 'AClaimTime', 'AClaimCost', 'AClaim', 'AExtract',
+               'SNPairs', 'SFlipsC', 'SNC', 'SFlipsA', 'SNA', 'SFlipsB', 'SNB', 'SFlipsMis', 'SNMis', 'SFlipsSafe', 'SNSafe', 'SFlipsOneA', 'SFlipsMisFree', 'SLegible', 'SClaim', 'SHyp'])
     for name in ('tab_t1_models.tex', 'tab_t1_ablation.tex', 'tab_e_strata.tex', 'tab_i13_dev.tex', 'tab_r.tex', 'tab_h_arms.tex', 'tab_h_sequences.tex'):
         tables.setdefault(name, r'\begin{tabular}{l}\TBD\end{tabular}')
     (OUT / 'numbers.tex').write_text(m.text())

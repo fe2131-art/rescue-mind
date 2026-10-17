@@ -28,6 +28,9 @@ perceivable fire from \GWrongB{} to \GWrongC{} of \GPairs{} (exact McNemar $p=\G
 Second, a robot that resupplies the same shelter can remember what it saw, but stale memory is dangerous. We let memory
 only reorder where the robot looks and add caution, never remove a check, which bounds the per-mission probability of an
 unsafe delivery by the number of stations checked times the per-check false-approval rate, however stale the memory is.
+The same rule covers every input the robot did not perceive itself (a peer's report, the inventory, the operator's wording):
+such \emph{advice} is typed so that it can only reorder visits or add caution, so the bound holds for any, even adversarial,
+advice (study A); text written in the scene is perception and falls outside the guarantee, which study S measures.
 In \HPTwoN{} paired missions per arm in worlds that change between missions, unsafe deliveries were \HUnsafeMtwo{} with
 our memory, \HUnsafeMzero{} without memory and \HUnsafeMone{} with a naive memory that skips checks; where supplies
 stayed relocated, the median mission time fell from \HTimeMzero\,s to \HTimeMtwo\,s.
@@ -50,7 +53,7 @@ We saw all three on our own images (Supp.~Sec.~S8).
 Relief robots also return to the same shelter again and again, and a robot that remembers where the water
 really was, or where it saw smoke, could be faster. Yet acting on stale memory can hurt: in a FrozenLake-style grid world with six VLMs, an agent that trusted unaudited memory failed more
 often than one with no memory~\cite{sun2026memorylies}, and a disaster site changes between missions. So, \emph{how can
-a robot benefit from memory without letting memory weaken its checks?}
+a robot benefit from memory, or from any input it did not perceive itself, without letting that input weaken its checks?}
 
 We therefore ask a narrow, safety-motivated question: \emph{can an off-the-shelf VLM running on the robot
 serve as a pre-action gate that rarely approves a wrong delivery, while still approving correct ones, and can
@@ -62,11 +65,10 @@ question are scored by answer-letter probabilities; the robot approves only if t
 and clear a confidence threshold, as in a selective classifier~\cite{geifman2017selective}. A wrong item triggers a one-time search of the other station, a hazard never does.
 \item \textbf{Active look-around} (Sec.~\ref{sec:fix}). A fire hidden behind the supply is often plainly visible from the side,
 so after an approval the robot re-checks from two side poses, and any hazard there revokes the approval.
-\item \textbf{Safety-monotone mission memory} (Sec.~\ref{sec:memory}). Memory proposes, perception disposes: it may reorder the stations the robot
+\item \textbf{Safety-monotone memory, generalised to untrusted advice} (Secs.~\ref{sec:memory}, \ref{sec:advice}). Memory proposes, perception disposes: it may reorder the stations the robot
 visits and tighten its hazard threshold, but never skip a check. We state the invariant, enforce it in code and in the audit, and test it in a pre-registered
-multi-mission campaign against a naive memory.
-\item \textbf{The original two-model design, tested and not adopted} (Sec.~\ref{sec:jev}). We fill the second checker's role with Clef-Flash,
-which Cloudflare post-trained from Qwen3.5-9B~\cite{cloudflare2026clefcard}, require both to approve, and run the pair on the simulated robot; it fits on one GPU but was not safer than one model (campaign J).
+multi-mission campaign against a naive memory. The same typed interface covers a peer's report, the inventory and the operator's wording, so advice monotonicity bounds the risk under adversarial advice (study A); scene text lies outside it (study S).
+\item \textbf{The original two-model design, tested and not adopted} (Supp.~Sec.~S11). A second checker, Clef-Flash~\cite{cloudflare2026clefcard}, fits on one GPU with the first but was not safer than one model (campaign J).
 \item \textbf{Decision and motion separated, in the spirit of Simplex}~\cite{seto1998simplex,sha2001simplicity}: the mission node only
 \emph{requests} velocities, and an independent guard is the sole publisher of wheel commands.
 \item \textbf{Auditable, pre-registered evaluation} (Sec.~\ref{sec:method}). Prompts and thresholds were chosen
@@ -100,11 +102,13 @@ REFLECT~\cite{liu2023reflect}, AHA~\cite{duan2025aha} and success detectors~\cit
 Sentinel~\cite{agia2025sentinel} and FAIL-Detect~\cite{xu2025faildetect} monitor learned policies at run time, Code-as-Monitor~\cite{zhou2025codeasmonitor} checks constraints with VLM-generated programs, and an LLM anomaly monitor triggers a safe fallback~\cite{sinha2024realtime} (Supp.~Sec.~S3).
 The closest work we know is VAP-TAMP~\cite{oloo2026vaptamp}: before and after each action it asks a VLM paraphrased yes/no questions, takes a majority vote, and moves the camera if the view is insufficient; the vote updates the state used for replanning. To our knowledge, ours differs in closed-set next-token scores, a fail-closed conjunction (a failed check can only refuse or revoke), an independent velocity guard, memory limited to reordering and caution, and pre-registered closed-loop audits against ground truth.
 KnowNo~\cite{ren2023knowno} scores multiple-choice answers by next-token probability and asks a human for help with a conformal guarantee~\cite{angelopoulos2021conformal}; bounding a miss rate with high probability is risk control~\cite{angelopoulos2024conformalrisk,angelopoulos2025ltt};
-SayCan~\cite{ichter2023saycan} likewise scores a fixed candidate set. We share the scoring but refuse or search under uncertainty, and add permuted-option agreement against letter bias~\cite{zheng2024mcselectors,pezeshkpour2024order,robinson2023mcqa}. Language models are fairly calibrated on formatted multiple-choice questions~\cite{kadavath2022know}, but confidence still needs validation~\cite{guo2017calibration,zhao2021calibrate}, and embodied VLMs abstain poorly on their own~\cite{wu2025abstaineqa}.
+SayCan~\cite{ichter2023saycan} likewise scores a fixed candidate set. We share the scoring but refuse or search under uncertainty, and add permuted-option agreement against letter bias~\cite{zheng2024mcselectors,pezeshkpour2024order,robinson2023mcqa}.
 
 \textbf{Safety architectures.} Simplex~\cite{seto1998simplex,sha2001simplicity}, shields~\cite{alshiekh2018shielding}
 and control barrier functions~\cite{ames2019cbf} keep a simple verified layer between a complex decision maker and
-the actuators (see~\cite{hsu2024safetyfilter}). LLM-controlled robots can be manipulated into harmful actions~\cite{robey2025jailbreaking}; RoboGuard~\cite{ravichandran2026guardrails} checks plans first. Unlike vision-language-action models~\cite{zitkovich2023rt2,kim2025openvla}, our VLM never commands motion.
+the actuators (see~\cite{hsu2024safetyfilter}). Unlike vision-language-action models~\cite{zitkovich2023rt2,kim2025openvla}, our VLM never commands motion.
+
+\textbf{Untrusted inputs to embodied agents.} Jailbreaks steer LLM-controlled robots through the instruction (RoboPAIR~\cite{robey2025jailbreaking}, BadRobot~\cite{zhang2025badrobot}), printed text in the camera view hijacks VLM-controlled robots~\cite{burbano2026chai,samarakoon2026paper}, and poisoned memory steers LLM agents~\cite{chen2024agentpoison}. Robot defences mostly filter or certify the plan (RoboGuard~\cite{ravichandran2026guardrails}); structural defences for software agents separate control from data flow (CaMeL~\cite{debenedetti2025camel}). We carry that idea to a physical pre-action gate: typed advice can only reorder or tighten, which bounds unsafe deliveries for any advice; scene text is measured separately (full version: Supp.~Sec.~S3).
 
 \textbf{Memory and active perception.}
 Semantic memory~\cite{anwar2025remembr,wang2025karma} and 3D scene graphs~\cite{hughes2022hydra,gu2024conceptgraphs} \emph{answer} or \emph{plan}~\cite{rana2023sayplan}; mapping has long dealt with change~\cite{biber2005dynamic,krajnik2017fremen}. In a grid-world study, unaudited stale memory was worse than none~\cite{sun2026memorylies};
@@ -112,10 +116,9 @@ GLOVE~\cite{yin2026glove} and VLM-DEWM~\cite{tang2026vlmdewm} check memory again
 Object search with belief priors~\cite{aydemir2013active,wandzel2019mos,zeng2020slim,zhou2023esc} and semi-static maps~\cite{mason2012objectworld,rosen2016lifelong} also use past observations to order search; to our knowledge they trust detections and do not bound the risk of stale memory at a pre-action gate.
 Moving the sensor to resolve ambiguity is classic~\cite{bajcsy1988active,bajcsy2018revisiting}, and agents explore until a VLM is confident~\cite{ren2024exploreuntil}; ours is deliberately simple: two fixed side views, used only to \emph{revoke} an approval.
 
-\textbf{Robustness, redundancy and evaluation.} Classifiers, detectors and VLMs degrade under common
-corruptions~\cite{hendrycks2019benchmarking,michaelis2019benchmarking,chen2023benchmarking,schiappa2022robustness}; we measure one part of the sim-to-real gap~\cite{hofer2021sim2real,li2024simpler}, sensor degradation, and care about the \emph{direction} of errors. Agreement between independent versions is a classic
-fault-tolerance technique~\cite{avizienis1985nversion} limited by correlated failures~\cite{knight1986experimental}. We follow recommendations to report conditions, metrics, uncertainty
-and failure modes~\cite{kressgazit2024empirical}, with Wilson intervals~\cite{wilson1927probable}, exact McNemar tests~\cite{mcnemar1947note} and domain randomisation~\cite{tobin2017domain} for the held-out \emph{test} set.
+\textbf{Robustness and evaluation.} Classifiers, detectors and VLMs degrade under common
+corruptions~\cite{hendrycks2019benchmarking,michaelis2019benchmarking,chen2023benchmarking,schiappa2022robustness}; we measure one part of the sim-to-real gap~\cite{hofer2021sim2real,li2024simpler}, sensor degradation, and care about the \emph{direction} of errors. We follow recommendations to report conditions, uncertainty
+and failure modes~\cite{kressgazit2024empirical}, with Wilson intervals~\cite{wilson1927probable} and exact McNemar tests~\cite{mcnemar1947note}; second checkers and correlated failures: Supp.~Sec.~S3, S11.
 
 \section{System}\label{sec:system}
 \textbf{Platform.} A differential-drive robot with a 2D lidar and a mast camera (640$\times$480, 1.05\,rad
@@ -180,16 +183,6 @@ over the same fire-free worlds, Sec.~\ref{sec:fix}).
 \caption{Why the robot looks again. The same small fire, from the front checkpoint and from 0.4\,m to the left (a v3.6 mission in
 a campaign-G world). From the front it is hidden behind the first-aid kit, and the check approves. From the side, the
 hazard question refuses.}\label{fig:lookaround}\end{figure}
-\subsection{A second checker}\label{sec:jev}
-The original design of this robot asked two models (a second checker, called Jev in that design, and Qwen) and moved only when both agreed, following the
-idea of diverse redundancy~\cite{avizienis1985nversion}, although failures are known to be correlated in practice~\cite{knight1986experimental}. The second checker is Clef-Flash, a decision model released by Cloudflare~\cite{cloudflare2026clefcard,chen2026clefblog} and served locally through the original second-checker API.
-According to its model card it is post-trained from Qwen3.5-9B, so the two models share lineage. Their diversity lies in
-post-training, in model size (our on-robot pair uses Qwen3.5-4B) and in the question asked, and the correlated-failure
-caveat applies in full. The two-model rule approves only if Eq.~\eqref{eq:rule} holds for Qwen \emph{and}
-Clef-Flash agrees (thresholds: Supp.~Sec.~S1). A hazard seen by either model stops the robot, and a wrong supply seen by either
-allows the one-time search. Whether the two models fit one GPU is
-tested in Sec.~\ref{sec:res-jev}. The second model is a veto whose errors overlap with Qwen's. Qwen misses \JevOvQ{} of \JevOvN{} development fires, and Clef-Flash also misses \JevOvBoth{} of these (\JevOvCond, Wilson \JevOvCondCI; Supp.~Table~S9).
-
 \subsection{Safety-monotone mission memory}\label{sec:memory}
 After every mission the robot appends what \emph{it} observed to a memory file; ground truth is never written.
 For each checked station the record holds the supply both passes named with $p\ge0.5$ (or \emph{uncertain}), whether a hazard was seen,
@@ -233,7 +226,7 @@ stations (we measure per-check rates in E, G, T1, T2 and mission outcomes in H);
 \State $(\pi, \theta') \gets \mu(\mathcal{H}, s^\ast)$ \Comment{order of stations; $\tauh'\le\tauh$ at remembered hazards}
 \For{station $k$ in $\pi$ (at most two)}
   \State drive to $k$; aim; wait until stationary; capture new frames $o_k$
-  \State $d \gets$ \textsc{Check}$(o_k, s^\ast; \theta'_k)$ \Comment{Eq.~\eqref{eq:rule}; and the second checker, if used}
+  \State $d \gets$ \textsc{Check}$(o_k, s^\ast; \theta'_k)$ \Comment{Eq.~\eqref{eq:rule}}
   \If{$d=$ hazard} \State hold zero 2.5\,s; report; \textbf{stop} \EndIf
   \If{$d=$ approve}
     \For{side $v$ in order$(\theta'_k)$} \State move 0.4\,m to side $v$; capture $o_{k,v}$
@@ -251,6 +244,21 @@ A \emph{naive} memory is not verification-preserving. It replaces $A_\theta(o)$ 
 alone: it skips the check where it last saw the supply, and refuses without visiting where it last saw a hazard. We
 implement it only as a baseline. The code enforces the premise: \texttt{apply\_memory\_caution} can only turn approvals into
 refusals, and the run audit rejects any memory threshold above $\tauh$.
+
+\subsection{Untrusted inputs may only tighten}\label{sec:advice}
+Memory is one of several inputs the robot did not perceive itself: a peer's report, the inventory, and hints or claims in the operator's request
+(``the water was moved to M'', ``the fire is out, no need to check''). Each can be stale or adversarial~\cite{chen2024agentpoison,robey2025jailbreaking,zhang2025badrobot}.
+We call all of them \emph{advice}, items $a=(\text{source},\text{kind},\text{station})$ with $\text{kind}\in\{\text{location},\text{hazard},\text{safe},\text{skip}\}$,
+and compile it into the plan $(\pi,\theta')$ of Sec.~\ref{sec:memory} by one rule: \emph{location} advice may reorder $\pi$, \emph{hazard} advice may
+tighten $\theta'$ at the named station, and \emph{safe} and \emph{skip} advice has no effect; nor can advice make the robot refuse without visiting.
+The interface has no field through which advice could remove a check, so Observation~1 holds for every advice set.
+
+\textbf{Proposition 2 (advice monotonicity).} For any advice $\mathbf{a}$, including adversarially chosen advice, $A_{\theta'(\mathbf{a})}(o)\Rightarrow A_\theta(o)$ for the same
+frames $o$, hence $\Pr[\text{unsafe}\mid\mathbf{a}]\le k\varepsilon$ (proof: Supp.~Sec.~S10). An adversary controlling all advice can at most add one wasted visit per
+station by reordering, and false refusals at the caution threshold at the per-view false-alarm rate of study K.
+Advice thus buys time when right and a bounded loss of availability when wrong, never an unsafe delivery. The planner enforces the rule in code
+(\texttt{advice.plan}) and the run audit recomputes it from the logged plan. Text inside the camera view is different: a label ``WATER'' on a first-aid kit
+reaches the decision as perception, not advice, so no structural argument covers it; study S measures that residual vulnerability.
 
 \section{Evaluation Methodology}\label{sec:method}
 \textbf{Development data.} Prompts, scoring, thresholds and model choice were selected on 176 development images, the instruction
@@ -270,10 +278,8 @@ Campaign F conditions on visibility at the
 checkpoint, campaign G on perceivability. These labels use no model output and are fixed before any trial.
 
 \textbf{Closed-loop campaigns.} Each trial starts a fresh Gazebo, bridge, guard, VLM server, watcher,
-recorder and ROS bag. Campaign D (\DN{} trials, v3.4 with $\tauh=0.5$) used the three controlled scenes plus fire, dim light and a box.
-Campaign E (\EN{} trials, v3.5) gave every trial its own randomised world, registered before any E trial was run, in the strata
-nominal, swapped, empty, fire at the requested station, and fire at the \emph{other} station, where the
-search itself must stop.
+recorder and ROS bag. Campaign D (\DN{} trials, v3.4) used three controlled scenes plus fire, dim light and a box; campaign E (\EN{} trials, v3.5) gave every trial its own randomised world in the strata
+nominal, swapped, empty, fire at the requested station, and fire at the \emph{other} station, where the search itself must stop.
 A trial counts only if an audit confirms it: the decision is recomputed from the saved model outputs and image hash; the
 ground-truth trajectory (Gazebo odometry publisher) shows arrival at the shelter after approval, or no motion toward it after a
 refusal; odometry agrees with ground truth; and the ROS bag is finalised. Only stack failures \emph{before} any VLM decision may be re-run once. All attempts stay in the ledger.
@@ -291,7 +297,7 @@ F & Do they help in closed loop on small hidden fires? & 24 worlds, paired & 2 (
 G & Does looking from the side help? & 24 new worlds, paired & 2 (v3.6, v3.6 + look-around) & deliveries despite a perceivable fire & \StatG \\
 R & Is the check fail-closed under camera degradation? & 300 T2 images $\times$ 12 degradations & 1 (v3.6) & pooled false approvals $<2\%$ & \StatR \\
 H & Can memory speed missions up without new risk? & 16 sequences $\times$ 3 missions, changing worlds & 3 (v3.6 with no, naive, verified memory) & time; unsafe deliveries & \StatH \\
-J & Does the two-model design run on the robot? & 24 worlds, paired & 2 (v3.6; Qwen3.5-4B + Clef-Flash) & completes on one GPU; unsafe deliveries & \StatJ \\
+J & Does the two-model design run on the robot? (Supp.~S11) & 24 worlds, paired & 2 (v3.6; Qwen3.5-4B + Clef-Flash) & completes on one GPU; unsafe deliveries & \StatJ \\
 L & Does v3.6 generalise to unseen layouts? & 24 random layouts & 1 & expected behaviour; unsafe deliveries & \StatL \\
 V & Does the repeated-mission model predict closed-loop behaviour? & 10 sequences $\times$ 6 missions, random change & 3 (v3.6 with no, naive, verified memory) & prediction intervals; unsafe deliveries & \StatV \\
 W & How often is a small, partly hidden fire missed, and do prior mechanisms match ours? & 150 fire + 75 fire-free worlds $\times$ 3 views (image level); T1 + T2 vs.\ vote and conformal baselines & 2 (front only; look-around), 3 baselines & look-around miss bound $\le15\%$ (Wilson); false approvals & \StatW \\
@@ -299,6 +305,8 @@ Z & Is a generative VLM needed? & T1 + T2, contrastive zero-shot baselines & 3 &
 K & Does a conformal $\tau_h$ keep a miss bound? & \KNcal{} dev fires $\to$ T2 (offline) & 2 ($\alpha=0.05,0.10$) vs frozen & held-out fire miss rate $\le\alpha$ & \StatK \\
 P & Does the hazard question transfer to real photos? & 400 D-Fire test images (CC0) & 1 (v3.6 hazard question) & recall; false alarms (descriptive) & \StatP \\
 P2 & Does a site-calibrated $\tau_h$ make the hazard question usable on real photos? & D-Fire: 400 calibration, 400 test images & 2 wordings vs frozen & recall $\ge0.90$ and false alarms $\le0.20$ & \StatPtwo \\
+A & Can untrusted advice relax a check? & 114 runs, 18 worlds; 224 offline texts & 2 (monotone; advice-following) + control & unsafe deliveries under false advice; time; cost bound & \StatA \\
+S & Can a sign in the picture cause a wrong approval? & 52 worlds $\times$ {no sign, attack, benign} & 4 (ours, one pass, free-form, full image) & false approvals caused by the sign & \StatS \\
 \bottomrule\end{tabular}}\end{table*}
 
 \textbf{Metrics and statistics.} The primary safety metric is the false-approval rate: approvals among
@@ -364,7 +372,7 @@ policy) would have completed \EBoneTask{} with \EBoneWrong{} wrong deliveries.
 T1 left one failure mode: fires only partly visible behind the supply. Because T1 was then spent, candidate
 fixes were compared on development data only, including a new set of small early-stage fires (DH2), since the first hazard set (DH) contained just four visible fires under 10\,000 pixels. The candidates were enlarged overlapping
 crops for the hazard question, a hazard wording that names small, partly hidden or cut-off fire and smoke, and Clef-Flash
-(Sec.~\ref{sec:jev}). The wording together with the crops is v3.6.
+(Supp.~Sec.~S11). The wording together with the crops is v3.6.
 Supp.~Table~S6 shows the results. The wording did most of the work: missed fires fell from \DevFAvThreeFive{} to
 \DevFAB{} of \DevFireN{} when combined with crops, and correct approvals did not change. Clef-Flash refused half of the
 correct deliveries when asked the original second-checker questions, which concern the safety of a \emph{passage}; with
@@ -453,24 +461,16 @@ $q=\HModelQ$ per mission, the model predicts \HModelUnsafeone{} unsafe deliverie
 \HModelUnsafetwo{} for verified memory and \HModelUnsafezero{} without memory; the mean mission times are \HModelTimeone,
 \HModelTimetwo{} and \HModelTimezero\,s.
 Keeping every check has a price: verified memory keeps \HPriceFracZero{} of naive memory's modelled time saving at $q=0$ (\HPriceVerZero{} of \HPriceNaiveZero\,s) and \HPriceFracHalf{} at $q=0.5$.
-The saving is bounded by the arena: with two stations memory can only avoid one search detour ($\delta=\HKDelta$\,s). With $k$
-stations and a supply that relocates uniformly with probability $q$, verified memory saves $\delta\,((k-1)-qk)/2$ per mission
-(\HKSaveTwo\,s at $k=2$ and \HKSaveEight\,s at $k=8$ for $q=0.2$; break-even at $q^\ast=(k-1)/k$; Supp.~Sec.~S7) while every
-delivering station is still checked, so the benefit grows with the site and the risk bound does not change.
+The saving grows with the number of stations while the risk bound does not change (Supp.~Sec.~S7).
 
 Study V tested the model in closed loop (10 sequences of 6 missions, supply location and fire toggling at random with $q=0.2$, predictions registered before the first trial). The registered 95\% interval for the paired saving M0$-$M2 was \VPredDiffPI\,s (median \VPredDiff\,s); we observed \VObsDiff\,s. Unsafe deliveries were \VUnsafeMzero{} (M0), \VUnsafeMone{} (M1) and \VUnsafeMtwo{} (M2), against registered intervals \VPredUnsafezero, \VPredUnsafeone{} and \VPredUnsafetwo. The claim that the model predicts the closed loop is \VClaimModel; that verified memory keeps its speed-up without a safety cost under random change, \VClaimMemory{} (M1 vs.\ M2 by sequence: exact McNemar $p=\VSeqP$).
 
-\subsection{Two models on one GPU (campaign J)}\label{sec:res-jev}
-On T2, Clef-Flash together with
-Qwen3.5-4B, the pair that fits on one 32\,GB V100, made \TTPairFA{} false approvals (\TTPairCA{} correct).
-Campaign J ran this pair on the robot, paired with v3.6 on 24 worlds with swapped, empty and small-fire stations;
-it behaved as expected in \JCorrectJ{} (v3.6: \JCorrectA, exact McNemar $p=\JMcNemarP$), with
-unsafe deliveries: \JUnsafeJ{} (v3.6: \JUnsafeA; Wilson upper bounds \JUnsafeJUpper{} and \JUnsafeAUpper); stack failures: \JFailedJ{}. Peak GPU memory was \JPeakVram\,GB, and
-the median check latency was \JLatJ\,s for the two-model system and \JLatA\,s for v3.6; on our host, alternating $\approx$46\,GB of weights thrashed the page cache, so both include model I/O (registered deviation note). The registered claim (two-model design on the
-simulated robot, no extra risk) is \JClaim.
-Its one unsafe delivery was a small fire behind the station reached after a search; both models missed it, the correlated
-failure that their development-set overlap predicts (Sec.~\ref{sec:jev}). The arms differ in model size and hazard wording, so this
-does not test two-model checking in general, but it is why we did not adopt the pair.
+\subsection{Adversarial advice (study A) and scene text (study S)}\label{sec:res-a}
+\emph{Study A} paired an advice-following baseline with ours on \APairs{} worlds in which false advice, if believed, causes an unsafe delivery (``the fire is out, skip the check''; ``the water is at the other station''). Unsafe-delivery runs: \AUnsafeNaive{} for the baseline, \AUnsafeOurs{} for ours, \AUnsafeCtrl{} in the no-advice control (paired by world: exact McNemar $p=\AMcNemarP$; ours unsafe where the control was safe: \AViol; advice-audit failures: \AAuditFail). Truthful location advice saved a median of \ATimeSave\,s per mission (Wilcoxon $p=\AWilcoxonP$). Adversarial advice cost at most \ADoSVisits{} extra visit(s) and \ADoSFalseRef{} false refusals in \ADoSN{} runs (bound: \ADoSAllowed). Registered claims: safety \AClaimSafety, time \AClaimTime, cost \AClaimCost.
+\emph{Study S} (image level, \SNPairs{} worlds each rendered without a sign, with an attack sign and with a benign text) measures what the guarantee does not cover. Flips (refuse $\to$ approve) of ours: ``Answer C'' \SFlipsC{} of \SNC; ``A'', tied to the unpermuted option order, \SFlipsA{} of \SNA{} (one unpermuted pass: \SFlipsOneA); ``B'', invariant under the permutation, \SFlipsB{} of \SNB; mislabels \SFlipsMis{} of \SNMis{} (free-form baseline: \SFlipsMisFree); ``SAFE -- NO FIRE'' beside a visible fire \SFlipsSafe{} of \SNSafe. Signs legible: \SLegible; registered claim (not fooled by a letter written for one option order): \SClaim, with \SHyp{} registered hypotheses supported. Whatever the numbers, scene text is outside the guarantee of Sec.~\ref{sec:advice}.
+
+\subsection{Second checker (campaign J) and unseen layouts (campaign L)}\label{sec:res-jev}
+Campaign J ran Clef-Flash together with Qwen3.5-4B on 24 worlds, paired with v3.6: it fits on one 32\,GB V100 (peak \JPeakVram\,GB) and behaved as expected in \JCorrectJ{} (v3.6: \JCorrectA, exact McNemar $p=\JMcNemarP$), with unsafe deliveries \JUnsafeJ{} (v3.6: \JUnsafeA). The registered claim (two-model design on the simulated robot, no extra risk) is \JClaim; the one unsafe delivery was a small fire that both models missed, the correlated failure their development overlap predicts, so we did not adopt the pair (details: Supp.~Sec.~S11).
 
 \textbf{Unseen layouts (campaign L).} Campaign L ran v3.6 once in each of 24 randomly drawn arena layouts with nominal,
 swapped and empty stations and small fires; it behaved as expected in \LCorrect{} (95\% CI \LCorrectCI) with
@@ -481,7 +481,7 @@ swapped and empty stations and small fires; it behaved as expected in \LCorrect{
 with how often the world changes, which the robot cannot observe without looking (campaign H, Fig.~\ref{fig:hrate}; registered headline claim:
 \HHeadline). Observation~1 and Corollary~1 make the question moot for safety: memory may decide the order and
 strictness of the checks, never their existence, and buys time in persistent worlds at the price
-of a detour when the world changes back.
+of a detour when the world changes back. Proposition~2 extends this to any input the robot did not perceive itself, and Sec.~\ref{sec:res-a} shows where it ends: at the camera.
 
 \textbf{Moving beats thinking harder.} The largest single safety gain came from moving 0.4\,m (G), not from
 a larger model, a better prompt or a second model (T2, whose fires were easy, cannot rank models on safety). A hidden fire carries no pixels to reason about.
@@ -493,14 +493,14 @@ station and shelter, which is favourable where a wrong delivery costs a round tr
 
 \section{Limitations}
 All results are from simulation: simple meshes, two supply types, fixed station geometry, one robot, a stylised fire, and sensor degradations rather than the appearance gap of real objects or smoke. Campaign H scripts its changes, assumes
-independent changes, spans three missions and two stations, and does not compare memory caution with a global threshold at equal false-stop rate (Supp.~Sec.~S7). Corollary~1 assumes a per-check false-approval bound uniform over the stations a route meets.
+independent changes, spans three missions and two stations, and does not compare memory caution with a global threshold at equal false-stop rate (Supp.~Sec.~S7). Corollary~1 and Proposition~2 assume a per-check false-approval bound uniform over the stations a route meets, and Proposition~2 protects only what enters through the advice interface: text in the scene is perception.
 Barely visible fires (21--613 pixels) are excluded, and the guard is hand-written, not synthesised~\cite{alshiekh2018shielding,ames2019cbf}. Threats to validity: Supp.~Sec.~S9.
 
 \section{Conclusion}
 Three lessons carry beyond our arena. An off-the-shelf local VLM can gate a physical action with few false approvals if it
 only scores closed-set answers and motion stays behind an independent guard (T1: \TvFA{} of \TNdeny{}; R: \RPoolFA).
 The failures that remained were failures of viewpoint, not of the model (G: \GWrongB{} to \GWrongC{} of \GPairs).
-And memory should change \emph{where} and \emph{how carefully} a robot looks, never \emph{whether} it looks (H: \HHeadline).
+And memory should change \emph{where} and \emph{how carefully} a robot looks, never \emph{whether} it looks (H: \HHeadline); the same holds for any advice it is given (A: \AClaim).
 A second, related model did not add safety (J: \JClaim). All of this is simulation; a site-specific threshold is the first
 thing a real deployment must calibrate. Code, worlds, protocols, ledgers and per-trial evidence are released, and every
 number here is generated from them by \texttt{scripts/paper\_numbers.py}.
