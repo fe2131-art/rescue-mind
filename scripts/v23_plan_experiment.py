@@ -20,7 +20,8 @@ def main(argv=None):
     commands=['#!/usr/bin/env bash','set -euo pipefail','# Run ONE scenario at a time on Ubuntu/Gazebo AFTER checking the camera image.',
               '# This script prints (does not execute) candidate runs; capture evidence requires human review.']
     for t in protocol['trials']:
-        statement=f"python3 scripts/v22_orchestrate.py --run --scenario live --scene {t['scene']} --capture-rosbag --instruction '\u907f\u96e3\u6240B\u306b{'\u98f2\u6599\u6c34' if t['expected']=='water' else '\u533b\u7642\u7269\u8cc7'}\u3092\u5c4a\u3051\u3066'"
+        item='\u98f2\u6599\u6c34' if t['expected']=='water' else '\u533b\u7642\u7269\u8cc7'
+        statement=f"python3 scripts/v22_orchestrate.py --run --scenario live --scene {t['scene']} --capture-rosbag --instruction '\u907f\u96e3\u6240B\u306b{item}\u3092\u5c4a\u3051\u3066'"
         commands.extend([f'# {t["id"]} repeat={t["repeat"]} ; protocol truth is NOT fed to model',f'echo {json.dumps(statement,ensure_ascii=False)}'])
     a.commands.parent.mkdir(parents=True,exist_ok=True)
     a.commands.write_text('\n'.join(commands)+'\n',encoding='utf-8')
