@@ -444,7 +444,7 @@ def section_en(e, v):
     r = jl('r_summary.json')
     try:
         p1 = r['P1_pooled']
-        L.append(f"| R: 12 camera degradations | false approvals {p1['false_approvals']}/{p1['n']} (upper bound of the world-level bootstrap CI {pct(p1['cluster_ci95'][1])}); "
+        L.append(f"| R: 12 camera degradations | false approvals {p1['false_approvals']}/{p1['n']} (at most {max(c['false_approvals'] for c in r['conditions'].values())}/{r['n_deny']} per condition, Wilson upper bound {pct(max(c['fa_ci95'][1] for c in r['conditions'].values()))} per condition); "
                  f"claim {'supported' if p1['supported'] else 'not supported'} |")
     except (TypeError, KeyError, ValueError):
         L.append('| R: camera degradations | pre-registered, running |')
