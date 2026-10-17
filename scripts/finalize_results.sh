@@ -59,7 +59,7 @@ print(sum(1 for x in open('$HL') if x.strip() and json.loads(x).get('final', Tru
     step h_analysis python3 scripts/h_analysis.py; last_ok && H_OK=1
   fi
 fi
-if [ "$H_OK" = 1 ]; then step h_change_rate_model python3 scripts/h_change_rate_model.py
+if [ "$H_OK" = 1 ]; then step h_change_rate_model python3 scripts/h_change_rate_model.py; step h_k_scaling python3 scripts/h_k_scaling.py
 else skip h_change_rate_model "h_analysis did not run/succeed"; fi
 
 J_FINAL=$( [ -f $RES/campaign_J_ledger.jsonl ] && python3 -c "import json;print(sum(json.loads(l).get('final',True) for l in open('$RES/campaign_J_ledger.jsonl') if l.strip()))" || echo 0)
