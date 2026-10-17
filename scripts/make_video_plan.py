@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 RES = ROOT / 'experiments/results'
 G, R, W = (60, 200, 120), (240, 80, 80), (236, 241, 248)
 LIMIT_S = 175.0      # assignment: 1-3 min
+FAST, CHECK = 8.0, 3.0   # playback speed while driving / during the check motion (shown on screen per segment)
 TARGET_S = 168.0     # plan to this (the narration-length estimate is approximate)
 CHARS_PER_S = 6.4    # VOICEVOX speaker 2, calibrated on the v3.4 video (about 7 morae/s)
 CARD_PAD_S = 0.7     # make_demo_video: card seconds >= narration + 0.3 start + 0.4 tail
@@ -156,7 +157,15 @@ def fix_card(seconds):
         rows.append(['閉ループF：誤配達', f"{pr['wrong_deliveries_A']}/{pr['n_world_pairs_fire_visible_both']}",
                      cell(pr['wrong_deliveries_A'], pr['wrong_deliveries_B'], pr['n_world_pairs_fire_visible_both'])])
         say.append(f"閉ループの誤配達は{pr['wrong_deliveries_A']}件から{pr['wrong_deliveries_B']}件。")
-    notes = ['対策：危険の質問に「小さい・隠れた・端で切れた火や煙」を明記し、3つの拡大切り出しでも尋ねる（開発データのみで選定）。']
+    g = jload(RES / 'g_summary.json')
+    if g:
+        pr = g['primary']
+        rows.append(['閉ループG：横から見直す', f"{pr['wrong_deliveries_B']}/{pr['n_world_pairs_fire_perceivable']}",
+                     cell(pr['wrong_deliveries_B'], pr['wrong_deliveries_C'], pr['n_world_pairs_fire_perceivable'])])
+        say.append(f"さらに横から見直すと、火が見えるのに配達した回数は{pr['n_world_pairs_fire_perceivable']}件中"
+                   f"{pr['wrong_deliveries_B']}件から{pr['wrong_deliveries_C']}件になりました。")
+    notes = ['対策1：危険の質問に「小さい・隠れた・端で切れた火や煙」を明記し、3つの拡大切り出しでも尋ねる（開発データのみで選定）。',
+             '対策2（G）：正面で許可しても、左右0.4 mから見直す。誤った停止は 0/8 のまま（事前登録・正確McNemar検定）。']
     j = sel.get('selected') or {}
     if j.get('config', '').startswith('J2(') or 'Clef' in j.get('config', ''):
         notes.append(f"評価した：Cloudflare Clef-Flash を当初計画の「Jev」の役割（2つ目のAI）で組み合わせ（見逃し {j['n_dh_fire'] - j['dh_fire_refused']}/{nf}）。"
@@ -164,7 +173,7 @@ def fix_card(seconds):
         say.append('二つ目のAI、クレフフラッシュも評価しました。')
     return {'kind': 'table', 'seconds': seconds, 'title': '残る弱点への対策（v3.6）',
             'sub': '開発データだけで選定 → 未使用データと閉ループで確認', 'narration': ''.join(say),
-            'header': ['指標', '従来 v3.5', 'v3.6（問い方＋切り出し）'], 'rows': rows, 'notes': notes}
+            'header': ['指標（火が見えるのに配達・見逃し）', '対策前', '対策後'], 'rows': rows, 'notes': notes}
 
 
 # ------------------------------------------------------------------ duration estimate
@@ -176,20 +185,7 @@ def mission_seconds(spec):
         sys.path.insert(0, str(ROOT))
         import make_demo_video as mdv
         run = mdv.load_run(ROOT / spec['run_dir'])
-        ev, eps = run['events'], mdv.checkpoint_episodes(run)
-        f0 = run['film'][0][0] if run['film'] else run['mission']['mission_start_unix_ns']
-        f1 = run['film'][-1][0] if run['film'] else run['truth'][-1][0]
-        t0 = f0 + int(spec.get('skip_s', 0.5) * 1e9)
-        t1 = min(f1, (ev.get('shelter_approach') or (eps[-1]['end'] if eps else f1)) + int(spec.get('tail_s', 2.0) * 1e9))
-        fast, slow, cur, segs = spec.get('fast', 3.0), spec.get('check_speed', 2.0), t0, []
-        for e in eps:
-            a = (e['arrive'] or e['frame']) - int(1.0e9)
-            fr = e['frame'] or a
-            d1, b = e['decision_t'] + int(1.5e9), e['end'] + int(0.8e9)
-            segs += [(cur, a, fast), (a, fr, slow), (fr, d1, 1.0), (d1, b, slow)]
-            cur = b
-        segs.append((cur, t1, fast if 'shelter_approach' in ev else 1.0))
-        video = sum(max(0.0, (sb - sa) / 1e9 / sp) for sa, sb, sp in segs)
+        video = sum(max(0.0, (sb - sa) / 1e9 / sp) for sa, sb, sp in mdv.speed_plan(run, spec))
     except Exception as exc:   # noqa: BLE001 - estimate only
         print(f'WARNING: cannot estimate {spec["run_dir"]}: {exc}; assuming 30 s', file=sys.stderr)
         return 30.0
@@ -213,7 +209,7 @@ def estimate(parts):
 def mission_part(run_id, scene, title, narration, captions, **extra):
     m = json.loads((ROOT / 'outputs/runs' / run_id / 'mission.json').read_text(encoding='utf8'))
     cap = {k: v.replace('{instr}', m['instruction']) for k, v in captions.items()}
-    return {'kind': 'mission', 'scene': scene, 'title': title, 'run_dir': f'outputs/runs/{run_id}', 'fast': 4.0,
+    return {'kind': 'mission', 'scene': scene, 'title': title, 'run_dir': f'outputs/runs/{run_id}', 'fast': FAST, 'check_speed': CHECK,
             'narration': narration, 'captions': cap, **extra}
 
 
@@ -225,7 +221,7 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False):
          'narration': 'レスキューマインド。届ける前に、現地で目で確かめる災害物資ロボットです。',
          'body': ['拠点で止まり、現物をローカルVLM（Qwen3.5-9B）で確認。違えば別の拠点を探し、危険なら止まって報告。',
                   'ROS 2 × Gazebo の実レンダリング映像（俯瞰カメラ＋ロボット搭載カメラ）。',
-                  '※ 走行は4倍速、確認動作は2倍速、AI判断の瞬間は等速。速度は常に画面左上に表示します。']}]
+                  f'※ 走行は{FAST:g}倍速、確認動作は{CHECK:g}倍速、AI判断の瞬間は等速。速度は常に画面左上に表示します。']}]
     if not drop_arch:
         parts.append({'kind': 'card', 'seconds': 6, 'title': 'システム構成', 'sub': 'すべてローカルGPUで完結（クラウドAPI不使用）',
                       'image': 'docs/figures/architecture.png', 'layout': 'image',
@@ -236,17 +232,21 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False):
         demos.append(mission_part(
             a.deliver, 'nominal', '言い換えた指示でも配達',
             {'go': '物資の名前が無い依頼も、言語モデルが解釈して出発します。', 'check': '拠点で止まり、カメラ画像をAIが確認します。',
-             'after': '確信できたので、避難所へ向かいます。'},
+             'peek': '出発の前に、横からも危険がないか見直します。',
+             'after': '横からも安全を確かめたので、避難所へ向かいます。'},
             {'go': '「{instr}」——物資名の無い指示も、ローカルLLMが依頼内容を解釈して出発。',
              'check': '拠点で静止し、新しいカメラ画像をVLMに2つの選択式質問で確認させます。',
-             'after': '2問とも依頼物資を高確信で確認 → 許可。避難所Bへ（オレンジ線＝Gazebo真値の軌跡）。'}))
+             'peek': '正面で許可しても、出発前に左右0.4 mへ回り込み、物資の陰に火・煙が無いか見直します。',
+             'after': '依頼物資を確認し、横からも火・煙なし → 避難所Bへ（オレンジ線＝Gazebo真値の軌跡）。'}))
     if a.recover:
         demos.append(mission_part(
             a.recover, 'swapped', '取り違え → 別拠点を探索',
             {'go': '次は、水と救急箱が入れ替わっているケースです。', 'search': '依頼の物資ではありません。もう一方の拠点を確認しに行きます。',
+             'peek': '正しい物資です。念のため横からも確かめます。',
              'after': '正しい物資を見つけたので、避難所へ届けます。'},
             {'go': '在庫情報と現物が食い違うケース。「{instr}」', 'check': '拠点で現物を確認中……',
              'search': '依頼の物資ではない → 止まらずに、もう一方の拠点を確認しに行きます。',
+             'peek': '正面で許可しても、出発前に左右0.4 mへ回り込み、物資の陰に火・煙が無いか見直します。',
              'after': '別拠点で依頼物資を確認 → 許可して避難所Bへ。判断の経緯はすべて記録・監査されます。'}))
     if a.empty:
         demos.append(mission_part(
@@ -265,10 +265,12 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False):
     if a.hidden_fire:
         demos.append(mission_part(
             a.hidden_fire, 'nominal', '隠れた小さな火 → 停止',
-            {'go': '最後は、物資の陰に小さな火が隠れているケースです。', 'after': '小さな火も見逃さず、配達せずに停止します。'},
+            {'go': '最後は、物資の陰に小さな火が隠れているケースです。', 'peek': '正面では見えません。横に回り込んで、もう一度見ます。',
+             'after': '横から火を見つけました。配達せずに停止して報告します。'},
             {'go': '物資の陰に小さな火が隠れているケース。「{instr}」',
              'check': '物資は正しい。だが物資の陰や画面の端に、小さな火や煙は無いか？',
-             'after': '危険の質問文＋拡大切り出し（v3.6）で火・煙を検知 → 拒否。配達せず停止して報告します。'}))
+             'peek': '正面の確認は「許可」。でも物資の陰は見えない → 左右0.4 mに回り込んで見直す。',
+             'after': '横からの画像で火を検知 → 正面の許可を取り消して停止・報告。'}))
     for i, d in enumerate(demos, 1):
         d['index'], d['total'] = i, len(demos)
     parts += demos

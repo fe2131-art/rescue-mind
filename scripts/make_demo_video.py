@@ -202,35 +202,76 @@ def checkpoint_episodes(run):
     if 'checkpoint_decision' in ev:
         cp = m.get('checkpoint') or {}
         dec = cp.get('decision') or {}
-        eps.append({'station': m.get('checkpoint_station') or m['intent']['item'], 'arrive': ev.get('supply_station'),
-                    'frame': ev.get('checkpoint_frame'), 'decision_t': ev['checkpoint_decision'],
-                    'end': ev.get('checkpoint_denial_dwell_finished') or ev['checkpoint_decision'] + int(2.5e9),
-                    'decision': dec, 'calls': cp.get('model_calls') or {},
-                    'explain': (cp.get('explanation') or {}).get('text_ja')})
+        station = m.get('checkpoint_station') or m['intent']['item']
+        peeks = (m.get('look_around') or {}).get('peeks') or []
+        if not peeks:
+            eps.append({'station': station, 'arrive': ev.get('supply_station'),
+                        'frame': ev.get('checkpoint_frame'), 'decision_t': ev['checkpoint_decision'],
+                        'end': ev.get('checkpoint_denial_dwell_finished') or ev['checkpoint_decision'] + int(2.5e9),
+                        'decision': dec, 'calls': cp.get('model_calls') or {},
+                        'explain': (cp.get('explanation') or {}).get('text_ja')})
+            return eps
+        # I-14 look-around: the front check approved, then one check per side view (a hazard there denies)
+        front_t = ev.get('front_checkpoint_decision') or ev['checkpoint_decision']
+        eps.append({'station': station, 'arrive': ev.get('supply_station'), 'frame': ev.get('checkpoint_frame'),
+                    'decision_t': front_t, 'end': ev.get('look_around_scheduled') or front_t + int(1e9),
+                    'decision': {'allow': True, 'reason': dec.get('front_reason') or dec.get('reason')},
+                    'calls': cp.get('model_calls') or {}, 'explain': (cp.get('explanation') or {}).get('text_ja')})
+        start = m['mission_start_unix_ns']
+        arrivals = {e['target'].split(':')[-1]: start + int(e['t_wall_s'] * 1e9)
+                    for e in m['events'] if e.get('stage') == 'look_around_arrival'}
+        for k, pk in enumerate(peeks):
+            sd = pk['side']
+            d_t = ev.get(f'peek_{sd}_checkpoint_decision')
+            if d_t is None:
+                continue
+            nxt = arrivals.get(peeks[k + 1]['side']) if k + 1 < len(peeks) else None
+            end = (ev.get('checkpoint_denial_dwell_finished') if pk.get('hazard') else None) or nxt or d_t + int(1e9)
+            eps.append({'station': station, 'peek': sd, 'arrive': arrivals.get(sd), 'frame': ev.get(f'peek_{sd}_checkpoint_frame'),
+                        'decision_t': d_t, 'end': end,
+                        'decision': {'allow': not pk.get('hazard'), 'reason': pk.get('reason')},
+                        'calls': pk.get('model_calls') or {}, 'explain': None})
     return eps
 
 
+def key_episode(e, eps):
+    """Checks whose outcome changes the course are shown at real time; a side view that finds nothing is not."""
+    return not e.get('peek') or not e['decision'].get('allow')
+
+
+def speed_plan(run, spec):
+    """[(t_from_ns, t_to_ns, playback_speed)] -- driving fast, aiming/settling and waiting at check_speed,
+    the last second before a course-changing decision and 1.5 s after it at 1x.  The video estimate uses this too."""
+    ev, eps = run['events'], checkpoint_episodes(run)
+    f0 = run['film'][0][0] if run['film'] else run['mission']['mission_start_unix_ns']
+    f1 = run['film'][-1][0] if run['film'] else run['truth'][-1][0]
+    t0 = f0 + int(spec.get('skip_s', 0.5) * 1e9)
+    t1 = min(f1, (ev.get('shelter_approach') or (eps[-1]['end'] if eps else f1)) + int(spec.get('tail_s', 2.0) * 1e9))
+    fast, slow = spec.get('fast', 3.0), spec.get('check_speed', 2.0)
+    plan, cur = [], t0
+    for e in eps:
+        a = max(cur, (e['arrive'] or e['frame']) - int(1.0e9))
+        if key_episode(e, eps):
+            r0 = max(a, e['decision_t'] - int(1.0e9))
+            r1 = e['decision_t'] + int(1.5e9)
+        else:
+            r0 = r1 = e['decision_t']
+        b = max(r1, e['end'] + int(0.8e9))
+        plan += [(cur, a, fast), (a, r0, slow), (r0, r1, 1.0), (r1, b, slow)]
+        cur = b
+    plan.append((cur, t1, fast if 'shelter_approach' in ev else 1.0))
+    return plan
+
+
 STATION_JA = {'water': '拠点W', 'medicine': '拠点M'}
+SIDE_JA = {'L': '左', 'R': '右'}
 
 
 def mission_segment(run_dir: Path, spec: dict, cam: FilmCamera, emit, narr=None, now=None):
     run = load_run(run_dir)
     ev, mission = run['events'], run['mission']
     eps = checkpoint_episodes(run)
-    t0 = run['film'][0][0] + int(spec.get('skip_s', 0.5) * 1e9)
-    t_end_motion = ev.get('shelter_approach') or (eps[-1]['end'] if eps else run['film'][-1][0])
-    t1 = min(run['film'][-1][0], t_end_motion + int(spec.get('tail_s', 2.0) * 1e9))
-    fast = spec.get('fast', 3.0)
-    plan, cur = [], t0
-    slow = spec.get('check_speed', 2.0)
-    for e in eps:   # drive fast; aiming/settling and post-decision waits at 2x; the decision itself at 1x
-        a = (e['arrive'] or e['frame']) - int(1.0e9)
-        f0 = e['frame'] or a
-        d1 = e['decision_t'] + int(1.5e9)
-        b = e['end'] + int(0.8e9)
-        plan += [(cur, a, fast), (a, f0, slow), (f0, d1, 1.0), (d1, b, slow)]
-        cur = b
-    plan.append((cur, t1, fast if 'shelter_approach' in ev else 1.0))
+    plan = speed_plan(run, spec)
     item = mission['intent']['item']
     route_pts = [(0.0, 0.0)] + [tuple(r[2]) for r in mission['route']]
     labels = [((2.0, 2.0, 1.05), '物資拠点 W', WATER), ((-2.0, 2.0, 1.05), '物資拠点 M', MED),
@@ -295,14 +336,20 @@ def mission_segment(run_dir: Path, spec: dict, cam: FilmCamera, emit, narr=None,
             for k, e in enumerate(eps):
                 if e['frame'] and t >= e['frame']:
                     active = e
-                if e['decision_t'] and t >= e['decision_t'] and e is not eps[-1] and (len(eps) > 1 and t >= eps[-1]['arrive'] - int(1e9)):
+                nxt = eps[k + 1] if k + 1 < len(eps) else None
+                if e['decision_t'] and nxt is not None and t >= (nxt['arrive'] or nxt['frame']) - int(1e9):
                     ok = e['decision'].get('allow')
-                    text(d, (1362, y), f"確認{k + 1}（{STATION_JA[e['station']]}）：{'許可' if ok else '依頼物資なし → 別拠点へ'}", 21, MUTED)
-                    y += 30
+                    if e.get('peek'):
+                        msg = f"横から見直し（{SIDE_JA[e['peek']]}）：{'火・煙なし' if ok else '火を検知'}"
+                    else:
+                        msg = f"確認（{STATION_JA[e['station']]}・正面）：{'許可' if ok else '依頼物資なし → 別拠点へ'}"
+                    text(d, (1362, y), msg, 21, MUTED)
+                    y += 28
             if active is None:
                 text(d, (1362, y), '物資拠点へ移動中 …', 22, INK)
             else:
-                text(d, (1362, y), f"現地確認：{STATION_JA[active['station']]}  {mission.get('model_label') or spec.get('model_label', '')}", 21, INK)
+                where = f"横から見直し（{SIDE_JA[active['peek']]} 0.4 m）" if active.get('peek') else f"現地確認：{STATION_JA[active['station']]}"
+                text(d, (1362, y), f"{where}  {mission.get('model_label') or spec.get('model_label', '')}", 21, INK)
                 y += 32
                 if t >= active['decision_t']:
                     for kk, title in (('first', '質問1'), ('second', '質問2')):
@@ -312,10 +359,21 @@ def mission_segment(run_dir: Path, spec: dict, cam: FilmCamera, emit, narr=None,
                         for lab, col in (('water', WATER), ('medicine', MED), ('other', OTHER)):
                             prob_bar(d, 1380, y, 240, ITEM_JA[lab], float(probs.get(lab, 0.0)), col)
                             y += 27
+                    hz = ((active['calls'].get('first') or {}).get('scores') or {}).get('hazard_prob')
+                    if hz is not None and y < 950:
+                        prob_bar(d, 1380, y + 2, 240, '火・煙', float(hz), BAD)
+                        y += 29
                     dec = active['decision']
                     reason = dec.get('reason')
-                    if dec.get('allow'):
+                    later_peek = any(x.get('peek') for x in eps[eps.index(active) + 1:])
+                    if dec.get('allow') and active.get('peek'):
+                        verdict, colr = '横から見ても火・煙なし', (30, 90, 60)
+                    elif dec.get('allow') and later_peek:
+                        verdict, colr = '正面は許可 → 横からも見直す', (30, 90, 60)
+                    elif dec.get('allow'):
                         verdict, colr = '判定：許可 → 避難所Bへ出発', (30, 90, 60)
+                    elif active.get('peek'):
+                        verdict, colr = '横から火を検知 → 許可を取消・停止', (110, 35, 40)
                     elif reason == 'visible_hazard_at_checkpoint':
                         verdict, colr = '判定：危険（火災）→ 停止', (110, 35, 40)
                     elif active is not eps[-1]:
@@ -329,11 +387,12 @@ def mission_segment(run_dir: Path, spec: dict, cam: FilmCamera, emit, narr=None,
                     text(d, (1380, y + 10), '静止確認 → 新規フレーム → 推論中' + dots, 22, ACCENT)
             # ---- caption + robot report (explanation, never used for the decision)
             phase = 'go'
-            for e in eps:
-                if e['frame'] and t >= (e['arrive'] or e['frame']):
+            for k, e in enumerate(eps):
+                if e['frame'] and t >= (e['arrive'] or e['frame']) and not e.get('peek'):
                     phase = 'check'
                 if t >= e['decision_t']:
-                    phase = 'after' if e is eps[-1] else 'search'
+                    nxt = eps[k + 1] if k + 1 < len(eps) else None
+                    phase = 'after' if nxt is None else ('peek' if nxt.get('peek') else 'search')
             if narr is not None and phase != spec.get('_last_phase'):
                 spec['_last_phase'] = phase
                 narr.say((spec.get('narration') or {}).get(phase), now())
@@ -346,6 +405,8 @@ def mission_segment(run_dir: Path, spec: dict, cam: FilmCamera, emit, narr=None,
             for e in eps:
                 if e['explain'] and t >= e['decision_t']:
                     said = e['explain']
+                if e.get('peek') and t >= (e['arrive'] or e['frame']):
+                    said = None     # a side view has its own decision; the front report no longer describes it
             if said:
                 text(d, (64, 958), 'ロボットの報告（VLMの説明文・判断には不使用）', 19, MUTED, True)
                 for k, ln in enumerate(wrap_lines(f'「{said}」', 25, 1230)[:2]):
