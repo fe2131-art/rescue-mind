@@ -324,9 +324,7 @@ For every study with results, the registration commit precedes the results commi
 
 \section{Results}\label{sec:results}
 \subsection{Held-out image test (T1)}
-\begin{table}[t]\centering\caption{T1 held-out test, registered v3.4 rule (Eq.~\ref{eq:rule}) unless marked free JSON; 408 must-refuse and 191 must-approve images.}
-\label{tab:t1models}\resizebox{\linewidth}{!}{\input{tab_t1_models.tex}}\end{table}
-Table~\ref{tab:t1models} shows the registered system and the alternative models on T1. With the registered v3.4 rule ($\tauh=0.5$), Qwen3.5-9B approved \TFA{} of \TNdeny{} must-refuse images
+On T1, with the registered v3.4 rule ($\tauh=0.5$), Qwen3.5-9B approved \TFA{} of \TNdeny{} must-refuse images
 (\TFARate, 95\% CI \TFACI) and \TCA{} of \TNallow{} must-approve images (\TCARate, \TCACI).
 Its hazard question flagged \THazRecall{} images with a visible fire.
 The pre-specified v3.5 rule ($\tauh=0.05$) gave \TvFA{} false approvals (\TvFACI) and \TvCA{} correct approvals
@@ -341,10 +339,7 @@ The registered claim of fewer than 2\% false approvals is therefore \emph{not} s
 A bootstrap that resamples the \TNworlds{} worlds (five views share lighting, props and fire) gives \TFACluster{} for v3.4 and \TvFACluster{} for v3.5.
 Supp.~Table~S2 isolates the parts of the rule: removing the hazard question raises false approvals to \TAblNoHazFA{} of \TNdeny{}, while the
 permuted second question and the confidence threshold matter only for weaker models (option-letter bias; Supp.~Sec.~S4).
-\emph{Free-form generation.} Free JSON (A5) gave no parse errors with Qwen3.5-9B and the
-same \TJsonNineFA{} false approvals, but only \TJsonNineCA{} correct approvals against \TCA{} with scoring.
-All models missed largely the same small fires (hazard recall \THazMin{} to \THazMax{} of the \TNfireVis{} visible fires); Supp.~Fig.~S2 shows descriptive risk--coverage curves
-over $\taus$.
+All models missed largely the same small fires (Supp.~Sec.~S4: model table, free-form output, risk--coverage).
 
 \emph{Is a generative VLM needed? (study Z, pre-registered).} We ran contrastive zero-shot baselines with SigLIP~\cite{zhai2023siglip}
 and CLIP~\cite{radford2021clip}, with the same decision structure and thresholds chosen on development data only
@@ -352,9 +347,7 @@ and CLIP~\cite{radford2021clip}, with the same decision structure and thresholds
 \ZSigTOneFA{} (T1) and \ZSigTTwoFA{} (T2) must-refuse images, against \ZOursTOneFA{} and \ZOursTTwoFA{} for our check
 (exact McNemar $p<10^{-6}$). CLIP refused almost everything: it gave \ZClipTOneCA{} and \ZClipTTwoCA{} correct approvals.
 
-\emph{Conformal $\tau_h$ (study K, pre-registered, offline).} Split-conformal calibration of $\tau_h$ on \KNcal{} development fires (miss rate $\le\alpha$ with probability 0.9) gave $\tau_h=\KTauFive$ ($\alpha=0.05$) and \KTauTen{} ($\alpha=0.10$).
-On the \KNfire{} visible T2 fires the bound \KHoldsFive{} at $\alpha=0.05$ and \KHoldsTen{} at $0.10$ (\KMissFive{} and \KMissTen{} missed), with \KFAFive{} and \KFATen{} false alarms on \KNfree{} fire-free must-approve images, against \KFrozenMiss{} and \KFrozenFA{} for the frozen $\tau_h=0.05$.
-Exchangeability is broken by design (small fires: \KSmallCal{} of calibration, \KSmallHeld{} of T2 fires); the frozen threshold was not changed.
+\emph{Conformal $\tau_h$ (study K, pre-registered, offline)} kept its miss bound at the cost of more false alarms; the frozen threshold was not changed (Supp.~Sec.~S7).
 
 \subsection{Closed-loop missions}
 In campaign D the system behaved as expected in \DCorrect{}/\DN{} trials (\DCorrectCI) with \DWrong{} wrong deliveries
@@ -420,17 +413,11 @@ approvals significantly. Correct approvals went from \RCleanCA{} on clean frames
 worst condition (\RWorstCond). The gate refused \RGateRej{} frames in total, and \RFireMissMax{} of \RNfire{} visible fires were missed in any
 condition. Under shift, refusal rather than unsafe approval is the intended failure direction of a selective classifier~\cite{geifman2017selective}.
 
-\textbf{Real photographs (study P).} We also asked the frozen v3.6 hazard question about 400
-real photographs from the test split of D-Fire~\cite{venancio2022dfire}, a CC0 fire and smoke dataset
-(100 each with no fire, smoke only, fire only, and both). It flagged \PRecall{} of the photographs with fire or smoke (95\% CI
-\PRecallCI) and \PFalseAlarm{} of the fire-free ones (\PFalseAlarmCI); the false alarms concentrate on hard negatives such as hazy
-hillsides and sunset clouds (Supp.~Sec.~S7). The probabilities still rank the photographs well (AUROC \PAuroc, not registered), so the problem is the threshold, not the question. The question thus errs strongly toward stopping on real images, which is
-the safe direction but would cost availability outdoors, so a site-specific threshold calibration is a deployment prerequisite.
-Study P2 tested this: it chose wording and $\tau_h$ on 400 separate calibration photographs
-(recall $\ge 0.95$ first, then the lower false-alarm rate), with wording \PTwoWording{} and $\tau_h=\PTwoTau$, and applied it to 400 test photographs.
-It flagged \PTwoRecall{} of
-those with fire or smoke (\PTwoRecallCI) and \PTwoFA{} of the fire-free ones (\PTwoFACI), against \PTwoFrozenRecall{} and
-\PTwoFrozenFA{} for the frozen $\tau_h=0.05$. The registered claim (test recall $\ge 0.90$ and false-alarm rate $\le 0.20$) was \PTwoClaim{}.
+\textbf{Real photographs (studies P, P2).} On 400 D-Fire photographs~\cite{venancio2022dfire} the frozen hazard question flagged
+\PRecall{} with fire or smoke but also \PFalseAlarm{} fire-free ones (hazy hillsides, sunsets); the scores still rank well
+(AUROC \PAuroc, not registered), so the threshold, not the question, must be calibrated per site. Calibrated on 400 separate
+photographs (P2), it flagged \PTwoRecall{} and \PTwoFA{} on 400 test photographs; the registered claim (recall $\ge 0.90$,
+false alarms $\le 0.20$) was \PTwoClaim{} (details: Supp.~Sec.~S7).
 
 \subsection{Cross-mission memory (campaign H)}\label{sec:res-h}
 Campaign H has 16 sequences of three missions to the same shelter. Lighting and prop placement are re-drawn each mission,
@@ -477,23 +464,17 @@ swapped and empty stations and small fires; it behaved as expected in \LCorrect{
 \LUnsafe{} unsafe deliveries. The registered claim that v3.6 generalises to unseen layouts is \LClaim.
 
 \section{Discussion}\label{sec:discussion}
-\textbf{When should a robot trust its memory?} Skipping a recent successful check is efficient, and its risk grows
-with how often the world changes, which the robot cannot observe without looking (campaign H, Fig.~\ref{fig:hrate}; registered headline claim:
-\HHeadline). Observation~1 and Corollary~1 make the question moot for safety: memory may decide the order and
-strictness of the checks, never their existence, and buys time in persistent worlds at the price
-of a detour when the world changes back. Proposition~2 extends this to any input the robot did not perceive itself, and Sec.~\ref{sec:res-a} shows where it ends: at the camera.
-
-\textbf{Moving beats thinking harder.} The largest single safety gain came from moving 0.4\,m (G), not from
-a larger model, a better prompt or a second model (T2, whose fires were easy, cannot rank models on safety). A hidden fire carries no pixels to reason about.
-
-\textbf{What pre-registration bought us.} Four registered claims failed or were not significant (T1's 2\% bound, F, T2, J);
-the first two exposed the hidden-fire weakness and led to the look-around, and J stopped us adopting a second model.
-Unregistered, each could have been rationalised away. A check takes about \TimCheck\,s and the look-around about \GLookCost\,s, against about \TimDrive\,s of driving between
-station and shelter, which is favourable where a wrong delivery costs a round trip.
+\textbf{Inputs, not just models, decide safety.} Trusting memory is efficient but its risk grows with how often the world
+changes, which the robot cannot observe without looking (H). Observation~1, Corollary~1 and Proposition~2 make the question
+moot for safety: memory and any other advice decide the order and strictness of the checks, never their existence; the
+guarantee ends at the camera (Sec.~\ref{sec:res-a}).
+\textbf{Moving beats thinking harder.} The largest safety gain came from moving 0.4\,m (G), not from a larger model, a
+better prompt or a second model; a hidden fire carries no pixels to reason about.
+\textbf{What pre-registration bought us.} Four registered claims failed (T1's 2\% bound, F, T2, J); the first two led to
+the look-around and J stopped us adopting a second model. Unregistered, each could have been rationalised away.
 
 \section{Limitations}
-All results are from simulation: simple meshes, two supply types, fixed station geometry, one robot, a stylised fire, and sensor degradations rather than the appearance gap of real objects or smoke. Campaign H scripts its changes, assumes
-independent changes, spans three missions and two stations, and does not compare memory caution with a global threshold at equal false-stop rate (Supp.~Sec.~S7). Corollary~1 and Proposition~2 assume a per-check false-approval bound uniform over the stations a route meets, and Proposition~2 protects only what enters through the advice interface: text in the scene is perception.
+All results are from simulation: simple meshes, two supply types, fixed station geometry, one robot, a stylised fire, and sensor degradations rather than the appearance gap of real objects or smoke. Campaign H scripts its changes over three missions and two stations (V tests random changes). Corollary~1 and Proposition~2 assume a per-check false-approval bound uniform over the stations a route meets, and Proposition~2 protects only what enters through the advice interface: text in the scene is perception.
 Barely visible fires (21--613 pixels) are excluded, and the guard is hand-written, not synthesised~\cite{alshiekh2018shielding,ames2019cbf}. Threats to validity: Supp.~Sec.~S9.
 
 \section{Conclusion}
@@ -502,8 +483,7 @@ only scores closed-set answers and motion stays behind an independent guard (T1:
 The failures that remained were failures of viewpoint, not of the model (G: \GWrongB{} to \GWrongC{} of \GPairs).
 And memory should change \emph{where} and \emph{how carefully} a robot looks, never \emph{whether} it looks (H: \HHeadline); the same holds for any advice it is given (A: \AClaim).
 A second, related model did not add safety (J: \JClaim). All of this is simulation; a site-specific threshold is the first
-thing a real deployment must calibrate. Code, worlds, protocols, ledgers and per-trial evidence are released, and every
-number here is generated from them by \texttt{scripts/paper\_numbers.py}.
+thing a real deployment must calibrate. All code, protocols and per-trial evidence are released.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
