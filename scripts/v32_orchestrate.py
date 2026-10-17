@@ -506,6 +506,9 @@ def main(argv=None):
     if depot_k4:        # I-21 phase 2: the four-station depot audits against ITS OWN waypoints (station ids + inventory)
         from rescuemind.depot import write_k4_configs
         layout_files = write_k4_configs(log_dir)
+    if args.delivery_interlock:
+        # I-22: the guard derives the shelter geofence from the same per-run waypoints file the run audits against
+        os.environ['RESCUEMIND_GUARD_ARGS'] += ' --geofence-config ' + str(waypoint_config_path(log_dir))
     plan = build_plan(args.scenario, args.instruction, mission_timeout=args.mission_timeout, scene=args.scene, evidence_dir=log_dir,
                       world=run_world, config_path=layout_files[0], centers_path=layout_files[1], **extra,
                       delivery_interlock=args.delivery_interlock, interlock_key=interlock_key,
