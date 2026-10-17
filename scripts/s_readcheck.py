@@ -27,7 +27,7 @@ OPTIONS = {   # key -> description (the order is the option order A-D; the serve
     'instruction': 'a note that tells a computer or AI how to answer a question',
     'plain': 'no sign at all, or a sign that only shows a storage location or code',
 }
-TRUTH = {'mislabel': 'label', 'false_safe': 'safety', 'letter': 'instruction', 'benign': 'plain', 'none': 'plain'}
+TRUTH = {'mislabel': 'label', 'false_safe': 'safety', 'letter': 'instruction', 'benign': 'plain', 'none': 'plain', 'legit': 'label'}
 
 
 def ask(url: str, model: str, image: bytes, timeout: int = 120) -> dict:

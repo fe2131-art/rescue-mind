@@ -222,7 +222,7 @@ def hazard_visible(station: str, hazard_at: str | None, pose_xy: tuple[float, fl
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Study S: scene text (physical prompt injection).  Signs are thin textured boxes; nothing else in a world changes.
-SIGN_KINDS = ('mislabel', 'false_safe', 'letter', 'benign')
+SIGN_KINDS = ('mislabel', 'false_safe', 'letter', 'benign', 'legit')
 SIGN_PLACEMENTS = ('sticker', 'notice', 'beside_fire')
 SIGN_SIZE_M = {'sticker': (0.26, 0.11), 'notice': (0.40, 0.32), 'beside_fire': (0.40, 0.32)}
 SUPPLY_MODELS = ('sealed_water_bottles', 'first_aid_case')

@@ -1,21 +1,27 @@
 #!/usr/bin/env bash
-# Study S: score the 240 images with the local VLM server (Qwen3.5-9B) under three server configurations and run the analysis.
-#   bash scripts/s_eval.sh                  # all three
-#   S_STAGES="a" bash scripts/s_eval.sh     # a = v3.6 (h36 + tiles: OURS and ONE-PASS), b = Ours-full (h36, full image), c = FREE-FORM (--method json)
+# Study S: score the 276 images with the local VLM server (Qwen3.5-9B) under four server configurations and run the analysis.
+#   bash scripts/s_eval.sh                  # all stages
+#   S_STAGES="a" bash scripts/s_eval.sh     # a = v3.6 (h36 + tiles: OURS and ONE-PASS; also OCR-MASK on the masked copies of the images),
+#                                           # b = OURS-FULL (h36, full image), c = FREE-FORM (--method json),
+#                                           # d = IGNORE-TEXT (prompt set v35ign + hazard prompt h36ign + tiles, original images)
 # Needs scripts/s_render.sh first (labels.jsonl).  Run where the VLM server can start (host python, or inside rm-next).
+# The OCR-MASK images are made first by scripts/s_ocr_mask.py (CPU only, venv ~/.cache/rescuemind/venv-ocr, no GPU, no server).
 # Resumable: finished result files are skipped.  An inference error in a stage triggers ONE full re-run of that stage (both files kept).
-# Estimated GPU time (one V100): a 0.18 h (+ 0.05 h legibility check), b 0.10 h, c 0.20 h, plus three model loads (about 0.1 h): about 0.65 h.
+# Estimated: OCR masking 0.12 h (CPU); GPU time (one V100): a 0.20 h (+ 0.06 h legibility check) + 0.20 h (OCR-MASK, same server),
+# b 0.11 h, c 0.23 h, d 0.22 h, plus four model loads (about 0.13 h): about 1.15 h GPU, about 1.3 h with the masking.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 renice -n 5 -p $$ >/dev/null 2>&1 || true
-STAGES=${S_STAGES:-abc}
+STAGES=${S_STAGES:-abcd}
 MODEL=Qwen/Qwen3.5-9B
 RES=experiments/results
 S=experiments/vlm_testset_s
+SM=experiments/vlm_testset_s_ocrmask
+OCRPY=${S_OCR_PYTHON:-$HOME/.cache/rescuemind/venv-ocr/bin/python}
 LOG=${S_LOG:-/tmp/vlm_s.log}
 export HF_HUB_OFFLINE=1
 if command -v git >/dev/null 2>&1; then
-  for f in experiments/campaign_s_protocol.json experiments/PREREGISTRATION_S.md scripts/s_analysis.py scripts/s_readcheck.py scripts/local_vlm_server.py; do
+  for f in experiments/campaign_s_protocol.json experiments/PREREGISTRATION_S.md scripts/s_analysis.py scripts/s_readcheck.py scripts/s_ocr_mask.py scripts/local_vlm_server.py; do
     git ls-files --error-unmatch "$f" >/dev/null 2>&1 || { echo "S_ABORT: $f is not committed"; exit 1; }
     git diff --quiet HEAD -- "$f" || { echo "S_ABORT: $f differs from the committed version"; exit 1; }
   done
@@ -37,23 +43,31 @@ d = json.load(open(sys.argv[1]))
 print(sum(1 for r in d['records'] if any('error' in p for p in (r.get('passes') or {}).values())))
 " "$1"
 }
-guard() {  # tag   run once, re-run once in full if errors remain
+guard() {  # tag [devset dir]  run once, re-run once in full if errors remain
   local tag=$1
+  local dev=${2:-$S}
   local f=$RES/devset_$tag.json
   [ -f "$f" ] && { echo "skip $tag"; return; }
-  python3 scripts/vlm_devset_eval.py --model $MODEL --devset $S --tag "$tag" >/dev/null 2>&1
+  python3 scripts/vlm_devset_eval.py --model $MODEL --devset "$dev" --tag "$tag" >/dev/null 2>&1
   if [ -f "$f" ] && [ "$(nerr "$f")" != "0" ]; then
     mv "$f" "${f%.json}.attempt1.json"
-    python3 scripts/vlm_devset_eval.py --model $MODEL --devset $S --tag "$tag" >/dev/null 2>&1
+    python3 scripts/vlm_devset_eval.py --model $MODEL --devset "$dev" --tag "$tag" >/dev/null 2>&1
   fi
   echo "DONE $tag errors=$([ -f "$f" ] && nerr "$f" || echo missing)"
 }
 
+# OCR-MASK images (CPU, no server): detect text regions with the offline detector and blank them; a missing venv is a hard stop
+if [[ "$STAGES" == *a* || "$STAGES" == *m* ]] && [ ! -f $SM/ocr_boxes.json ]; then
+  [ -x "$OCRPY" ] || { echo "S_ABORT: OCR venv missing ($OCRPY): python3 -m venv ~/.cache/rescuemind/venv-ocr && ~/.cache/rescuemind/venv-ocr/bin/pip install rapidocr-onnxruntime pillow numpy opencv-python-headless"; exit 1; }
+  "$OCRPY" scripts/s_ocr_mask.py --src $S --dst $SM > $RES/s_ocr_mask.log 2>&1 || { echo "S_ABORT: s_ocr_mask.py failed (see $RES/s_ocr_mask.log)"; exit 1; }
+fi
 if [[ "$STAGES" == *a* ]]; then serve --hazard-prompt h36 --hazard-views tiles; guard s_h36_tiles
+  guard s_ocrmask_h36_tiles $SM                                                                  # OCR-MASK: the same server on the masked copies
   [ -f $RES/s_readcheck.json ] || python3 scripts/s_readcheck.py --model $MODEL > /dev/null 2>&1   # manipulation check: can the model read the signs?
 fi
 if [[ "$STAGES" == *b* ]]; then serve --hazard-prompt h36 --hazard-views full; guard s_h36_full; fi
 if [[ "$STAGES" == *c* ]]; then serve --method json; guard s_json; fi
+if [[ "$STAGES" == *d* ]]; then serve --prompt-set v35ign --hazard-prompt h36ign --hazard-views tiles; guard s_ign_h36_tiles; fi   # IGNORE-TEXT
 pkill -f local_vlm_server
 python3 scripts/s_analysis.py > $RES/s_analysis_stdout.log 2>&1
 echo S_EVAL_DONE
