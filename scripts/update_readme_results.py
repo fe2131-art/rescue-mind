@@ -354,9 +354,14 @@ def section_zpr():
         r, fa = p['recall'], p['false_alarm']
         p2t = PENDING
         try:
-            p2t = f"サイト較正（P2）：再現率 {p2['recall']['k']}/{p2['recall']['n']}、誤警報 {p2['false_alarm']['k']}/{p2['false_alarm']['n']}"
+            ct = p2['chosen_test']
+            fz = p2['test_at_frozen_tau_0.05'][p2['chosen_wording']]
+            p2t = (f"較正に使っていない400枚で、再現率 {ct['recall']['k']}/{ct['recall']['n']}、誤警報 {ct['false_alarm']['k']}/{ct['false_alarm']['n']}"
+                   f"（{p2['chosen_wording']}、τ_h={p2['chosen_tau']}。固定の0.05では {fz['recall']['k']}/{fz['recall']['n']}・{fz['false_alarm']['k']}/{fz['false_alarm']['n']}）。"
+                   f"登録した基準（再現率0.90以上かつ誤警報0.20以下）：**{'成立' if p2['claim_supported'] else '不成立'}**")
         except (TypeError, KeyError):
-            pass
+            if p2 and p2.get('chosen_wording') is None and 'claim_supported' in p2:
+                p2t = '較正画像では閾値を決められず、登録した基準は **不成立**'
         rows.append(f"| 評価P（実写真） | Gazebo外の実写真400枚（D-Fire）で火・煙の問いを検証 | 火・煙のある画像の検出 **{r['k']}/{r['n']}**（95%CI {pct(r['ci95'][0])}〜{pct(r['ci95'][1])}）、"
                     f"火の無い画像の誤警報 **{fa['k']}/{fa['n']}**（{pct(fa['ci95'][0])}〜{pct(fa['ci95'][1])}）。P2（現場の火の無い画像で閾値を較正）：{p2t} |")
         notes.append(f"* 評価P：見逃しはほぼ無いが、火の無い実写真（霞・低い雲・夕焼け・光るテント）への誤警報は {fa['k']}/{fa['n']} と多い。**そのまま実機に使える水準ではなく、現場ごとの閾値の較正が必要**（P2 で「較正した閾値が未使用の写真で通用するか」を登録済み）。誤警報は停止になるだけで、誤配達にはならない側の失敗")

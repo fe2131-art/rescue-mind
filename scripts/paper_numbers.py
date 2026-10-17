@@ -426,6 +426,27 @@ def main():
         m['PRecall'] = f"{pp['recall']['k']}/{pp['recall']['n']}"; m['PFalseAlarm'] = f"{pp['false_alarm']['k']}/{pp['false_alarm']['n']}"
         m['PRecallCI'] = f"[{100 * pp['recall']['ci95'][0]:.1f}, {100 * pp['recall']['ci95'][1]:.1f}]\\%"
         m['PFalseAlarmCI'] = f"[{100 * pp['false_alarm']['ci95'][0]:.0f}, {100 * pp['false_alarm']['ci95'][1]:.0f}]\\%"
+    # ---- study P2 (site calibration of tau_h on real photographs; chosen wording, test endpoints, registered claim)
+    p2f = RES / 'p2_summary.json'
+    if p2f.is_file():
+        p2 = json.loads(p2f.read_text())
+        w = p2.get('chosen_wording')
+        m['PTwoClaim'] = 'supported' if p2.get('claim_supported') else 'not supported'
+        if w:
+            ct = p2['chosen_test']
+            fz = p2['test_at_frozen_tau_0.05'][w]
+            m['PTwoWording'] = f'\\texttt{{{w}}}'
+            m['PTwoTau'] = f"{p2['chosen_tau']:g}"
+            m['PTwoRecall'] = f"{ct['recall']['k']}/{ct['recall']['n']}"
+            m['PTwoRecallCI'] = ci(ct['recall']['k'], ct['recall']['n'])
+            m['PTwoFA'] = f"{ct['false_alarm']['k']}/{ct['false_alarm']['n']}"
+            m['PTwoFACI'] = ci(ct['false_alarm']['k'], ct['false_alarm']['n'])
+            m['PTwoFrozenRecall'] = f"{fz['recall']['k']}/{fz['recall']['n']}"
+            m['PTwoFrozenFA'] = f"{fz['false_alarm']['k']}/{fz['false_alarm']['n']}"
+        else:   # no threshold in the grid reaches the calibration recall floor: nothing to test
+            m['PTwoWording'] = 'none (no feasible threshold)'
+            for n_ in ('PTwoTau', 'PTwoRecall', 'PTwoRecallCI', 'PTwoFA', 'PTwoFACI', 'PTwoFrozenRecall', 'PTwoFrozenFA'):
+                m[n_] = 'n/a'
     # ---- registration audit: each registration commit must precede the first commit of its results
     import subprocess
 
@@ -487,7 +508,8 @@ def main():
                'HModelPdet', 'HModelPdetN', 'HModelQ', 'HModelUnsafezero', 'HModelUnsafeone', 'HModelUnsafetwo',
                'HModelTimezero', 'HModelTimeone', 'HModelTimetwo',
                'JCorrectA', 'JCorrectJ', 'JUnsafeA', 'JUnsafeJ', 'JFalseRefA', 'JFalseRefJ', 'JFailedA', 'JFailedJ', 'JLatA', 'JLatJ',
-               'JPeakVram', 'JMcNemarP', 'JClaim', 'PRecall', 'PFalseAlarm', 'PRecallCI', 'PFalseAlarmCI'])
+               'JPeakVram', 'JMcNemarP', 'JClaim', 'PRecall', 'PFalseAlarm', 'PRecallCI', 'PFalseAlarmCI',
+               'PTwoWording', 'PTwoTau', 'PTwoRecall', 'PTwoRecallCI', 'PTwoFA', 'PTwoFACI', 'PTwoClaim', 'PTwoFrozenRecall', 'PTwoFrozenFA'])
     for name in ('tab_t1_models.tex', 'tab_t1_ablation.tex', 'tab_e_strata.tex', 'tab_i13_dev.tex', 'tab_r.tex', 'tab_h_arms.tex'):
         tables.setdefault(name, r'\begin{tabular}{l}\TBD\end{tabular}')
     (OUT / 'numbers.tex').write_text(m.text())

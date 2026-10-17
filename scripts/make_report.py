@@ -439,9 +439,14 @@ def sec_real():
     p2 = jload('p2_summary.json')
     if p2 and p2.get('chosen_wording'):
         ct = p2['chosen_test']
+        fz = p2['test_at_frozen_tau_0.05'][p2['chosen_wording']]
         out += [P(f"<b>追試P2</b>（<font name=\"IPAexG\">experiments/PREREGISTRATION_P2.md</font>）：較正用の画像だけで閾値と問いの文面を選び"
                   f"（{p2['chosen_wording']}、τ_h={p2['chosen_tau']}）、較正に使っていない400枚で確かめた。検出 {rate_ci(ct['recall'])}、誤警報 {rate_ci(ct['false_alarm'])}。"
+                  f"比較：固定の τ_h=0.05 では検出 {fz['recall']['k']}/{fz['recall']['n']}、誤警報 {fz['false_alarm']['k']}/{fz['false_alarm']['n']}。"
                   f"登録した基準（検出0.90以上かつ誤警報0.20以下）：<b>{'成立' if p2['claim_supported'] else '不成立（' + '；'.join(p2.get('failed', [])) + '）'}</b>。")]
+    elif p2:
+        out += [P('<b>追試P2</b>（<font name="IPAexG">experiments/PREREGISTRATION_P2.md</font>）：較正画像では、どの閾値でも検出0.95以上にならず、閾値を決められなかった。'
+                  f"登録した基準：<b>不成立（{'；'.join(p2.get('failed', []))}）</b>。")]
     else:
         out += [P('<b>追試P2は実行中（事前登録済み）</b>：現場での較正（火の無い現地画像で閾値を決める手順）が、較正に使っていない画像で通用するかを事前登録した'
                   '（<font name="IPAexG">experiments/PREREGISTRATION_P2.md</font>、修正1：較正画像は訓練分割の9シャード全体から抽出）。'
