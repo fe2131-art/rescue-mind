@@ -85,6 +85,7 @@ TBD_N=$(echo "$TBD_LIST" | wc -w)
 echo "pending (TBD) macros/tables: $TBD_N"; [ "$TBD_N" -gt 0 ] && echo "  $TBD_LIST" | fold -s -w 150
 
 # ---------------------------------------------------------------- 3. report / README / YouTube
+step graphical_abstract "${IN_RMDEV[@]}" python3 scripts/make_graphical_abstract.py   # H/J numbers appear in the abstract automatically
 step make_report "${IN_RMDEV[@]}" python3 scripts/make_report.py --account "$ACCOUNT"
 step update_readme_results python3 scripts/update_readme_results.py
 step make_youtube_description python3 scripts/make_youtube_description.py

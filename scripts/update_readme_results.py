@@ -330,7 +330,10 @@ def section_novelty():
 * **記憶は「提案」だけ、確認は減らさない**（出動をまたぐ記憶、[I-15](docs/IMPROVEMENT_LOG.md)・[D13](docs/DESIGN_DECISIONS.md)）：前回の物資の場所は「先に行く拠点」を決めるだけで、行った先で必ず確認する。火を見た拠点は閾値を厳しくする。同じ画像なら記憶ありの許可は記憶なしの許可の部分集合になる（コードで強制）。事前登録 [`PREREGISTRATION_H.md`](experiments/PREREGISTRATION_H.md)。{h_text()}
 * **横から見直す能動知覚**（[I-14](docs/IMPROVEMENT_LOG.md)）：{gtxt}。
 * **当初計画の2つのAI（Jev役 Clef-Flash＋Qwen）をロボットの判断に組み込んで**（[I-16](docs/IMPROVEMENT_LOG.md)）：オフライン評価だけだった2モデル確認を、V100 1台に載る組で閉ループに載せた。Clef-Flash は Qwen3.5-9B の追加学習版なので、2つは独立ではなく系統を共有する（相関した失敗が残り得ると明記）。{j_text()}
-* **事前登録と時系列監査**（論文 [`docs/paper/main.pdf`](docs/paper/main.pdf) 付録「Registration audit」）：条件・閾値・解析を結果を見る前にコミットし、{audit_text()}。支持されなかった主張も、そのまま載せる。"""
+* **事前登録と時系列監査**（論文 [`docs/paper/main.pdf`](docs/paper/main.pdf) 付録「Registration audit」）：条件・閾値・解析を結果を見る前にコミットし、{audit_text()}。支持されなかった主張も、そのまま載せる。
+* **実用性：毎回の出動後に、ロボット自身の記録から1枚の現場報告を自動で作る**（[I-18](docs/IMPROVEMENT_LOG.md)）：依頼・判断の理由・確認に使った写真と確率・次にしてほしいことを1枚にまとめ、現場の人が結論だけ読めば動ける（例：物資の陰の火で停止した出動）。
+
+![出動後に自動生成される1枚の現場報告（隠れた火で停止した例）](docs/figures/operator_report_hidden_fire.png)"""
 
 
 def section_zpr():
