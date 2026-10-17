@@ -29,13 +29,13 @@ class ProtocolXD(unittest.TestCase):
         self.assertEqual(self.p['seed'], 'XD-2026')
 
     def test_sizes(self):
-        self.assertEqual(len(self.W), 200)
+        self.assertEqual(len(self.W), 308)
         self.assertEqual(self.p['class_counts'], {'ok': 45, 'wrong_swapped': 20, 'wrong_empty': 15, 'tongues_big': 12,
-                                                  'tongues_small': 28, 'smoke_only': 20, 'mesh_flame': 12, 'sprite': 8, 'twin': 40})
-        self.assertEqual((self.p['planned_images'], self.p['planned_extra_images'], self.p['planned_ablation_images']), (600, 360, 324))
+                                                  'tongues_small': 100, 'smoke_only': 20, 'mesh_flame': 12, 'sprite': 8, 'twin': 76})
+        self.assertEqual((self.p['planned_images'], self.p['planned_extra_images'], self.p['planned_ablation_images']), (924, 684, 324))
         ids = [w['id'] for w in self.W] + [w['id'] for w in self.p['ablation_worlds']]
         self.assertEqual(len(ids), len(set(ids)))
-        self.assertEqual(sum(w['kind'] == 'hazard' for w in self.W), 80)
+        self.assertEqual(sum(w['kind'] == 'hazard' for w in self.W), 152)
 
     def test_worlds_use_the_four_bay_depot_and_the_polish_options(self):
         for w in self.W:
@@ -75,7 +75,7 @@ class ProtocolXD(unittest.TestCase):
                 self.assertTrue((.6 <= scale <= 1.0) if w['cls'] == 'smoke_only' else (.45 <= scale <= .62))
             else:
                 self.assertTrue(.55 <= back <= 1.0 and .05 <= abs(lat) <= .4 and .8 <= scale <= 1.0)
-        self.assertEqual(Counter(w['size_class'] for w in self.W if w['cls'] == 'tongues_small'), {'small': 28})
+        self.assertEqual(Counter(w['size_class'] for w in self.W if w['cls'] == 'tongues_small'), {'small': 100})
         self.assertEqual(Counter(w['cls'] for w in self.W if w['kind'] == 'hazard' and w['world_spec']['depot'].get('hazard_style')),
                          {'smoke_only': 20, 'mesh_flame': 12, 'sprite': 8})      # 40 hazard worlds do not look like our flame
 
@@ -105,7 +105,7 @@ class ProtocolXD(unittest.TestCase):
     def test_twins(self):
         by = {w['id']: w for w in self.W}
         twins = [w for w in self.W if w['kind'] == 'twin']
-        self.assertEqual(len(twins), 40)
+        self.assertEqual(len(twins), 76)
         for t in twins:
             f = by[t['twin_of']]
             self.assertEqual(f['kind'], 'hazard')
@@ -116,7 +116,7 @@ class ProtocolXD(unittest.TestCase):
             self.assertEqual({k: v for k, v in f['world_spec']['depot'].items() if k not in ('hazard_style', 'particle_smoke')},
                              t['world_spec']['depot'])
         self.assertEqual(Counter(by[t['twin_of']]['cls'] for t in twins),
-                         {'tongues_big': 6, 'tongues_small': 14, 'smoke_only': 10, 'mesh_flame': 6, 'sprite': 4})
+                         {'tongues_big': 6, 'tongues_small': 50, 'smoke_only': 10, 'mesh_flame': 6, 'sprite': 4})
 
     def test_views_follow_the_depot_geometry_with_bounded_pose_error(self):
         sd = mx.POSE_SD
@@ -144,7 +144,7 @@ class ProtocolXD(unittest.TestCase):
 
     def test_split(self):
         cal = [w for w in self.W if w['split'] == 'cal']
-        self.assertTrue(70 <= len(cal) <= 85)
+        self.assertTrue(115 <= len(cal) <= 130)
         for cls, n in mx.CLASSES.items():
             k = sum(w['split'] == 'cal' for w in self.W if w['cls'] == cls)
             self.assertLessEqual(abs(k - mx.CAL_FRACTION * n), 1.0, cls)
@@ -209,7 +209,7 @@ class BuilderXD(unittest.TestCase):
                 for v in bx.all_views(w):
                     pix[(w['id'], v)] = 5000 if v in ('L', 'R') else 0
         rows = bx.build_labels(self.p, pixels=pix)
-        self.assertEqual(len(rows), 600 + 360 + 324)
+        self.assertEqual(len(rows), 924 + 684 + 324)
         self.assertEqual(len({r['image'] for r in rows}), len(rows))
         haz = [r for r in rows if r['world_kind'] == 'hazard' and not r['variant']]
         self.assertTrue(all(r['world_side_only'] and r['world_perceivable'] and not r['world_front_perceivable'] for r in haz))
@@ -351,7 +351,9 @@ class SummaryMain(unittest.TestCase):
 
     def test_registered_criteria(self):
         c = self.s['criteria']
-        self.assertTrue(c['O1_look_around_fewer_misses'])           # 17 front-only misses caught vs 0: McNemar far below 0.05
+        self.assertTrue(c['O1_look_around_removes_at_least_half_of_front_misses'])       # R6: an effect size that can fail
+        self.assertNotIn('O1_look_around_fewer_misses', c)
+        self.assertIn('descriptive_look_around_fewer_misses_mcnemar_p', c)
         self.assertTrue(c['O2_small_hidden_harder_than_big_visible'])
         self.assertTrue(c['O3_adaptive_no_worse_and_trigger_rate_at_most_0.15'] is False)   # 1/6 = 0.167 > 0.15
         self.assertTrue(c['O4_no_wrong_supply_false_approval'])
@@ -359,6 +361,24 @@ class SummaryMain(unittest.TestCase):
         self.assertFalse(c['claim_relative_ordering_transfers'])    # one criterion failed -> the claim is not made
         self.assertTrue(c['P1_smoke_only_miss_rate_at_least_tongues'])
         self.assertEqual(c['P2_class_order_by_look_around_miss_rate'][0], 'smoke_only')
+
+    def test_hard_class_eps_six_view_and_oracle_steering(self):
+        s = self.s
+        c = s['criteria']
+        hc = s['xd1_by_class']['tongues_small']['look_around']
+        self.assertEqual(c['XDe_hard_class_upper_bound_below_0.15'], bool(hc['n'] and hc['ci95'][1] <= 0.15))
+        self.assertEqual(c['claim_eps_tight_hard_class'], c['XDe_hard_class_upper_bound_below_0.15'])
+        sv = s['xd1_six_view']
+        self.assertEqual(sv['n_perceivable_any_view'] + sv['n_not_visible_from_any_view'], s['n_hazard'])
+        self.assertEqual(sv['share_not_visible_from_any_view']['n'], s['n_hazard'])
+        os_ = s['oracle_steering']['pooled']['label_FLR']['look_around']
+        la = s['xd1_pooled']['look_around']
+        self.assertEqual((os_['missed'], os_['n']), (la['k'], la['n']))
+        self.assertEqual(os_['by_k']['1']['eps_any'], round(la['k'] / la['n'], 4))
+        self.assertLessEqual(os_['by_k']['4']['eps_any'], os_['by_k']['4']['sum_bound'])
+        self.assertIn('hard_class_tongues_small', s['oracle_steering'])
+        # the by-construction parts are descriptive, not claim conditions
+        self.assertEqual(c['descriptive_adaptive_misses_vs_look_around']['n'], s['xd1_pooled']['adaptive']['n'])
 
     def test_criteria_boundaries(self):
         recs = [r for r in synthetic_main() if not r['world_id'].startswith('tw')]

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Study XD (DRAFT): render the depot image set (200 main worlds x 3 views + 120 hazard/twin worlds x 3 extra views + 108 ablation
-# worlds x 3 views = 1284 images) and the fire masks.  Run INSIDE the rm-next container, nothing else on Gazebo / the GPU:
+# Study XD (DRAFT): render the depot image set (308 main worlds x 3 views + 228 hazard/twin worlds x 3 extra views + 108 ablation
+# worlds x 3 views = 1932 images) and the fire masks.  Run INSIDE the rm-next container, nothing else on Gazebo / the GPU:
 #   docker exec rm-next rescuemind-entrypoint bash scripts/xd_render.sh
 # Order (PREREGISTRATION_XD.md): protocol + registration committed -> SMOKE TEST (one world per class and ablation variant, front view,
 # colour + mask; a person looks at experiments/vlm_testset_xd/smoke/smoke_sheet.jpg and creates experiments/results/xd_smoke_ok
 # only if every class renders as intended, in particular the mesh / sprite flames and the smoke-only worlds) -> colour images ->
-# fire masks -> labels -> (then xd_eval.sh).  Resumable.  About 2.9 h; the GPU is used for Gazebo rendering only.
+# fire masks -> labels -> (then xd_eval.sh).  Resumable.  About 4.1 h; the GPU is used for Gazebo rendering only.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 renice -n 5 -p $$ >/dev/null 2>&1 || true

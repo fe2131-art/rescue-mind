@@ -133,7 +133,7 @@ a shim; `test_core`/`test_v08` need scikit-learn).
 Why. Review R5 (item 4): a bigger simulator does not make results transfer. The claim that is supposed to transfer has to be stated
 before the data, the claims that are not supposed to transfer have to be measured separately, and one hazard appearance must come from
 outside the development loop. Two registrations are drafted: `experiments/PREREGISTRATION_XD.md` (image level, the v3.6 check re-measured
-on 1 284 depot images, tau_h recalibrated, realism ablated, real fire-free warehouse photographs) and `experiments/PREREGISTRATION_X.md`
+on 1 932 depot images, tau_h recalibrated, realism ablated, real fire-free warehouse photographs) and `experiments/PREREGISTRATION_X.md`
 (80 closed-loop runs in the k = 4 depot: behaviour cells, memory over k = 4 against the registered k-scaling prediction, A-steer).
 
 ### World-spec options added to `rescuemind.depot` (all off by default; off = byte-identical SDF, tested)

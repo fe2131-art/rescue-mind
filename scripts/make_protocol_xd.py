@@ -4,7 +4,7 @@
   python3 scripts/make_protocol_xd.py            # -> experiments/campaign_xd_protocol.json  (seed XD-2026, deterministic)
   python3 scripts/make_protocol_xd.py --force    # while the registration is still a draft: overwrite the file
 
-Generated BEFORE anything is rendered.  200 main worlds (600 images: front + left + right) of the k = 4 depot, drawn over
+Generated BEFORE anything is rendered.  308 main worlds (924 images: front + left + right) of the k = 4 depot, drawn over
 the factors the depot adds to the arena:
   * clutter seed (movable clutter, pallet jack in the north aisle in 25% of the worlds) and continuous random lighting;
   * the supply arrangement over the four pallets (inventory arrangement or a random re-arrangement incl. empty pallets);
@@ -14,8 +14,8 @@ the factors the depot adds to the arena:
     an alternative flame (jagged mesh; alpha-textured sprites) -- the last two classes come from outside the development
     loop of the arena flame (docs/design/I21_realistic_depot.md);
   * supply platforms drawn as wooden pallets with stretch-wrapped cartons (rescuemind.depot, visual only).
-Classes (worlds): ok 45 | wrong supply 35 (swapped 20, empty 15) | hazard 80 (tongues_big 12, tongues_small 28, smoke_only 20,
-mesh_flame 12, sprite 8) | twin 40 (every second hazard world again, same everything, no hazard).  The hazard worlds
+Classes (worlds): ok 45 | wrong supply 35 (swapped 20, empty 15) | hazard 152 (tongues_big 12, tongues_small 100, smoke_only 20,
+mesh_flame 12, sprite 8; tongues_small raised from 28 to 100 after R6 so that the hard class has its own interval) | twin 76 (every second hazard world again, same everything, no hazard).  The hazard worlds
 also get three extra views (+-0.8 m, 0.3 m closer: the I-20 suspicion-triggered rule), as do the twins.
 A calibration split (40% of the worlds per class, twins with their hazard world) is held apart for the tau_h recalibration.
 Realism ablation: 12 hazard worlds with their twins are rendered again with one realism feature off at a time
@@ -41,7 +41,7 @@ INVENTORY = depot.K4_INVENTORY
 OTHER = {'water': 'medicine', 'medicine': 'water'}
 # class -> (number of worlds, kind of truth)
 CLASSES = {'ok': 45, 'wrong_swapped': 20, 'wrong_empty': 15,
-           'tongues_big': 12, 'tongues_small': 28, 'smoke_only': 20, 'mesh_flame': 12, 'sprite': 8}
+           'tongues_big': 12, 'tongues_small': 100, 'smoke_only': 20, 'mesh_flame': 12, 'sprite': 8}
 HAZARD_CLASSES = ('tongues_big', 'tongues_small', 'smoke_only', 'mesh_flame', 'sprite')
 STYLE = {'tongues_big': None, 'tongues_small': None, 'smoke_only': 'smoke_only', 'mesh_flame': 'mesh_flame', 'sprite': 'billboard'}
 TWIN_EVERY = 2

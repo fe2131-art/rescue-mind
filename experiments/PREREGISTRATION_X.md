@@ -1,12 +1,18 @@
 # Pre-registration — study X (closed loop in the four-bay relief depot: behaviour cells, memory over k = 4, and a steering adversary), fixed before any X trial
 
-DRAFT for review. It becomes the registration when it is committed on `main` with `experiments/campaign_x_protocol.json`,
+DRAFT for review (wording revised after the simulated review R6 #1, #3, #6: what X runs is M0 vs M2 over k = 4 and steering descriptives, nothing else). It becomes the registration when it is committed on `main` with `experiments/campaign_x_protocol.json`,
 `experiments/campaign_x_steer_selection.json`, the design fire masks and `scripts/x_analysis.py`, before the first X trial (and after the
 mechanics pilot and the steer selection, `scripts/x_run.sh`). Design: `docs/design/I21_realistic_depot.md`. Image-level companion:
 `experiments/PREREGISTRATION_XD.md`. Needs the `--advice-scrutiny` flag of the I-19 branch and the realism polish of `rescuemind.depot`.
 
-**Why X.** The mock review R5 (item 4) asks for the depot's closed-loop study with the three memory arms, the advice cells and the
-A-steer condition, and for success that is **not** "0 unsafe" but "the relative ordering holds and every deviation is explained".
+**What X runs, and nothing more (wording frozen).** Behaviour cells under M0 (X-a); **M0 versus M2** over k = 4 (X-m); and a steering
+cell with three arms, control / monotone / monotone + scrutiny, with **descriptive** statistics (X-s). X does **not** run the
+naive-memory arm M1 and does **not** run naive advice at k = 4: the paper's depot sentences may say only what these cells measure
+(M2 versus M0 in safety, time, visited bays and the stale-proposal price at k = 4; the availability cost of a truthful tip), and the
+arena-only comparisons with M1 and naive advice stay attributed to V and A.
+
+**Why X.** The mock review R5 (item 4) asks for the depot's closed-loop study with memory over more than two stations and the
+steering condition, and for success that is **not** "0 unsafe" but "the relative ordering holds and every deviation is explained".
 Three things are tested in a world that is not the bare arena (pallets with wrapped cartons, racks, clutter, random lighting, an aisle
 obstacle, k = 4 bays, hazards that are also smoke-only and a mesh flame):
 1. does the stack still behave as designed on the cells that were easy in the arena (empty depot after four checks, a visible fire, a
@@ -74,11 +80,13 @@ evidence and explained; it does not void the study). Per cell: as-designed rate 
 **X-m (the k-scaling test).** Unit = a pair (sequence, mission 2–4) with both arms finished and the M2 memory chain intact.
 * *K1 (memory saves bays over k = 4):* the mean paired saving in visited bays is > 0 and the exact one-sided sign-flip test over
   the pairs has p < 0.05.
-* *K2 (the prediction is not rejected):* the registered design-sequence saving (1.75 bays) lies inside the 95% cluster-bootstrap CI
+* *K2 (consistent with the prediction):* the registered design-sequence saving (1.75 bays) lies inside the 95% cluster-bootstrap CI
   (resampling sequences, 4 000 draws) of the observed mean saving. The population value (1.1 bays) and the k = 2 value (0.3) are
-  reported against the same CI; "scaling up" is read from the point estimate being above 0.3.
+  reported against the same CI; "scaling up" is read from the point estimate being above 0.3. K2 is a low bar and is worded
+  "consistent with", never "confirms k-scaling": the prediction is computed with perfect perception on the very sequences that are
+  run, so it tests the navigation and perception of the stack, not a model, and four sequences give a wide interval.
 * *K3 (monotone, as designed):* no wrong-supply delivery in either arm.
-* **Claim "the memory saving scales with k"** requires K1, K2 and K3. Also reported: the share of runs whose visited bays equal the
+* **Claim "the memory saving at k = 4 is consistent with the k-scaling prediction"** requires K1, K2 and K3. Also reported: the share of runs whose visited bays equal the
   prediction (per arm), the stale proposals (list), the saving in seconds (cluster CI), the **depot's own δ** (least-squares slope of
   mission time on visited bays over the delivered runs, vs 29.5 s in the arena), and the observed unsafe deliveries per arm.
 **X-s (A-steer).** Unit = a world.
@@ -92,13 +100,18 @@ evidence and explained; it does not void the study). Per cell: as-designed rate 
   time and visited bays; paired exact McNemar for scrutiny vs monotone (reported; *S4* is "scrutiny has fewer unsafe deliveries,
   p < 0.05" and is expected to fail for lack of power, not to be claimed).
 * The R5 prediction is registered as: unsafe(monotone) ≥ unsafe(control) = 0 whenever the steered bay's fire is missed; if monotone
-  is not worse than the control here (0 unsafe), that is reported as "not observed in the n worlds (upper bound x)", not as a safety
-  proof. The finding that matters either way is the availability cost: a truthful tip turns every caught fire into a lost delivery.
+  is not worse than the control here (0 unsafe), that is reported as "steering undetectable at this n (upper bound x)", not as a safety
+  proof and never as "advice-chosen order does not matter". X-s is **descriptive**: the finding is the availability cost of a truthful
+  tip (every caught fire becomes a lost delivery). The steering *rate* is the oracle-steering ε_any of the image-level studies (W
+  Amendment 2, XD), which have 10 times the worlds; X-s only shows what the closed loop does with it.
 
 **What "the study succeeded" means.** Not zero unsafe deliveries. It means: (i) XA1, K3, S1, S2, S3 hold (the stack behaves as
 designed and the monotone and advice invariants hold in the depot); (ii) the K-claim is reported as supported or not; (iii) every
 deviation from the expected action or the predicted visits is listed with a one-line cause read from the run record (a perception
-outcome, a navigation stall, an infrastructure fault). An unexplained deviation is a finding that blocks the paper's depot sentence.
+outcome, a navigation stall, an infrastructure fault). **Cause taxonomy (fixed now):** (a) perception outcome (the check approved or refused differently from perfect perception; the images
+are kept), (b) navigation stall or timeout (the mission record shows the leg), (c) infrastructure fault, (d) other. A deviation with a
+recorded cause (a-c) is reported with its cause and does not block the depot sentence, whatever its count; only a deviation in class
+(d), or one whose record does not support the cause, is an unexplained finding that blocks the paper's depot sentence.
 
 ## Mechanics pilot (development, `experiments/campaign_x_pilot_protocol.json`, seed `X-pilot`, 9 runs on separate worlds; never part of X)
 An empty depot; a visible fire; a smoke-only world; a two-mission memory sequence (supply at W2: seed and M0 visit W1 then W2, M2
@@ -141,8 +154,12 @@ runs the core only; the steer cell can follow.
 * 4 memory sequences (12 pairs) and at most 8 hidden-fire worlds are small: X tests mechanisms and a registered prediction, it does not
   estimate ε (XD does that on images).
 * Perfect-perception predictions are the benchmark; a perception error changes the visits and is reported as a deviation.
-* The naive-memory arm (M1) is **not** re-run at k = 4: its failure is shown in V (and A) and the review's ordering "M1 ≫ M2 ≈ M0" is
-  stated for the arena there; X shows M2 ≈ M0 in safety and M2 < M0 in time at k = 4.
+* The naive-memory arm (M1) is **not** run at k = 4, and neither is naive advice: the paper must not print an M1 or naive column for
+  the depot (no "TBD" placeholders for them). The ordering "M1 ≫ M2 ≈ M0" is stated for the arena (V, A); X shows M2 versus M0 in
+  safety (unsafe counts with upper bounds) and M2 < M0 in time at k = 4.
+* The depot violates two assumptions of Proposition 2's proof: the arrival pose at a bay depends on the previous bay, and the smoke
+  emitter moves. X-s has one predecessor structure per world and does not measure the dependence; the statement is then for ε
+  defined as a supremum over predecessors and visit times (wording of R6 #4).
 * The advice in X-s is one truthful peer item; adversarial advice is study A's, not repeated.
 
 ## Amendments
