@@ -16,39 +16,26 @@
 \maketitle
 
 \begin{abstract}
-In disaster relief, the inventory a delivery robot is told to trust often disagrees with what is actually at
-a supply point: items are swapped, shelves are empty, or the site has become dangerous.
-We present \sys, a mobile delivery robot that stops at the supply station and checks the item
-with a vision-language model (VLM) that runs on a local GPU, with no cloud service, before it carries anything to a shelter.
-The check is built to fail closed. The VLM never generates free text for the decision. Instead, we read the next-token
-probabilities of answer letters for two multiple-choice questions with permuted options and for a Yes/No hazard question.
-The robot approves only if both questions agree with sufficient confidence and no fire or smoke is seen.
-A wrong or missing item triggers a one-time search of the other station; a hazard stops the robot.
-Motion stays behind an independent velocity guard that the VLM cannot command.
-Every closed-loop trial is audited against simulator ground truth and a ROS bag. The held-out image tests and the closed-loop
-campaigns were pre-registered, and every amendment is published.
-On a pre-registered held-out set of \TNimages{} rendered images with unseen lighting, object placement and distractors,
-the registered system (Qwen3.5-9B, v3.4 rule) approved \TFA{} of \TNdeny{} images that should have been refused (95\% CI \TFACI)
-and \TCA{} of \TNallow{} that should have been approved; the v3.5 rule approved \TvFA{} of them. The supply check alone made \TSupplyFA{} false approvals in
-\TSupplyN{} must-refuse images. Every false approval was a fire only partly visible behind the supply.
-In \EN{} pre-registered closed-loop missions in freshly randomised Gazebo worlds, it behaved as expected in
-\ECorrect{}/\EN{} trials with \EWrong{} wrong deliveries. A blind-delivery baseline would have made \EBzeroWrong{} wrong deliveries.
-To close the remaining gap, the robot also looks at the station from 0.4\,m to either side before it leaves.
-In a paired, pre-registered campaign on new worlds with small, partly hidden fires, this reduced deliveries despite a
+In disaster relief, the inventory a delivery robot is told to trust often disagrees with what is actually at a supply
+point: items are swapped, shelves are empty, or the site has become dangerous. We present \sys, a mobile robot that
+checks the item and the site with a vision-language model (VLM) on a local GPU before it carries anything to a shelter.
+The check is built to fail closed: decisions come from the next-token probabilities of answer letters in closed-set
+questions, never from free text, and motion stays behind a velocity guard that the VLM cannot command.
+Running the full stack exposed two gaps, and we close each with a simple, verifiable rule.
+First, fires partly hidden behind the supply escape a single frontal view, so the robot re-views the station from
+0.4\,m to either side before it leaves. In a paired, pre-registered campaign this reduced deliveries despite a
 perceivable fire from \GWrongB{} to \GWrongC{} of \GPairs{} (exact McNemar $p=\GMcNemarP$), with no false stops.
-A robot that resupplies the same shelter repeatedly can also remember what it saw. We let memory only reorder where the
-robot looks and add caution, never remove a check. We show that this bounds the per-mission probability of an unsafe
-delivery by the number of stations checked times the per-check false-approval rate, however stale the memory is. In a pre-registered campaign of \HPTwoN{}
-paired missions in worlds that change between missions, the registered claim (memory's speed-up without its safety cost) was
-\HHeadline. Where the supplies stayed relocated, the median mission time fell from \HTimeMzero\,s without memory to
-\HTimeMtwo\,s with ours. Unsafe deliveries (\HPTwoN{} missions per arm) were \HUnsafeMtwo{} with our memory and \HUnsafeMzero{} without memory, against
-\HUnsafeMone{} for a naive memory that skips the check where it saw the supply. Contrastive zero-shot baselines
-were either unsafe (SigLIP: \ZSigTOneFA{} false approvals) or unusable (CLIP: \ZClipTOneCA{} correct approvals). Under
-\RNcond{} camera degradations the check made \RPoolFA{} false approvals. On real photographs it flagged \PRecall{} fire or
-smoke images, but also \PFalseAlarm{} fire-free ones, so a site-specific threshold is needed before deployment. We also ran the original
-two-model design on the simulated robot on one GPU, with Cloudflare's Clef-Flash, a post-trained Qwen model, as the second
-judge (registered claim \JClaim).
-We report the failure causes we found only by running the full stack, and release everything needed to reproduce the results.
+Second, a robot that resupplies the same shelter can remember what it saw, but stale memory is dangerous. We let memory
+only reorder where the robot looks and add caution, never remove a check, which bounds the per-mission probability of an
+unsafe delivery by the number of stations checked times the per-check false-approval rate, however stale the memory is.
+In \HPTwoN{} paired missions per arm in worlds that change between missions, unsafe deliveries were \HUnsafeMtwo{} with
+our memory, \HUnsafeMzero{} without memory and \HUnsafeMone{} with a naive memory that skips checks; where supplies
+stayed relocated, the median mission time fell from \HTimeMzero\,s to \HTimeMtwo\,s.
+Every evaluation was pre-registered and every closed-loop trial audited against simulator ground truth:
+\ECorrect{}/\EN{} expected outcomes in randomised worlds, \RPoolFA{} false approvals under \RNcond{} camera
+degradations, against \ZSigTOneFA{} for a zero-shot SigLIP baseline on held-out images. On real photographs the hazard
+check found \PRecall{} fire or smoke images but also flagged \PFalseAlarm{} fire-free ones, so a site-specific
+threshold is needed before deployment. We release code, worlds, ledgers and every amendment.
 \end{abstract}
 
 \section{Introduction}
