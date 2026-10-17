@@ -65,8 +65,8 @@ so after an approval the robot re-checks from two side poses, and any hazard the
 \item \textbf{Safety-monotone mission memory} (Sec.~\ref{sec:memory}). Memory proposes, perception disposes: it may reorder the stations the robot
 visits and tighten its hazard threshold, but never skip a check. We state the invariant, enforce it in code and in the audit, and test it in a pre-registered
 multi-mission campaign against a naive memory.
-\item \textbf{The original two-model design on one GPU} (Sec.~\ref{sec:jev}). We fill the second checker's role with Clef-Flash,
-which Cloudflare post-trained from Qwen3.5-9B~\cite{cloudflare2026clefcard}, require both to approve, and run the pair on the simulated robot.
+\item \textbf{The original two-model design, tested and not adopted} (Sec.~\ref{sec:jev}). We fill the second checker's role with Clef-Flash,
+which Cloudflare post-trained from Qwen3.5-9B~\cite{cloudflare2026clefcard}, require both to approve, and run the pair on the simulated robot; it fits on one GPU but was not safer than one model (campaign J).
 \item \textbf{Decision and motion separated, in the spirit of Simplex}~\cite{seto1998simplex,sha2001simplicity}: the mission node only
 \emph{requests} velocities, and an independent guard is the sole publisher of wheel commands.
 \item \textbf{Auditable, pre-registered evaluation} (Sec.~\ref{sec:method}). Prompts and thresholds were chosen
@@ -474,6 +474,9 @@ it behaved as expected in \JCorrectJ{} (v3.6: \JCorrectA, exact McNemar $p=\JMcN
 unsafe deliveries: \JUnsafeJ{} (v3.6: \JUnsafeA; Wilson upper bounds \JUnsafeJUpper{} and \JUnsafeAUpper); stack failures: \JFailedJ{}. Peak GPU memory was \JPeakVram\,GB, and
 the median check latency was \JLatJ\,s for the two-model system and \JLatA\,s for v3.6; on our host, alternating $\approx$46\,GB of weights thrashed the page cache, so both include model I/O (registered deviation note). The registered claim (two-model design on the
 simulated robot, no extra risk) is \JClaim.
+Its one unsafe delivery was a small fire behind the station reached after a search; both models missed it, the correlated
+failure that their development-set overlap predicts (Sec.~\ref{sec:jev}). The arms differ in model size and hazard wording, so this
+does not test two-model checking in general, but it is why we did not adopt the pair.
 
 \textbf{Instruction parsing.}
 On 60 held-out utterances the hybrid parser was correct for \IntCorrect{}/\IntN{} with \IntUnsafe{} unsafe acceptances
