@@ -73,6 +73,9 @@ V_PLAN=$(python3 -c "import json;print(json.load(open('experiments/campaign_v_pr
 if [ -f $RES/campaign_V_ledger.jsonl ] && [ -f $RES/v_predictions.json ] && [ -f experiments/campaign_v_protocol_design_fire_masks.json ] && { [ "$V_FINAL" -ge "$V_PLAN" ] || [ "${ALLOW_PARTIAL:-0}" = 1 ]; }; then
   step v_analysis python3 scripts/v_analysis.py
 else skip v_analysis "study V incomplete ($V_FINAL/$V_PLAN final rows, or predictions/masks missing)"; fi
+if [ -f $RES/campaign_L_ledger.jsonl ] && [ -f experiments/campaign_l_protocol_design_fire_masks.json ]; then
+  step l_analysis python3 scripts/l_analysis.py
+else skip l_analysis "need campaign_L_ledger.jsonl and campaign_l_protocol_design_fire_masks.json"; fi
 
 W_IN="devset_w_h36_tiles devset_t1_i11_h36_tiles devset_t1_i11_h36_full devset_t2_i11_h36_tiles devset_t2_i11_h36_full devset_w_para_dh devset_w_para_dh2 devset_w_para_t1 devset_w_para_t2"
 W_MISS=""; for f in $W_IN; do [ -f $RES/$f.json ] || W_MISS="$W_MISS $f"; done
