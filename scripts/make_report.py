@@ -523,6 +523,7 @@ def sec_prereg(D, E):
     t1, t2, z, p, p2, rr, h, j = (jload(n) for n in ('t1_summary.json', 't2_summary.json', 'z_summary.json', 'p_summary.json', 'p2_summary.json',
                                                      'r_summary.json', 'h_summary.json', 'j_summary.json'))
     g = jload('g_summary.json')
+    kk = jload('k_summary.json')
     reg = lambda n: (n if (ROOT / f'experiments/PREREGISTRATION_{n}.md').is_file() else '-')
     m9 = t1['models']['Qwen3.5-9B']['rules']['full'] if t1 else None
     q = (t2 or {}).get('results', {}).get('Q9B[h36_tiles] tau_h=0.05')
@@ -548,11 +549,43 @@ def sec_prereg(D, E):
             ['H', '記憶で速くなり、危険は増えないか', reg('H'),
              ('主張 ' + ('成立' if h['headline_supported'] else '不成立')) if h else PEND],
             ['J', '2つのAIがシミュレーションの閉ループで動くか', reg('J'),
-             f"危険な配達 A {j['P2_no_extra_unsafe']['unsafe_A']}、J {j['P2_no_extra_unsafe']['unsafe_J']}" if j else PEND]]
+             f"危険な配達 A {j['P2_no_extra_unsafe']['unsafe_A']}、J {j['P2_no_extra_unsafe']['unsafe_J']}" if j else PEND],
+            ['K', '保証付きの閾値は既定の閾値より良いか', reg('K'),
+             (f"T2の見逃し：既定 {kk['frozen']['heldout_miss']['k']}/{kk['frozen']['heldout_miss']['n']}、保証付き(α=0.05) "
+              f"{kk['alphas']['0.05']['K_PAC']['heldout_miss']['k']}/{kk['frozen']['heldout_miss']['n']}、誤警報 "
+              f"{kk['alphas']['0.05']['K_PAC']['heldout_false_alarm']['k']}/{kk['n_free']}") if kk else PEND]]
     return [KeepTogether([P('G. 事前登録した研究の一覧', 'h2'),
             P('どの研究も、結果を見る前に条件・基準・解析を <font name="IPAexG">experiments/PREREGISTRATION_<記号>.md</font> に固定した。'
               '失敗した試行も台帳に残している。'),
             table(rows, [20, 66, 24, 64])]), Spacer(1, 4)]
+
+
+def sec_conformal():
+    """4.8 study K (conformal threshold): alpha / tau / miss / false alarms, all read from k_summary.json."""
+    k = jload('k_summary.json')
+    if not k:
+        return []
+    fz = k['frozen']
+    rows = [['α', '閾値 τ（決め方）', 'T2の火の見逃し', 'T2の誤警報']]
+    for a in ('0.05', '0.1'):
+        r = k['alphas'][a]['K_PAC']
+        rows.append([f"{float(a):.2f}", f"{r['tau']}（保証付き）", f"{r['heldout_miss']['k']}/{r['heldout_miss']['n']}",
+                     f"{r['heldout_false_alarm']['k']}/{r['heldout_false_alarm']['n']}"])
+    rows.append(['（比較）', f"{fz['tau']}（既定）", f"{fz['heldout_miss']['k']}/{fz['heldout_miss']['n']}",
+                 f"{fz['heldout_false_alarm']['k']}/{fz['heldout_false_alarm']['n']}"])
+    sf = k['small_fire_frac']
+    return [P('G2. 閾値を保証付きで決める（K）：適合予測', 'h2'),
+            P(f"火の見逃し率に統計的な上限（α）を保証するように閾値を開発データ（火 {k['n_cal']} 枚）から決める方法（適合予測）を試した"
+              f"（<font name=\"IPAexG\">experiments/PREREGISTRATION_K.md</font>、保存済みスコアの再解析でGPUは使わない。保証の確率は δ={k['delta']}）。"
+              f"未使用データT2（火 {k['n_fire']} 枚、火の無い必須許可 {k['n_free']} 枚）では、既定の閾値{fz['tau']}でも見逃し"
+              f"{fz['heldout_miss']['k']}・誤警報{fz['heldout_false_alarm']['k']}で、保証付きの閾値は誤警報を増やすだけだった。"
+              f"T2の火はやさしく、開発データの小さな火とは分布が違う（小さな火の割合：開発 {sf['cal'] * 100:.0f} %、T2 {sf['heldout'] * 100:.1f} %）。"),
+            table(rows, [24, 52, 50, 48]),
+            P(f"なお、開発データでは既定の閾値の見逃しは {fz['cal_miss']['k']}/{fz['cal_miss']['n']}（{fz['cal_miss']['rate'] * 100:.1f} %）で、"
+              '保証付きの方法は、この見逃しの多さを指摘できる点では役に立つ。'
+              '<b>正直な注意</b>：Kは、T2のスコアが既にある状態で登録した（スコアは調整し直していない。登録文書に明記）。'
+              'T2では見逃しが既定の閾値でも0なので、「保証が成り立った」ではなく「天井で差が出なかった」と読むのが正確。', 'small'),
+            Spacer(1, 4)]
 
 
 def chapter_novelty(D, E, V):
@@ -940,6 +973,7 @@ def build(account: str, video_url: str | None, repo_url: str):
     if rr_tab:
         s += [P('F. カメラ劣化（R）の全12条件', 'h2')] + rr_tab
     s += sec_prereg(D, E)
+    s += sec_conformal()
     # ---- improvements
     s += [P('H. 改善の軌跡（v3.3 → v3.6）', 'h2'),
           P('審査基準（創造性・技術力・実用性・表現力）に沿って自己レビューし、弱点ごとに改善項目を立て、すべて「仮説 → 変更 → 計測（Before/After）」で記録した'

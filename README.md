@@ -45,6 +45,7 @@
 | R: 12 camera degradations | false approvals 0/2304 (upper bound of the world-level bootstrap CI 0.0%); claim supported |
 | Z: zero-shot baselines on T1 (false approvals / correct approvals) | ours 3/408, 187/191; SigLIP 44/408, 191/191; CLIP 0/408, 2/191 |
 | P: real photos (D-Fire, 400) | fire/smoke detected 298/300; false alarms on fire-free photos 64/100 |
+| K: conformal threshold (stored scores, offline) | on unseen T2 (76 fires, 193 fire-free must-approve): frozen tau=0.05 misses 0/76, false alarms 0/193; calibrated alpha=0.05 (tau=0.005) misses 0/76, false alarms 26/193; alpha=0.10 (tau=0.0113) 0/76, 4/193. No threshold misses a T2 fire (a ceiling, so no difference is shown); the calibrated ones only add false alarms (T2 fires are easier: small fires 6.6% vs. 27% in calibration). K was registered after the T2 scores existed (scores were not re-tuned) |
 
 Campaigns H and J: pre-registered, running.
 
@@ -54,7 +55,7 @@ Campaigns H and J: pre-registered, running.
 <!-- EN:END -->
 
 <!-- RESULTS:START -->
-## 結果：事前登録した評価（D・E・F・G・T1・T2・Z・P・R）
+## 結果：事前登録した評価（D・E・F・G・T1・T2・Z・P・R・K）
 
 Qwen3.5-9B（ローカル・V100）。条件・閾値・解析は結果を見る前に `experiments/PREREGISTRATION_*.md` に固定し、台帳は全試行を記録。
 
@@ -71,6 +72,7 @@ Qwen3.5-9B（ローカル・V100）。条件・閾値・解析は結果を見る
 | 評価Z（生成しないゼロショット基準） | 同じ画像・同じ判定構造で SigLIP・CLIP と比較（閾値は開発データだけで決定）。誤許可／正しい許可 | T1：本方式 誤許可 3/408・正しい許可 187/191、SigLIP 44/408・191/191、CLIP 0/408・2/191<br>T2：本方式 誤許可 0/407・正しい許可 190/193、SigLIP 47/407・193/193、CLIP 0/407・0/193 |
 | 評価P（実写真） | Gazebo外の実写真400枚（D-Fire）で火・煙の問いを検証 | 火・煙のある画像の検出 **298/300**（95%CI 97.6%〜99.8%）、火の無い画像の誤警報 **64/100**（54.2%〜72.7%）。P2（現場の火の無い画像で閾値を較正）：実行中（事前登録済み） |
 | 評価R（カメラの劣化） | 未使用T2の30世界に、ノイズ・ぼけ・露出・JPEG の12条件を加えて再評価 | 全条件をまとめた誤許可 **0/2304**（Wilson 95%CI 0.0%〜0.2%、世界単位ブートストラップの上限 0.0%、「劣化に対して安全側」を支持）、最悪条件（overexposure_S）でも誤許可は増えず、代償は可用性：正しい許可 59/108（54.6%、うち品質ゲート棄却 24）、清浄画像では 107/108 |
+| 評価K（保証付きの閾値） | 火の見逃し率の上限αを保証するように、閾値を開発データ（火211枚）から決める方法（適合予測）。保存済みスコアの再解析 | 未使用T2（火76枚・火の無い必須許可193枚）：既定の0.05は見逃し 0/76・誤警報 0/193。保証付き α=0.05（τ=0.005）は見逃し 0/76・誤警報 26/193、α=0.10（τ=0.0113）は 0/76・4/193で、誤警報が増えるだけ（T2の小さな火は6.6%、開発データは27%で分布が違う）。開発データでの既定の見逃しは 23/211。**注意：Kは T2 のスコアが既にある状態で登録した（スコアは調整し直していない）** |
 
 * T1：登録した主張「誤許可2%未満」は**支持されなかった**（Wilson上限 2.8% > 2%）。主な原因は下の「残る弱点」
 * 評価Z：SigLIP は正しい許可は満点でも誤許可が1割超。CLIP は誤許可0でも**ほぼ何も許可しない**（配達できない）。本方式だけが両立する
