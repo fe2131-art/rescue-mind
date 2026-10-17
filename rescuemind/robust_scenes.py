@@ -265,6 +265,52 @@ def _apply_layout(world, lay) -> None:
         m.find('pose').text = f'{x:g} {y:g} {v[2]:g} {v[3]:g} {v[4]:g} {v[5] + yaw:g}'
 
 
+_PROP_FOR = {'water': 'sealed_water_bottles', 'medicine': 'first_aid_case'}
+
+
+def arena_supply_at(world, supply_at: dict) -> dict:
+    """Two-station arena: set what each station's platform holds, `supply_at` = {'water'|'medicine': 'water'|'medicine'|None}
+    (None = empty platform).  A station that should hold the supply of the OTHER station gets a copy of that prop (named
+    '<prop>_<station>'), taking the place, yaw and prop-offset slot of the prop it replaces.  Used by Study A's A-steer worlds
+    (duplicate supply: both stations hold the requested supply).  Returns {new model name: replaced model name} so that
+    prop_offsets keyed by the original names still move the copy."""
+    import copy
+    protos = {sup: copy.deepcopy(next(m for m in world.findall('model') if m.get('name') == name)) for sup, name in _PROP_FOR.items()}
+    alias = {}
+    for st, sup in supply_at.items():
+        if st not in STATIONS or sup not in ('water', 'medicine', None):
+            raise ValueError(f'bad supply_at entry {st!r}: {sup!r}')
+    for st, sup in supply_at.items():
+        x, y = STATIONS[st]
+        cur = None
+        for m in list(world.findall('model')):
+            if m.get('name') in _PROP_NAMES_ALL and _near(m, x, y):
+                cur = m
+                world.remove(m)
+        if sup is None:
+            continue
+        m = copy.deepcopy(protos[sup])
+        base = _PROP_FOR[sup]
+        taken = {mm.get('name') for mm in world.findall('model')}
+        name = base if base not in taken else f'{base}_{st}'
+        m.set('name', name)
+        v = [float(t) for t in m.findtext('pose').split()]
+        yaw = float(cur.findtext('pose').split()[5]) if cur is not None else v[5]
+        m.find('pose').text = f'{x:g} {y:g} {v[2]:g} {v[3]:g} {v[4]:g} {yaw:g}'
+        world.append(m)
+        alias[name] = cur.get('name') if cur is not None else base
+    return alias
+
+
+_PROP_NAMES_ALL = ('sealed_water_bottles', 'first_aid_case', 'sealed_water_bottles_water', 'sealed_water_bottles_medicine',
+                   'first_aid_case_water', 'first_aid_case_medicine')
+
+
+def _near(m, x, y) -> bool:
+    px, py = [float(v) for v in m.findtext('pose').split()[:2]]
+    return abs(px - x) < 0.01 and abs(py - y) < 0.01
+
+
 def _depot_k(depot) -> int:
     k = int(depot.get('stations') or 2)
     if k not in (2, 4):
@@ -300,6 +346,9 @@ def build_variant(src: Path, *, lighting: str = 'default', distractor_at: str | 
     # which platforms are empty is decided from the scene definition, BEFORE any prop is moved
     # (T1 amendment 1: checking after the move made every platform with a moved supply look empty)
     k4 = bool(depot) and _depot_k(depot) == 4
+    prop_alias = {}
+    if depot and depot.get('supply_at') and not k4 and layout is not None:
+        raise ValueError('supply_at (duplicate supply) and a Study L layout cannot be combined')
     if k4:
         # I-21 phase 2: four supply pallets (ids W1 M1 W2 M2) with props per depot['supply_at']; stations / empty_at
         # (and with them distractor_at / hazard_at, which then take these ids) follow the four pallets
@@ -309,6 +358,8 @@ def build_variant(src: Path, *, lighting: str = 'default', distractor_at: str | 
         stations, supply = add_k4_stations(world, depot.get('supply_at'))
         empty_at = {st: supply[st] is None for st in stations}
     else:
+        if depot and depot.get('supply_at'):
+            prop_alias = arena_supply_at(world, depot['supply_at'])
         empty_at = {st: _platform_empty(world, *xy) for st, xy in STATIONS.items()}
         stations = STATIONS
     if layout is not None:
@@ -320,8 +371,9 @@ def build_variant(src: Path, *, lighting: str = 'default', distractor_at: str | 
     if prop_offsets:
         # held-out: move/rotate each supply prop on its platform (dx, dy, yaw)
         for m in world.findall('model'):
-            if m.get('name') in prop_offsets:
-                dx, dy, dyaw = prop_offsets[m.get('name')]
+            key = m.get('name') if m.get('name') in prop_offsets else prop_alias.get(m.get('name'))
+            if key in prop_offsets:
+                dx, dy, dyaw = prop_offsets[key]
                 v = [float(t) for t in m.findtext('pose').split()]
                 m.find('pose').text = f'{v[0] + dx:g} {v[1] + dy:g} {v[2]:g} {v[3]:g} {v[4]:g} {v[5] + dyaw:g}'
     if distractor_at:
