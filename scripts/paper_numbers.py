@@ -638,6 +638,7 @@ def main():
     m['StatR'] = m.lookup('RPoolSupported') or 'pending'
     m['StatH'] = m.lookup('HHeadline') or 'pending'
     jc_ = m.lookup('JClaim'); m['StatJ'] = jc_ if jc_ else 'pending'
+    lc_ = m.lookup('LClaim'); m['StatL'] = lc_ if lc_ else 'pending'
     vm_, vk_ = m.lookup('VClaimModel'), m.lookup('VClaimMemory')
     m['StatV'] = (vm_ if vm_ == vk_ else f'model: {vm_}; memory: {vk_}') if (vm_ and vk_) else 'pending'
     m['StatPtwo'] = m.lookup('PTwoClaim') or 'pending'
@@ -671,7 +672,7 @@ def main():
                ('T1', 'PREREGISTRATION_T1.md', 'devset_t1_qwen35_9b.json'), ('E', 'PREREGISTRATION_E.md', 'campaign_E_ledger.jsonl'),
                ('T2', 'PREREGISTRATION_T2.md', 'devset_t2_i11_h36_tiles.json'), ('F', 'PREREGISTRATION_F.md', 'campaign_F_ledger.jsonl'),
                ('G', 'PREREGISTRATION_G.md', 'campaign_G_ledger.jsonl'), ('R', 'PREREGISTRATION_R.md', 'devset_r_gaussian_noise_M.json'),
-               ('H', 'PREREGISTRATION_H.md', 'campaign_H_ledger.jsonl'), ('J', 'PREREGISTRATION_J.md', 'campaign_J_ledger.jsonl'),
+               ('H', 'PREREGISTRATION_H.md', 'campaign_H_ledger.jsonl'), ('J', 'PREREGISTRATION_J.md', 'campaign_J_ledger.jsonl'), ('L', 'PREREGISTRATION_L.md', 'campaign_L_ledger.jsonl'),
                ('V', 'PREREGISTRATION_V.md', 'v_summary.json'), ('W', 'PREREGISTRATION_W.md', 'w_summary.json'),
                ('Z', 'PREREGISTRATION_Z.md', 'z_summary.json'), ('K', 'PREREGISTRATION_K.md', 'k_summary.json'), ('P', 'PREREGISTRATION_P.md', 'p_summary.json'), ('P2', 'PREREGISTRATION_P2.md', 'p2_summary.json')]
     rows = [r'\begin{tabular}{llllc}', r'\toprule', r'Study & Registered (commit, date) & First results (commit, date) & Amendments & Order \\', r'\midrule']
@@ -725,7 +726,7 @@ def main():
                'HModelPdet', 'HModelPdetN', 'HModelQ', 'HModelUnsafezero', 'HModelUnsafeone', 'HModelUnsafetwo',
                'HModelTimezero', 'HModelTimeone', 'HModelTimetwo',
                'JCorrectA', 'JCorrectJ', 'JUnsafeA', 'JUnsafeJ', 'JFalseRefA', 'JFalseRefJ', 'JFailedA', 'JFailedJ', 'JLatA', 'JLatJ',
-               'JPeakVram', 'JMcNemarP', 'JClaim', 'JUnsafeJUpper', 'JUnsafeAUpper',
+               'JPeakVram', 'JMcNemarP', 'JClaim', 'JUnsafeJUpper', 'JUnsafeAUpper', 'LCorrect', 'LCorrectCI', 'LUnsafe', 'LClaim',
                'VPredDiff', 'VPredDiffPI', 'VObsDiff', 'VPredUnsafezero', 'VPredUnsafeone', 'VPredUnsafetwo', 'VUnsafeMzero', 'VUnsafeMone', 'VUnsafeMtwo',
                'VSeqP', 'VClaimModel', 'VClaimMemory',
                'WNPerc', 'WMissLA', 'WMissFront', 'WMissLARate', 'WMissLACI', 'WExtraStop', 'WClaimEps', 'WClaimCost',

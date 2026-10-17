@@ -71,7 +71,7 @@ which Cloudflare post-trained from Qwen3.5-9B~\cite{cloudflare2026clefcard}, req
 \emph{requests} velocities, and an independent guard is the sole publisher of wheel commands.
 \item \textbf{Auditable, pre-registered evaluation} (Sec.~\ref{sec:method}). Prompts and thresholds were chosen
 on development images only; a 600-image held-out test set and the closed-loop
-campaigns D--J and V were registered before running~\cite{nosek2018preregistration,hofman2023preregistration}.
+campaigns D--J, L and V were registered before running~\cite{nosek2018preregistration,hofman2023preregistration}.
 Each closed-loop trial is checked against Gazebo ground truth, a ROS bag and a recomputation of the decision,
 and every attempt is kept. The studies in Table~\ref{tab:studies} include a camera-degradation
 study.
@@ -292,6 +292,7 @@ G & Does looking from the side help? & 24 new worlds, paired & 2 (v3.6, v3.6 + l
 R & Is the check fail-closed under camera degradation? & 300 T2 images $\times$ 12 degradations & 1 (v3.6) & pooled false approvals $<2\%$ & \StatR \\
 H & Can memory speed missions up without new risk? & 16 sequences $\times$ 3 missions, changing worlds & 3 (v3.6 with no, naive, verified memory) & time; unsafe deliveries & \StatH \\
 J & Does the two-model design run on the robot? & 24 worlds, paired & 2 (v3.6; Qwen3.5-4B + Clef-Flash) & completes on one GPU; unsafe deliveries & \StatJ \\
+L & Does v3.6 generalise to unseen layouts? & 24 random layouts & 1 & expected behaviour; unsafe deliveries & \StatL \\
 V & Does the repeated-mission model predict closed-loop behaviour? & 10 sequences $\times$ 6 missions, random change & 3 (v3.6 with no, naive, verified memory) & prediction intervals; unsafe deliveries & \StatV \\
 W & How often is a small, partly hidden fire missed, and do prior mechanisms match ours? & 150 fire + 75 fire-free worlds $\times$ 3 views (image level); T1 + T2 vs.\ vote and conformal baselines & 2 (front only; look-around), 3 baselines & look-around miss bound $\le15\%$ (Wilson); false approvals & \StatW \\
 Z & Is a generative VLM needed? & T1 + T2, contrastive zero-shot baselines & 3 & false and correct approvals & \StatZ \\
@@ -470,6 +471,10 @@ simulated robot, no extra risk) is \JClaim.
 Its one unsafe delivery was a small fire behind the station reached after a search; both models missed it, the correlated
 failure that their development-set overlap predicts (Sec.~\ref{sec:jev}). The arms differ in model size and hazard wording, so this
 does not test two-model checking in general, but it is why we did not adopt the pair.
+
+\textbf{Unseen layouts (campaign L).} Campaign L ran v3.6 once in each of 24 randomly drawn arena layouts with nominal,
+swapped and empty stations and small fires; it behaved as expected in \LCorrect{} (95\% CI \LCorrectCI) with
+\LUnsafe{} unsafe deliveries. The registered claim that v3.6 generalises to unseen layouts is \LClaim.
 
 \section{Discussion}\label{sec:discussion}
 \textbf{When should a robot trust its memory?} Skipping a recent successful check is efficient, and its risk grows
