@@ -67,6 +67,14 @@ class Macros:
         self.names.add(name)
         self.lines.append(f'\\newcommand{{\\{name}}}{{{value}}}')
 
+    def lookup(self, name):
+        """The value set for `name`, or None (so a status macro can say 'pending' instead of \\TBD)."""
+        for ln in reversed(self.lines):
+            if ln.startswith(f'\\newcommand{{\\{name}}}{{'):
+                v = ln[len(f'\\newcommand{{\\{name}}}{{'):-1]
+                return None if v == r'\TBD' else v
+        return None
+
     def pending(self, names):
         for n in names:
             if n not in self.names:
@@ -365,7 +373,9 @@ def main():
         m['RNcond'] = len(r['conditions']); m['RNworlds'] = r['n_worlds']
         p1 = r['P1_pooled']
         m['RPoolFA'] = f"{p1['false_approvals']}/{p1['n']}"
-        m['RPoolCI'] = f"[{100 * p1['cluster_ci95'][0]:.2f}, {100 * p1['cluster_ci95'][1]:.2f}]\\%"
+        # a world-cluster bootstrap interval is degenerate at zero events; report the Wilson upper bound instead
+        m['RPoolCI'] = (f"[{100 * p1['cluster_ci95'][0]:.2f}, {100 * p1['cluster_ci95'][1]:.2f}]\\%" if p1['cluster_ci95'][1] > 0
+                        else f"(degenerate at zero events; Wilson upper bound {100 * wilson(p1['false_approvals'], p1['n'])[1]:.2f}\\%)")
         m['RPoolSupported'] = 'supported' if p1['supported'] else 'not supported'
         m['RUnsafeConds'] = len(r['P2_unsafe_conditions'])
         cas = {c: o['correct_approvals'] for c, o in r['conditions'].items()}
@@ -416,6 +426,13 @@ def main():
         m['HTimeDiff'] = _num(None if p1['median_diff_s'] is None else -p1['median_diff_s']); m['HPOneP'] = f"{p1['wilcoxon_exact_p']:.4f}"
         m['HPTwoN'] = p2['n_pairs']; m['HUnsafeMone'] = p2['unsafe_M1']; m['HUnsafeMtwo'] = p2['unsafe_M2']; m['HPTwoP'] = _pfmt(p2['discordant_M1_only'], p2['discordant_M2_only'])
         m['HUnsafeMzero'] = p3['unsafe_M0']
+        # caution denominator: M2 missions (2-3) where memory tightened tau_h at a station; only those whose station had no perceivable fire can show a false refusal
+        caut = [t for t in h['trials'] if t['arm'] == 'M2' and t['k'] > 1 and t.get('caution')]
+        cfree = [t for t in caut if not t['fire_perceivable_at']]
+        m['HCautN'] = len(caut); m['HCautFire'] = len(caut) - len(cfree); m['HCautFree'] = len(cfree)
+        m['HCautFalse'] = sum(bool(t['false_refusal']) for t in cfree)
+        m['HCautFalseUpper'] = f"{100 * wilson(sum(bool(t['false_refusal']) for t in cfree), len(cfree))[1]:.0f}\\%"
+        m['HCautStopped'] = sum(t['observed'] == 'DENY_HAZARD' for t in caut if t['fire_perceivable_at'])
         m['HHeadline'] = 'supported' if h['headline_supported'] else 'not supported'
         for arm in ('M0', 'M1', 'M2'):
             a = h['per_arm'][arm]; k = {'M0': 'zero', 'M1': 'one', 'M2': 'two'}[arm]
@@ -463,6 +480,11 @@ def main():
         m['HModelQ'] = q[i]
         for arm, k in (('M0', 'zero'), ('M1', 'one'), ('M2', 'two')):
             m[f'HModelUnsafe{k}'] = c['policies'][arm][i]['unsafe_per_100']; m[f'HModelTime{k}'] = c['policies'][arm][i]['mean_time_s']
+        for tag, qq in (('Zero', 0.0), ('Half', 0.5)):
+            if qq in q:
+                j_ = q.index(qq); pol = c['policies']
+                sn = pol['M0'][j_]['mean_time_s'] - pol['M1'][j_]['mean_time_s']; sv = pol['M0'][j_]['mean_time_s'] - pol['M2'][j_]['mean_time_s']
+                m[f'HPriceNaive{tag}'] = f"{sn:.1f}"; m[f'HPriceVer{tag}'] = f"{sv:.1f}"; m[f'HPriceFrac{tag}'] = f"{100 * sv / sn:.0f}\\%"
     ks = RES / 'h_k_scaling.json'                     # descriptive k-station scaling of verified memory (not registered)
     if ks.is_file():
         s = json.loads(ks.read_text())
@@ -477,6 +499,7 @@ def main():
             c = j['per_config'][cfg]
             m[f'JCorrect{cfg}'] = f"{c['correct']}/{c['n']}"; m[f'JUnsafe{cfg}'] = c['unsafe_deliveries']
             m[f'JFalseRef{cfg}'] = c['false_refusals']; m[f'JFailed{cfg}'] = c['failed']
+            m[f'JUnsafe{cfg}Upper'] = f"{100 * wilson(c['unsafe_deliveries'], c['n'])[1]:.0f}\\%"   # exact Wilson bound next to the no-margin 'J <= A' claim
             m[f'JLat{cfg}'] = f"{c['check_latency_median_s']:.1f}" if c['check_latency_median_s'] else r'\TBD'
         m['JPeakVram'] = f"{j['P1_runs_on_one_v100']['peak_vram_mib'] / 1024:.1f}" if j['P1_runs_on_one_v100']['peak_vram_mib'] else r'\TBD'
         m['JMcNemarP'] = f"{j['P3_correct_paired']['mcnemar_p']:.4f}"
@@ -561,7 +584,57 @@ def main():
             m[f'KFA{an}'] = f"{e['heldout_false_alarm']['k']}/{kk['n_free']}"
             m[f'KFACI{an}'] = ci(e['heldout_false_alarm']['k'], kk['n_free'])
             m[f'KHolds{an}'] = 'held' if e['guarantee_holds_heldout'] else 'did not hold'
+        e10 = kk['alphas']['0.1']['K_PAC']['heldout_false_alarm']
+        m['KFAMissionTen'] = f"{100 * (1 - (1 - e10['k'] / e10['n']) ** 3):.0f}\\%"       # three fire-free views per approval, independence assumed (descriptive)
+        m['KFAViewTen'] = f"{100 * e10['k'] / e10['n']:.1f}\\%"
         m['KSmallCal'] = f"{100 * kk['small_fire_frac']['cal']:.0f}\\%"; m['KSmallHeld'] = f"{100 * kk['small_fire_frac']['heldout']:.0f}\\%"
+    # ---- registered-claim status per study (Table of all studies): supported / not supported / pending / descriptive (no claim registered)
+    def _load(n):
+        f = RES / n
+        return json.loads(f.read_text()) if f.is_file() else None
+    sup = lambda b: 'supported' if b else 'not supported'
+    m['StatD'] = 'descriptive'; m['StatE'] = 'descriptive'; m['StatP'] = 'descriptive'
+    t1j = _load('t1_summary.json')
+    try:   # E1: the claim "<2% false approvals" needs a Wilson upper bound below 2%
+        m['StatTone'] = sup(t1j['models']['Qwen3.5-9B']['rules']['full']['fa_ci95'][1] < 0.02)
+    except (TypeError, KeyError):
+        m['StatTone'] = 'pending'
+    t2j = _load('t2_summary.json')
+    try:   # P1: fewer false approvals than v3.5 with McNemar p < 0.05 (selected configuration vs reference)
+        r_ = t2j['results']; sel_ = r_[t2j['selected']]; b_, c_, p_ = sel_['vs_v35_false_approval_mcnemar']
+        m['StatTtwo'] = sup(b_ < c_ and p_ < 0.05)
+    except (TypeError, KeyError, ValueError):
+        m['StatTtwo'] = 'pending'
+    for nm_, fn_, k1, k2 in (('F', 'f_summary.json', 'wrong_deliveries_A', 'wrong_deliveries_B'), ('G', 'g_summary.json', 'wrong_deliveries_B', 'wrong_deliveries_C')):
+        pr_ = (_load(fn_) or {}).get('primary')
+        m[f'Stat{nm_}'] = sup(pr_[k2] < pr_[k1] and pr_['mcnemar_p'] < 0.05) if pr_ else 'pending'
+    zj = _load('z_summary.json')
+    try:   # Z: "safer" = fewer false approvals (p<0.05) with correct approvals not significantly lower, on T1 or T2, for each baseline
+        def _safer(mod):
+            for ds in ('t1', 't2'):
+                d_ = mod[ds]
+                if d_['mcnemar']['deny']['p'] < 0.05 and d_['ours']['FA'] < d_['baseline']['FA'] and not (d_['mcnemar']['allow']['p'] < 0.05 and d_['mcnemar']['allow']['baseline_only_approved'] > d_['mcnemar']['allow']['ours_only_approved']):
+                    return True
+            return False
+        def _avail(mod):   # more correct approvals with p<0.05 and false approvals not significantly higher
+            for ds in ('t1', 't2'):
+                d_ = mod[ds]; al_, dn_ = d_['mcnemar']['allow'], d_['mcnemar']['deny']
+                if al_['p'] < 0.05 and al_['ours_only_approved'] > al_['baseline_only_approved'] and not (dn_['p'] < 0.05 and dn_['ours_only_approved'] > dn_['baseline_only_approved']):
+                    return True
+            return False
+        # the registered claims are per baseline: SigLIP 'safer', CLIP 'more available'
+        zs_, za_ = _safer(zj['models']['siglip']), _avail(zj['models']['clip'])
+        m['StatZ'] = sup(zs_ and za_) if zs_ == za_ else f"safer: {sup(zs_)}; available: {sup(za_)}"
+    except (TypeError, KeyError):
+        m['StatZ'] = 'pending'
+    kj = _load('k_summary.json')
+    m['StatK'] = sup(all(kj['alphas'][a_]['K_PAC']['guarantee_holds_heldout'] for a_ in ('0.05', '0.1'))) if kj else 'pending'
+    m['StatR'] = m.lookup('RPoolSupported') or 'pending'
+    m['StatH'] = m.lookup('HHeadline') or 'pending'
+    jc_ = m.lookup('JClaim'); m['StatJ'] = jc_ if jc_ else 'pending'
+    vm_, vk_ = m.lookup('VClaimModel'), m.lookup('VClaimMemory')
+    m['StatV'] = (vm_ if vm_ == vk_ else f'model: {vm_}; memory: {vk_}') if (vm_ and vk_) else 'pending'
+    m['StatPtwo'] = m.lookup('PTwoClaim') or 'pending'
     # ---- registration audit: each registration commit must precede the first commit of its results
     import subprocess
 
@@ -626,7 +699,7 @@ def main():
                'HModelPdet', 'HModelPdetN', 'HModelQ', 'HModelUnsafezero', 'HModelUnsafeone', 'HModelUnsafetwo',
                'HModelTimezero', 'HModelTimeone', 'HModelTimetwo',
                'JCorrectA', 'JCorrectJ', 'JUnsafeA', 'JUnsafeJ', 'JFalseRefA', 'JFalseRefJ', 'JFailedA', 'JFailedJ', 'JLatA', 'JLatJ',
-               'JPeakVram', 'JMcNemarP', 'JClaim',
+               'JPeakVram', 'JMcNemarP', 'JClaim', 'JUnsafeJUpper', 'JUnsafeAUpper',
                'VPredDiff', 'VPredDiffPI', 'VObsDiff', 'VPredUnsafezero', 'VPredUnsafeone', 'VPredUnsafetwo', 'VUnsafeMzero', 'VUnsafeMone', 'VUnsafeMtwo',
                'VSeqP', 'VClaimModel', 'VClaimMemory', 'PRecall', 'PFalseAlarm', 'PRecallCI', 'PFalseAlarmCI', 'PAuroc',
                'PTwoWording', 'PTwoTau', 'PTwoRecall', 'PTwoRecallCI', 'PTwoFA', 'PTwoFACI', 'PTwoClaim', 'PTwoFrozenRecall', 'PTwoFrozenFA'])

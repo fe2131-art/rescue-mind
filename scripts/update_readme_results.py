@@ -280,11 +280,20 @@ def jl(name):
         return None
 
 
+def caution_denominator(h):
+    """(M2 missions with memory caution, of which fire-free, false refusals among those, Wilson upper bound in %): the evidence for 'caution is cheap'."""
+    c = [t for t in h['trials'] if t['arm'] == 'M2' and t['k'] > 1 and t.get('caution')]
+    free = [t for t in c if not t['fire_perceivable_at']]
+    fr = sum(bool(t['false_refusal']) for t in free)
+    return len(c), len(free), fr, 100 * wilson(fr, len(free))[1]
+
+
 def h_text(short=False):
     h = jl('h_summary.json')
     try:
         p1, p2, p3 = h['P1_efficiency_relocation_persist'], h['P2_safety_naive_vs_verified'], h['P3_no_extra_risk_vs_v36']
         pa = h['per_arm']
+        cn, cf, cfr, cup = caution_denominator(h)
         rc = {a: pa[a]['by_transition']['relocation_change']['time_median_s'] for a in ('M0', 'M2')}
         t1 = ((f"所要時間の中央値は、置き場所が変わったままの出動（{p1['n_pairs']}対）で 記憶なし {p1['time_M0_median_s']:.0f} 秒 → 検証つき記憶 {p1['time_M2_median_s']:.0f} 秒"
                f"（対ごとの差の中央値 {p1['median_diff_s']} 秒、Wilcoxon正確検定 p={p1['wilcoxon_exact_p']}）。"
@@ -297,7 +306,9 @@ def h_text(short=False):
         return (f"{t1}。"
                 f"比較対象の素朴な記憶は確認を省く方式なので、危険な配達 {p2['unsafe_M1']}/{p2['n_pairs']} 対 検証つき記憶 {p2['unsafe_M2']}/{p2['n_pairs']}は、確認を省く代償を示すもの（設計上の帰結）。"
                 f"安全面で意味のある比較は 記憶なし {p3['unsafe_M0']}/{p3['n_pairs']} 対 検証つき記憶 {p3['unsafe_M2']}/{p3['n_pairs']} で、検証つき記憶は記憶なしより危険ではない"
-                f"（{'追加リスクなし' if p3['supported'] else '追加リスクあり'}。1件対0件のため「より安全」とは言わない）")
+                f"（{'追加リスクなし' if p3['supported'] else '追加リスクあり'}。1件対0件のため「より安全」とは言わない）。"
+                f"記憶による慎重さ（τ_h=0.01）が使われたのは検証つき記憶の{p2['n_pairs']}出動中 {cn} 出動で、火のない拠点はそのうち {cf} 出動だけ"
+                f"（誤拒否 {cfr}/{cf}、Wilson上限 {cup:.0f}%）なので、慎重さの費用はまだ確立していない")
     except (TypeError, KeyError):
         return f'評価H（16系列×3出動）：{PENDING}' if short else PENDING
 
@@ -403,7 +414,7 @@ def section_zpr():
         worst = min(r['conditions'].items(), key=lambda kv: kv[1]['ca_rate'])
         cl = r.get('clean', {})
         rows.append(f"| 評価R（カメラの劣化） | 未使用T2の30世界に、ノイズ・ぼけ・露出・JPEG の12条件を加えて再評価 | 全条件をまとめた誤許可 **{p1['false_approvals']}/{p1['n']}**"
-                    f"（Wilson 95%CI {pct(p1['wilson_ci95'][0])}〜{pct(p1['wilson_ci95'][1])}、世界単位ブートストラップの上限 {pct(p1['cluster_ci95'][1])}、"
+                    f"（Wilson 95%CI {pct(p1['wilson_ci95'][0])}〜{pct(p1['wilson_ci95'][1])}、"
                     f"{'「劣化に対して安全側」を支持' if p1['supported'] else '登録した「上限2%未満」は支持されず'}）、"
                     f"最悪条件（{worst[0]}）でも誤許可は増えず、代償は可用性：正しい許可 {worst[1]['correct_approvals']}/{r['n_allow']}（{pct(worst[1]['ca_rate'])}、うち品質ゲート棄却 {worst[1]['gate_rejected']}）"
                     f"{'、清浄画像では ' + str(cl['correct_approvals']) + '/' + str(r['n_allow']) if 'correct_approvals' in cl else ''} |")
@@ -488,11 +499,12 @@ def section_en(e, v):
     try:
         p1h, p2h = h['P1_efficiency_relocation_persist'], h['P2_safety_naive_vs_verified']
         pa, p3h = h['per_arm'], h['P3_no_extra_risk_vs_v36']
+        cn, cf, cfr, cup = caution_denominator(h)
         rch = {a: pa[a]['by_transition']['relocation_change']['time_median_s'] for a in ('M0', 'M2')}
         t1h = (f"median mission time, no memory vs. verified memory: {p1h['time_M0_median_s']:.0f} s vs. {p1h['time_M2_median_s']:.0f} s on the {p1h['n_pairs']} pairs whose supplies stayed relocated "
                f"(paired difference {p1h['median_diff_s']} s); when supplies were moved back, verified memory was slower, paying for a detour ({rch['M2']:.0f} s vs. {rch['M0']:.0f} s); overall median {pa['M0']['time_median_s']:.0f} s vs. {pa['M2']['time_median_s']:.0f} s"
                if p1h['n_pairs'] else 'no paired missions with relocated supplies')
-        L.append(f"| H: cross-mission memory | {t1h}. Unsafe deliveries: naive memory (skips checks by design) {p2h['unsafe_M1']}/{p2h['n_pairs']} vs. verified memory {p2h['unsafe_M2']}/{p2h['n_pairs']} shows what skipping costs; the comparison that matters is no memory {p3h['unsafe_M0']}/{p3h['n_pairs']} vs. verified memory {p3h['unsafe_M2']}/{p3h['n_pairs']} (not less safe) |")
+        L.append(f"| H: cross-mission memory | {t1h}. Unsafe deliveries: naive memory (skips checks by design) {p2h['unsafe_M1']}/{p2h['n_pairs']} vs. verified memory {p2h['unsafe_M2']}/{p2h['n_pairs']} shows what skipping costs; the comparison that matters is no memory {p3h['unsafe_M0']}/{p3h['n_pairs']} vs. verified memory {p3h['unsafe_M2']}/{p3h['n_pairs']} (not less safe). Memory caution (tau_h=0.01) applied in {cn} of {p2h['n_pairs']} verified-memory missions, only {cf} of them at a fire-free station (false refusals {cfr}/{cf}, Wilson upper bound {cup:.0f}%), so its cost is not established |")
         h_ok = True
     except (TypeError, KeyError):
         h_ok = False
