@@ -262,7 +262,7 @@ def mission_part(run_id, scene, title, narration, captions, **extra):
             'narration': narration, 'captions': cap, **extra}
 
 
-def build(a, drop_arch=False, drop_fire=False, shrink=False):
+def build(a, drop_arch=False, drop_fire=False, shrink=False, drop_empty=False):
     cs = 0 if shrink else None      # shrink: result cards last exactly as long as their narration
     mem = bool(getattr(a, 'memory', None))
     # story arc of the first ~10 s: problem (stock list != scene, hazards hide) -> answer (look on the spot, look again from the side)
@@ -303,7 +303,7 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False):
              'search': '違う物資 → 誤配達せず、もう一方の拠点を見に行く。',
              'peek': '正しい物資でも、出発前に横から見直す。',
              'after': '別の拠点で正しい物資を確認 → 避難所Bへ。判断の経緯はすべて記録。'}))
-    if a.empty:
+    if a.empty and not drop_empty:
         demos.append(mission_part(
             a.empty, 'empty', '欠品 → 両拠点を確認して停止',
             {'go': '次は、在庫表にあるはずの物資が、どこにも無いケースです。', 'search': 'ここには有りません。もう一方も確かめます。',
@@ -329,6 +329,10 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False):
              'check': '記憶は提案だけ。着いたら必ず現物を確かめる。',
              'peek': '横からの見直しも省かない。',
              'after': '探し回らずに配達。記憶が古ければ、確認で止まる（評価H）。'}))
+        if (ROOT / 'docs/figures/memory_case_ja.png').is_file():
+            demos.append({'kind': 'card', 'seconds': 5, 'title': '記憶が慎重さを足した例（評価H）', 'layout': 'image',
+                          'image': 'docs/figures/memory_case_ja.png', 'sub': '記憶なしでは見逃した火で、記憶ありは止まった',
+                          'narration': '火を覚えていた拠点では、閾値を厳しくして、見逃しを防ぎました。', 'body': []})
     if a.hidden_fire:
         demos.append(mission_part(
             a.hidden_fire, 'nominal', '隠れた小さな火 → 停止',
@@ -361,7 +365,9 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False):
 def fit_budget(a):
     """Apply the shortening steps in order until the estimate is within TARGET_S."""
     df = bool(a.fire and a.hidden_fire)    # --fire is dropped only when --hidden-fire replaces it
-    steps = [dict(), dict(drop_arch=True), dict(drop_arch=True, drop_fire=df), dict(drop_arch=True, drop_fire=df, shrink=True)]
+    de = bool(getattr(a, 'memory', None))   # with the memory demo, the empty-station demo (least novel) goes first
+    steps = [dict(), dict(drop_arch=True), dict(drop_arch=True, drop_fire=df), dict(drop_arch=True, drop_fire=df, shrink=True),
+             dict(drop_arch=True, drop_fire=df, shrink=True, drop_empty=de)]
     for s in steps:
         parts = build(a, **s)
         est = estimate(parts)
