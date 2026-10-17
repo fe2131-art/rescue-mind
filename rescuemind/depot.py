@@ -108,8 +108,10 @@ def _model(name: str, inst: str, x: float, y: float, yaw: float, z: float = 0.0)
     return m
 
 
-def placements(seed=None, obstacle: bool = False, k: int = 2) -> list[tuple[str, str, float, float, float]]:
-    """(model, instance name, x, y, yaw) for one depot world with k = 2 (arena) or 4 supply bays.  Deterministic for a seed."""
+def placements(seed=None, obstacle: bool = False, k: int = 2, clutter: bool = True) -> list[tuple[str, str, float, float, float]]:
+    """(model, instance name, x, y, yaw) for one depot world with k = 2 (arena) or 4 supply bays.  Deterministic for a seed.
+    clutter=False (realism ablation, study XD) drops the movable clutter only; the random stream is unchanged, so the
+    pallet jack and every other model keep their places."""
     area, slots = (OPERATING_AREA_K4, CLUTTER_SLOTS_K4) if k == 4 else (OPERATING_AREA, CLUTTER_SLOTS)
     out = [(n, f'depot_{n.lower()}_{i}', x, y, yaw) for i, (n, x, y, yaw) in enumerate(SHELL)]
     out += [(n, f'depot_{n.lower()}_f{i}', x, y, yaw) for i, (n, x, y, yaw) in enumerate(FURNITURE)
@@ -117,19 +119,21 @@ def placements(seed=None, obstacle: bool = False, k: int = 2) -> list[tuple[str,
     rng = random.Random(f'depot-{seed}')
     for i, (x, y) in enumerate(rng.sample(slots, 4)):
         n = rng.choice(CLUTTER_MODELS)
-        out.append((n, f'depot_{n.lower()}_c{i}', round(x + rng.uniform(-.15, .15), 3), round(y + rng.uniform(-.15, .15), 3),
-                    round(rng.uniform(-math.pi, math.pi), 3)))
+        item = (n, f'depot_{n.lower()}_c{i}', round(x + rng.uniform(-.15, .15), 3), round(y + rng.uniform(-.15, .15), 3),
+                round(rng.uniform(-math.pi, math.pi), 3))
+        if clutter:
+            out.append(item)
     if obstacle:
         out.append(('PalletJackB_01', 'depot_palletjack', -0.3, 4.2, round(rng.uniform(-.4, .4), 3)))
     return out
 
 
-def add_depot(world: ET.Element, seed=None, obstacle: bool = False, k: int = 2) -> list[str]:
+def add_depot(world: ET.Element, seed=None, obstacle: bool = False, k: int = 2, clutter: bool = True) -> list[str]:
     """Insert the depot models into a parsed <world>.  Returns the instance names (for the run record)."""
     if not available():
         raise FileNotFoundError(f'depot assets missing under {ASSETS}: run scripts/fetch_depot_assets.sh')
     names = []
-    for n, inst, x, y, yaw in placements(seed, obstacle, k):
+    for n, inst, x, y, yaw in placements(seed, obstacle, k, clutter):
         world.append(_model(n, inst, x, y, yaw, Z.get(n, 0.0)))
         names.append(inst)
     ground = next((m for m in world.findall('model') if m.get('name') == 'ground'), None)
@@ -320,6 +324,42 @@ def check_k4_layout(layout: dict | None = None, *, look_around: float = LOOK_ARO
     return sorted(set(bad))
 
 
+DESIGN_SHORT_OF_WAYPOINT_M = 0.2     # as scripts/fire_mask_at_pose.py: the robot stops about 0.2 m short of the waypoint
+
+
+def k4_design_pose(station: str, layout: dict | None = None, short: float = DESIGN_SHORT_OF_WAYPOINT_M) -> tuple:
+    """Nominal checkpoint pose (x, y, yaw) of a bay of the four-bay depot: 0.2 m short of its waypoint on the line from the start,
+    facing the pallet centre (the generalisation of scripts/fire_mask_at_pose.design_pose to the depot; the arena's
+    median checkpoint pose of campaign D is 0.2 m short as well).  A design assumption until the first depot runs."""
+    lay = layout or k4_layout()
+    wx, wy = lay['waypoints'][station]
+    cx, cy = lay['centers'][station][:2]
+    n = math.hypot(wx, wy)
+    px, py = wx - short * wx / n, wy - short * wy / n
+    return (round(px, 3), round(py, 3), round(math.atan2(cy - py, cx - px), 3))
+
+
+def k4_side_pose(station: str, offset: float, layout: dict | None = None) -> tuple:
+    """Pose `offset` m to the side (offset < 0 left, > 0 right of the view direction) of the checkpoint pose, facing the centre
+    (look-around views: +-0.4 m; wider views of the I-20 rule: +-0.8 m)."""
+    lay = layout or k4_layout()
+    x, y, _ = k4_design_pose(station, lay)
+    cx, cy = lay['centers'][station][:2]
+    n = math.hypot(cx - x, cy - y)
+    vx, vy = -(cy - y) / n, (cx - x) / n
+    px, py = x + offset * vx, y + offset * vy
+    return (round(px, 3), round(py, 3), round(math.atan2(cy - py, cx - px), 3))
+
+
+def k4_near_pose(station: str, near: float = 0.3, layout: dict | None = None) -> tuple:
+    """The checkpoint pose moved `near` m towards the pallet centre (the 'N' view of the I-20 rule)."""
+    lay = layout or k4_layout()
+    x, y, yaw = k4_design_pose(station, lay)
+    cx, cy = lay['centers'][station][:2]
+    n = math.hypot(cx - x, cy - y)
+    return (round(x + near * (cx - x) / n, 3), round(y + near * (cy - y) / n, 3), yaw)
+
+
 def k4_configs(layout: dict | None = None) -> tuple[dict, dict]:
     """(waypoints_config, station_centers_config) of the four-bay depot, in the per-run format of rescuemind.stations:
     the arena's waypoint file with the station ids as keys (water / medicine replaced) plus the `stations` block."""
@@ -445,3 +485,320 @@ def particle_smoke(name: str, x: float, y: float, z: float = 0.9, rate: float = 
     metal = ET.SubElement(ET.SubElement(mat, 'pbr'), 'metal')
     ET.SubElement(metal, 'albedo_map').text = str(smoke_texture())
     return m
+
+
+# ---- I-21 polish (study XD): pallets with wrapped cartons, smoke-only hazard, alternative flame appearances ----------------
+# World-spec options (all default off; with them off, build_variant output is byte-identical to before):
+#   depot = {'pallets': 'wood_cartons'}     the supply platforms look like wooden pallets carrying stretch-wrapped carton stacks;
+#                                           VISUAL ONLY: the collision element and the xy footprint (0.9 m x 0.9 m) are unchanged
+#   depot = {'clutter': False}              no movable clutter (realism ablation)
+#   depot = {'hazard_style': ...}           how a world's hazard looks: None / 'tongues' = our ellipsoid flames + smoke (default),
+#                                           'smoke_only' = smoke without flames (smouldering: static plume; a particle plume on
+#                                           top if particle_smoke is on), 'mesh_flame' = jagged lofted flame meshes (not
+#                                           ellipsoids), 'billboard' = crossed alpha-textured sprites (procedural texture)
+PALLET_STYLES = (None, 'wood_cartons')
+HAZARD_STYLES = (None, 'tongues', 'smoke_only', 'mesh_flame', 'billboard')
+ASSET_DIR = ROOT / 'worlds/assets/generated'      # generated meshes / textures (git-ignored with the other assets)
+PALLET_H = 0.14                    # wooden pallet height; the wrapped carton plinth fills the rest up to the platform top
+PLATFORM_TOP = 0.5
+MASK_RGB = '1 0 1 1'               # flat magenta label colour (robust_scenes.MASK_RGB)
+
+
+def depot_options(depot: dict | None) -> dict:
+    """Validated realism options of a depot spec (ValueError on an unknown value)."""
+    d = depot or {}
+    if d.get('pallets') not in PALLET_STYLES:
+        raise ValueError(f"depot['pallets'] must be one of {PALLET_STYLES}")
+    if d.get('hazard_style') not in HAZARD_STYLES:
+        raise ValueError(f"depot['hazard_style'] must be one of {HAZARD_STYLES}")
+    return {'pallets': d.get('pallets'), 'clutter': bool(d.get('clutter', True)), 'hazard_style': d.get('hazard_style')}
+
+
+def _hash(s: str) -> int:
+    import hashlib
+    return int(hashlib.sha256(s.encode()).hexdigest()[:12], 16) % 10 ** 8
+
+
+def _pose_text(x, y, z, yaw=0.0) -> str:
+    return f'{x:.4f} {y:.4f} {z:.4f} 0 0 {yaw:.4f}'
+
+
+def _rgb(c, jitter=0.0, rng=None) -> str:
+    return ' '.join(f'{min(1.0, max(0.0, v + (rng.uniform(-jitter, jitter) if (rng and jitter) else 0.0))):.3f}' for v in c) + ' 1'
+
+
+def _box(link, name, x, y, z, sx, sy, sz, rgb, yaw=0.0, transparency=None, specular=None):
+    from .robust_scenes import _visual
+    v = _visual(link, name, _pose_text(x, y, z, yaw), f'<box><size>{sx:g} {sy:g} {sz:g}</size></box>', rgb,
+                transparency=transparency)
+    if specular:
+        ET.SubElement(v.find('material'), 'specular').text = specular
+    return v
+
+
+def pallet_visuals(link: ET.Element, back: tuple, rng: random.Random, avoid=()) -> None:
+    """Add the visuals of a wooden pallet carrying a stretch-wrapped carton plinth (top at 0.5 m) and two small carton stacks
+    standing on the top beside the supply, to `link` (the platform's link; platform-local frame; `back` = unit vector from the
+    pallet to the wall behind it; `avoid` = local xy of objects standing on the top).  Everything stays inside the
+    platform's 0.9 m x 0.9 m footprint."""
+    wood = (0.72, 0.56, 0.34)
+    for i, x in enumerate((-0.39, -0.195, 0.0, 0.195, 0.39)):            # deck boards
+        _box(link, f'pallet_deck{i}', x, 0.0, PALLET_H - 0.01, 0.12, 0.90, 0.02, _rgb(wood, 0.04, rng))
+    for i, x in enumerate((-0.39, 0.0, 0.39)):                           # bottom boards
+        _box(link, f'pallet_bottom{i}', x, 0.0, 0.01, 0.12, 0.90, 0.02, _rgb(wood, 0.04, rng))
+    for i, y in enumerate((-0.40, 0.0, 0.40)):                           # stringers
+        _box(link, f'pallet_stringer{i}', 0.0, y, 0.075, 0.90, 0.09, 0.10, _rgb((0.60, 0.45, 0.27), 0.03, rng))
+    layer_h = (PLATFORM_TOP - PALLET_H - 0.004) / 2
+    for layer in range(2):                                               # two layers of 2 x 2 cartons
+        for k, (cx, cy) in enumerate(((-0.22, -0.22), (0.22, -0.22), (-0.22, 0.22), (0.22, 0.22))):
+            _box(link, f'plinth_carton{layer}{k}', cx, cy, PALLET_H + layer_h * (layer + 0.5), 0.43, 0.43, layer_h - 0.004,
+                 _rgb((0.64, 0.47, 0.28), 0.05, rng))
+    _box(link, 'stretch_wrap', 0.0, 0.0, PALLET_H + (PLATFORM_TOP - PALLET_H) / 2, 0.90, 0.90, PLATFORM_TOP - PALLET_H,
+         '0.88 0.92 0.96 1', transparency=0.7, specular='0.9 0.9 0.9 1')
+    spots = sorted(((sx * 0.30, sy * 0.30) for sx in (-1, 1) for sy in (-1, 1)), key=lambda c: -(c[0] * back[0] + c[1] * back[1]))
+    spots = [c for c in spots if all(math.dist(c, a) >= 0.36 for a in avoid)][:2]      # corners nearest the wall, off a distractor
+    for i, (cx, cy) in enumerate(spots):             # a 0.22 m carton turned by up to 0.4 rad still lies inside the footprint
+        h = 0.20 if i == 0 else 0.17
+        _box(link, f'top_carton{i}', cx, cy, PLATFORM_TOP + h / 2 + 0.002, 0.22, 0.22, h, _rgb((0.66, 0.49, 0.30), 0.05, rng),
+             yaw=rng.uniform(-0.4, 0.4))
+        _box(link, f'top_tape{i}', cx, cy, PLATFORM_TOP + h + 0.004, 0.05, 0.22, 0.004, '0.80 0.70 0.50 1')
+
+
+def dress_platforms(world: ET.Element, depot: dict | None = None) -> list:
+    """Replace the grey box visual of every supply platform (`aid_station_*`) by a wooden pallet with wrapped cartons.  The
+    collision element is not touched, so footprints, audits and lidar behaviour are as before.  Returns the dressed names."""
+    if not depot_options(depot)['pallets']:
+        return []
+    seed = (depot or {}).get('seed')
+    done = []
+    for m in world.findall('model'):
+        name = m.get('name', '')
+        link = m.find('link')
+        if not name.startswith('aid_station_') or link is None or link.find("visual[@name='v']") is None:
+            continue
+        link.remove(link.find("visual[@name='v']"))
+        v = [float(t) for t in m.findtext('pose').split()]
+        x, y, yaw = v[0], v[1], v[5]
+        n = math.hypot(x, y) or 1.0
+        ux, uy = x / n, y / n                                            # 'behind the station' as seen from the start
+        back = (ux * math.cos(yaw) + uy * math.sin(yaw), -ux * math.sin(yaw) + uy * math.cos(yaw))
+        avoid = []
+        for d in world.findall('model'):                                  # a distractor standing on this platform
+            if d.get('name', '').startswith('distractor_'):
+                dx, dy = [float(t) for t in d.findtext('pose').split()[:2]]
+                lx, ly = dx - x, dy - y
+                if abs(lx) < 0.8 and abs(ly) < 0.8:
+                    avoid.append((lx * math.cos(yaw) + ly * math.sin(yaw), -lx * math.sin(yaw) + ly * math.cos(yaw)))
+        pallet_visuals(link, back, random.Random(f'pallet-{seed}-{name}'), avoid)
+        done.append(name)
+    return done
+
+
+# hazard styles --------------------------------------------------------------------------------------------------------
+def _flatten_to_mask(link: ET.Element, only=None) -> None:
+    """Label masks: the hazard visuals (all, or those whose name starts with `only`) flat emissive magenta, opaque, no shadows.
+    The burnt-ground patch is not hazard and keeps its colour (as in robust_scenes masks)."""
+    for v in list(link.findall('visual')):
+        if v.get('name') == 'charred_base':
+            continue                                                      # burnt ground stays as it is (not hazard)
+        if only and not v.get('name', '').startswith(only):
+            continue
+        mat = v.find('material')
+        if mat is None:
+            mat = ET.SubElement(v, 'material')
+        for child in list(mat):
+            if child.tag in ('pbr', 'specular', 'double_sided'):
+                mat.remove(child)
+        for tag in ('ambient', 'diffuse', 'emissive'):
+            el = mat.find(tag)
+            if el is None:
+                el = ET.SubElement(mat, tag)
+            el.text = MASK_RGB
+        if v.find('transparency') is not None:
+            v.remove(v.find('transparency'))
+        if v.find('cast_shadows') is None:
+            ET.SubElement(v, 'cast_shadows').text = 'false'
+
+
+def _hazard_shell(name: str, x: float, y: float, scale: float):
+    from .robust_scenes import _visual
+    m = ET.Element('model', name=name)
+    ET.SubElement(m, 'static').text = 'true'
+    ET.SubElement(m, 'pose').text = f'{x:g} {y:g} 0 0 0 0'
+    link = ET.SubElement(m, 'link', name='fire')
+    _visual(link, 'charred_base', f'0 0 {.02 * scale:.4f} 0 0 0',
+            f'<cylinder><radius>{.40 * scale:.4f}</radius><length>.04</length></cylinder>', '.08 .07 .06 1')
+    return m, link
+
+
+def _puffs(link, scale, specs, prefix='smoke'):
+    from .robust_scenes import _visual
+    for k, (px, py, pz, r, rz, shade, tr) in enumerate(specs):
+        _visual(link, f'{prefix}{k}', f'{px * scale:.4f} {py * scale:.4f} {pz * scale:.4f} 0 0 0',
+                f'<ellipsoid><radii>{r * scale:.4f} {r * scale:.4f} {rz * scale:.4f}</radii></ellipsoid>', shade, transparency=tr)
+
+
+def smoke_only_model(name: str, x: float, y: float, scale: float = 1.0, mask: bool = False) -> ET.Element:
+    """A smouldering hazard: a rising grey plume of static puffs, thinner towards the top, and no flames (a dark burnt patch
+    on the floor, which is not part of the label).  The static puffs are what the label masks count; the particle plume of
+    the depot option `particle_smoke` is visual only on top."""
+    m, link = _hazard_shell(name, x, y, scale)
+    _puffs(link, scale, [(0.00, 0.00, 0.35, .26, .20, '.22 .22 .23 1', .30), (.05, .03, 0.62, .30, .24, '.27 .27 .28 1', .35),
+                         (-.06, .02, 0.92, .36, .28, '.32 .32 .33 1', .40), (.08, -.04, 1.25, .42, .32, '.38 .38 .39 1', .48),
+                         (-.05, .05, 1.60, .50, .36, '.45 .45 .46 1', .56), (.04, 0.0, 1.98, .58, .40, '.52 .52 .53 1', .66)])
+    if mask:
+        _flatten_to_mask(link)
+    return m
+
+
+def flame_mesh_path(seed, variant: int = 0) -> Path:
+    """Write (once) and return a jagged flame mesh (OBJ with normals): 5-8 lofted tongues, each a tapering tube that leans and
+    ends in a tip, so the silhouette is a ragged flame rather than an ellipsoid.  Deterministic for (seed, variant)."""
+    ASSET_DIR.mkdir(parents=True, exist_ok=True)
+    path = ASSET_DIR / f'flame_{_hash(f"{seed}-{variant}"):08d}.obj'
+    if path.is_file():
+        return path
+    rng = random.Random(f'flame-mesh-{seed}-{variant}')
+    verts, faces = [], []
+    n_t, rings, segs = rng.randint(5, 8), 9, 10
+    for t in range(n_t):
+        a = 2 * math.pi * t / n_t + rng.uniform(-.3, .3)
+        r0 = rng.uniform(.10, .17)
+        height = 1.15 if t == 0 else rng.uniform(.75, 1.15)
+        base = (0.0, 0.0) if t == 0 else (0.18 * math.cos(a), 0.18 * math.sin(a))
+        lean = (0.0, 0.0) if t == 0 else (0.28 * math.cos(a) + rng.uniform(-.06, .06), 0.28 * math.sin(a) + rng.uniform(-.06, .06))
+        phase = rng.uniform(0, 6.28)
+        first = len(verts)
+        for i in range(rings + 1):
+            u = i / rings
+            r = r0 * (1 - u) ** 0.9 * (1 + .25 * math.sin(5 * u + phase))
+            cx, cy = base[0] + lean[0] * u * u + .05 * math.sin(7 * u + phase), base[1] + lean[1] * u * u
+            for j in range(segs):
+                th = 2 * math.pi * j / segs
+                verts.append((cx + r * math.cos(th), cy + r * math.sin(th), height * u))
+        for i in range(rings):
+            for j in range(segs):
+                a0, a1 = first + i * segs + j, first + i * segs + (j + 1) % segs
+                faces += [(a0, a1, a1 + segs), (a0, a1 + segs, a0 + segs)]
+    normals = [[0.0, 0.0, 0.0] for _ in verts]
+    for f in faces:
+        p = [verts[i] for i in f]
+        u = [p[1][k] - p[0][k] for k in range(3)]
+        w = [p[2][k] - p[0][k] for k in range(3)]
+        nrm = (u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0])
+        for i in f:
+            for k in range(3):
+                normals[i][k] += nrm[k]
+    lines = ['# procedural flame (rescuemind.depot.flame_mesh_path)']
+    lines += [f'v {x:.4f} {y:.4f} {z:.4f}' for x, y, z in verts]
+    for nx, ny, nz in normals:
+        d = math.sqrt(nx * nx + ny * ny + nz * nz) or 1.0
+        lines.append(f'vn {nx / d:.4f} {ny / d:.4f} {nz / d:.4f}')
+    lines += [f'f {a + 1}//{a + 1} {b + 1}//{b + 1} {c + 1}//{c + 1}' for a, b, c in faces]
+    path.write_text('\n'.join(lines) + '\n')
+    return path
+
+
+_FLAME_SMOKE = [(0, 0, 1.35, .30, .22, '.18 .18 .19 1', .25), (.18, .10, 1.55, .38, .26, '.24 .24 .25 1', .25)]
+
+
+def mesh_flame_model(name: str, x: float, y: float, scale: float = 1.0, mask: bool = False, seed=None) -> ET.Element:
+    """Alternative flame (not our ellipsoid tongues): the jagged mesh three times, nested (translucent red outer shell, orange
+    mid shell, bright core), plus two puffs of static smoke above it."""
+    from .robust_scenes import _visual
+    m, link = _hazard_shell(name, x, y, scale)
+    uri = 'file://' + str(flame_mesh_path(seed))
+    for k, (s, rgb, tr) in enumerate(((1.0, '.90 .12 .02 1', .35), (.72, '1 .50 .04 1', .10), (.42, '1 .90 .40 1', None))):
+        _visual(link, f'flame{k}', '0 0 .03 0 0 0',
+                f'<mesh><uri>{uri}</uri><scale>{s * scale:.4f} {s * scale:.4f} {s * scale:.4f}</scale></mesh>', rgb,
+                emissive=rgb, transparency=tr)
+    _puffs(link, scale, _FLAME_SMOKE)
+    if mask:
+        _flatten_to_mask(link)
+    return m
+
+
+def flame_sprite_path(seed, mask: bool = False, texture=None) -> Path:
+    """The billboard texture: `texture` (a third-party PNG used as is; for the label sprite its alpha is the silhouette) or a
+    procedural flame sprite with hard-edged alpha, so the magenta label sprite has exactly the same silhouette."""
+    if texture and not mask:
+        return Path(texture)
+    import numpy as np
+    from PIL import Image
+    ASSET_DIR.mkdir(parents=True, exist_ok=True)
+    path = ASSET_DIR / f'flame_sprite_{_hash(f"sprite-{seed}-{texture}"):08d}{"_mask" if mask else ""}.png'
+    if path.is_file():
+        return path
+    if texture:
+        alpha = np.asarray(Image.open(texture).convert('RGBA'))[..., 3] > 127
+        h, w = alpha.shape
+        v = 1 - np.mgrid[0:h, 0:w][0] / h
+    else:
+        rng = random.Random(f'flame-sprite-{seed}')
+        w, h = 256, 384
+        ph = [rng.uniform(0, 6.28) for _ in range(4)]
+        yy, xx = np.mgrid[0:h, 0:w]
+        v = 1 - yy / h                                                   # 0 at the bottom, 1 at the tip
+        halfw = (0.46 * (1 - v) ** 0.7 + 0.04) * w / 2 * (1 + .30 * np.sin(9 * v + ph[0]) * v + .18 * np.sin(23 * v + ph[1]))
+        centre = w / 2 + 0.16 * w * np.sin(3.2 * v + ph[2]) * v ** 1.3
+        tongues = (np.abs(np.sin(5.5 * (xx - w / 2) / w * np.pi + ph[3])) > 0.56 * v) | (v < 0.35)
+        alpha = (np.abs(xx - centre) < halfw) & (v < 0.97) & tongues
+    rgba = np.zeros(alpha.shape + (4,), np.uint8)
+    if mask:
+        rgba[..., 0], rgba[..., 2] = 255, 255
+    else:
+        rgba[..., 0] = 255
+        rgba[..., 1] = (70 + 185 * np.clip(v * 1.5, 0, 1) ** 1.2).astype(np.uint8)
+        rgba[..., 2] = (10 + 140 * np.clip(v * 2.0 - .6, 0, 1)).astype(np.uint8)
+    rgba[..., 3] = np.where(alpha, 255, 0)
+    Image.fromarray(rgba, 'RGBA').save(path)
+    return path
+
+
+def billboard_flame_model(name: str, x: float, y: float, scale: float = 1.0, mask: bool = False, seed=None,
+                          texture=None) -> ET.Element:
+    """Alternative flame: three crossed double-sided planes with an alpha-textured, emissive flame sprite, plus two puffs of
+    static smoke.  Needs the Gazebo smoke test (alpha textures), see docs/design/I21_realistic_depot.md."""
+    m, link = _hazard_shell(name, x, y, scale)
+    tex = flame_sprite_path(seed, mask, texture)
+    w, h = 0.80 * scale, 1.20 * scale
+    for k in range(3):
+        v = ET.SubElement(link, 'visual', name=f'flame{k}')
+        ET.SubElement(v, 'pose').text = _pose_text(0, 0, h / 2 + .03, k * math.pi / 3)
+        v.append(ET.fromstring(f'<geometry><plane><normal>0 1 0</normal><size>{w:.4f} {h:.4f}</size></plane></geometry>'))
+        mat = ET.SubElement(v, 'material')
+        for tag in ('ambient', 'diffuse', 'emissive'):
+            ET.SubElement(mat, tag).text = '1 1 1 1'
+        ET.SubElement(mat, 'double_sided').text = 'true'
+        metal = ET.SubElement(ET.SubElement(mat, 'pbr'), 'metal')
+        ET.SubElement(metal, 'albedo_map').text = str(tex)
+        ET.SubElement(metal, 'emissive_map').text = str(tex)
+        ET.SubElement(v, 'cast_shadows').text = 'false'
+    _puffs(link, scale, [(0, 0, 1.45, .30, .22, '.18 .18 .19 1', .25), (.18, .10, 1.65, .38, .26, '.24 .24 .25 1', .25)])
+    if mask:                                  # sprites keep the magenta texture (same silhouette); the smoke puffs go flat
+        _flatten_to_mask(link, only='smoke')
+        for v in link.findall('visual'):
+            if v.get('name', '').startswith('flame'):
+                for tag in ('ambient', 'diffuse', 'emissive'):
+                    v.find('material').find(tag).text = MASK_RGB
+    return m
+
+
+def restyle_hazard(world: ET.Element, name: str, style, scale: float = 1.0, mask: bool = False, seed=None, texture=None) -> bool:
+    """Replace the default fire model `name` (already in `world`) by another look at the same place.  style None / 'tongues'
+    leaves it alone.  Returns True if replaced."""
+    if style in (None, 'tongues'):
+        return False
+    if style not in HAZARD_STYLES:
+        raise ValueError(f'unknown hazard style {style!r}')
+    old = next((m for m in world.findall('model') if m.get('name') == name), None)
+    if old is None:
+        raise KeyError(f'no hazard model {name!r} in the world')
+    px, py = [float(t) for t in old.findtext('pose').split()[:2]]
+    build = {'smoke_only': lambda: smoke_only_model(name, px, py, scale, mask),
+             'mesh_flame': lambda: mesh_flame_model(name, px, py, scale, mask, seed),
+             'billboard': lambda: billboard_flame_model(name, px, py, scale, mask, seed, texture)}[style]
+    idx = list(world).index(old)
+    world.remove(old)
+    world.insert(idx, build())
+    return True
