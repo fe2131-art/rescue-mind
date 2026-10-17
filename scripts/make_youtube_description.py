@@ -267,6 +267,21 @@ DROP_ORDER = ('（T2）', 'ゼロショット', '劣化', '（T1）')     # deta
 LIMIT = 4950
 
 
+def watch_sentence(facts):
+    """What to watch, from the demos actually in the video (never a demo that is not there)."""
+    titles = ' '.join(c['title'] for c in facts['chapters'])
+    parts = []
+    if '隠れた' in titles:
+        parts.append('「隠れた小さな火」のデモ（正面では見えない火を、横へ動いて撮り直して見つけて止まる）')
+    if '記憶' in titles:
+        parts.append('「記憶」のデモ（前回見た拠点へ直行し、着いたら必ず確かめる）')
+    if '取り違え' in titles:
+        parts.append('「取り違え」のデモ（違う物資なら別の拠点を探す）')
+    if '欠品' in titles:
+        parts.append('「欠品」のデモ（どこにも無ければ止まって報告する）')
+    return '【動画で見てほしい点】' + '、'.join(parts) + '。' if parts else ''
+
+
 def build_description(chapters, res, _nums=None):
     facts = video_facts(chapters)
     head = (f"**ファイル**：`{VIDEO_FILE}`（1920×1080, 30fps, 約{facts['length_ja']}"
@@ -279,7 +294,7 @@ def build_description(chapters, res, _nums=None):
         '自然な言い回しの依頼をローカルLLMが解釈し、ロボットが拠点へ自律移動。その場でカメラ画像をローカルVLM（Qwen3.5-9B / V100）で確認し、'
         '依頼どおりで火も見えないときだけ避難所Bへ向かいます。ROS 2 Jazzy × Gazebo Harmonic、映像はすべて Gazebo の実レンダリング。\n'
         '※ 「届ける」は、現物確認して避難所Bへ向かう（接近する）ところまで。物資の把持・荷降ろしはシミュレーションしていません。']
-    paras[-1] = paras[-1].replace('\n\n自然な言い回し', '\n\n' + '\n'.join(headline_block(res)) + '\n\n【動画で見てほしい点】「隠れた小さな火」のデモ（正面では見えない火を、横へ動いて撮り直して見つけて止まる）と、「取り違え」「欠品」のデモ（違えば別の拠点を探し、無ければ止まって日本語で報告する）。\n\n自然な言い回し', 1)
+    paras[-1] = paras[-1].replace('\n\n自然な言い回し', '\n\n' + '\n'.join(headline_block(res)) + '\n\n' + watch_sentence(facts) + '\n\n自然な言い回し', 1)
     blocks = [x for x in (demo_sentence(facts), speed_sentence(facts)) if x]
     nums = number_lines(res) if _nums is None else _nums
     if nums:

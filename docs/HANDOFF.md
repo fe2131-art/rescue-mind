@@ -21,8 +21,8 @@
 | R / Z / P / K | 劣化12条件 0/2304、SigLIP 44/408、実写 298/300・誤警報 64/100（AUROC 0.96）、適合閾値 | `*_summary.json` |
 | J / P2 / L | 実行中・待機中（§「★」参照） | — |
 | 動画 | 2:46（v3.6）。記憶デモ入りの再描画は撮影後に自動 | `outputs/video/`（Git管理外） |
-| 論文・説明資料 | 本文8頁＋補足、説明資料11頁、第三者採点 31.5/40 | `docs/paper/`, `docs/report/` |
-| テスト | 612件 | `python3 -m unittest discover -s tests` |
+| 論文・説明資料 | 本文8頁＋補足、説明資料12頁、第三者採点 32.0/40（第6回） | `docs/paper/`, `docs/report/` |
+| テスト | 620件（main。i19 ブランチは約750件） | `python3 -m unittest discover -s tests` |
 
 **v3.6 = オーケストレータの既定構成**（`--model Qwen/Qwen3.5-9B --prompt-set v35 --intent-backend llm --intent-prompt i35`、τ_s=0.5、τ_h=0.05、h36＋tiles、横から見直す ±0.4 m、回復探索）。過去の評価の再現は各台帳の `stack_args` を使う。
 
