@@ -24,6 +24,26 @@
 * **事前登録と時系列監査**（論文 [`docs/paper/main.pdf`](docs/paper/main.pdf) 付録「Registration audit」）：条件・閾値・解析を結果を見る前にコミットし、全12研究の登録時刻と最初の結果の時刻を、git の履歴から機械的に監査（`git merge-base --is-ancestor`）。結果のある研究のうち **9件で登録コミットが結果コミットより前**、2件は結果待ち（登録のみ済み）。支持されなかった主張も、そのまま載せる。
 <!-- NOVELTY:END -->
 
+<!-- EN:START -->
+## English summary
+
+**Problem and approach.** A delivery robot is told which item is at a disaster-relief supply point, but the inventory can be wrong (swapped or empty shelves) or the site can be dangerous. The robot stops at the station and checks the item on site with a local vision-language model (Qwen3.5-9B, one V100, no cloud). The check **fails closed**: the VLM never writes free text for the decision; we read the next-token log-probabilities of answer letters (closed-set scoring) for two multiple-choice questions with permuted options and for a Yes/No hazard question, and approve only if both agree with sufficient confidence and no fire or smoke is seen. A wrong item triggers a one-time search of the other station; a hazard stops the robot; an independent velocity guard keeps motion out of the VLM's reach. **Active look-around**: before approving, the robot views the station from 0.4 m to either side. **Safety-monotone cross-mission memory**: memory may only reorder where the robot looks and add caution, never remove a check. An optional **two-model check** adds a Jev-role model (Clef-Flash) next to Qwen. All studies are pre-registered (`experiments/PREREGISTRATION_*.md`); every trial is audited against simulator ground truth and a ROS bag.
+
+| Study (pre-registered) | Result |
+|---|---|
+| E: closed loop, 60 randomised Gazebo worlds | expected behaviour 60/60, wrong deliveries 0/60 (Wilson 95% CI 0.0%-6.0%) |
+| G: paired, look-around vs. front view only | deliveries despite a perceivable fire 11/16 -> 1/16 (exact McNemar p=0.002); false stops in fire-free worlds 0/8 |
+| R: 12 camera degradations | false approvals 0/2304 (upper bound of the world-level bootstrap CI 0.0%); claim supported |
+| Z: zero-shot baselines on T1 (false approvals / correct approvals) | ours 3/408, 187/191; SigLIP 44/408, 191/191; CLIP 0/408, 2/191 |
+| P: real photos (D-Fire, 400) | fire/smoke detected 298/300; false alarms on fire-free photos 64/100 |
+
+Campaigns H and J: pre-registered, running.
+
+**Limitations.** Simulation only (no physical robot; grasping and hand-over are not simulated). On real photos the hazard question raises false alarms on 64/100 fire-free images, so a per-site calibration is needed (false alarms only stop the robot; they never cause a delivery). The two models of the two-model check share a lineage (Clef-Flash is a fine-tune of Qwen3.5-9B), so their failures can be correlated.
+
+**Read more.** Paper: [`docs/paper/main.pdf`](docs/paper/main.pdf) / supplement: [`docs/paper/supplement.pdf`](docs/paper/supplement.pdf) / [`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md) / pre-registrations: [`experiments/PREREGISTRATION_*.md`](experiments/) (e.g. [E](experiments/PREREGISTRATION_E.md), [G](experiments/PREREGISTRATION_G.md), [H](experiments/PREREGISTRATION_H.md), [J](experiments/PREREGISTRATION_J.md)).
+<!-- EN:END -->
+
 <!-- RESULTS:START -->
 ## 結果：事前登録した評価（D・E・F・G・T1・T2・Z・P・R）
 

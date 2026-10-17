@@ -382,6 +382,79 @@ def section_zpr():
     return rows, notes
 
 
+def section_en(e, v):
+    """English summary for international readers; every number comes from the result files (same helpers as above)."""
+    L = ['## English summary', '',
+         "**Problem and approach.** A delivery robot is told which item is at a disaster-relief supply point, but the inventory can be wrong "
+         "(swapped or empty shelves) or the site can be dangerous. The robot stops at the station and checks the item on site with a local "
+         "vision-language model (Qwen3.5-9B, one V100, no cloud). The check **fails closed**: the VLM never writes free text for the decision; "
+         "we read the next-token log-probabilities of answer letters (closed-set scoring) for two multiple-choice questions with permuted options "
+         "and for a Yes/No hazard question, and approve only if both agree with sufficient confidence and no fire or smoke is seen. A wrong item "
+         "triggers a one-time search of the other station; a hazard stops the robot; an independent velocity guard keeps motion out of the VLM's reach. "
+         "**Active look-around**: before approving, the robot views the station from 0.4 m to either side. **Safety-monotone cross-mission memory**: "
+         "memory may only reorder where the robot looks and add caution, never remove a check. An optional **two-model check** adds a Jev-role model "
+         "(Clef-Flash) next to Qwen. All studies are pre-registered (`experiments/PREREGISTRATION_*.md`); every trial is audited against simulator ground truth and a ROS bag.",
+         '', '| Study (pre-registered) | Result |', '|---|---|']
+    if e:
+        E = e[1]
+        L.append(f"| E: closed loop, {E['n']} randomised Gazebo worlds | expected behaviour {E['ok']}/{E['n']}, wrong deliveries {E['wrong']}/{E['n']} ({ci_txt(E['wrong'], E['n']).replace('Wilson 95%CI', 'Wilson 95% CI').replace('〜', '-')}) |")
+    if v:
+        G = v[1]
+        L.append(f"| G: paired, look-around vs. front view only | deliveries despite a perceivable fire {G['gb']}/{G['nf']} -> {G['gcw']}/{G['nf']} (exact McNemar p={G['p']:.3f}); false stops in fire-free worlds {G['fs']}/{G['nfree']} |")
+    r = jl('r_summary.json')
+    try:
+        p1 = r['P1_pooled']
+        L.append(f"| R: 12 camera degradations | false approvals {p1['false_approvals']}/{p1['n']} (upper bound of the world-level bootstrap CI {pct(p1['cluster_ci95'][1])}); "
+                 f"claim {'supported' if p1['supported'] else 'not supported'} |")
+    except (TypeError, KeyError, ValueError):
+        L.append('| R: camera degradations | pre-registered, running |')
+    z = jl('z_summary.json')
+    try:
+        o, sb, cb = (z['models']['siglip']['t1']['ours'], z['models']['siglip']['t1']['baseline'], z['models']['clip']['t1']['baseline'])
+        L.append(f"| Z: zero-shot baselines on T1 (false approvals / correct approvals) | ours {o['FA']}/{o['n_deny']}, {o['CA']}/{o['n_allow']}; "
+                 f"SigLIP {sb['FA']}/{sb['n_deny']}, {sb['CA']}/{sb['n_allow']}; CLIP {cb['FA']}/{cb['n_deny']}, {cb['CA']}/{cb['n_allow']} |")
+    except (TypeError, KeyError):
+        L.append('| Z: SigLIP / CLIP baselines | pre-registered, running |')
+    p, p2 = jl('p_summary.json'), jl('p2_summary.json')
+    fa_txt = ''
+    try:
+        rc, fa = p['recall'], p['false_alarm']
+        fa_txt = f"{fa['k']}/{fa['n']}"
+        row = f"| P: real photos (D-Fire, 400) | fire/smoke detected {rc['k']}/{rc['n']}; false alarms on fire-free photos {fa['k']}/{fa['n']}"
+        try:
+            ct = p2['chosen_test']
+            row += (f"; P2, site-calibrated threshold on unseen photos: recall {ct['recall']['k']}/{ct['recall']['n']}, "
+                    f"false alarms {ct['false_alarm']['k']}/{ct['false_alarm']['n']} (claim {'supported' if p2['claim_supported'] else 'not supported'})")
+        except (TypeError, KeyError):
+            pass
+        L.append(row + ' |')
+    except (TypeError, KeyError):
+        L.append('| P: real photos | pre-registered, running |')
+    h, j = jl('h_summary.json'), jl('j_summary.json')
+    try:
+        p1h, p2h = h['P1_efficiency_relocation_persist'], h['P2_safety_naive_vs_verified']
+        L.append(f"| H: cross-mission memory | median time difference {p1h['median_diff_s']} s ({p1h['n_pairs']} pairs); unsafe deliveries naive {p2h['unsafe_M1']} vs. verified memory {p2h['unsafe_M2']} |")
+        h_ok = True
+    except (TypeError, KeyError):
+        h_ok = False
+    try:
+        c, pj = j['per_config'], j['P2_no_extra_unsafe']
+        L.append(f"| J: two-model check | expected {c['J']['correct']}/{c['J']['n']} (single model {c['A']['correct']}/{c['A']['n']}); unsafe deliveries {pj['unsafe_J']} vs. {pj['unsafe_A']} |")
+        j_ok = True
+    except (TypeError, KeyError):
+        j_ok = False
+    if not (h_ok and j_ok):
+        L += ['', 'Campaigns ' + ('J' if h_ok else 'H and J' if not j_ok else 'H') + ': pre-registered, running.']
+    L += ['', '**Limitations.** Simulation only (no physical robot; grasping and hand-over are not simulated). '
+          + (f'On real photos the hazard question raises false alarms on {fa_txt} fire-free images, so a per-site calibration is needed '
+             '(false alarms only stop the robot; they never cause a delivery). ' if fa_txt else '')
+          + 'The two models of the two-model check share a lineage (Clef-Flash is a fine-tune of Qwen3.5-9B), so their failures can be correlated.',
+          '', '**Read more.** Paper: [`docs/paper/main.pdf`](docs/paper/main.pdf) / supplement: [`docs/paper/supplement.pdf`](docs/paper/supplement.pdf) / '
+          '[`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md) / pre-registrations: [`experiments/PREREGISTRATION_*.md`](experiments/) '
+          '(e.g. [E](experiments/PREREGISTRATION_E.md), [G](experiments/PREREGISTRATION_G.md), [H](experiments/PREREGISTRATION_H.md), [J](experiments/PREREGISTRATION_J.md)).']
+    return '\n'.join(L)
+
+
 def sync_counts(txt, path):
     """Replace the test / findings counts in prose by the generated ones (scripts/count_tests.py)."""
     nt, nf = count_tests.n_tests(), count_tests.n_findings()
@@ -444,6 +517,9 @@ def main():
     if '<!-- NOVELTY:START -->' in txt:     # novelty section near the top, numbers from the summaries
         a, b = txt.index('<!-- NOVELTY:START -->'), txt.index('<!-- NOVELTY:END -->') + len('<!-- NOVELTY:END -->')
         txt = txt[:a] + '<!-- NOVELTY:START -->\n' + section_novelty() + '\n<!-- NOVELTY:END -->' + txt[b:]
+    if '<!-- EN:START -->' in txt:          # English summary right after the novelty section
+        a, b = txt.index('<!-- EN:START -->'), txt.index('<!-- EN:END -->') + len('<!-- EN:END -->')
+        txt = txt[:a] + '<!-- EN:START -->\n' + section_en(e, v) + '\n<!-- EN:END -->' + txt[b:]
     chap = ROOT / 'docs/video_chapters.json'
     if chap.is_file():     # describe the video from the chapter file (length kept generic: it is re-rendered later)
         ch = json.loads(chap.read_text(encoding='utf8'))
