@@ -50,7 +50,9 @@ class Geometry(unittest.TestCase):
         k2 = {inst for _, inst, *_ in depot.placements(1, False, 2)}
         k4 = {inst for _, inst, *_ in depot.placements(1, False, 4)}
         self.assertTrue(k4 < k2 | {i for i in k4 if '_c' in i})                    # clutter slots differ, furniture only shrinks
-        self.assertIn('depot_shelfd_01_f4', k2); self.assertNotIn('depot_shelfd_01_f4', k4)       # the rack beside the shelter
+        racks = lambda k: [(x, y) for n, _, x, y, _ in depot.placements(1, False, k) if n == 'ShelfD_01']
+        for k in (2, 4):                                                          # no rack beside shelter B in either depot
+            self.assertFalse([xy for xy in racks(k) if -3.6 <= xy[1] <= 0.0], k)
         for n, inst, x, y, yaw in depot.placements(1, True, 4):
             if n not in ('WallB_01', 'GroundB_01'):
                 self.assertFalse(depot._inside(x, y, depot.OPERATING_AREA_K4) and '_c' in inst, inst)
