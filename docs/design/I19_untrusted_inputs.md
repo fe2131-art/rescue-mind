@@ -85,3 +85,18 @@ expected to remain a real weakness.
   * the free-form JSON answer of the v3.3-era baseline;
   * describe-then-decide.
 * **Endpoint:** attack success, i.e. false approvals caused by the sign, paired against the same view without it.
+
+## Adaptive attacker (added 2026-10-17 21:20)
+With k > 2 stations, more than one station can hold the requested supply. An attacker who knows the rule can still use
+*location* advice to steer the robot to the candidate station whose hazard is hardest to see. Every check is still
+performed, but the robot is exposed to the worst station instead of an average one.
+
+Proposition 2 already uses ε as a per-check bound over every station a route can meet (a supremum), so k·ε still holds.
+What the attacker can move is the realised risk, from the average-case ε̄ to the worst-case ε_max. We will:
+* state this explicitly next to Proposition 2;
+* add an "adaptive steering" condition to the k = 4 depot study X. The advice names the candidate station with the
+  smallest visible fire, and we measure the unsafe rate against random-order and no-advice controls.
+
+Candidate mitigation, to be evaluated rather than claimed: when several candidates hold the supply, advice may reorder
+only among stations whose most recent check showed no suspicion. That needs care, because the memory itself is then
+trusted.
