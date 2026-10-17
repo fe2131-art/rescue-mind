@@ -20,9 +20,10 @@
 | 未使用画像 T1 / T2 | v3.4 誤許可 5/408、v3.5 3/408、T2 0/407 | `t1_*.json`, `t2_*.json` |
 | R / Z / P / K | 劣化12条件 0/2304、SigLIP 44/408、実写 298/300・誤警報 64/100（AUROC 0.96）、適合閾値 | `*_summary.json` |
 | J / P2 / L | **結果あり**。J：期待どおり 23/24（v3.6 単独 24/24）、危険な配達 1（単独 0）、主張は不成立で第二の確認器は不採用。P2：検出 282/300・誤警報 18/100（成立）。L：24/24、危険な配達 0（成立） | `j_/p2_/l_summary.json` |
-| 動画 | 2:46（**v4・古い**：助言・機械検証・L・P2 が無い。P は 64/100 のみ）。v5 は計画のみ・未撮影（`docs/design/video_v5_plan.md`）。概要欄の文面は最新の貢献（助言は締めるだけ・機械検証・信用枠）に更新済み | `outputs/video/`（Git管理外） |
+| V（ランダムな変化での予測検証） | **結果あり（160/160 run、失敗 0）**。モデルの予測：**成立**（V1 M0−M2 の時間差 14.9 s が登録区間 11.3〜20.1 s の内側、V2 危険な配達 M0 0・M1 20・M2 1 と探索回数が区間の内側、V3 速さ p=0.006）。**記憶は安全：不成立**（V4：余裕 M2−M0=1 件 ≤ 3 は成立、系列単位のMcNemar M1 対 M2 が 5対0 で p=0.0625 ≥ 0.05、副次の厳密な M2 ≤ M0 も不成立）。原因は10系列の検出力不足と、M2 の1件（V156）が到着位置のぶれによる検査の誤り（右の視点 p_h=0.013、同じ世界の M0 は 0.33。I-20 の疑いの閾値 0.005 を超えていたが V では I-20 無効）。失敗は残す。図 `docs/figures/v_prediction.png`、FINDINGS #29。論文・README・説明資料（付録C2）・YouTube はすべて `scripts/advice_numbers.py` の `v_facts()` から生成 | `v_summary.json`, `campaign_V_ledger.jsonl` |
+| 動画 | 2:53（**v5・暫定**：助言注入デモ（I-22 の撮影）と、評価V（予測は成立・記憶の安全は不成立）・z3 を入れた証拠カード。P/P2 は 64/100 のみ）。章立ては `docs/video_chapters.json`。概要欄は v5 の章立てから再生成済み | `outputs/video/`（Git管理外） |
 | 論文・説明資料 | 論文 10 頁（本文は 8 頁以内、参考文献は 8 頁目から）、補足 21 頁、説明資料 18 頁。第三者採点：第6回 32.0、第7回 33.0、**第8回 34.0/40**（`docs/evaluations/EVAL_2026-10-18_8.md`） | `docs/paper/`, `docs/report/` |
-| テスト | テスト関数 1253 件（`python3 scripts/count_tests.py` の静的な数え方） | `python3 -m unittest discover -s tests` |
+| テスト | テスト関数 1258 件（`python3 scripts/count_tests.py` の静的な数え方） | `python3 -m unittest discover -s tests` |
 
 **v3.6 = オーケストレータの既定構成**（`--model Qwen/Qwen3.5-9B --prompt-set v35 --intent-backend llm --intent-prompt i35`、τ_s=0.5、τ_h=0.05、h36＋tiles、横から見直す ±0.4 m、回復探索）。過去の評価の再現は各台帳の `stack_args` を使う。
 

@@ -13,6 +13,8 @@ import json
 import re
 import sys
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import advice_numbers  # noqa: E402  (study V wording: single source shared with the README and the report)
 
 ROOT = Path(__file__).resolve().parents[1]
 SAFE = ('ALLOW', 'DELIVER_AFTER_SEARCH')        # expected actions for which a delivery is correct
@@ -228,6 +230,18 @@ def line_h(res):
         return None
 
 
+def line_v(res):
+    """Study V (random change): the failed memory claim is stated next to the supported model claim."""
+    f = advice_numbers.v_facts()
+    if not f:
+        return None
+    t = (f"・ランダムな変化での再検証V：時間差 {f['diff']:.0f}秒（登録した予測区間 {f['pred_lo']:.0f}〜{f['pred_hi']:.0f}秒の内側）でモデルの予測は{'成立' if f['model_claim'] else '不成立'}、"
+         f"危険な配達は 記憶なし {f['unsafe']['M0']}・素朴な記憶 {f['unsafe']['M1']}・検証つき記憶 {f['unsafe']['M2']}件。")
+    if not f['memory_claim']:
+        t += (f"「記憶は安全」の主張は不成立（余裕の条件は成立、系列単位の検定 p={f['mcnemar_p']:.4f}、10系列では検出力不足。1件は確認の誤り）。失敗として記録")
+    return t
+
+
 def line_j(res):
     j = jload(Path(res) / 'j_summary.json')
     try:
@@ -275,12 +289,12 @@ def headline_block(res):
 
 
 def number_lines(res):
-    fns = (line_t1, line_t2, line_z, line_r, line_p, line_l, line_h, line_j)
+    fns = (line_t1, line_t2, line_z, line_r, line_p, line_l, line_h, line_v, line_j)
     return [x for x in (f(res) for f in fns) if x]
 
 
 # ------------------------------------------------------------------ documents
-DROP_ORDER = ('（T2）', 'ゼロショット', '劣化', '（T1）', '評価J')     # detail lines dropped first when over YouTube's 5000 bytes
+DROP_ORDER = ('（T2）', 'ゼロショット', '劣化', '評価J', '評価P', '（T1）')     # detail lines dropped first when over YouTube's 5000 bytes
 LIMIT = 4990
 
 
@@ -292,6 +306,8 @@ def watch_sentence(facts):
         parts.append('「隠れた小さな火」のデモ（正面では見えない火を、横へ動いて撮り直して見つけて止まる）')
     if '記憶' in titles:
         parts.append('「記憶」のデモ（前回見た拠点へ直行し、着いたら必ず確かめる）')
+    if '確認不要' in titles:
+        parts.append('「確認不要」と言われても確認するデモ（言われたまま信じず、横から見て火を見つけて止まる）')
     if '取り違え' in titles:
         parts.append('「取り違え」のデモ（違う物資なら別の拠点を探す）')
     if '欠品' in titles:
