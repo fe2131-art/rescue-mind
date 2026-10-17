@@ -140,21 +140,23 @@ def extract(text: str, **kw) -> dict:
 
 def plan_for_mission(item: str, base: dict | None, *, mode: str, advice_file: str | None = None,
                      from_instruction: bool = False, instruction: str = '', extract_fn=extract,
-                     filter_fn=None, filter_url: str = DEFAULT_FILTER_URL, **kw) -> dict | None:
+                     filter_fn=None, filter_url: str = DEFAULT_FILTER_URL, stations=None, **kw) -> dict | None:
     """Combine the advice file and the operator text with the memory plan `base`.  Returns the new plan
     (with plan['advice']) or None when no advice source is configured.  The file is loaded strictly (a malformed
     file is an error, not silently ignored: the experimenter must know)."""
     if not advice_file and not from_instruction:
         return None
-    items = adv.load(advice_file) if advice_file else []
+    items = adv.load(advice_file, stations) if advice_file else []
     extraction = None
     if from_instruction and mode != 'off':
         extraction = extract_fn(instruction, **kw)
-        items = items + extraction['items']
+        # the operator names a supply's station ('W' / 'M'); with k stations that means the inventory's first station for it
+        items = items + [dict(a, station=stations.resolve(a['station'])) if stations is not None and a.get('station') else a
+                         for a in extraction['items']]
     ffn = None
     if mode == 'filtered':      # baseline: the guardrail reads the operator text / each item's own text first
         ffn = filter_fn or make_filter_fn(instruction, url=filter_url, model=kw.get('model', PRIMARY_MODEL))
-    plan = adv.plan(item, items, mode, base=base, filter_fn=ffn)
+    plan = adv.plan(item, items, mode, base=base, filter_fn=ffn, stations=stations)
     if ffn is not None and hasattr(ffn, 'log'):
         plan['advice']['filter']['verdicts'] = ffn.log
     plan['advice']['channels'] = {'file': bool(advice_file), 'instruction': bool(from_instruction)}

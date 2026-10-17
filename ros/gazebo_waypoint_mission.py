@@ -33,15 +33,20 @@ from rescuemind.camera_aim import aim_at_station, station_centers
 from rescuemind.stationary_gate import StationaryGate, odom_planar_twist, MotionUnstable
 from rescuemind.image_acquisition import CheckpointAcquisitionGate
 from rescuemind.camera_clock_gate import CameraClockGate, CameraClockRejected
+from rescuemind.stations import StationSet, next_candidate, plan_order
 
 
 def route_from_config(config_path, item, station=None):
+    """Supply station then shelter approach.  `station` (memory / advice / the recovery search) may be any station of
+    the config's station set (I-21: k stations; the arena's default is water / medicine)."""
+    from rescuemind.stations import StationSet, SUPPLIES
     d=json.loads(Path(config_path).read_text(encoding='utf-8'))
-    if item not in ('water','medicine') or (station or item) not in ('water','medicine'):
+    ss=StationSet.from_config(d)
+    if item not in SUPPLIES or (station or ss.catalog(item)) not in ss.ids:
         raise ValueError('unknown supply')
     if d.get('physical_pickup') is not False:
         raise ValueError('expected physical_pickup=false for this prototype')
-    station=station or item     # I-15: memory may propose visiting the other station first (still verified there)
+    station=station or ss.catalog(item)     # I-15: memory may propose visiting another station first (still verified there)
     result=[('supply_station',station,d[station]),('shelter_approach','B',d['B'])]
     for _,_,xy in result:
         if len(xy)!=2 or not all(isinstance(v,(int,float)) and math.isfinite(v) for v in xy):
@@ -241,7 +246,7 @@ def run_ros(route, args, record):
         """Align camera to `station`, capture NEW frame, then keep zero velocity during AI.
 
         `expected` is the requested supply (defaults to the station name); in a
-        recovery search the robot checks the OTHER station for the same supply.
+        recovery search the robot checks the next candidate station (the arena: the other one) for the same supply.
         Returns the checkpoint outcome; a denial has already held 2.5 s at zero.
         """
         expected=expected or station
@@ -649,28 +654,40 @@ def run_ros(route, args, record):
                             route[index:index]=schedule_look_around(target, goal)
                         if not outcome['decision']['allow']:
                             reason=outcome['decision']['reason']
-                            other='medicine' if target=='water' else 'water'
-                            # I-02: the requested supply is not here and no hazard was seen ->
-                            # check the other station once.  Hazards and low-confidence
-                            # matches stop immediately (no search into a possible danger).
-                            if (getattr(args,'recovery',False) and record.get('recovery') is None
-                                    and reason=='local_vlm_disagree_or_wrong_supply'):
+                            # I-02 / I-21: the requested supply is not here and no hazard was seen -> check the next
+                            # candidate station (the arena: the other one, once; the depot: up to k-1 more, in the
+                            # inventory / memory order, never skipping one).  Hazards and low-confidence matches stop
+                            # immediately (no search into a possible danger), as does an exhausted candidate list.
+                            prior=record.get('recovery')
+                            denied_before=([prior['first_station']]+[h['station'] for h in prior.get('hops',[])]) if prior else []
+                            head=denied_before[0] if denied_before else target
+                            order=record.get('station_order') or [head,'medicine' if head=='water' else 'water']   # the arena: the other one
+                            nxt=next_candidate(order,denied_before+[target])
+                            if (getattr(args,'recovery',False) and nxt is not None
+                                    and reason=='local_vlm_disagree_or_wrong_supply'
+                                    and (prior is None or target==prior.get('searched_station'))):
                                 first=len(record['events'])-1
                                 while first>=0 and record['events'][first].get('stage')!='supply_station':
                                     first-=1
                                 for e in record['events'][first:]:
                                     e['stage']='recovery_'+e['stage']
                                 first_image=Path(args.checkpoint_image)
-                                kept=first_image.with_name('recovery_'+first_image.name)
+                                n_hop=len(denied_before)       # 0: first denial, 1: second, ...
+                                kept=first_image.with_name(('recovery_' if n_hop==0 else f'recovery{n_hop+1}_')+first_image.name)
                                 first_image.replace(kept)
-                                record['recovery']={'first_station':target,'first_checkpoint':outcome,
-                                                    'first_checkpoint_image':kept.name,'searched_station':other,
-                                                    'reason':reason}
+                                if prior is None:
+                                    record['recovery']={'first_station':target,'first_checkpoint':outcome,
+                                                        'first_checkpoint_image':kept.name,'searched_station':nxt,
+                                                        'reason':reason,'candidates':list(order)}
+                                else:
+                                    prior.setdefault('hops',[]).append({'station':target,'checkpoint':outcome,
+                                                                       'checkpoint_image':kept.name,'reason':reason})
+                                    prior['searched_station']=nxt
                                 record['checkpoint']=None
-                                record['events'].append({'stage':'recovery_search_started','from':target,'to':other,
+                                record['events'].append({'stage':'recovery_search_started','from':target,'to':nxt,
                                                          't_wall_s':round(time.monotonic()-start,3)})
                                 waypoints=json.loads(Path(getattr(args,'config',ROOT/'configs/gazebo_waypoints.json')).read_text(encoding='utf-8'))
-                                route.insert(index,('supply_station',other,tuple(waypoints[other])))
+                                route.insert(index,('supply_station',nxt,tuple(waypoints[nxt])))
                             else:
                                 raise RuntimeError('on-site checkpoint DENIED: '+reason)
                     break
@@ -800,18 +817,28 @@ def main():
                              Intent(item,'B',float(conf),'local_llm_closed_set'))
         intent=selection.intent
     mem_plan=None
+    stations=StationSet.from_config(json.loads(Path(a.config).read_text(encoding='utf-8')))     # I-21: k stations (arena: 2)
+    if not stations.is_legacy():
+        if not a.centers:
+            ap.error('a config with a station set (k != 2 arena stations) needs the matching per-run --centers file')
+        from rescuemind.stations import check_centers
+        try:
+            check_centers(load_centers(a),stations)
+        except ValueError as e:
+            ap.error(str(e))
     if a.memory_mode!='off' and a.memory_file:
         from rescuemind.mission_memory import MissionMemory
-        mem_plan=MissionMemory(a.memory_file).plan(intent.item,a.memory_mode)
+        mem_plan=MissionMemory(a.memory_file).plan(intent.item,a.memory_mode,stations=stations)
     if a.advice_file or a.advice_from_instruction:
         # I-19: everything that is not the robot's own perception at the station is advice (memory, peer, inventory,
         # operator text).  The combined plan has the memory plan's schema, so the paths below handle both.
         from rescuemind.advice_llm import plan_for_mission
         mem_plan=plan_for_mission(intent.item,mem_plan,mode=a.advice_mode,advice_file=a.advice_file,
                                   from_instruction=a.advice_from_instruction,instruction=a.instruction,
-                                  model=a.vlm_model,url=a.local_primary_url.replace('/v1/classify','/v1/advice'),
+                                  model=a.vlm_model,url=a.local_primary_url.replace('/v1/classify','/v1/advice'),stations=stations,
                                   filter_url=a.local_primary_url.replace('/v1/classify','/v1/advice_filter'))
     route=route_from_config(a.config,intent.item,station=(mem_plan or {}).get('first_station'))
+    order=plan_order(mem_plan,stations,intent.item) if intent.item in ('water','medicine') else None
     record={'version':'3.1','run_id':run_id,'camera_max_age_s':a.camera_max_age,'lane':'Gazebo direct-drive through independent velocity relay, NOT Nav2',
             'run_type':(('local_vlm_live_mission' if a.inference_backend=='local' else 'jev_qwen_live_mission') if a.run_live else ('jev_qwen_mission' if a.run else ('motion_check_non_ai' if a.motion_check else 'dry_run'))),
             'instruction':a.instruction,'intent':intent.__dict__,
@@ -820,6 +847,10 @@ def main():
             'preflight':None,'checkpoint':None,'success':False,'events':[],'trace':[],
             'physical_pickup':False,'memory':mem_plan,'advice':(mem_plan or {}).get('advice'),
             'robot_runtime_verified_in_author_environment':False}
+    if not stations.is_legacy():
+        # I-21: k > 2 stations: the inventory, and the candidate order the recovery search follows (memory / advice may
+        # have reordered it; the audit checks that no candidate was skipped)
+        record['stations']=stations.to_block(); record['station_order']=order
     if a.inference_backend=='local':
         record['version']='3.2-local'
     print(json.dumps({k:v for k,v in record.items() if k not in ('trace','events')},ensure_ascii=False,indent=2))

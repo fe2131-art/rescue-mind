@@ -38,16 +38,20 @@ def station_centers(config:dict, *, locked:bool=True)->dict:
     """Validate a station-centre config.  locked=True (default) pins the fixed showcase geometry;
     locked=False (Study L per-run layout configs) keeps the shape / finite-value checks only."""
     expected={'water':(2.0,2.0),'medicine':(-2.0,2.0)}
-    if not isinstance(config,dict) or set(config)!=set(expected):
-        raise ValueError('station centers schema mismatch')
     if not locked:
+        # I-21: a per-run centres file may list k stations (2..8 ids, e.g. the depot's W1 M1 W2 M2); the locked
+        # default keeps exactly the arena's two
+        if not isinstance(config,dict) or not 2<=len(config)<=8 or not all(isinstance(k,str) and k for k in config):
+            raise ValueError('station centers schema mismatch')
         out={}
-        for key in expected:
+        for key in config:
             xy=config[key]
             if type(xy)!=list or len(xy)!=2 or not all(type(v) in (float,int) and isfinite(v) for v in xy):
                 raise ValueError('station centers must be finite [x, y] pairs')
             out[key]=(float(xy[0]),float(xy[1]))
         return out
+    if not isinstance(config,dict) or set(config)!=set(expected):
+        raise ValueError('station centers schema mismatch')
     for key, xy in expected.items():
         if type(config[key])!=list or len(config[key])!=2 or tuple(config[key])!=xy:
             raise ValueError('station centers must match locked SDF geometry')

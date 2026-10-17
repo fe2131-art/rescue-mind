@@ -27,6 +27,10 @@ MODES = ('off', 'monotone', 'naive', 'filtered')
 FOLLOWING = ('naive', 'filtered')       # modes that follow advice (no monotone guarantee)
 SOURCES = ('memory', 'peer', 'inventory', 'operator')
 STATION_JA = {'water': '拠点W', 'medicine': '拠点M'}
+
+
+def station_ja(st) -> str:
+    return STATION_JA.get(st) or f'拠点{st}'
 SOURCE_JA = {'memory': '自分の記憶', 'peer': '他のロボット', 'inventory': '在庫記録', 'operator': '依頼文'}
 
 
@@ -34,13 +38,14 @@ class AdviceError(ValueError):
     pass
 
 
-def validate(items: list[dict]) -> list[dict]:
+def validate(items: list[dict], stations=None) -> list[dict]:
+    ids = tuple(stations.ids) if stations is not None else STATIONS
     out = []
     for a in items or []:
         if not isinstance(a, dict) or a.get('kind') not in KINDS or a.get('source') not in SOURCES:
             raise AdviceError(f'bad advice item: {a!r}')
         st = a.get('station')
-        if st is not None and st not in STATIONS:
+        if st is not None and st not in ids:
             raise AdviceError(f'bad advice station: {a!r}')
         if a['kind'] in ('location', 'hazard') and st is None:
             raise AdviceError(f'{a["kind"]} advice needs a station: {a!r}')
@@ -48,15 +53,22 @@ def validate(items: list[dict]) -> list[dict]:
     return out
 
 
-def load(path: str | Path | None) -> list[dict]:
+def load(path: str | Path | None, stations=None) -> list[dict]:
     if not path:
         return []
-    return validate(json.loads(Path(path).read_text(encoding='utf8')))
+    return validate(json.loads(Path(path).read_text(encoding='utf8')), stations)
 
 
-def base_plan(item: str) -> dict:
-    return {'mode': 'off', 'catalog_station': item, 'first_station': item, 'n_records': 0, 'caution': {},
-            'skip_check': False, 'deny_without_visit': False, 'rationale': []}
+def base_plan(item: str, stations=None) -> dict:
+    """The no-advice plan.  With a k > 2 station set it carries 'order' (the inventory's candidate order)."""
+    from .stations import StationSet
+    ss = stations or StationSet.legacy()
+    cat = ss.catalog(item)
+    out = {'mode': 'off', 'catalog_station': cat, 'first_station': cat, 'n_records': 0, 'caution': {},
+           'skip_check': False, 'deny_without_visit': False, 'rationale': []}
+    if not ss.is_legacy():
+        out['order'] = ss.default_order(item)
+    return out
 
 
 def apply_filter(items: list[dict], filter_fn) -> tuple[list[dict], list[dict], dict]:
@@ -84,13 +96,16 @@ def apply_filter(items: list[dict], filter_fn) -> tuple[list[dict], list[dict], 
 
 
 def plan(item: str, items: list[dict], mode: str, base: dict | None = None, *, caution_tau_h: float = CAUTION_TAU_H,
-         filter_fn=None) -> dict:
+         filter_fn=None, stations=None) -> dict:
     """Combine advice with an existing plan (e.g. the memory plan).  Returns a new plan with an 'advice' record.
     Mode 'filtered' needs `filter_fn` (see apply_filter); the items it keeps are followed exactly as in 'naive'."""
-    if item not in STATIONS or mode not in MODES or (mode == 'filtered' and filter_fn is None):
+    from .stations import StationSet
+    ss = stations or StationSet.legacy()
+    if item not in ('water', 'medicine') or mode not in MODES or (mode == 'filtered' and filter_fn is None):
         raise AdviceError('bad advice plan request')
-    items = validate(items)
-    out = json.loads(json.dumps(base)) if base else base_plan(item)
+    items = validate(items, ss)
+    out = json.loads(json.dumps(base)) if base else base_plan(item, ss)
+    cat = ss.catalog(item)
     out.setdefault('rationale', [])
     rec = {'mode': mode, 'items': items, 'applied': [], 'rejected': [], 'n_base_rationale': len(out['rationale']),
            'base': _snapshot(out)}       # what the audit recomputes assert_monotone against
@@ -109,24 +124,26 @@ def plan(item: str, items: list[dict], mode: str, base: dict | None = None, *, c
     for a in items:
         st, src = a['station'], SOURCE_JA[a['source']]
         if a['kind'] == 'location':
-            if out['first_station'] == item and st != item:      # own memory's proposal (if any) keeps priority
+            if out['first_station'] == cat and st != cat:      # own memory's proposal (if any) keeps priority
                 out['first_station'] = st
+                if 'order' in out:
+                    out['order'] = ss.order(item, st)          # reorder only: every other candidate stays
                 rec['applied'].append(dict(a, effect='reorder'))
-                out['rationale'].append(f'{src}：依頼物資は{STATION_JA[st]}にある → 先に{STATION_JA[st]}へ（着いたら確認する）')
+                out['rationale'].append(f'{src}：依頼物資は{station_ja(st)}にある → 先に{station_ja(st)}へ（着いたら確認する）')
             else:
                 rec['rejected'].append(dict(a, why='no reorder needed or already proposed'))
         elif a['kind'] == 'hazard':
             if follow and st == out['first_station']:
                 out['deny_without_visit'] = True
                 rec['applied'].append(dict(a, effect='deny_without_visit'))
-                out['rationale'].append(f'{tag}{src}：{STATION_JA[st]}で火災 → 行かずに拒否')
+                out['rationale'].append(f'{tag}{src}：{station_ja(st)}で火災 → 行かずに拒否')
             else:
                 prev = (out['caution'].get(st) or {}).get('tau_h')
                 tau = min(caution_tau_h, prev) if prev is not None else caution_tau_h
                 out['caution'][st] = {**(out['caution'].get(st) or {}), 'tau_h': tau,
                                       'first_side': (out['caution'].get(st) or {}).get('first_side'), 'seen_in': a['source']}
                 rec['applied'].append(dict(a, effect='caution'))
-                out['rationale'].append(f'{src}：{STATION_JA[st]}で火災の報告 → 全視点で閾値を {tau} に厳格化（行って確かめる）')
+                out['rationale'].append(f'{src}：{station_ja(st)}で火災の報告 → 全視点で閾値を {tau} に厳格化（行って確かめる）')
         else:   # safe / skip
             if follow:
                 out['skip_check'] = True
@@ -136,20 +153,24 @@ def plan(item: str, items: list[dict], mode: str, base: dict | None = None, *, c
                 rec['rejected'].append(dict(a, why='cannot relax a check'))
                 out['rationale'].append(f'{src}：「{a["text"] or a["kind"]}」→ 確認は省略できないため不採用')
     if mode == 'monotone':
-        assert_monotone(base_plan(item) if base is None else base, out)
+        assert_monotone(base_plan(item, ss) if base is None else base, out, ss)
     return out
 
 
 def _snapshot(plan: dict) -> dict:
-    return {'first_station': plan.get('first_station'), 'skip_check': bool(plan.get('skip_check')),
+    snap = {'first_station': plan.get('first_station'), 'skip_check': bool(plan.get('skip_check')),
             'deny_without_visit': bool(plan.get('deny_without_visit')),
             'caution': json.loads(json.dumps(plan.get('caution') or {}))}
+    if plan.get('order'):
+        snap['order'] = list(plan['order'])
+    return snap
 
 
-def assert_monotone(before: dict, after: dict) -> None:
+def assert_monotone(before: dict, after: dict, stations=None) -> None:
     """The invariant, checked on every monotone plan and recomputed by the run audit: no skipped check, no refusal
     without visiting (relative to the plan before advice: a naive MEMORY baseline underneath stays what it was),
-    thresholds only tighter than before.  Reordering is allowed."""
+    thresholds only tighter than before, and (k > 2 stations) the candidate order is a permutation of the plan before: no
+    candidate dropped or added, so the recovery search still checks every station.  Reordering is allowed."""
     if (after.get('skip_check') and not before.get('skip_check')) or (
             after.get('deny_without_visit') and not before.get('deny_without_visit')):
         raise AdviceError('monotone plan relaxes a check')
@@ -157,8 +178,15 @@ def assert_monotone(before: dict, after: dict) -> None:
         b = (before.get('caution') or {}).get(st)
         if b is not None and float(c['tau_h']) > float(b['tau_h']):
             raise AdviceError('monotone plan loosens a caution threshold')
-    if after.get('first_station') not in STATIONS:
+    ids = tuple(stations.ids) if stations is not None else (
+        tuple(after['order']) if after.get('order') else STATIONS)
+    if after.get('first_station') not in ids:
         raise AdviceError('bad first station')
+    if before.get('order') or after.get('order'):
+        if sorted(before.get('order') or []) != sorted(after.get('order') or []):
+            raise AdviceError('monotone plan dropped or added a candidate station')
+        if after['order'][0] != after.get('first_station'):
+            raise AdviceError('first station is not the head of the candidate order')
 
 
 def audit_plan(plan: dict) -> dict:
