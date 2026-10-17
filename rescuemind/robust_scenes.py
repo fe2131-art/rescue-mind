@@ -230,6 +230,148 @@ def hazard_visible(station: str, hazard_at: str | None, pose_xy: tuple[float, fl
     return abs(math.atan2(math.sin(bearing), math.cos(bearing))) < half_fov
 
 
+# ---------------------------------------------------------------------------------------------------------------------
+# Study S: scene text (physical prompt injection).  Signs are thin textured boxes; nothing else in a world changes.
+SIGN_KINDS = ('mislabel', 'false_safe', 'letter', 'benign', 'legit')
+SIGN_PLACEMENTS = ('sticker', 'notice', 'beside_fire')
+SIGN_SIZE_M = {'sticker': (0.26, 0.11), 'notice': (0.40, 0.32), 'beside_fire': (0.40, 0.32)}
+SUPPLY_MODELS = ('sealed_water_bottles', 'first_aid_case')
+KIT_HALF_XY = (0.185, 0.20)          # first_aid_case body: box .37 x .40 (x, y in the model frame)
+APPROACH_DIST_M = 1.40               # design checkpoint distance to the station centre (fire_mask_at_pose.DESIGN_POSE)
+
+
+def _textured_box(link, name, pose, size, png_path, cast_shadows=False):
+    """A box visual whose faces show a PNG through the PBR albedo map (diffuse stays white)."""
+    v = ET.SubElement(link, 'visual', name=name)
+    ET.SubElement(v, 'pose').text = pose
+    v.append(ET.fromstring('<geometry><box><size>%s</size></box></geometry>' % ' '.join(f'{t:g}' for t in size)))
+    mat = ET.SubElement(v, 'material')
+    ET.SubElement(mat, 'ambient').text = '1 1 1 1'
+    ET.SubElement(mat, 'diffuse').text = '1 1 1 1'
+    pbr = ET.SubElement(mat, 'pbr')
+    metal = ET.SubElement(pbr, 'metal')
+    ET.SubElement(metal, 'albedo_map').text = str(Path(png_path).resolve())
+    ET.SubElement(metal, 'metalness').text = '0.0'
+    ET.SubElement(metal, 'roughness').text = '0.9'
+    if not cast_shadows:
+        ET.SubElement(v, 'cast_shadows').text = 'false'
+    return v
+
+
+def text_sign(name, x, y, z, yaw, png_path, w, h, thickness=0.006, post=False):
+    """A static sign: a thin box of w (wide) x h (high) metres centred at (x, y, z), whose front face (local +x, facing
+    the direction `yaw`) shows `png_path`.  post=True adds a thin grey post down to the floor (a notice stand)."""
+    m = ET.Element('model', name=name)
+    ET.SubElement(m, 'static').text = 'true'
+    ET.SubElement(m, 'pose').text = f'{x:.4f} {y:.4f} {z:.4f} 0 0 {yaw:.4f}'
+    link = ET.SubElement(m, 'link', name='sign')
+    _textured_box(link, 'face', '0 0 0 0 0 0', (thickness, w, h), png_path)
+    if post:
+        foot = z - h / 2
+        _visual(link, 'post', f'{-0.02:g} 0 {-(z + h / 2) / 2:.4f} 0 0 0',
+                f'<box><size>.03 .03 {foot:.4f}</size></box>', '.35 .35 .37 1')
+    return m
+
+
+def label_sticker(name, x, y, z, yaw, png_path, w=0.26, h=0.11):
+    """A label stuck ON a supply box face: a 4 mm textured plate whose front (local +x) points along `yaw` (the face
+    normal); (x, y, z) is the plate centre, 3 mm off the face so that it never z-fights with it."""
+    return text_sign(name, x, y, z, yaw, png_path, w, h, thickness=0.004, post=False)
+
+
+def station_axes(station: str) -> tuple[tuple[float, float], tuple[float, float]]:
+    """(u, v): unit vector from the arena origin to the station (the approach direction) and the lateral unit vector."""
+    x, y = STATIONS[station]
+    n = (x * x + y * y) ** .5
+    ux, uy = x / n, y / n
+    return (ux, uy), (-uy, ux)
+
+
+def camera_xy(station: str, dist: float = APPROACH_DIST_M) -> tuple[float, float]:
+    (ux, uy), _ = station_axes(station)
+    x, y = STATIONS[station]
+    return x - dist * ux, y - dist * uy
+
+
+def sign_layout(placement: str, station: str, *, side: float = 1.0, hazard_lateral: float | None = None) -> dict:
+    """Pose and size of a free-standing sign (placements 'notice' and 'beside_fire').
+    notice      : beside the platform's back corner (0.35 m behind its centre, lateral 0.55 m to `side`), on a post, facing the checkpoint camera.
+    beside_fire : on the same side as the fire (side = sign of the fire's lateral offset), 0.15 m behind the platform centre,
+                  lateral 0.46 m, so that it stands next to the flames in the checkpoint image."""
+    import math
+    (ux, uy), (vx, vy) = station_axes(station)
+    sx, sy = STATIONS[station]
+    if placement == 'notice':
+        back, lat, zc = 0.35, 0.55 * side, 0.74
+    elif placement == 'beside_fire':
+        s = side if not hazard_lateral else (1.0 if hazard_lateral > 0 else -1.0)
+        back, lat, zc = 0.15, 0.46 * s, 0.72
+    else:
+        raise ValueError(f'no free-standing layout for placement {placement!r}')
+    x, y = sx + back * ux + lat * vx, sy + back * uy + lat * vy
+    cx, cy = camera_xy(station)
+    w, h = SIGN_SIZE_M[placement]
+    return {'x': x, 'y': y, 'z': zc, 'yaw': math.atan2(cy - y, cx - x), 'w': w, 'h': h, 'post': True}
+
+
+def sign_max_bearing(layout: dict, cam_xy: tuple[float, float], cam_yaw: float) -> float:
+    """Largest |bearing| (rad) of the sign's left/right edge in the camera frame; the camera sees +-CAMERA_HALF_HFOV."""
+    import math
+    x, y, yaw, w = layout['x'], layout['y'], layout['yaw'], layout['w']
+    out = 0.0
+    for k in (-1, 1):
+        ex, ey = x - k * w / 2 * math.sin(yaw), y + k * w / 2 * math.cos(yaw)
+        b = math.atan2(ey - cam_xy[1], ex - cam_xy[0]) - cam_yaw
+        out = max(out, abs(math.atan2(math.sin(b), math.cos(b))))
+    return out
+
+
+def _supply_near(world, station: str):
+    sx, sy = STATIONS[station]
+    for m in world.findall('model'):
+        if m.get('name') in SUPPLY_MODELS:
+            v = [float(t) for t in m.findtext('pose').split()]
+            if abs(v[0] - sx) < 0.5 and abs(v[1] - sy) < 0.5:
+                return m, v
+    return None, None
+
+
+def _sign_models(world, sign: dict, hazard_at, hazard_geom):
+    """Models for build_variant(sign=...).  sign = {kind, text, placement, png, station[, side]}."""
+    import math
+    if sign.get('kind') not in SIGN_KINDS or sign.get('placement') not in SIGN_PLACEMENTS:
+        raise ValueError(f'unknown sign kind/placement: {sign.get("kind")!r}/{sign.get("placement")!r}')
+    if not sign.get('png'):
+        raise ValueError('sign needs a rendered texture: pass png=<abs path> (rescuemind.sign_textures.render_sign_png)')
+    st, side, png = sign['station'], float(sign.get('side', 1.0)), sign['png']
+    name = f'sign_{sign["kind"]}_{st}'
+    cx, cy = camera_xy(st)
+    if sign['placement'] == 'sticker':
+        m, v = _supply_near(world, st)
+        if m is None:
+            raise ValueError(f'no supply on the {st} platform to stick a label on')
+        beta = math.atan2(cy - v[1], cx - v[0])                 # direction from the supply to the checkpoint camera
+        if m.get('name') == 'first_aid_case':
+            # the four side faces of the (freely rotated) box; the one most squarely facing the camera gets the label
+            psi = v[5]
+            k = max(range(4), key=lambda i: math.cos(psi + i * math.pi / 2 - beta))
+            ang = psi + k * math.pi / 2
+            half = KIT_HALF_XY[0] if k % 2 == 0 else KIT_HALF_XY[1]
+            off = half + 0.003
+            return [label_sticker(name, v[0] + off * math.cos(ang), v[1] + off * math.sin(ang), 0.60, ang, png)]
+        # water bottles: a small tag card standing on the platform top in front of the six-pack
+        (ux, uy), _ = station_axes(st)
+        tx, ty = v[0] - 0.30 * ux, v[1] - 0.30 * uy
+        return [text_sign(name, tx, ty, 0.57, math.atan2(cy - ty, cx - tx), png, 0.26, 0.11, thickness=0.01)]
+    lat = None
+    if sign['placement'] == 'beside_fire':
+        if hazard_at != st:
+            raise ValueError('placement beside_fire needs a fire behind the same station')
+        lat = float(tuple(hazard_geom or (0.75, 0.5))[1])
+    lay = sign_layout(sign['placement'], st, side=side, hazard_lateral=lat)
+    return [text_sign(name, lay['x'], lay['y'], lay['z'], lay['yaw'], png, lay['w'], lay['h'], post=lay['post'])]
+
+
 def _platform_empty(world, x, y) -> bool:
     for m in world.findall('model'):
         if m.get('name') in ('sealed_water_bottles', 'first_aid_case'):
@@ -322,7 +464,8 @@ def build_variant(src: Path, *, lighting: str = 'default', distractor_at: str | 
                   hazard_at: str | None = None, lighting_params: dict | None = None,
                   prop_offsets: dict | None = None, hazard_geom: tuple[float, float] | None = None,
                   distractor_kind: str = 'box', distractor_side: float = 1.0,
-                  distractor_layout: str = 'world', hazard_mask: bool = False, layout=None, depot=None) -> bytes:
+                  distractor_layout: str = 'world', hazard_mask: bool = False, layout=None, depot=None,
+                  sign: dict | None = None) -> bytes:
     """Controlled variants (dev sets, campaigns) and, with the extra keyword arguments,
     the continuously randomised held-out test worlds (T1).
 
@@ -423,6 +566,9 @@ def build_variant(src: Path, *, lighting: str = 'default', distractor_at: str | 
         # I-21 polish (study XD): wooden pallets with stretch-wrapped cartons; visual only, same collision footprint
         from .depot import dress_platforms
         dress_platforms(world, depot)
+    if sign:
+        # study S: a textured sign in the scene (nothing else changes); see _sign_models
+        world.extend(_sign_models(world, sign, hazard_at, hazard_geom))
     ET.indent(tree, space='  ')
     return ET.tostring(tree.getroot(), encoding='utf-8', xml_declaration=True)
 
