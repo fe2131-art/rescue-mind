@@ -765,8 +765,15 @@ def headline(D, E, V, after_fig=()):
     return gloss, out
 
 
-def judge_box(D, E, V):
-    """3-minute box at the top of page 1: problem, what is new, three numbers in plain words (all read from result files)."""
+def judge_box(D, E, V, compact=False):
+    """3-minute box on page 1: problem, what is new, three numbers in plain words (all read from result files).
+    compact: three short lines under the graphical abstract (the figure already carries the numbers)."""
+    if compact:
+        lines = ['<b>問題</b>：在庫表と現物の食い違いや火災があると、指示どおり運ぶロボットは誤った物資や危険な場所へ届けてしまう。',
+                 '<b>解き方</b>：届ける前に拠点で止まり、ローカルのAIが<b>選択肢の確率</b>で現物と火・煙を確かめる。迷ったら止まる。'
+                 '正面で見えない火は<b>横へ0.4 m動いて</b>見直す。前回の記憶は<b>行く順番の提案だけ</b>で、確認は決して省かない。',
+                 '<b>動画で見てほしい点</b>：物資の取り違え → 別の拠点を探す／記憶で直行しても着いたら確かめる／隠れた火を横から見つけて止まる。']
+        return [P(x, 'small') for x in lines] + [Spacer(1, 3)]
     h = jload('h_summary.json')
     items = ['<b>問題</b>：災害時の物資配達ロボットは、在庫表と現物の食い違い（水のはずが救急箱・空）や火災に出会う。指示どおり運ぶだけでは、誤った物資や危険な場所へ届けてしまう。',
              '<b>新しさ</b>：前回の出動の記憶は「どの拠点を先に見るか」を<b>提案するだけ</b>で、届けてよいかは必ず<b>その場のカメラ</b>で決める（記憶は提案、判断は目）。'
@@ -933,8 +940,8 @@ def build(account: str, video_url: str | None, repo_url: str):
                  ['AIの活用', '① 自然言語指示の理解（ローカルLLM）② 搭載カメラ画像による現物・危険の確認（ローカルVLM、選択肢の確率で判断）③ 現場の人への日本語状況報告']],
                 [28, 146]), Spacer(1, 4)]
     gloss, _unused = headline(D, E, V, info)
-    s += judge_box(D, E, V)
-    s += gloss
+    # page 1 for a judge with three minutes: the figure first, then three short lines, then the submission table
+    s += gloss[:1] + judge_box(D, E, V, compact=True) + gloss[1:]
     crit = [['審査基準', '本作品での取り組み', '根拠（本資料の節）'],
             ['創造性', '「運ぶAI」ではなく「間違えたら動かないAI」。新規性3つ：横から見直す能動知覚、確認を減らさない出動をまたぐ記憶、当初計画の2つのAI', '要旨, 4.1–4.3章'],
             ['技術力', '選択肢の確率によるVLM判定、独立速度ガード、Gazebo真値による独立監査、事前登録した閉ループ評価（結果あり：D・E・F・G・H'+('・J' if jload('j_summary.json') else '、実行中：J')+('' if jload('v_summary.json') and jload('w_summary.json') else '。' + ('' if jload('v_summary.json') else 'V') + ('' if jload('w_summary.json') else 'W') + 'は実行中')+'）と未使用画像の評価（T1・T2・Z・P・R）、対比較の検定つきで弱点を段階的に改善', '2–4章, 付録'],
