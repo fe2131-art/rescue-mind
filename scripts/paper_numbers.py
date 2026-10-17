@@ -496,6 +496,11 @@ def main():
         m['PRecall'] = f"{pp['recall']['k']}/{pp['recall']['n']}"; m['PFalseAlarm'] = f"{pp['false_alarm']['k']}/{pp['false_alarm']['n']}"
         m['PRecallCI'] = f"[{100 * pp['recall']['ci95'][0]:.1f}, {100 * pp['recall']['ci95'][1]:.1f}]\\%"
         m['PFalseAlarmCI'] = f"[{100 * pp['false_alarm']['ci95'][0]:.0f}, {100 * pp['false_alarm']['ci95'][1]:.0f}]\\%"
+        ps = RES / 'p_scores_qwen9b_h36_tiles.jsonl'          # descriptive, not registered: ranking quality on P
+        if ps.is_file():
+            rows = [json.loads(l) for l in ps.read_text().splitlines() if l.strip()]
+            pos = [r['hazard_prob'] for r in rows if r['category'] != 'none']; neg = [r['hazard_prob'] for r in rows if r['category'] == 'none']
+            m['PAuroc'] = f"{sum((a > b) + 0.5 * (a == b) for a in pos for b in neg) / (len(pos) * len(neg)):.2f}"
     # ---- study P2 (site calibration of tau_h on real photographs; chosen wording, test endpoints, registered claim)
     p2f = RES / 'p2_summary.json'
     if p2f.is_file():
@@ -596,7 +601,7 @@ def main():
                'HModelPdet', 'HModelPdetN', 'HModelQ', 'HModelUnsafezero', 'HModelUnsafeone', 'HModelUnsafetwo',
                'HModelTimezero', 'HModelTimeone', 'HModelTimetwo',
                'JCorrectA', 'JCorrectJ', 'JUnsafeA', 'JUnsafeJ', 'JFalseRefA', 'JFalseRefJ', 'JFailedA', 'JFailedJ', 'JLatA', 'JLatJ',
-               'JPeakVram', 'JMcNemarP', 'JClaim', 'PRecall', 'PFalseAlarm', 'PRecallCI', 'PFalseAlarmCI',
+               'JPeakVram', 'JMcNemarP', 'JClaim', 'PRecall', 'PFalseAlarm', 'PRecallCI', 'PFalseAlarmCI', 'PAuroc',
                'PTwoWording', 'PTwoTau', 'PTwoRecall', 'PTwoRecallCI', 'PTwoFA', 'PTwoFACI', 'PTwoClaim', 'PTwoFrozenRecall', 'PTwoFrozenFA'])
     for name in ('tab_t1_models.tex', 'tab_t1_ablation.tex', 'tab_e_strata.tex', 'tab_i13_dev.tex', 'tab_r.tex', 'tab_h_arms.tex', 'tab_h_sequences.tex'):
         tables.setdefault(name, r'\begin{tabular}{l}\TBD\end{tabular}')
