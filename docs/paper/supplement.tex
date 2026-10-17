@@ -37,7 +37,7 @@ own threshold.
 
 \textbf{T1 examples.} Fig.~\ref{fig:t1ex} shows held-out T1 images. T1 used 60 Gazebo worlds $\times$ 2 stations $\times$ 5 viewpoints
 with continuous random lighting, supplies moved by up to $\pm$0.15\,m and freely rotated, random fire positions, and three distractors.
-Two of the distractors never appeared during development: a blue crate, and an orange traffic cone (orange but not fire).
+Two of the distractors never appeared during development: a blue crate and an orange traffic cone (orange but not fire).
 \begin{figure}[t]\centering\fig{fig_t1_examples.pdf}
 \caption{Held-out T1 images (robot camera, 640$\times$480) with the generator's expected decision. The crate and the
 traffic cone never appeared during development.}\label{fig:t1ex}\end{figure}
@@ -55,68 +55,59 @@ ones. Qwen3.5-4B produced a false approval. Qwen3.5-9B was therefore chosen and 
 The main paper condenses this section; the full text follows.
 
 \textbf{Failure detection and verification with foundation models.}
-REFLECT \cite{liu2023reflect} and AHA \cite{duan2025aha} explain manipulation failures in natural language
-after the fact. Inner Monologue \cite{huang2023innermonologue} feeds success detection back into a planner.
+REFLECT~\cite{liu2023reflect} and AHA~\cite{duan2025aha} explain manipulation failures in natural language
+after the fact. Inner Monologue~\cite{huang2023innermonologue} feeds success detection back into a planner.
 Du et al.\ \cite{du2023successdetectors} fine-tune a VLM as a success detector.
-Sentinel \cite{agia2025sentinel}, FAIL-Detect \cite{xu2025faildetect} and Code-as-Monitor \cite{zhou2025codeasmonitor}
-monitor learned policies at run time, an LLM-based anomaly monitor triggers reactive fallbacks \cite{sinha2024realtime},
-and uncertainty-aware policy steering decides when to act, ask or learn \cite{yuan2026whentoact}.
-Semantic anomaly detection with LLMs \cite{elhafsi2023semantic} and visual question answering that abstains rather than
-answers wrongly \cite{whitehead2022reliablevqa} are close in spirit to a gate that prefers refusal. Our check runs \emph{before} the robot acts and is closed-set and zero-shot. Its output is a
+Sentinel~\cite{agia2025sentinel}, FAIL-Detect~\cite{xu2025faildetect} and Code-as-Monitor~\cite{zhou2025codeasmonitor}
+monitor learned policies at run time; an LLM-based anomaly monitor triggers reactive fallbacks~\cite{sinha2024realtime};
+and uncertainty-aware policy steering decides when to act, ask or learn~\cite{yuan2026whentoact}.
+Semantic anomaly detection with LLMs~\cite{elhafsi2023semantic} and visual question answering that abstains rather than
+answers wrongly~\cite{whitehead2022reliablevqa} are close in spirit to a gate that prefers refusal. Our check runs \emph{before} the robot acts and is closed-set and zero-shot. Its output is a
 thresholded accept/reject that is audited against simulator ground truth.
-The closest methodological relative is KnowNo \cite{ren2023knowno}, which scores multiple-choice answers by
-next-token probability and asks a human for help, with a conformal-prediction coverage guarantee (see \cite{angelopoulos2021conformal} for background on conformal prediction).
-SayCan \cite{ichter2023saycan} likewise scores a fixed candidate set by language-model likelihood.
+The closest methodological relative is KnowNo~\cite{ren2023knowno}, which scores multiple-choice answers by
+next-token probability and asks a human for help, with a conformal-prediction coverage guarantee (see~\cite{angelopoulos2021conformal} for background on conformal prediction).
+SayCan~\cite{ichter2023saycan} likewise scores a fixed candidate set by language-model likelihood.
 We share the scoring, but we respond to uncertainty by refusing or searching, and we add permuted-option agreement as a
 test-time defence against letter bias.
 
 \textbf{Multiple-choice scoring and its biases.}
-Scoring answer symbols works well when a model binds symbols to options \cite{robinson2023mcqa}. Language models are reasonably calibrated on
-well-formatted multiple-choice questions \cite{kadavath2022know}, but they prefer certain option IDs \cite{zheng2024mcselectors} and orders
-\cite{pezeshkpour2024order}, and their raw confidence needs validation \cite{guo2017calibration,zhao2021calibrate}.
-Our two permuted questions are a minimal, deterministic form of self-consistency \cite{wang2023selfconsistency}.
-The Yes/No hazard question follows the polling style of POPE \cite{li2023pope}.
+Scoring answer symbols works well when a model binds symbols to options~\cite{robinson2023mcqa}. Language models are reasonably calibrated on
+well-formatted multiple-choice questions~\cite{kadavath2022know}, but they prefer certain option IDs~\cite{zheng2024mcselectors} and orders~\cite{pezeshkpour2024order}, and their raw confidence needs validation~\cite{guo2017calibration,zhao2021calibrate}.
+Our two permuted questions are a minimal, deterministic form of self-consistency~\cite{wang2023selfconsistency}.
+The Yes/No hazard question follows the polling style of POPE~\cite{li2023pope}.
 
-\textbf{Safety architectures.} Simplex \cite{seto1998simplex,sha2001simplicity}, shields \cite{alshiekh2018shielding}
-and control barrier functions \cite{ames2019cbf} keep a simple verified layer between a complex decision maker and
-the actuators. LLM-controlled robots can be manipulated into harmful actions \cite{robey2025jailbreaking}, and
-guardrails such as RoboGuard \cite{ravichandran2026guardrails} check plans before execution.
-In contrast to vision-language-action models \cite{zitkovich2023rt2,kim2025openvla}, our VLM never commands motion.
+\textbf{Safety architectures.} Simplex~\cite{seto1998simplex,sha2001simplicity}, shields~\cite{alshiekh2018shielding}
+and control barrier functions~\cite{ames2019cbf} keep a simple verified layer between a complex decision maker and
+the actuators. LLM-controlled robots can be manipulated into harmful actions~\cite{robey2025jailbreaking}, and
+guardrails such as RoboGuard~\cite{ravichandran2026guardrails} check plans before execution.
+In contrast to vision-language-action models~\cite{zitkovich2023rt2,kim2025openvla}, our VLM never commands motion.
 
 \textbf{Memory for robots in changing environments.}
-Robots increasingly keep long-horizon semantic memory. ReMEmbR \cite{anwar2025remembr} and Embodied-RAG
-\cite{xie2024embodiedrag} retrieve from a database of captioned observations; KARMA \cite{wang2025karma} adds long- and
-short-term memory to embodied agents, and H-EMV \cite{barmann2025hemv} verbalises a robot's episodic memory. 3D scene graphs such as Hydra
-\cite{hughes2022hydra}, ConceptGraphs \cite{gu2024conceptgraphs} and HOV-SG \cite{werby2024hovsg} support planning
-\cite{rana2023sayplan} and language grounding \cite{huang2023vlmaps}. Long-term mapping has long dealt with change
-\cite{biber2005dynamic,krajnik2017fremen}, and recent work tracks changes in dynamic scene graphs
-\cite{schmid2024khronos,behrens2025lostfound}. These systems use memory to \emph{answer} or \emph{plan}. A recent preprint reports, in a small grid-navigation testbed, that acting on
-unaudited stale memory can be worse than having no memory \cite{sun2026memorylies}. GLOVE
-\cite{yin2026glove} and VLM-DEWM \cite{tang2026vlmdewm} check memory or a world model against fresh observations to keep
+Robots increasingly keep long-horizon semantic memory. ReMEmbR~\cite{anwar2025remembr} and Embodied-RAG~\cite{xie2024embodiedrag} retrieve from a database of captioned observations; KARMA~\cite{wang2025karma} adds long- and
+short-term memory to embodied agents, and H-EMV~\cite{barmann2025hemv} verbalises a robot's episodic memory. 3D scene graphs such as Hydra~\cite{hughes2022hydra}, ConceptGraphs~\cite{gu2024conceptgraphs} and HOV-SG~\cite{werby2024hovsg} support planning~\cite{rana2023sayplan} and language grounding~\cite{huang2023vlmaps}. Long-term mapping has long dealt with change~\cite{biber2005dynamic,krajnik2017fremen}, and recent work tracks changes in dynamic scene graphs~\cite{schmid2024khronos,behrens2025lostfound}. These systems use memory to \emph{answer} or \emph{plan}. A recent preprint reports, in a small grid-navigation testbed, that acting on
+unaudited stale memory can be worse than having no memory~\cite{sun2026memorylies}. GLOVE~\cite{yin2026glove} and VLM-DEWM~\cite{tang2026vlmdewm} check memory or a world model against fresh observations to keep
 the memory \emph{correct}.
 We study a different use: memory decides \emph{where and how carefully to verify}. We restrict it so that it can never
 reduce verification, and we state this as a provable invariant and test it under scripted change.
 
-\textbf{Active perception.} Moving the sensor to resolve ambiguity is a classic idea \cite{bajcsy1988active,bajcsy2018revisiting},
-and view planning for inspection is well studied \cite{scott2003viewplanning}. Recent embodied agents explore until a VLM
-is confident \cite{ren2024exploreuntil} or let a VLM choose views \cite{sripada2024sceneexploration}. Our look-around is
+\textbf{Active perception.} Moving the sensor to resolve ambiguity is a classic idea~\cite{bajcsy1988active,bajcsy2018revisiting},
+and view planning for inspection is well studied~\cite{scott2003viewplanning}. Recent embodied agents explore until a VLM
+is confident~\cite{ren2024exploreuntil} or let a VLM choose views~\cite{sripada2024sceneexploration}. Our look-around is
 deliberately simple: two fixed side views, used only to \emph{revoke} an approval. This makes its effect auditable and
 its safety direction obvious.
 
-\textbf{Robustness and the sim-to-real gap.} Image classifiers degrade under common corruptions
-\cite{hendrycks2019benchmarking}, and so do detectors \cite{michaelis2019benchmarking}, adapted vision-language models
-\cite{chen2023benchmarking} and video-language models \cite{schiappa2022robustness}. Sim-to-real transfer is a recognised challenge in robotics \cite{hofer2021sim2real}.
+\textbf{Robustness and the sim-to-real gap.} Image classifiers degrade under common corruptions~\cite{hendrycks2019benchmarking}, and so do detectors~\cite{michaelis2019benchmarking}, adapted vision-language models~\cite{chen2023benchmarking} and video-language models~\cite{schiappa2022robustness}. Sim-to-real transfer is a recognised challenge in robotics~\cite{hofer2021sim2real}.
 Without a physical platform, we measure one part of this gap, sensor degradation, under a pre-registered protocol. What
 we care about is the \emph{direction} of the errors, not only accuracy.
 
 \textbf{Diverse redundancy.} Requiring agreement between independently developed versions is a classic fault-tolerance
-technique \cite{avizienis1985nversion}. Its benefit is limited by correlated failures \cite{knight1986experimental}, and
-model-agreement schemes for language models have reappeared recently \cite{du2024debate}. We report both sides: the two
+technique~\cite{avizienis1985nversion}. Its benefit is limited by correlated failures~\cite{knight1986experimental}, and
+model-agreement schemes for language models have reappeared recently~\cite{du2024debate}. We report both sides: the two
 models agree on most images, and the second model's value depends strongly on how it is asked.
 
 \textbf{Evaluation practice.} We follow recommendations to report conditions, multiple metrics, uncertainty
-and failure modes \cite{kressgazit2024empirical}. We use Wilson intervals \cite{wilson1927probable} and exact McNemar
-tests \cite{mcnemar1947note}. Domain randomisation \cite{tobin2017domain} is used here to build a held-out \emph{test} distribution, not for training.
+and failure modes~\cite{kressgazit2024empirical}. We use Wilson intervals~\cite{wilson1927probable} and exact McNemar
+tests~\cite{mcnemar1947note}. Domain randomisation~\cite{tobin2017domain} is used here to build a held-out \emph{test} distribution, not for training.
 
 \section{Additional T1 analyses}\label{sec:t1extra}
 \subsection{Decision-rule ablations}
@@ -125,7 +116,7 @@ $^{*}$: exact McNemar $p<0.05$ versus the full rule of the same model.}
 \label{tab:t1ablation}\resizebox{\linewidth}{!}{\input{tab_t1_ablation.tex}}\end{table}
 Table~\ref{tab:t1ablation} isolates the parts of the rule on T1 (Table~\ref{M-tab:t1models}, Eq.~\ref{M-eq:rule}). For the 9B model neither the
 permuted second question nor the confidence threshold changed the number of false approvals. With Qwen2.5-VL-3B, requiring the two
-multiple-choice questions to agree reduced false approvals, which is the option-letter bias of \cite{zheng2024mcselectors}.
+multiple-choice questions to agree reduced false approvals, which is the option-letter bias reported in~\cite{zheng2024mcselectors}.
 \subsection{Risk--coverage}
 \begin{figure}[t]\centering\fig{fig_risk_coverage.pdf}
 \caption{T1 risk--coverage: false-approval rate versus correct-approval rate as $\taus$ varies ($\tauh=0.05$, v3.5).
@@ -134,7 +125,7 @@ which $\taus$ cannot fix.}\label{fig:riskcov}\end{figure}
 Fig.~\ref{fig:riskcov} varies $\taus$ only for description, because $\taus$ was not tuned on T1.
 \subsection{Weaker models and free-form output}
 For Qwen2.5-VL-3B the second question alone approved \TThreeBPassTwoFA{} must-refuse images, and requiring agreement with the first
-question brought this down to \TThreeBFullFA{}, which is the option-letter bias of \cite{zheng2024mcselectors} in action
+question brought this down to \TThreeBFullFA{}, which is the option-letter bias reported in~\cite{zheng2024mcselectors} in action
 (Table~\ref{tab:t1ablation}). Asking this model for free JSON (A5) left \TJsonThreeErr{} of the 1200 generations unparseable and
 approved \TJsonThreeCA{} images; Qwen3.5-9B gave no parse errors (main paper, Sec.~\ref{M-sec:results}).
 
@@ -155,11 +146,11 @@ compared with driving. The situation report adds about 4\,s but could run in par
 \resizebox{0.92\linewidth}{!}{\input{tab_timing.tex}}\end{table}
 
 \section{Further Result Details}\label{app:resdetails}
-\textbf{Study Z.} The contrastive baselines used SigLIP \cite{zhai2023siglip} and CLIP \cite{radford2021clip} prompts for the supply and the
+\textbf{Study Z.} The contrastive baselines used SigLIP~\cite{zhai2023siglip} and CLIP~\cite{radford2021clip} prompts for the supply and the
 hazard, and the same crops as our check. On development data no threshold pair gave both few false approvals and many correct ones. The
 contrastive scores do not separate ``right supply, no fire'' from the alternatives in these scenes.
 
-\textbf{T1 hazard-question false alarms.} With the registered v3.4 rule the hazard question raised false alarms on \TConeAlarm{} traffic-cone images
+\textbf{T1 hazard-question false alarms.} With the registered v3.4 rule, the hazard question raised false alarms on \TConeAlarm{} traffic-cone images
 and on \TNoFireAlarm{} images without fire. With the v3.5 rule, it raised false alarms on \TvConeAlarm{} cone and \TvNoFireAlarm{} fire-free images.
 
 \textbf{Campaign F, remaining misses.} Six of v3.6's seven remaining misses were fires of 1\,100--2\,400 visible pixels with hazard
@@ -170,7 +161,7 @@ pixels at $p_h=0.019$.
 views by construction. The medians over all delivered runs, \GWallB\,s and \GWallC\,s, are not comparable, because look-around refused
 most of the fire runs that the front-only system delivered.
 
-\textbf{Study P, false alarms and licence.} D-Fire \cite{venancio2022dfire} was released by its authors under CC0, as stated in the original
+\textbf{Study P, false alarms and licence.} D-Fire~\cite{venancio2022dfire} was released by its authors under CC0, as stated in the original
 repository's LICENSE; we used a Hugging Face mirror. Rendered fire is stylised, which motivated this check on real photographs.
 D-Fire's fire-free class comes from fire-surveillance cameras and is rich in hard
 negatives: hazy hillsides, low clouds, a smudge on the lens, red sunset clouds, glowing tents. Everyday scenes such as streets, beaches
@@ -211,7 +202,7 @@ Audits now use Gazebo's ground-truth odometry. Changing the wheel collision from
 dead-reckoning drift from 0.16 to 0.011\,m.
 \item \textbf{Free-form JSON from the first VLM was unusable} on our renders. With Qwen2.5-VL-3B, 21 of 48 outputs could not be parsed and the model hallucinated water on empty shelves.
 A newer model parses reliably, but it still approves fewer correct deliveries than scoring does (Table~\ref{M-tab:t1models}).
-This motivated closed-set scoring. T1 measures the free-JSON method again (Table~\ref{M-tab:t1models}).
+This motivated closed-set scoring. T1 measured the free-JSON method again (Table~\ref{M-tab:t1models}).
 \item \textbf{Middleware effects.} Best-effort QoS silently dropped 92 of 102 0.9\,MB camera frames under load. The GPU lidar
 detected the robot's own camera mast. Slow DDS discovery on a 4-core host failed 4 of 12 starts in an aborted campaign.
 An interrupted supervisor left an orphaned stack that made every trial of the next campaign stop with two
