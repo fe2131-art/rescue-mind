@@ -168,6 +168,8 @@ bash docker/run.sh python3 scripts/export_evidence.py experiments/results/campai
 bash docker/run.sh python3 scripts/make_figures.py
 ```
 
+各事前登録研究の再現コマンド・実行時間・出力・解析スクリプトは [`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md) にまとめています。
+
 デモ動画用の俯瞰カメラ映像は `--film` で同時収録し、`scripts/make_demo_video.py --plan docs/video_plan.json` で合成します（映像はすべて Gazebo の実レンダリング。合成するのはログ由来の字幕・確率バー・真値軌跡のみ）。
 
 ## リポジトリ構成

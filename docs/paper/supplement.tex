@@ -1,0 +1,108 @@
+\documentclass[conference]{IEEEtran}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx,booktabs,amsmath,amssymb,xcolor,url,multirow}
+\usepackage[hidelinks]{hyperref}
+\usepackage{cite}
+\usepackage{xr-hyper}
+\externaldocument[M-]{main}
+\input{numbers.tex}
+\newcommand{\sys}{RescueMind}
+\newcommand{\fig}[2][\linewidth]{\IfFileExists{#2}{\includegraphics[width=#1]{#2}}{\fbox{\parbox{0.9\linewidth}{\centering\TBD: \detokenize{#2}}}}}
+\newcommand{\taus}{\tau_{s}}
+\newcommand{\tauh}{\tau_{h}}
+\renewcommand{\thesection}{S\arabic{section}}
+\renewcommand{\thetable}{S\arabic{table}}
+\renewcommand{\thefigure}{S\arabic{figure}}
+
+\begin{document}
+\title{Supplementary Material\\Verify, Look Again, Remember: Fail-Closed Vision-Language Checks, Active Look-Around and Safety-Monotone Mission Memory for Relief-Supply Delivery Robots}
+\author{\IEEEauthorblockN{Anonymous Authors}\IEEEauthorblockA{Code, data and every trial log: \url{https://github.com/fe2131-art/rescue-mind}}}
+\maketitle
+This document holds material moved out of the main paper. Section, table and figure numbers with an S prefix refer to this
+document; unprefixed references are to the main paper. All numbers are generated from the same result files as the main paper.
+
+\section{Failure Analysis and Lessons}\label{sec:findings}
+Running the full stack on a GPU revealed problems that \NTests{} offline unit tests and mocked ROS runs had not.
+\begin{itemize}
+\item \textbf{The auditor trusted the controller's sensor.} The wheel joint axis was expressed in the
+child-link frame after a 90$^\circ$ roll, so the wheels spun about the vertical axis. Odometry reported 1.5\,m forward motion while the
+body slid sideways by 0.75\,m. An audit based on \texttt{/odom} would have passed the run.
+Audits now use Gazebo's ground-truth odometry. Changing the wheel collision from a cylinder to a sphere reduced
+dead-reckoning drift from 0.16 to 0.011\,m.
+\item \textbf{Free-form JSON from the first VLM was unusable} on our renders. With Qwen2.5-VL-3B, 21 of 48 outputs could not be parsed and the model hallucinated water on empty shelves.
+A newer model parses reliably, but it still approves fewer correct deliveries than scoring does (Table~\ref{M-tab:t1models}).
+This motivated closed-set scoring. T1 measures the free-JSON method again (Table~\ref{M-tab:t1models}).
+\item \textbf{Middleware effects.} Best-effort QoS silently dropped 92 of 102 0.9\,MB camera frames under load. The GPU lidar
+detected the robot's own camera mast. Slow DDS discovery on a 4-core host failed 4 of 12 starts in an aborted campaign.
+An interrupted supervisor left an orphaned stack that made every trial of the next campaign stop with two
+\texttt{/cmd\_vel} publishers. All of these are recorded with their fixes; the aborted campaigns are published.
+\item \textbf{Stale-request latch.} Two pre-decision retries in campaign D happened while the robot was stationary: the mission node's
+request stream stalled for $\approx$0.3\,s on the saturated CPU. We instrumented the mission loop, the guard
+and garbage collection and rejected two hypotheses (guard starvation, GC pauses). Raising control-loop priority did not
+remove the stalls. We therefore changed the guard: a stale zero request now holds zero, while a stale motion request still latches.
+With a 0.6\,s stall injected before departure, the old guard failed 2/2 runs and the new one completed 2/2.
+Raising priority with a file capability then had a side effect: it put the exec into the dynamic loader's secure mode,
+which stripped \texttt{LD\_LIBRARY\_PATH} and broke the ROS bag recorder. A regression run caught this before any campaign.
+\item \textbf{A pilot exposed a threshold that was not conservative enough.} Before campaign E we ran nine trials in
+separate pilot worlds. In one, the robot found the wrong item, searched the other station, and delivered from it although a fire
+burned behind it. The fire was almost entirely hidden by the first-aid kit, and $p_h=0.32$. On development data no fire-free
+image exceeded $p_h=0.0007$, so we lowered $\tauh$ to 0.05 (v3.5). The same pilot worlds then gave 9/9 expected outcomes.
+T1 was not involved: both thresholds were registered for T1 before any T1 image was scored.
+\item \textbf{A generator bug caught by looking at the data.} In the first T1 render, distractors meant to stand next to a supply were placed through it. The
+emptiness check ran after the supplies were moved. The render was discarded and the fix recorded as a
+pre-registration amendment, before any model scored a T1 image. A second amendment replaced the field-of-view fire
+label with the rendered-mask label, after we saw fires hidden behind supplies that the geometric label had called visible.
+\end{itemize}
+
+\section{Wall-clock timing}\label{sec:timing}
+\textbf{Where the time goes.} Table~\ref{tab:timing} breaks down the \TimingN{} delivered missions that needed no search.
+The check itself takes about \TimCheck\,s: aiming, waiting until stationary, frame checks, and the scored VLM queries
+(\TimVlm\,s). Driving between station and shelter takes about \TimDrive\,s (sum of phase medians). The check is therefore short
+compared with driving. The situation report adds about 4\,s but could run in parallel with the drive to the shelter.
+\begin{table}[t]\centering\caption{Wall-clock phases of delivered missions without search (campaigns D and E; v3.4 and v3.5, no look-around).}\label{tab:timing}
+\resizebox{0.92\linewidth}{!}{\input{tab_timing.tex}}\end{table}
+
+\section{Additional T1 analyses}\label{sec:t1extra}
+\subsection{Decision-rule ablations}
+\begin{table}[t]\centering\caption{Decision-rule ablations on T1: false approvals / false denials.
+$^{*}$: exact McNemar $p<0.05$ versus the full rule of the same model.}
+\label{tab:t1ablation}\resizebox{\linewidth}{!}{\input{tab_t1_ablation.tex}}\end{table}
+Table~\ref{tab:t1ablation} isolates the parts of the rule on T1 (Table~\ref{M-tab:t1models}, Eq.~\ref{M-eq:rule}). For the 9B model neither the
+permuted second question nor the confidence threshold changed the number of false approvals. With Qwen2.5-VL-3B, requiring the two
+multiple-choice questions to agree reduced false approvals, which is the option-letter bias of \cite{zheng2024mcselectors}.
+\subsection{Risk--coverage}
+\begin{figure}[t]\centering\fig{fig_risk_coverage.pdf}
+\caption{T1 risk--coverage: false-approval rate versus correct-approval rate as $\taus$ varies ($\tauh=0.05$, v3.5).
+Markers show the frozen $\taus=0.5$. The curves are flat over most of the range: the remaining errors are missed fires,
+which $\taus$ cannot fix.}\label{fig:riskcov}\end{figure}
+Fig.~\ref{fig:riskcov} varies $\taus$ only for description, because $\taus$ was not tuned on T1.
+
+\section{Campaign E details}\label{sec:camp-e}
+Campaign E used a new randomised world in every trial (main paper, Sec.~\ref{M-sec:results}); Table~\ref{tab:e} gives the outcomes by stratum and
+Fig.~\ref{fig:etraj} the ground-truth trajectories.
+\begin{table}[t]\centering\caption{Campaign E (randomised worlds) by stratum.}\label{tab:e}
+\resizebox{\linewidth}{!}{\input{tab_e_strata.tex}}\end{table}
+\begin{figure}[t]\centering\fig{fig_e_trajectories.pdf}
+\caption{Campaign E: ground-truth trajectories of all final trials, coloured by audited outcome.}\label{fig:etraj}\end{figure}
+
+\section{Model selection on development data}\label{app:models}
+\begin{table}[h]\centering\caption{Candidate models with the final prompts (\texttt{v35}: checkpoint questions of v3.5; \texttt{i35}: instruction parser) on development data only.
+Images: correct decisions with false approvals (FA) and false denials (FD). Explanations: one-sentence reports judged
+correct against the generator labels. Intent: development utterances, with unsafe acceptances. VRAM in MiB.}
+\label{tab:devmodels}\resizebox{\linewidth}{!}{\input{tab_dev_models.tex}}\end{table}
+Models were ranked lexicographically. The first key was zero false approvals and zero unsafe intent acceptances, and the
+second was explanation and intent accuracy. Qwen3-VL-8B parsed more development utterances but accepted two unsafe
+ones. Qwen3.5-4B produced a false approval. Qwen3.5-9B was therefore chosen and frozen before the T1 and E registrations.
+
+\section{Registration audit}\label{app:prereg}
+\begin{table}[h]\centering\caption{When each study was registered and when its first results entered the repository. ``Order''
+checks that the registration commit is an ancestor of the first results commit (\texttt{git merge-base --is-ancestor}).
+Registrations are also mirrored in the public repository history.}\label{tab:prereg}
+\resizebox{\linewidth}{!}{\input{tab_prereg.tex}}\end{table}
+For every study with results, the registration commit precedes the results commit (\PreregOrderOK). Campaign C's
+registration and ledger entered the repository together, so their order cannot be verified from the history.
+
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+\end{document}

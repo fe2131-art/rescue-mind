@@ -61,7 +61,7 @@ without task-specific training. Prompted language models explain manipulation fa
 monitors flag failures of learned policies \cite{agia2025sentinel}.
 Their outputs, however, are biased by option order and answer letters \cite{zheng2024mcselectors,pezeshkpour2024order},
 they hallucinate objects that are not there \cite{li2023pope}, and free-form generation can be unparseable.
-We observed all three on our own images (Sec.~\ref{sec:findings}).
+We observed all three on our own images (Supp.~Sec.~S1).
 
 Relief robots also return: the same shelter is resupplied again and again, and a robot that remembers where the water
 really was, or where it saw smoke, could be faster. Yet acting on stale memory can hurt: in a small navigation testbed, an agent that trusted unaudited memory failed more
@@ -96,7 +96,7 @@ campaigns D, E, F, G, H and J before running them \cite{nosek2018preregistration
 Each closed-loop trial is checked against Gazebo ground truth, a ROS bag and a recomputation of the decision.
 Every attempt is kept, including aborted campaigns. Eleven studies (Table~\ref{tab:studies}) include a camera-degradation
 study that probes part of the sim-to-real gap without a physical robot.
-\item \textbf{Lessons from running the real stack} (Sec.~\ref{sec:findings}). There are \NFindings{} failure causes that unit tests and
+\item \textbf{Lessons from running the real stack} (Supp.~Sec.~S1). There are \NFindings{} failure causes that unit tests and
 mocks did not reveal, such as a wheel-axis frame error that made odometry-based audits pass a robot that never arrived.
 \end{itemize}
 
@@ -218,7 +218,7 @@ with $\taus=0.5$ (fixed on development data and unchanged since the first regist
 The hazard question does not depend on the multiple-choice pass; it is asked once per image and reused.
 In v3.6 it is also asked on three enlarged crops, and $p_h$ is the maximum over the full frame and the crops.
 The hazard threshold was 0.5 up to campaign D. It was lowered once (v3.5) after a pilot missed a mostly occluded fire
-(Sec.~\ref{sec:findings}). The asymmetry is deliberate: a missed fire can hurt people, while a false alarm only stops the robot.
+(Supp.~Sec.~S1). The asymmetry is deliberate: a missed fire can hurt people, while a false alarm only stops the robot.
 Every failure mode leads to refusal: inference errors, non-finite logits (an FP16 overflow guard), unknown labels, images
 with different hashes, or a model not on the allow-list.
 A refusal is followed by a 2.5\,s zero-velocity hold that the audit checks.
@@ -229,7 +229,7 @@ A Japanese one-sentence situation report is generated for people but is never us
 
 \textbf{Velocity guard.} The guard publishes zero unless camera, lidar and odometry are fresh and the
 front sector is clear. A stale \emph{motion} request latches the guard and ends the mission.
-A stale \emph{zero} request holds zero without latching (Sec.~\ref{sec:findings}). A graph watcher triggers an
+A stale \emph{zero} request holds zero without latching (Supp.~Sec.~S1). A graph watcher triggers an
 emergency stop if any other node publishes \texttt{/cmd\_vel}.
 
 \subsection{Active look-around}\label{sec:lookaround}
@@ -406,13 +406,15 @@ world if at least one of the front and the two side views shows it. Campaign F c
 campaign G on perceivability. This label uses no model output,
 and it is fixed before any trial.
 
+\textbf{Model selection and registration audit.} Qwen3.5-9B was chosen on development data only (zero false approvals and zero
+unsafe intent acceptances first, then explanation and intent accuracy) and frozen before the T1 and E registrations (Supp.~Sec.~S5).
+For every study with results, the registration commit precedes the results commit (\PreregOrderOK), except campaign C,
+whose registration and ledger entered the repository together (Supp.~Sec.~S6, Supp.~Table~S5).
+
 \section{Results}\label{sec:results}
 \subsection{Held-out image test (T1)}
 \begin{table}[t]\centering\caption{T1 held-out test, frozen rule (Eq.~\ref{eq:rule}), non-ambiguous images.}
 \label{tab:t1models}\resizebox{\linewidth}{!}{\input{tab_t1_models.tex}}\end{table}
-\begin{table}[t]\centering\caption{Decision-rule ablations on T1: false approvals / false denials.
-$^{*}$: exact McNemar $p<0.05$ versus the full rule of the same model.}
-\label{tab:t1ablation}\resizebox{\linewidth}{!}{\input{tab_t1_ablation.tex}}\end{table}
 Table~\ref{tab:t1models} shows the registered system and the alternative models on T1.
 With the registered v3.4 rule ($\tauh=0.5$), Qwen3.5-9B approved \TFA{} of \TNdeny{} must-refuse images
 (\TFARate, 95\% CI \TFACI) and \TCA{} of \TNallow{} must-approve images (\TCARate, \TCACI).
@@ -430,20 +432,16 @@ not registered).
 The registered claim of fewer than 2\% false approvals is therefore \emph{not} supported: the Wilson upper bound is above 2\%.
 Wilson intervals treat the images as independent, but the five views of a world share its lighting, props and fire.
 A bootstrap that resamples the \TNworlds{} worlds gives \TFACluster{} for v3.4 and \TvFACluster{} for v3.5.
-Table~\ref{tab:t1ablation} isolates the parts of the rule. Removing the hazard question raises false approvals to \TAblNoHazFA{}.
+Supp.~Table~S2 isolates the parts of the rule. Removing the hazard question raises false approvals to \TAblNoHazFA{}.
 For the 9B model on these images, neither the permuted second question nor the confidence threshold changed the number
 of false approvals. Their value shows up with a weaker model: for Qwen2.5-VL-3B, the second question alone approved
 \TThreeBPassTwoFA{} must-refuse images and requiring agreement with the first question brought this down to
-\TThreeBFullFA{}, which is the option-letter bias of \cite{zheng2024mcselectors} in action (Table~\ref{tab:t1ablation}).
+\TThreeBFullFA{}, which is the option-letter bias of \cite{zheng2024mcselectors} in action (Supp.~Table~S2).
 \emph{Free-form generation.} Asking the same model for free JSON (A5) gave no parse errors with Qwen3.5-9B, the
 same \TJsonNineFA{} false approvals, but only \TJsonNineCA{} correct approvals against \TCA{} with scoring. With
 Qwen2.5-VL-3B, \TJsonThreeErr{} of the 1200 generations could not be parsed and \TJsonThreeCA{} images were approved.
-All models missed largely the same small fires: hazard recall ranged from \THazMin{} to \THazMax{} of the \TNfireVis{} visible fires. Fig.~\ref{fig:riskcov} shows risk--coverage curves
+All models missed largely the same small fires: hazard recall ranged from \THazMin{} to \THazMax{} of the \TNfireVis{} visible fires. Supp.~Fig.~S1 shows risk--coverage curves
 over $\taus$; these are descriptive only, since $\taus$ was not tuned on T1.
-\begin{figure}[t]\centering\fig{fig_risk_coverage.pdf}
-\caption{T1 risk--coverage: false-approval rate versus correct-approval rate as $\taus$ varies ($\tauh=0.05$, v3.5).
-Markers show the frozen $\taus=0.5$. The curves are flat over most of the range: the remaining errors are missed fires,
-which $\taus$ cannot fix.}\label{fig:riskcov}\end{figure}
 
 \emph{Is a generative VLM needed? (study Z, pre-registered).} We ran contrastive zero-shot baselines with the same
 decision structure. They used SigLIP \cite{zhai2023siglip} and CLIP \cite{radford2021clip} prompts for the supply and the
@@ -456,26 +454,17 @@ the alternatives in these scenes.
 \label{tab:z}\resizebox{\linewidth}{!}{\input{tab_z.tex}}\end{table}
 
 \subsection{Closed-loop missions}
-\begin{figure}[t]\centering\fig{fig_e_trajectories.pdf}
-\caption{Campaign E: ground-truth trajectories of all final trials, coloured by audited outcome.}\label{fig:etraj}\end{figure}
-\begin{table}[t]\centering\caption{Campaign E (randomised worlds) by stratum.}\label{tab:e}
-\resizebox{\linewidth}{!}{\input{tab_e_strata.tex}}\end{table}
 In campaign D the system behaved as expected in \DCorrect{}/\DN{} trials (\DCorrectCI) with \DWrong{} wrong deliveries.
 The median decision latency, from frame capture to decision, was \DLatMed\,s (maximum \DLatMax\,s).
 There were \DRetries{} pre-decision infrastructure retries.
 In campaign E, with a new random world in every trial, it behaved as expected in \ECorrect{}/\EN{} (\ECorrectCI) with
 \EWrong{} wrong deliveries (\EWrongCI). It completed \ETaskSuccess{} of the \ESafeN{} missions in which a safe delivery was possible
-(\ETaskSuccessCI), see Table~\ref{tab:e} and Fig.~\ref{fig:etraj}.
+(\ETaskSuccessCI); per-stratum results and trajectories are in Supp.~Table~S3 and Fig.~S2.
 \emph{Counterfactual baselines on the same trials:} blind delivery (B0), which trusts the inventory, would have made \EBzeroWrong{} wrong
 deliveries (\EBzeroWrongCI) and completed only \EBzeroTask{} correctly. Checking without recovery (B1, our earlier
 policy) would have completed \EBoneTask{} with \EBoneWrong{} wrong deliveries.
-
-\textbf{Where the time goes.} Table~\ref{tab:timing} breaks down the \TimingN{} delivered missions that needed no search.
-The check itself takes about \TimCheck\,s: aiming, waiting until stationary, frame checks, and the scored VLM queries
-(\TimVlm\,s). Driving between station and shelter takes about \TimDrive\,s (sum of phase medians). The check is therefore short
-compared with driving. The situation report adds about 4\,s but could run in parallel with the drive to the shelter.
-\begin{table}[t]\centering\caption{Wall-clock phases of delivered missions without search (campaigns D and E; v3.4 and v3.5, no look-around).}\label{tab:timing}
-\resizebox{0.92\linewidth}{!}{\input{tab_timing.tex}}\end{table}
+\emph{Time.} In the \TimingN{} delivered missions without search, the check takes about \TimCheck\,s (scored VLM queries:
+\TimVlm\,s) and driving between station and shelter about \TimDrive\,s; the phase breakdown is in Supp.~Table~S1.
 
 \subsection{Fixing the remaining weakness}\label{sec:fix}
 T1 left one failure mode: fires that are only partly visible behind the supply. Because T1 was then spent, candidate
@@ -500,7 +489,7 @@ need 37\,GB together, which does not fit on one V100.
 \TTSelFA{} false approvals with \TTSelCA{} correct approvals, and Qwen3.5-9B v3.6 alone made \TTBFA{} with \TTBCA{}.
 One result stands out: Clef-Flash \emph{alone}, given the task-worded questions, made \TTClefFA{} false approvals with
 \TTClefCA{} correct approvals. It does this in a single forward pass (median 0.6\,s per image), against \TimVlm\,s for the scored
-Qwen queries (Table~\ref{tab:timing}).
+Qwen queries (Supp.~Table~S1).
 
 \emph{Closed loop: small fires (campaign F, pre-registered, paired).} Each of 24 worlds had either a small fire just behind
 a station or no fire, and was run once with v3.5 and once with v3.6. In the \FPairs{} worlds where the fire
@@ -609,39 +598,6 @@ On the 60 held-out utterances the hybrid parser was correct for \IntCorrect{}/\I
 The previous TF-IDF parser was correct for \IntTfidfCorrect{} with \IntTfidfUnsafe{} unsafe acceptances.
 The five errors were all refusals of valid requests, so they fail closed.
 
-\section{Failure Analysis and Lessons}\label{sec:findings}
-Running the full stack on a GPU revealed problems that \NTests{} offline unit tests and mocked ROS runs had not.
-\begin{itemize}
-\item \textbf{The auditor trusted the controller's sensor.} The wheel joint axis was expressed in the
-child-link frame after a 90$^\circ$ roll, so the wheels spun about the vertical axis. Odometry reported 1.5\,m forward motion while the
-body slid sideways by 0.75\,m. An audit based on \texttt{/odom} would have passed the run.
-Audits now use Gazebo's ground-truth odometry. Changing the wheel collision from a cylinder to a sphere reduced
-dead-reckoning drift from 0.16 to 0.011\,m.
-\item \textbf{Free-form JSON from the first VLM was unusable} on our renders. With Qwen2.5-VL-3B, 21 of 48 outputs could not be parsed and the model hallucinated water on empty shelves.
-A newer model parses reliably, but it still approves fewer correct deliveries than scoring does (Table~\ref{tab:t1models}).
-This motivated closed-set scoring. T1 measures the free-JSON method again (Table~\ref{tab:t1models}).
-\item \textbf{Middleware effects.} Best-effort QoS silently dropped 92 of 102 0.9\,MB camera frames under load. The GPU lidar
-detected the robot's own camera mast. Slow DDS discovery on a 4-core host failed 4 of 12 starts in an aborted campaign.
-An interrupted supervisor left an orphaned stack that made every trial of the next campaign stop with two
-\texttt{/cmd\_vel} publishers. All of these are recorded with their fixes; the aborted campaigns are published.
-\item \textbf{Stale-request latch.} Two pre-decision retries in campaign D happened while the robot was stationary: the mission node's
-request stream stalled for $\approx$0.3\,s on the saturated CPU. We instrumented the mission loop, the guard
-and garbage collection and rejected two hypotheses (guard starvation, GC pauses). Raising control-loop priority did not
-remove the stalls. We therefore changed the guard: a stale zero request now holds zero, while a stale motion request still latches.
-With a 0.6\,s stall injected before departure, the old guard failed 2/2 runs and the new one completed 2/2.
-Raising priority with a file capability then had a side effect: it put the exec into the dynamic loader's secure mode,
-which stripped \texttt{LD\_LIBRARY\_PATH} and broke the ROS bag recorder. A regression run caught this before any campaign.
-\item \textbf{A pilot exposed a threshold that was not conservative enough.} Before campaign E we ran nine trials in
-separate pilot worlds. In one, the robot found the wrong item, searched the other station, and delivered from it although a fire
-burned behind it. The fire was almost entirely hidden by the first-aid kit, and $p_h=0.32$. On development data no fire-free
-image exceeded $p_h=0.0007$, so we lowered $\tauh$ to 0.05 (v3.5). The same pilot worlds then gave 9/9 expected outcomes.
-T1 was not involved: both thresholds were registered for T1 before any T1 image was scored.
-\item \textbf{A generator bug caught by looking at the data.} In the first T1 render, distractors meant to stand next to a supply were placed through it. The
-emptiness check ran after the supplies were moved. The render was discarded and the fix recorded as a
-pre-registration amendment, before any model scored a T1 image. A second amendment replaced the field-of-view fire
-label with the rendered-mask label, after we saw fires hidden behind supplies that the geometric label had called visible.
-\end{itemize}
-
 \section{Discussion}\label{sec:discussion}
 \textbf{When should a robot trust its memory?} The naive policy is not a straw man: skipping a check that succeeded a
 few minutes ago is exactly what an efficiency-minded system would do. Campaign H and the change-rate model test how dangerous this is at a disaster site. Its risk should grow
@@ -664,7 +620,7 @@ Each failure redirected the work: it exposed the hidden-fire weakness and led to
 each could have been rationalised away.
 
 \textbf{Cost of verification.} A check takes about \TimCheck\,s and the look-around about \GLookCost\,s, against about \TimDrive\,s of driving between
-station and shelter (Table~\ref{tab:timing}).
+station and shelter (Supp.~Table~S1).
 For relief logistics, where a wrong delivery costs a round trip and a delivery into a fire costs far more, this trade is
 favourable. Memory recovers part of it when the world is persistent.
 
@@ -688,24 +644,6 @@ speed-up without a safety cost (H: \HHeadline) and whether the two-model design 
 registered claims reported in Sec.~\ref{sec:results}. Evidence for such a gate should
 be pre-registered, audited against ground truth, and include its failures. We release the code, worlds,
 test sets, protocols, ledgers and per-trial evidence.
-
-\appendices
-\section{Model selection on development data}\label{app:models}
-\begin{table}[h]\centering\caption{Candidate models with the final prompts (\texttt{v35}: checkpoint questions of v3.5; \texttt{i35}: instruction parser) on development data only.
-Images: correct decisions with false approvals (FA) and false denials (FD). Explanations: one-sentence reports judged
-correct against the generator labels. Intent: development utterances, with unsafe acceptances. VRAM in MiB.}
-\label{tab:devmodels}\resizebox{\linewidth}{!}{\input{tab_dev_models.tex}}\end{table}
-Models were ranked lexicographically. The first key was zero false approvals and zero unsafe intent acceptances, and the
-second was explanation and intent accuracy. Qwen3-VL-8B parsed more development utterances but accepted two unsafe
-ones. Qwen3.5-4B produced a false approval. Qwen3.5-9B was therefore chosen and frozen before the T1 and E registrations.
-
-\section{Registration audit}\label{app:prereg}
-\begin{table}[h]\centering\caption{When each study was registered and when its first results entered the repository. ``Order''
-checks that the registration commit is an ancestor of the first results commit (\texttt{git merge-base --is-ancestor}).
-Registrations are also mirrored in the public repository history.}\label{tab:prereg}
-\resizebox{\linewidth}{!}{\input{tab_prereg.tex}}\end{table}
-For every study with results, the registration commit precedes the results commit (\PreregOrderOK). Campaign C's
-registration and ledger entered the repository together, so their order cannot be verified from the history.
 
 \section*{Reproducibility}
 One Dockerfile builds the full stack: ROS~2 Jazzy, Gazebo Harmonic, PyTorch, transformers. All test sets are
