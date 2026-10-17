@@ -35,14 +35,23 @@ class Twist:
     def __init__(self): self.linear = NS(x=0.); self.angular = NS(z=0.)
 
 
+class String:
+    data = ''
+
+
 class FakeNode:
-    def __init__(self): self.handlers = {}; self.cmd = MotionCommand(0, 0); self.pose = Pose2(0, 0, 0)
+    def __init__(self): self.handlers = {}; self.cmd = MotionCommand(0, 0); self.pose = Pose2(0, 0, 0); self.published = []
     def create_subscription(self, cls, topic, fn, qos): self.handlers[topic] = fn; return fn
     def create_publisher(self, cls, topic, qos):
         owner = self
         class Pub:
-            def publish(self, msg): owner.cmd = MotionCommand(msg.linear.x, msg.angular.z)
+            def publish(self, msg):
+                if hasattr(msg, 'linear'):
+                    owner.cmd = MotionCommand(msg.linear.x, msg.angular.z)
+                else:                       # I-22: std_msgs/String topics (phase, approval record)
+                    owner.published.append((topic, msg.data)); owner.on_string(topic, msg.data)
         return Pub()
+    def on_string(self, topic, data): pass
     def destroy_node(self): pass
 
 
@@ -74,7 +83,7 @@ def run(order, verdicts, *, stations=None, recovery=True, first=None, config=Non
     qos.ReliabilityPolicy = qos.HistoryPolicy = qos.DurabilityPolicy = NS(RELIABLE=1, KEEP_LAST=1, VOLATILE=1)
     rclpy.qos = qos
     typesmap = {'rclpy': rclpy, 'rclpy.qos': qos, 'geometry_msgs.msg': NS(Twist=Twist), 'nav_msgs.msg': NS(Odometry=object),
-                'sensor_msgs.msg': NS(LaserScan=object, Image=object), 'std_msgs.msg': NS(Bool=object),
+                'sensor_msgs.msg': NS(LaserScan=object, Image=object), 'std_msgs.msg': NS(Bool=object, String=String),
                 'rosgraph_msgs.msg': NS(Clock=object)}
     calls = []
 
