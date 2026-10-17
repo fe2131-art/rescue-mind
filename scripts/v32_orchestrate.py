@@ -79,7 +79,7 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
                intent_prompt: str = 'i34', describe_prompt: str = 'e0', inject_stall: float = 0.0,
                hazard_threshold: float = 0.5, control_qos: str = 'reliable', hazard_views: str = 'full',
                hazard_prompt: str = 'h35', jev_local: str = 'off', jev_hazard_threshold: float = .35,
-               look_around: float = 0.0) -> dict:
+               look_around: float = 0.0, memory_file: str | None = None, memory_mode: str = 'off') -> dict:
     if scenario not in ('motion-check', 'live'):
         raise ValueError('invalid scenario')
     from rescuemind.scene_variants import SCENES
@@ -91,6 +91,8 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
     cmd += ['--stage-timeout', '120', '--control-qos', control_qos]
     if look_around:
         cmd += ['--look-around', str(look_around)]
+    if memory_file:
+        cmd += ['--memory-file', str(memory_file), '--memory-mode', memory_mode]
     if inject_stall:
         cmd += ['--inject-warmup-stall', str(inject_stall)]
     if scenario=='live':
@@ -195,6 +197,58 @@ def check_prerequisites(scenario: str, *, capture_rosbag: bool = False):
         raise StackFailure('Missing prerequisites: ' + ', '.join(missing))
 
 
+def memory_denied(log_dir: Path) -> bool:
+    try:
+        m = json.loads((log_dir/'mission.json').read_text(encoding='utf8'))
+    except (OSError, ValueError):
+        return False
+    return bool((m.get('memory') or {}).get('deny_without_visit')) and any(
+        e.get('stage') == 'memory_denial' for e in m.get('events', []))
+
+
+def memory_trusted_audit(outcome: dict, log_dir: Path, run_id: str, mission: dict, sup) -> None:
+    """I-15 naive-memory baseline: the robot skipped the on-site check because memory said the supply was there.
+    Only the physical delivery is audited (guard graph, independent odometry, Gazebo ground truth)."""
+    from rescuemind.runtime_guard_graph import audit_watch_jsonl
+    from rescuemind.motion_evidence import audit_motion, MotionEvidenceError
+    from rescuemind.ground_truth_evidence import audit_ground_truth
+    if (mission.get('memory') or {}).get('mode') != 'naive':
+        raise StackFailure('memory-trusted delivery outside the naive-memory baseline')
+    config = json.loads((ROOT/'configs/gazebo_waypoints.json').read_text())
+    station = mission.get('checkpoint_station')
+    outcome['runtime_guard_graph_evidence'] = audit_watch_jsonl(log_dir/'guard_graph_watch.jsonl')
+    for attempt in range(11):
+        sup.ensure_alive()
+        try:
+            outcome['independent_motion_evidence'] = audit_motion(log_dir/'independent_ros_topics.jsonl', run_id=run_id,
+                                                                  station=config[station], shelter=config['B'])
+            break
+        except (MotionEvidenceError, OSError, ValueError) as e:
+            if attempt == 10:
+                raise StackFailure('memory-trusted run: independent ROS movement evidence failed: '+str(e)) from e
+            time.sleep(.15)
+    outcome['ground_truth_evidence'] = audit_ground_truth(log_dir/'independent_ros_topics.jsonl', station=config[station],
+                                                          shelter=config['B'], expect_arrival=True)
+    outcome['state'] = 'COMPLETED_MEMORY_TRUSTED'
+
+
+def memory_denial_audit(outcome: dict, log_dir: Path) -> None:
+    """I-15 naive-memory baseline refused without visiting: prove from Gazebo ground truth that it never left the start."""
+    xs = []
+    for line in (log_dir/'independent_ros_topics.jsonl').read_text(encoding='utf8').splitlines():
+        r = json.loads(line)
+        if r.get('kind') == 'ground_truth':
+            xs.append((r['x'], r['y']))
+    if not xs:
+        raise ValueError('no ground-truth samples')
+    far = max((x * x + y * y) ** .5 for x, y in xs)
+    if far > .5:
+        raise ValueError(f'memory denial but the robot moved {far:.2f} m from the start')
+    outcome['memory_denial_evidence'] = {'max_distance_from_start_m': round(far, 3), 'n_ground_truth': len(xs)}
+    outcome['state'] = 'DENIED_BY_MEMORY'
+    outcome['error'] = None
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     g = p.add_mutually_exclusive_group(required=True)
@@ -223,6 +277,9 @@ def main(argv=None):
                         'best_effort = best-effort request/heartbeat topics')
     p.add_argument('--look-around', type=float, default=0.4,
                    help='I-14: after an approval, look again from this far (m) left and right of the station')
+    p.add_argument('--memory-file', default=None, help='I-15: cross-mission memory JSONL (read before, appended after)')
+    p.add_argument('--memory-mode', choices=['off', 'verified', 'naive'], default='off',
+                   help='I-15: verified = memory proposes, perception disposes; naive = trust memory (baseline only)')
     p.add_argument('--jev-local', choices=['off', 'clef'], default='off',
                    help='I-13: add the Jev-role model (Clef-Flash, local) - both models must approve')
     p.add_argument('--jev-hazard-threshold', type=float, default=.35)
@@ -276,6 +333,7 @@ def main(argv=None):
                  hazard_threshold=args.hazard_threshold, hazard_views=args.hazard_views,
                  hazard_prompt=args.hazard_prompt, jev_local=args.jev_local, look_around=args.look_around,
                  jev_hazard_threshold=args.jev_hazard_threshold,
+                 memory_file=args.memory_file, memory_mode=args.memory_mode,
                  control_qos='best_effort' if args.dds_mode == 'best_effort' else 'reliable')
     if args.dds_mode == 'async':
         os.environ['RMW_FASTRTPS_PUBLICATION_MODE'] = 'ASYNCHRONOUS'
@@ -316,6 +374,8 @@ def main(argv=None):
     summary['dds_mode'] = args.dds_mode
     summary['jev_local'] = args.jev_local
     summary['look_around'] = args.look_around
+    summary['memory_file'] = args.memory_file
+    summary['memory_mode'] = args.memory_mode
     summary['jev_hazard_threshold'] = args.jev_hazard_threshold
     summary['hazard_views'] = args.hazard_views
     summary['hazard_prompt'] = args.hazard_prompt
@@ -376,7 +436,7 @@ def main(argv=None):
             try:
                 sup.run_mission(plan['mission'], plan['mission_timeout'])
             except StackFailure as mission_error:
-                if (args.scenario == 'live' and (args.scene in ('swapped', 'empty') or args.hazard_at)
+                if (args.scenario == 'live' and (args.scene in ('swapped', 'empty') or args.hazard_at or memory_denied(log_dir))
                         and str(mission_error).startswith('mission failed (exit=')):
                     deferred_denial = mission_error
                 else:
@@ -388,68 +448,73 @@ def main(argv=None):
                 outcome['rosbag_finalization'] = sup.stop_service('rosbag_recorder')
             if deferred_denial is not None:
                 raise deferred_denial
-            from rescuemind.run_completion import validate, CompletionError
-            try:
-                outcome['receipt']=validate(log_dir/'mission.json',args.scenario,run_id)
-            except CompletionError as e:
-                raise StackFailure('mission exit 0 but completion receipt invalid: '+str(e)) from e
-            from rescuemind.runtime_guard_graph import audit_watch_jsonl
-            outcome['runtime_guard_graph_evidence']=audit_watch_jsonl(log_dir/'guard_graph_watch.jsonl')
-            if args.scenario == 'live':
-                from rescuemind.v26_stationary_evidence import audit_stationarity
-                outcome['stationary_camera_evidence']=audit_stationarity(log_dir/'mission.json')
-                from rescuemind.v27_image_evidence import audit_capture
-                outcome['image_acquisition_evidence']=audit_capture(log_dir/'mission.json',log_dir/'checkpoint.jpg')
-                from rescuemind.v28_clock_evidence import audit_clock_capture
-                outcome['gazebo_camera_clock_evidence']=audit_clock_capture(log_dir/'mission.json')
-            # A successful mission-owned JSON receipt is insufficient for an award
-            # claim. Require independently subscribed /odom and /cmd_vel traces.
-            from rescuemind.motion_evidence import audit_motion, MotionEvidenceError
-            mission_record=json.loads((log_dir/'mission.json').read_text(encoding='utf8'))
-            item=mission_record.get('intent',{}).get('item')
-            config=json.loads((ROOT/'configs/gazebo_waypoints.json').read_text())
-            if item not in ('water','medicine'):
-                raise StackFailure('motion evidence: invalid supply item')
-            # I-02: after a recovery search the authorising checkpoint is at the OTHER station.
-            station_name=mission_record.get('checkpoint_station') or item
-            if station_name not in ('water','medicine'):
-                raise StackFailure('motion evidence: invalid checkpoint station')
-            if mission_record.get('recovery'):
-                from rescuemind.recovery_evidence import audit_recovery
-                outcome['recovery_evidence']=audit_recovery(mission_record,log_dir,completed=True)
-            # The observer runs asynchronously: give the final odometry sample
-            # up to 1.5 seconds to reach the separate subscriber, never assume
-            # process exit means physical movement was observed.
-            last_error=None
-            for attempt in range(11):
-                sup.ensure_alive()
-                try:
-                    outcome['independent_motion_evidence']=audit_motion(
-                        log_dir/'independent_ros_topics.jsonl',run_id=run_id,
-                        station=config[station_name],shelter=config['B'])
-                    break
-                except (MotionEvidenceError,OSError,ValueError) as e:
-                    last_error=e
-                    if attempt<10: time.sleep(.15)
+            mrec=json.loads((log_dir/'mission.json').read_text(encoding='utf8'))
+            if (mrec.get('checkpoint') or {}).get('memory_trusted'):
+                # I-15 NAIVE-MEMORY BASELINE: no checkpoint to audit (it was skipped); prove only the motion
+                memory_trusted_audit(outcome, log_dir, run_id, mrec, sup)
             else:
-                raise StackFailure('mission receipt passed but independent ROS movement evidence failed: '+str(last_error)) from last_error
-            from rescuemind.ground_truth_evidence import audit_ground_truth, GroundTruthError
-            try:
-                outcome['ground_truth_evidence']=audit_ground_truth(
-                    log_dir/'independent_ros_topics.jsonl',station=config[station_name],shelter=config['B'],
-                    expect_arrival=True)
-            except (GroundTruthError,OSError,ValueError,KeyError) as exc:
-                raise StackFailure('Gazebo ground-truth audit failed: '+str(exc)) from exc
-            if args.scenario == 'live':
-                # Distinguish physical trajectory from authorization chronology.
-                from rescuemind.causal_evidence import audit_causal, CausalEvidenceError
+                from rescuemind.run_completion import validate, CompletionError
                 try:
-                    outcome['authorization_motion_chronology'] = audit_causal(
-                        log_dir/'mission.json', log_dir/'independent_ros_topics.jsonl',
-                        station=config[station_name], shelter=config['B'])
-                except (CausalEvidenceError, ValueError, OSError) as exc:
-                    raise StackFailure('AI authorization/movement chronology failed: '+str(exc)) from exc
-            outcome['state'] = 'COMPLETED'
+                    outcome['receipt']=validate(log_dir/'mission.json',args.scenario,run_id)
+                except CompletionError as e:
+                    raise StackFailure('mission exit 0 but completion receipt invalid: '+str(e)) from e
+                from rescuemind.runtime_guard_graph import audit_watch_jsonl
+                outcome['runtime_guard_graph_evidence']=audit_watch_jsonl(log_dir/'guard_graph_watch.jsonl')
+                if args.scenario == 'live':
+                    from rescuemind.v26_stationary_evidence import audit_stationarity
+                    outcome['stationary_camera_evidence']=audit_stationarity(log_dir/'mission.json')
+                    from rescuemind.v27_image_evidence import audit_capture
+                    outcome['image_acquisition_evidence']=audit_capture(log_dir/'mission.json',log_dir/'checkpoint.jpg')
+                    from rescuemind.v28_clock_evidence import audit_clock_capture
+                    outcome['gazebo_camera_clock_evidence']=audit_clock_capture(log_dir/'mission.json')
+                # A successful mission-owned JSON receipt is insufficient for an award
+                # claim. Require independently subscribed /odom and /cmd_vel traces.
+                from rescuemind.motion_evidence import audit_motion, MotionEvidenceError
+                mission_record=json.loads((log_dir/'mission.json').read_text(encoding='utf8'))
+                item=mission_record.get('intent',{}).get('item')
+                config=json.loads((ROOT/'configs/gazebo_waypoints.json').read_text())
+                if item not in ('water','medicine'):
+                    raise StackFailure('motion evidence: invalid supply item')
+                # I-02: after a recovery search the authorising checkpoint is at the OTHER station.
+                station_name=mission_record.get('checkpoint_station') or item
+                if station_name not in ('water','medicine'):
+                    raise StackFailure('motion evidence: invalid checkpoint station')
+                if mission_record.get('recovery'):
+                    from rescuemind.recovery_evidence import audit_recovery
+                    outcome['recovery_evidence']=audit_recovery(mission_record,log_dir,completed=True)
+                # The observer runs asynchronously: give the final odometry sample
+                # up to 1.5 seconds to reach the separate subscriber, never assume
+                # process exit means physical movement was observed.
+                last_error=None
+                for attempt in range(11):
+                    sup.ensure_alive()
+                    try:
+                        outcome['independent_motion_evidence']=audit_motion(
+                            log_dir/'independent_ros_topics.jsonl',run_id=run_id,
+                            station=config[station_name],shelter=config['B'])
+                        break
+                    except (MotionEvidenceError,OSError,ValueError) as e:
+                        last_error=e
+                        if attempt<10: time.sleep(.15)
+                else:
+                    raise StackFailure('mission receipt passed but independent ROS movement evidence failed: '+str(last_error)) from last_error
+                from rescuemind.ground_truth_evidence import audit_ground_truth, GroundTruthError
+                try:
+                    outcome['ground_truth_evidence']=audit_ground_truth(
+                        log_dir/'independent_ros_topics.jsonl',station=config[station_name],shelter=config['B'],
+                        expect_arrival=True)
+                except (GroundTruthError,OSError,ValueError,KeyError) as exc:
+                    raise StackFailure('Gazebo ground-truth audit failed: '+str(exc)) from exc
+                if args.scenario == 'live':
+                    # Distinguish physical trajectory from authorization chronology.
+                    from rescuemind.causal_evidence import audit_causal, CausalEvidenceError
+                    try:
+                        outcome['authorization_motion_chronology'] = audit_causal(
+                            log_dir/'mission.json', log_dir/'independent_ros_topics.jsonl',
+                            station=config[station_name], shelter=config['B'])
+                    except (CausalEvidenceError, ValueError, OSError) as exc:
+                        raise StackFailure('AI authorization/movement chronology failed: '+str(exc)) from exc
+                outcome['state'] = 'COMPLETED'
     except KeyboardInterrupt:
         outcome['error'] = 'KeyboardInterrupt: aborted by operator; stack torn down'
         print(outcome['error'], file=sys.stderr)
@@ -461,7 +526,14 @@ def main(argv=None):
         # Expected AI rejection in swapped/empty is a valid experimental
         # outcome ONLY when the independent ROS evidence proves the robot
         # stayed at the station after the explicitly logged denial.
-        if (args.scenario=='live' and (args.scene in ('swapped','empty') or args.hazard_at)
+        if (args.scenario=='live' and memory_denied(log_dir) and isinstance(e,StackFailure)
+                and str(e).startswith('mission failed (exit=')):
+            try:
+                memory_denial_audit(outcome, log_dir)
+                return_code=0
+            except (ValueError,OSError,KeyError,TypeError,RuntimeError) as denial_error:
+                outcome['negative_evidence_failure']=str(denial_error)
+        elif (args.scenario=='live' and (args.scene in ('swapped','empty') or args.hazard_at)
                 and isinstance(e,StackFailure)
                 and str(e).startswith('mission failed (exit=')):
             try:
@@ -514,6 +586,15 @@ def main(argv=None):
                 outcome['error'] = 'rosbag evidence missing/incomplete: ' + str(exc)
                 return_code = 2
     finally:
+        if args.memory_file:
+            # I-15: remember what the robot itself saw (never ground truth), whatever the outcome
+            try:
+                from rescuemind.mission_memory import MissionMemory
+                m=json.loads((log_dir/'mission.json').read_text(encoding='utf8'))
+                outcome['memory_update']=MissionMemory(args.memory_file).append_mission(m, run_id)
+                outcome['memory_plan']=m.get('memory')
+            except (OSError,ValueError,KeyError,TypeError) as exc:
+                outcome['memory_update_error']=f'{type(exc).__name__}: {exc}'
         (log_dir/'stack_result.json').write_text(json.dumps(outcome, ensure_ascii=False, indent=2)+'\n')
         print('Stack execution records:', log_dir)
     return return_code

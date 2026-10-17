@@ -71,7 +71,16 @@ def summarize(trial: dict, run_dir: Path | None, rc: int, wall_s: float) -> dict
     row['intent_backend'] = (mission.get('intent_gate') or {}).get('backend')
     row['intent_item'] = (mission.get('intent') or {}).get('item')
     row['explanations'] = [e.get('text_ja') for e in mission.get('events', []) if e.get('stage', '').endswith('checkpoint_explanation')]
-    if row['state'] == 'COMPLETED':
+    row['memory_plan'] = result.get('memory_plan')
+    row['memory_changes'] = (result.get('memory_update') or {}).get('changes')
+    t_end = [e.get('t_wall_s') for e in mission.get('events', [])
+             if e.get('stage') in ('shelter_approach', 'checkpoint_denial_dwell_finished', 'memory_denial')]
+    row['mission_time_s'] = max(t_end) if t_end else None     # start -> shelter arrival, or -> final refusal
+    if row['state'] == 'COMPLETED_MEMORY_TRUSTED':     # I-15 naive-memory baseline: delivered without looking
+        row['observed_action'] = 'ALLOW_MEMORY'
+    elif row['state'] == 'DENIED_BY_MEMORY':
+        row['observed_action'] = 'DENY_MEMORY'
+    elif row['state'] == 'COMPLETED':
         row['observed_action'] = 'ALLOW_AFTER_SEARCH' if rec else 'ALLOW'
     elif row['state'] == 'COMPLETED_EXPECTED_DENIAL':
         hazard = decision.get('reason') == 'visible_hazard_at_checkpoint'
@@ -85,7 +94,7 @@ def summarize(trial: dict, run_dir: Path | None, rc: int, wall_s: float) -> dict
     want = {'DELIVER_AFTER_SEARCH': 'ALLOW_AFTER_SEARCH'}.get(expected, expected)
     row['correct'] = row['observed_action'] == want
     # mission-level outcome for the paper (what reached the shelter, if anything)
-    row['delivered'] = row['observed_action'] in ('ALLOW', 'ALLOW_AFTER_SEARCH')
+    row['delivered'] = row['observed_action'] in ('ALLOW', 'ALLOW_AFTER_SEARCH', 'ALLOW_MEMORY')
     row['first_checkpoint_allow'] = (not rec) and row['delivered']
     return row
 
@@ -130,6 +139,16 @@ def main(argv=None):
                     cmd += [flag, trial[key]]
             cmd += a.stack_args or common
             cmd += trial.get('stack_args') or []      # campaign F: per-trial configuration (A/B)
+            mem = trial.get('memory')
+            if mem:   # campaign H (I-15): each (sequence, arm) has its own memory file, seeded from mission 1
+                mfile = ROOT / mem['file']
+                if mem.get('init_from') and not mfile.exists():
+                    src = ROOT / mem['init_from']
+                    if not src.is_file():
+                        raise SystemExit(f"memory seed {mem['init_from']} missing: run the sequence's first mission first")
+                    mfile.parent.mkdir(parents=True, exist_ok=True)
+                    mfile.write_bytes(src.read_bytes())
+                cmd += ['--memory-file', str(mfile), '--memory-mode', mem['mode']]
             if not a.no_rosbag:
                 cmd.append('--capture-rosbag')
             started = time.monotonic()
@@ -146,6 +165,9 @@ def main(argv=None):
             row['stack_args'] = (a.stack_args or common) + (trial.get('stack_args') or [])
             if trial.get('config'):
                 row['config'] = trial['config']; row['world'] = trial.get('world'); row['condition'] = trial.get('condition')
+            for k in ('sequence', 'mission_index', 'transition'):
+                if k in trial:
+                    row[k] = trial[k]
             row['instruction'] = trial.get('instruction')
             row['attempt'] = attempt + 1
             infra_failure = row['observed_action'] == 'FAILED' and row.get('vlm_reason') is None

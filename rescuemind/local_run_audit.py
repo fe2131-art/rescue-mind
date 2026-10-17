@@ -24,6 +24,11 @@ def audit_local_checkpoint(checkpoint: dict, image_sha: str, *, expected: str) -
     if 'jev_call' in checkpoint:   # I-13: recompute the two-model rule from the saved Jev-role answer
         computed=combine_with_jev(computed,checkpoint['jev_call'],expected,
                                   hazard_threshold=checkpoint.get('jev_hazard_threshold',.35))
+    from .mission_memory import apply_memory_caution, peek_hazard
+    tau_mem=checkpoint.get('memory_caution_tau_h')   # I-15: memory may only tighten the hazard threshold
+    if tau_mem is not None and not (isinstance(tau_mem,float) and 0 < tau_mem < .05):
+        raise LocalReceiptError('memory caution threshold must be stricter than the v3.6 threshold')
+    computed=apply_memory_caution(computed,a,b,tau_mem)
     if 'look_around' in checkpoint:   # I-14: side views can only turn an approval into a hazard refusal
         peeks=[]
         for pk in checkpoint['look_around'].get('peeks',[]):
@@ -35,9 +40,10 @@ def audit_local_checkpoint(checkpoint: dict, image_sha: str, *, expected: str) -
                                     hazard_threshold=checkpoint.get('jev_hazard_threshold',.35))['reason']
             else:
                 hz=local_decision(expected,pa,pb)['reason']
-            if (hz=='visible_hazard_at_checkpoint') != bool(pk.get('hazard')):
+            hazard=peek_hazard(hz,pa,pb,tau_mem)
+            if hazard != bool(pk.get('hazard')):
                 raise LocalReceiptError('look-around hazard flag does not match the saved side-view outputs')
-            peeks.append({'side':pk['side'],'hazard':hz=='visible_hazard_at_checkpoint'})
+            peeks.append({'side':pk['side'],'hazard':hazard})
         computed=combine_with_look_around(computed,peeks)
     if checkpoint.get('image_sha256')!=image_sha or checkpoint.get('decision')!=computed:
         raise LocalReceiptError('decision or image hash does not match original model outputs')
