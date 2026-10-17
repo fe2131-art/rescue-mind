@@ -386,6 +386,9 @@ def main(argv=None):
                 layout = Layout.from_dict(world_spec['layout'])
             except ValueError as e:
                 p.error(f'--world-spec layout invalid: {e}')
+    depot_k4 = bool(world_spec and (world_spec.get('depot') or {}).get('stations') == 4)
+    if depot_k4 and layout is not None:
+        p.error('--world-spec: a Study L layout and the four-station depot cannot be combined')
     robust = args.lighting != 'default' or args.hazard_at or args.distractor_at or world_spec is not None
     def make_world(dest_dir):
         if not robust:
@@ -423,7 +426,7 @@ def main(argv=None):
                       evidence_dir=placeholder, capture_rosbag=args.capture_rosbag,local_mode=args.local_mode,
                       gz_mode=args.gz_mode, film=args.film, **extra,
                       **(dict(config_path=placeholder/'waypoints.json', centers_path=placeholder/'station_centers.json')
-                         if layout is not None else {}))
+                         if (layout is not None or depot_k4) else {}))
     import hashlib
     scene_path = ROOT/'worlds/scenarios'/('rescuemind_'+args.scene+'.sdf')
     scene_sha256=hashlib.sha256(scene_path.read_bytes()).hexdigest()
@@ -439,6 +442,9 @@ def main(argv=None):
     log_dir.mkdir(parents=True, exist_ok=False)
     run_world = make_world(log_dir)
     layout_files = layout.write_configs(log_dir) if layout is not None else (None, None)
+    if depot_k4:        # I-21 phase 2: the four-station depot audits against ITS OWN waypoints (station ids + inventory)
+        from rescuemind.depot import write_k4_configs
+        layout_files = write_k4_configs(log_dir)
     plan = build_plan(args.scenario, args.instruction, mission_timeout=args.mission_timeout, scene=args.scene, evidence_dir=log_dir,
                       world=run_world, config_path=layout_files[0], centers_path=layout_files[1], **extra,
                       capture_rosbag=args.capture_rosbag,local_mode=args.local_mode,gz_mode=args.gz_mode,
