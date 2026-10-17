@@ -167,6 +167,17 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
   * 動画を作り直す：`make_video_plan.py --memory <id>` に要約カード。
   * README・説明資料・YouTube 説明文を更新し、第三者採点の3回目を行う。
 
+**2026-10-17 夕方の状態（利用上限で中断）**
+* 自動で動き続けているもの：H 本番（53/112、失敗 0。結果は仮説どおり）→ J 本番 → `post_j_chain.sh`（記憶デモの撮影 → P2）。
+* 再開したら：
+  1. `bash scripts/finalize_results.sh` で全解析 → 論文・説明資料・README・YouTube説明文を再生成する。TBD が残っていないことを確認する。
+  2. 論文の `% CHECK-AFTER-H` を確認する。H の変化率の図を本文に戻すか検討する。
+  3. 動画を作り直す。`film_memory_runs.txt` の mem_verified の run_id を使い、`make_video_plan.py ... --memory <id>` → `make_demo_video.py --narrate 2`（3分以内）。
+  4. study L：ブランチ `worktree-agent-ac85b5ba081cc1f61` をマージ → `scripts/l_smoke.sh` → 事前登録をコミット → 実行。
+  5. 第三者採点の3回目（Sonnet、`docs/evaluations/EVALUATOR_PROMPT.md`）。
+  6. ユーザーへの質問：事前登録の外部タイムスタンプ（OpenTimestamps。送るのはハッシュのみ）を実施してよいか。回答待ち。
+* サブエージェントは Sonnet 5.5 で、同時に1つまで。
+
 **次の手順**
 1. （済）予備走行2回目（HP02・HP03：記憶による経路と、素朴な記憶の確認省略の監査）を確認する → H の Amendment 1 → H を本実行（約7時間。R の終了後に）。
 2. R の解析（`r_analysis.py`。事前登録どおり）→ 論文に「センサー劣化」節、図。
