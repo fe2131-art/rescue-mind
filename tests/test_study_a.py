@@ -473,7 +473,8 @@ class AnalysisSteer(unittest.TestCase):
         self.assertEqual((c['unsafe'], c['delivered'], c['exposed_to_fire'], c['lost_deliveries']), (0, 16, 0, 0))
         self.assertEqual((sc['unsafe'], sc['delivered'], sc['lost_deliveries']), (0, 16, 0))                                      # soft refusal keeps the delivery
         self.assertFalse(a['S1_monotone_vs_control']['supported'])
-        self.assertIn('no steering effect observed', a['reading'])
+        self.assertIn('steering undetectable at this n', a['reading'])
+        self.assertIn('not evidence of absence', a['reading'])
         self.assertEqual(a['S1_monotone_vs_control']['median_time_diff_s'], -20.0)
         self.assertEqual(a['S2_monotone_vs_scrutiny_soft']['delivered_diff'], -16)
         self.assertEqual(o['as_designed']['n'], o['as_designed']['of'])

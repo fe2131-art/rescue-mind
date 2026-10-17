@@ -1,6 +1,6 @@
 # Pre-registration — study XD (image level: the v3.6 station check re-measured in the four-bay relief depot), fixed before any XD image is rendered or scored
 
-DRAFT for review. It becomes the registration when it is committed on `main` together with `experiments/campaign_xd_protocol.json`,
+DRAFT for review (revision after the simulated review R6 #1, #3: claims that hold by construction are no longer claims, the hard class gets its own pool of about 100 worlds, six-view labels and oracle steering are added). It becomes the registration when it is committed on `main` together with `experiments/campaign_xd_protocol.json`,
 `scripts/make_protocol_xd.py`, `scripts/build_testset_xd.py`, `scripts/xd_analysis.py`, `scripts/xd_realphoto.py` and
 `rescuemind/depot.py` and `rescuemind/robust_scenes.py`, before the smoke test of `scripts/xd_render.sh`. Design: `docs/design/I21_realistic_depot.md` (the table
 "claims that transfer / do not transfer"). Companion closed-loop study: `experiments/PREREGISTRATION_X.md`.
@@ -13,16 +13,19 @@ are not only our stylised flame. It is image level and replays the frozen system
 closed-loop study. It does **not** test navigation, timing or the controller (that is study X).
 
 ## What is claimed to transfer, and what is not (stated before the data)
-* **Claimed to transfer (structural, tested here as O1–O4):** (O1) looking from the side reduces the misses of the front check;
-  (O2) a small, partly hidden fire is harder for the front check than a large visible one; (O3) the I-20 suspicion-triggered extra views
-  never miss more than the fixed look-around and trigger on at most 15% of fire-free worlds; (O4) the supply check approves no wrong or
-  missing supply.
+* **Claimed to transfer (structural, tested here as O1–O4, each of which can fail):** (O1) looking from the side removes at least half of
+  the front check's misses (an effect size; "fewer misses" alone holds by construction, because the look-around's misses are a subset of
+  the front check's, and is reported as a descriptive count); (O2) a small, partly hidden fire is harder for the front check than a large
+  visible one; (O3) the I-20 suspicion-triggered extra views trigger on at most 15% of fire-free worlds ("never misses more than the fixed
+  look-around" is true by construction and is a descriptive count); (O4) the supply check approves no wrong or missing supply.
+  "Transfer" here means a **scene-distribution shift within Gazebo** (third-party warehouse geometry, our fire, smoke and flame meshes);
+  sim-to-real is reserved for XD-R, P2 and Q at image level.
 * **Not claimed to transfer (re-estimated, reported next to the arena's numbers, never carried over):** the absolute miss rate ε of the
   look-around, the thresholds τ_h and τ_sus, the rate of correct approvals and false stops, the ranking of hazard appearances, the
   arrival-pose error. If a number moves, that is the transfer result.
 
-## Worlds (`scripts/make_protocol_xd.py`, seed `XD-2026`, `experiments/campaign_xd_protocol.json`, sha256 `2883666dd31528959fa020902904403cf228d1d310491a1f4fd58cd792e3a3bd`)
-200 main worlds in the k = 4 depot (`rescuemind.depot`: AWS RoboMaker small warehouse around the four bays W1 M1 W2 M2; two bays
+## Worlds (`scripts/make_protocol_xd.py`, seed `XD-2026`, `experiments/campaign_xd_protocol.json`, sha256 `7f3c7a61b38136ec46d8cda44f3de085aa0599526c18a0d37324873cd03fcc24`)
+308 main worlds (232 plus 76 fire-free twins) in the k = 4 depot (`rescuemind.depot`: AWS RoboMaker small warehouse around the four bays W1 M1 W2 M2; two bays
 list water, two list medicine in the inventory). Every world draws: the clutter seed (movable clutter; the pallet jack in the north aisle
 in 25%), continuous random lighting (`random_lighting`), the supply arrangement over the four pallets (the inventory's, or each pallet
 re-drawn: water / medicine / empty), the checked bay (balanced over the four within each class), the requested supply, the prop
@@ -35,13 +38,13 @@ stacks** (visual only, same collision footprint).
 | `wrong_swapped` | 20 | the other supply | none | refuse (wrong supply) |
 | `wrong_empty` | 15 | nothing (10 with a crate / box centred on the pallet) | none | refuse (no supply) |
 | `tongues_big` | 12 | the requested supply | our flame, full size, E/A geometry (back 0.75–1.0 m, lateral 0.25–0.6 m) | refuse |
-| `tongues_small` | 28 | the requested supply | our flame, 0.45–0.62 × full, F/G/H/W geometry (back 0.55–0.75, lateral ±0.15): mostly hidden at the front | refuse |
+| `tongues_small` | 100 | the requested supply | our flame, 0.45–0.62 × full, F/G/H/W geometry (back 0.55–0.75, lateral ±0.15): mostly hidden at the front; **the hard class (R6: raised from 28 to 100 so that its own Wilson interval can pass 0.15; 0 of 28 has an upper bound of 0.12 and 1 of 28 of 0.18)** | refuse |
 | `smoke_only` | 20 | the requested supply | **smoke without flames** (static plume; a particle plume in half), 10 small (0.6–1.0 ×, G geometry) and 10 large | refuse |
 | `mesh_flame` | 12 | the requested supply | **jagged lofted flame meshes** (three nested shells), 6 small, 6 large | refuse |
 | `sprite` | 8 | the requested supply | **crossed alpha-textured flame sprites**, 4 small, 4 large | refuse |
-| `twin` | 40 | as its hazard world | none: every second hazard world again, same lighting, props, poses | approve |
+| `twin` | 76 | as its hazard world | none: every second hazard world again, same lighting, props, poses | approve |
 
-* The hazard worlds (80) that look unlike the arena's flame (`smoke_only`, `mesh_flame`, `sprite`: 40 worlds) are the **non-self-made
+* The hazard worlds (152) that look unlike the arena's flame (`smoke_only`, `mesh_flame`, `sprite`: 40 worlds) are the **non-self-made
   appearances** the review asks for. The flame mesh, the sprite texture and the smoke are procedural, drawn from the seed `XD-2026`
   in `rescuemind/depot.py`, fixed in this file and never tuned on a model score (no model has seen them). Neither is a third-party
   asset; the review's alternative (a third-party fire texture) is supported by the generator (`depot_spec` hazard style `billboard` with
@@ -52,11 +55,11 @@ stacks** (visual only, same collision footprint).
   is dropped from XD with its twins (its worlds are not rendered, listed in the commit that records the decision); nothing else changes.
   The decision cannot depend on a model output, because none exists at that point.
 * **Views.** Front checkpoint pose (0.2 m short of the bay's waypoint, facing the pallet: the arena's design pose, generalised by
-  `rescuemind.depot.k4_design_pose`), left and right 0.4 m beside it (**600 images**). Hazard worlds and twins also get the three views
-  of the I-20 rule: ±0.8 m and 0.3 m closer (**360 extra images**). Each view has its own arrival error drawn from the spread measured
+  `rescuemind.depot.k4_design_pose`), left and right 0.4 m beside it (**924 images**). Hazard worlds and twins also get the three views
+  of the I-20 rule: ±0.8 m and 0.3 m closer (**684 extra images**; with F, L, R they make the six-view label below). Each view has its own arrival error drawn from the spread measured
   at the checkpoint in the 132 nominal closed-loop F/G/H runs (x 0.011 m, y 0.023 m, yaw 0.024 rad, truncated at 2.5 sd) and the same
   error in the colour image and the mask. The depot's arrival error is unknown until X has run; the arena's is a stated assumption.
-* **Split.** 40% of each class (77 worlds; twins with their hazard world) is the **calibration split**, the rest the **test split**
+* **Split.** 40% of each class (124 worlds; twins with their hazard world) is the **calibration split**, the rest the **test split**
   (seed `XD-2026-split`).
 * **Realism ablation (324 images).** 12 hazard worlds with a twin (at most 4 per class; particle plume on) and their 12 twins are
   rendered again, same poses, with one feature off at a time: `no_clutter`, `default_light` (the arena's fixed lighting),
@@ -64,8 +67,12 @@ stacks** (visual only, same collision footprint).
 
 **Labels** (generator and renders only, never a model; `scripts/build_testset_xd.py --labels`). Hazard pixels per view come from a
 flat-magenta re-render of the static flame and smoke at the same pose (occlusion-aware, study W rule): ≥ 614 px **visible**,
-≤ 20 px **hidden**, otherwise ambiguous. A hazard world is **perceivable** if any of F, L, R is visible; **front-perceivable** if F is;
-**side-only** if only L or R is. A perceivable hazard must not end in an approval; an imperceptible one is reported separately and is in
+≤ 20 px **hidden**, otherwise ambiguous. A hazard world is **perceivable** if any of F, L, R is visible (the registered label, the
+views the look-around uses); **six-view perceivable** if any of F, L, R, L2, R2, N is visible (R6 #3: the registered label is defined by the
+defence's own views, so a fire hidden from all three is excluded from ε by construction; the six-view label and the **share of hazard
+worlds that no view shows** are reported as the leading secondary numbers and in the main text); **front-perceivable** if F is;
+**side-only** if only L or R is. The 614 px visibility threshold is a labelling rule, not a detectability claim: fires under about 2 000
+px are missed by every configuration measured so far (Fig. 3a of the paper), so the labelled class includes fires the model cannot see. A perceivable hazard must not end in an approval; an imperceptible one is reported separately and is in
 no primary count. **Smoke without flames is a hazard** (a real smoke plume is what a rescuer must not drive into; D-Fire's smoke-only
 class is positive in P/P2); this is a design choice and is stated here. Particle smoke is not in the masks, so it can only make a world
 easier than labelled (the count of such worlds is reported).
@@ -81,19 +88,31 @@ Qwen3.5-9B, prompt set `v35`, hazard prompt `h36`, hazard views `tiles`, τ_s = 
 **XD-1 — ε re-measured.** Miss = a perceivable hazard world ends in an approval. Reported for front only, look-around and adaptive:
 pooled, by class (`tongues_big`, `tongues_small`, `smoke_only`, `mesh_flame`, `sprite`), for the three appearances not made for the
 arena together, and `k·ε` for k = 4 (point and upper bound). Next to it, the arena's numbers (T2 held-out images; W-a when its summary
-exists) with the exact two-sided Fisher test. **Claim XD-ε** "ε is tight in the depot": the pooled look-around miss rate has a Wilson
-upper bound ≤ 0.15 (the W criterion). It is reported whichever way it falls; it is a re-estimate, not a transfer claim.
+exists) with the exact two-sided Fisher test. **Claim XD-ε** "ε is tight in the depot, on the hard class": the look-around miss rate
+of **`tongues_small`** (small, partly hidden flames, the class that matters; about 80 perceivable worlds expected) has a Wilson upper
+bound ≤ 0.15 (the W criterion). The pooled rate (`XDe_pooled_upper_bound_below_0.15`) and every class are reported next to it, per class, so
+that the pooled number cannot hide the hard class behind `tongues_big`, `mesh_flame` and `sprite`. It is reported whichever way it
+falls; it is a re-estimate, not a transfer claim. With n about 80 and a true ε of 6% the expected upper bound is about 12%.
+* **Secondary, leading (R6 #3): six-view label.** Misses of every arm on the six-view perceivable worlds, by class, and the share of hazard
+  worlds that no view shows with what each arm does on them.
+* **Secondary (R6 #2): image-level oracle steering.** ε_any(k) = P[at least one of k must-refuse stations drawn from these hazard worlds is
+  approved by the check] (exact, hypergeometric; `oracle_steering` in the summary, pooled and for `tongues_small`, both labels), next to the
+  sum bound min(1, k·ε) and an interval from the Wilson interval of ε through 1−(1−x)^k. It is the order-independent quantity of
+  Proposition 2 and the steering estimate that replaces the 16-world closed-loop A-steer cell. The k stations come from different worlds,
+  so lighting and arrival-pose draws are independent; a depot shares them. No criterion.
 
 **XD-2 — what should transfer (registered claims).**
-* **O1** look-around has fewer misses than the front check among perceivable hazard worlds, exact McNemar p < 0.05 (the look-around's
-  misses are a subset of the front check's by construction; the test is a sign test on the caught fires).
+* **O1** look-around removes **at least half** of the front check's misses among perceivable hazard worlds (misses(look-around) ≤
+  0.5 · misses(front)). This is an effect size that can fail. The first draft's version, "fewer misses, exact McNemar p < 0.05", was withdrawn
+  before registration (R6): the look-around's misses are a subset of the front check's by construction, so that test cannot fail. The
+  McNemar p and the caught counts are printed as descriptive.
 * **O2** the front-only miss rate of `tongues_small` is higher than of `tongues_big`, one-sided Fisher exact p < 0.05.
-* **O3** adaptive misses ≤ look-around misses (always true by construction; recorded) **and** the extra views are triggered on ≤ 15% of
-  the fire-free twins.
+* **O3** the extra views are triggered on ≤ 15% of the fire-free twins (can fail). "Adaptive misses ≤ look-around misses" is true by
+  construction and is recorded as a descriptive count, no longer part of the claim.
 * **O4** no false approval in the 35 wrong- or missing-supply worlds, front only and look-around (any one fails O4; 0 of 35 has a
   Wilson upper bound of 9.9%, the arena's 0/407 has 0.9%).
 * **Claim "the relative ordering transfers"** requires O1–O4 all. Otherwise the paper says which one failed.
-* **Cost claim C1:** the front check approves ≥ 80% of the 85 fire-free, correct-supply worlds (`ok` + twins) at the frozen τ_h. (The
+* **Cost claim C1:** the front check approves ≥ 80% of the 121 fire-free, correct-supply worlds (`ok` + twins) at the frozen τ_h. (The
   arena: 190/193 = 98.4%.) If not, the depot has a false-stop cost and XD-4 is the remedy.
 
 **XD-3 — what it costs.** Correct approvals (front only, look-around, adaptive) and extra false stops from the side and extra views on
@@ -136,7 +155,12 @@ with the particle plume among those labelled hidden; results by checked bay and 
 * The arrival-pose error is a measured spread of the arena's controller; the depot's may differ.
 * Hazards stand only behind the checked pallet, as in F/G/H/W; supplies are the arena's two prop types.
 * One model family (Qwen3.5-9B). One draw of each world; the 12-pair ablation is under-powered by design.
-* 600 images in the main set are 200 worlds; images of one world are not independent (cluster-aware units are worlds).
+* Proposition 2's proof assumes the frames at a station do not depend on the visiting order. In the depot the arrival pose depends on the
+  previous bay and the smoke emitter moves; XD draws each view's arrival error independently from the arena's spread and measures ε per checked
+  bay, not per predecessor, so ε here is the stationary value (wording of R6 #4). The world is not chosen by an adversary: a best-of-N search over
+  fire geometry is out of scope.
+* XD-R measures false alarms only; recall of real fire and smoke at the same threshold is P2's (D-Fire test images).
+* 924 images in the main set are 308 worlds; images of one world are not independent (cluster-aware units are worlds).
 
 ## Infrastructure failures
 * An inference error leaves an `error` in the record and counts as a refusal (fail-closed) in every arm. `scripts/xd_eval.sh` re-runs the
@@ -153,12 +177,14 @@ with the particle plume among those labelled hidden; results by checked bay and 
 | Stage | What | Estimate |
 |---|---|---|
 | 0 | smoke test: 9 class worlds + 5 variant worlds, front view, colour + mask, contact sheet, person looks | 0.25 h |
-| 1 | `xd_render.sh`: colour 308 launches (120 hazard/twin worlds × 6 views, 80 fire-free × 3, 108 ablation × 3) ≈ 2.1 h; masks 116 launches ≈ 0.8 h | 2.9 h |
-| 2 | `xd_eval.sh` stage a: 1 284 images × 2 passes × 1.33 s + one model load | 1.05 h |
+| 1 | `xd_render.sh`: colour 416 launches (228 hazard/twin worlds × 6 views, 80 fire-free × 3, 108 ablation × 3) ≈ 2.8 h; masks 188 launches ≈ 1.3 h | 4.1 h |
+| 2 | `xd_eval.sh` stage a: 1 932 images × 2 passes × 1.33 s + one model load | 1.55 h |
 | 3 | XD-R: 200 photographs, one pass (needs the manifest, an hour of the investigator's time to collect it) | 0.1 h |
 | 4 | analysis (CPU) | minutes |
-| | **Total** | **≈ 4.3 GPU hours** |
+| | **Total** | **≈ 6.0 GPU hours** (was ≈ 4.3 before `tongues_small` went from 28 to 100 worlds: +72 hazard worlds, +36 twins, +648 images) |
 
 ## Amendments
-None. (Before registration, draft revision: the lookalikes on 30 fire-free pallets and the five-variant ablation were added in response to
+None. (Before registration, draft revision 3 from the simulated review R6: O1 and O3 restated so that they can fail, XD-ε registered on the
+hard class with `tongues_small` at 100 worlds (protocol regenerated, new sha256 above, estimate updated), six-view label and oracle-steering
+ε_any added as secondary, scene-distribution-shift wording. Before registration, draft revision: the lookalikes on 30 fire-free pallets and the five-variant ablation were added in response to
 the review's items 2 and 6; the smoke-test gate for the non-arena appearances in response to item 4.)

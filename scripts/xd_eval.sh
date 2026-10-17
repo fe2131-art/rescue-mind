@@ -2,7 +2,7 @@
 # Study XD (DRAFT): score the rendered set with the local VLM server (Qwen3.5-9B, v3.6 = h36 + tiles) and run the analysis.
 #   bash scripts/xd_eval.sh                  # image set (needs xd_render.sh first)
 #   XD_STAGES="ar" bash scripts/xd_eval.sh   # "a" = depot images, "r" = real fire-free photographs (needs the manifest, see xd_realphoto.py)
-# Estimated GPU time: a 1.0 h (1284 images x 2 passes x 1.33 s + one model load), r 0.1 h (200 photographs, one pass).
+# Estimated GPU time: a 1.6 h (1932 images x 2 passes x 1.33 s + one model load), r 0.1 h (200 photographs, one pass).
 # Resumable: a finished result file is skipped.  An inference error triggers ONE full re-run of the stage (both files are kept).
 set -uo pipefail
 cd "$(dirname "$0")/.."
