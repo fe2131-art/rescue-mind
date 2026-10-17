@@ -52,15 +52,18 @@ def peek_hazard(reason: str, first: dict, second: dict, tau_h: float | None) -> 
     return tau_h is not None and max(_hazard_prob(first), _hazard_prob(second)) >= tau_h
 
 
-def _supply_seen(decision: dict) -> str:
-    a, b = decision.get('first_supply'), decision.get('second_supply')
-    if a != b or a is None:
+def _supply_seen(cp: dict) -> str:
+    """The supply both passes named, if each put >= 0.5 on it.  (The decision's confidences are for the REQUESTED
+    supply, so they cannot be used for what was actually seen.)"""
+    calls = cp.get('model_calls') or {}
+    labels = [((calls.get(k) or {}).get('result') or {}).get('supply') for k in ('first', 'second')]
+    if labels[0] != labels[1] or labels[0] is None:
         return 'uncertain'
-    if a in STATIONS:
-        ca, cb = decision.get('first_confidence'), decision.get('second_confidence')
-        if any(c is not None and c < decision.get('min_confidence', 0.5) for c in (ca, cb)):
+    for k in ('first', 'second'):
+        probs = ((calls.get(k) or {}).get('scores') or {}).get('supply_probs')
+        if probs is not None and float(probs.get(labels[0], 0.0)) < 0.5:
             return 'uncertain'
-    return a
+    return labels[0]
 
 
 def _front_hazard(cp: dict) -> bool:
@@ -80,7 +83,7 @@ def observations(mission: dict, tag: str) -> list[dict]:
             return
         views = (['front'] if _front_hazard(cp) else []) + [p['side'] for p in peeks if p.get('hazard')]
         calls = cp.get('model_calls') or {}
-        out.append({'tag': tag, 'station': station, 'supply': _supply_seen(cp['decision']),
+        out.append({'tag': tag, 'station': station, 'supply': _supply_seen(cp),
                     'hazard': bool(views), 'hazard_views': views,
                     'hazard_prob_max': round(max([_hazard_prob(calls.get('first')), _hazard_prob(calls.get('second'))]
                                                  + [max(_hazard_prob(p['model_calls'].get('first')),
