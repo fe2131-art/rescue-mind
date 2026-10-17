@@ -389,6 +389,27 @@ def section_zpr():
     return rows, notes
 
 
+def section_k():
+    """Row for study K (conformal threshold) in Japanese and English; numbers from k_summary.json. Missing file -> (None, None)."""
+    k = jl('k_summary.json')
+    try:
+        fz, a5, a10 = k['frozen'], k['alphas']['0.05']['K_PAC'], k['alphas']['0.1']['K_PAC']
+        mf = lambda x: f"{x['heldout_miss']['k']}/{x['heldout_miss']['n']}"
+        ff = lambda x: f"{x['heldout_false_alarm']['k']}/{x['heldout_false_alarm']['n']}"
+        sf = k['small_fire_frac']
+        ja = (f"| 評価K（保証付きの閾値） | 火の見逃し率の上限αを保証するように、閾値を開発データ（火{k['n_cal']}枚）から決める方法（適合予測）。保存済みスコアの再解析 | "
+              f"未使用T2（火{k['n_fire']}枚・火の無い必須許可{k['n_free']}枚）：既定の0.05は見逃し {mf(fz)}・誤警報 {ff(fz)}。保証付き α=0.05（τ={a5['tau']}）は見逃し {mf(a5)}・誤警報 {ff(a5)}、"
+              f"α=0.10（τ={a10['tau']}）は {mf(a10)}・{ff(a10)}で、誤警報が増えるだけ（T2の小さな火は{sf['heldout'] * 100:.1f}%、開発データは{sf['cal'] * 100:.0f}%で分布が違う）。"
+              f"開発データでの既定の見逃しは {fz['cal_miss']['k']}/{fz['cal_miss']['n']}。**注意：Kは T2 のスコアが既にある状態で登録した（スコアは調整し直していない）** |")
+        en = (f"| K: conformal threshold (stored scores, offline) | on unseen T2 ({k['n_fire']} fires, {k['n_free']} fire-free must-approve): frozen tau=0.05 misses {mf(fz)}, false alarms {ff(fz)}; "
+              f"calibrated alpha=0.05 (tau={a5['tau']}) misses {mf(a5)}, false alarms {ff(a5)}; alpha=0.10 (tau={a10['tau']}) {mf(a10)}, {ff(a10)}. "
+              f"No threshold misses a T2 fire (a ceiling, so no difference is shown); the calibrated ones only add false alarms (T2 fires are easier: small fires {sf['heldout'] * 100:.1f}% vs. {sf['cal'] * 100:.0f}% in calibration). "
+              "K was registered after the T2 scores existed (scores were not re-tuned) |")
+        return ja, en
+    except (TypeError, KeyError):
+        return None, None
+
+
 def section_en(e, v):
     """English summary for international readers; every number comes from the result files (same helpers as above)."""
     L = ['## English summary', '',
@@ -437,6 +458,9 @@ def section_en(e, v):
         L.append(row + ' |')
     except (TypeError, KeyError):
         L.append('| P: real photos | pre-registered, running |')
+    k_ja, k_en = section_k()
+    if k_en:
+        L.append(k_en)
     h, j = jl('h_summary.json'), jl('j_summary.json')
     try:
         p1h, p2h = h['P1_efficiency_relocation_persist'], h['P2_safety_naive_vs_verified']
@@ -501,7 +525,10 @@ def main():
         head.append(f"| 〃 v3.5（τ_h=0.05、副の事前指定） | 同じ画像・同じ保存済み確率から再計算 | 誤許可 {fa_txt(v35)}、正しい許可 {ca_txt(v35)} |")
         t1_block = f"* T1：{claim}主な原因は下の「残る弱点」"
     head += zrows
-    parts = ['<!-- RESULTS:START -->', '## 結果：事前登録した評価（D・E・F・G・T1・T2・Z・P・R）', '',
+    k_ja, k_en = section_k()
+    if k_ja:
+        head.append(k_ja)
+    parts = ['<!-- RESULTS:START -->', '## 結果：事前登録した評価（D・E・F・G・T1・T2・Z・P・R・K）', '',
              'Qwen3.5-9B（ローカル・V100）。条件・閾値・解析は結果を見る前に `experiments/PREREGISTRATION_*.md` に固定し、台帳は全試行を記録。', '',
              '用語：**誤許可**＝届けてはいけない場面で「届けてよい」と判断してしまうこと（ロボットを実際に動かす評価では**誤配達**。火のある拠点から届けてしまうことは**危険な配達**）。**正しい許可**＝届けてよい場面で正しく「よい」と判断できること。**閉ループ**＝AIの判断でロボットが実際に動くところまで含めた評価。', '',
              '\n'.join(head), '']
