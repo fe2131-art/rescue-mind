@@ -215,6 +215,45 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 * L と I-18 のブランチは main に追従させ、同時にマージしても衝突しないことを確認済み（main を変更したら再度の追従が必要）。
 * 第三者採点の4回目は 31.5/40、模擬査読の3回目は borderline。
 
+## ★ 圧縮後はここから再開（2026-10-17 17:25）
+
+**自動で動いているもの（止めない・触らない）**
+1. `final_chain.sh`：J 本番（48 run。17:25 時点で約17。20時ごろ終了）→ `J_DONE`。出力は `.../tasks/brbkqd8zb.output`。
+2. `post_j_chain.sh`：J の後に記憶デモの撮影（`film_memory.sh` → `experiments/results/film_memory_runs.txt`）→ `FILM_MEMORY_DONE` → P2（`p2_eval.sh`）→ `P2_DONE`。
+3. `render_after_film.sh`：撮影の後に動画を作り直す（`--memory <mem_verified id>`、記憶カード・事例カード、空の拠点のデモを外して約163秒）→ `make_youtube_description.py` → `RENDER_DONE`。
+4. `after_p2_chain.sh`：P2 の後に L のブランチ（`worktree-agent-ac85b5ba081cc1f61`）を main へマージ → テスト → push → `l_run.sh`（マスク → 試運転 → 本番 → 解析）。
+   * マージで衝突したら `MERGE_CONFLICT` で止まる。その場合はブランチを main に追従させてから、手動でマージして `l_run.sh` を実行する。
+5. 待機中：`broolkxvo`（J 終了後に `j_analysis.py` を実行）。
+
+**評価中の厳守事項**：重い処理（ビルド・テスト・図の生成・動画）をしない。J では CPU 負荷とページキャッシュの取り合いで判断時間が延びた。逸脱は J の事前登録に記録済み。
+
+**各段が終わったらすること**
+* J の後：
+  * `bash scripts/finalize_results.sh`。J の結果を論文・説明資料・README・グラフィカルアブストラクトに反映する。
+  * J の論文の文面（中立的な書き方）を確認する。判断時間は「負荷あり」の注記つきで報告する。
+  * IMPROVEMENT_LOG の I-16 の判断を書く。
+* 撮影の後：
+  * `outputs/video/render_v4.log` と動画の長さ（3分以内）を確認する。数フレームを切り出して目で確認する。
+  * `docs/video_chapters.json` と YouTube 説明文が更新されているか確認する。
+* P2 の後：`finalize_results.sh` を実行し、P2 の主張（再現率0.90以上かつ誤警報0.20以下）を確認する。
+* L の後：
+  * `finalize_results.sh` を実行し、L の結果を I-17 に記入する。
+  * I-18 のブランチ（`worktree-agent-a94afbeadff714e1e`、オーケストレータで報告を自動生成）を main に追従させてマージし、テストする。
+  * README と説明資料にある「自動生成は評価後」の表現を直す。
+* 最後に：第三者採点の5回目（Sonnet、`EVALUATOR_PROMPT.md`）と模擬査読の4回目を行い、指摘を直す。HANDOFF を更新する。
+
+**ここまでの到達点**
+* H：
+  * 主張はすべて成立した。危険な配達は素朴な記憶 20/32、検証つき記憶 0/32、記憶なし 1/32。
+  * 物資の入れ替わりが続く出動は 114 → 79秒（p=0.0078）。系列単位の検定は p=0.0005。
+  * 記憶の慎重さが見逃しを止めた事例がある（Q09 の3回目）。
+* その他：R は 0/2304、Z・P・K は完了。
+* 論文：本文8ページ（系1は k×ε）＋補足。説明資料は11ページ。
+* 第三者採点：31.5/40（4回目）。模擬査読は borderline。
+* 未完了：J、P2、L、動画の作り直し、I-18 の自動生成の組み込み。
+* ユーザーがすること：リポジトリの公開、YouTube への投稿、README とフォームへの URL 記入、提出。
+* 未回答：OpenTimestamps（ハッシュのみ送る）を実施してよいか。
+
 **次の手順**
 1. （済）予備走行2回目（HP02・HP03：記憶による経路と、素朴な記憶の確認省略の監査）を確認する → H の Amendment 1 → H を本実行（約7時間。R の終了後に）。
 2. R の解析（`r_analysis.py`。事前登録どおり）→ 論文に「センサー劣化」節、図。
