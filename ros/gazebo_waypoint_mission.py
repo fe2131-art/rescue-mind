@@ -371,7 +371,7 @@ def run_ros(route, args, record):
                     finished['result']=verify_station_local(f,expected,mode=args.local_mode,
                         primary_url=args.local_primary_url,secondary_url=args.local_secondary_url,
                         primary_model=getattr(args,'vlm_model','Qwen/Qwen2.5-VL-3B-Instruct'),
-                        **({'jev_url':args.jev_url,'jev_hazard_threshold':args.jev_hazard_threshold}
+                        **({'jev_url':args.jev_url,'jev_hazard_threshold':args.jev_hazard_threshold,'jev_schema':args.jev_schema}
                            if getattr(args,'jev_url',None) else {}))
                 else:
                     finished['result']=verify_station(f,expected,qwen_model=args.qwen_model,endpoint=args.qwen_endpoint)
@@ -691,6 +691,7 @@ def main():
     ap.add_argument('--look-around',type=float,default=0.0,
                     help='I-14: after an approval, look again from this far (m) left and right of the station waypoint')
     ap.add_argument('--jev-url',default=None,help='I-13: local Jev-role model (Clef-Flash) URL; both models must approve')
+    ap.add_argument('--jev-schema',choices=['jev','task'],default='jev',help='I-16: original Jev request or task-worded request')
     ap.add_argument('--jev-hazard-threshold',type=float,default=.35)
     ap.add_argument('--memory-file',default=None,help='I-15: cross-mission memory (JSONL of what the robot saw before)')
     ap.add_argument('--memory-mode',choices=['off','verified','naive'],default='off',
