@@ -218,8 +218,8 @@ class AnalysisB(unittest.TestCase):
         self.assertTrue(b3['supported'], b3)
         self.assertEqual((b3['runs_audited'], b3['unsafe_deliveries'], b3['audit_failures']), (48, [], []))
         self.assertTrue(all(v['ok'] and v['checked'] for v in b3['ledger_replay'].values()))
-        self.assertEqual(s['B3_audits']['ledger_replay']['BL1']['offline_credit']['peer']['loc'], 0.0)
-        self.assertEqual(s['B3_audits']['ledger_replay']['BH1']['offline_credit']['peer']['loc'], ac.C_LOC)
+        self.assertEqual(s['B3_audits']['ledger_replay']['BL1']['offline_credit']['file']['loc'], 0.0)
+        self.assertEqual(s['B3_audits']['ledger_replay']['BH1']['offline_credit']['file']['loc'], ac.C_LOC)
         b4 = s['B4_time_descriptive']       # a wasted visit costs 40 s in the stand-in: W = 40, 4 missions saved
         self.assertEqual((b4['W_s'], b4['predicted_saving_per_sequence_s'], b4['median_saving_s']), (40.0, 160.0, 160.0))
         self.assertTrue(s['headline_supported'])

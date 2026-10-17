@@ -152,18 +152,28 @@ def plan_for_mission(item: str, base: dict | None, *, mode: str, advice_file: st
     if not advice_file and not from_instruction:
         return None
     items = adv.load(advice_file, stations) if advice_file else []
+    raw_file = items
+    if advice_file and credit_path:          # I-24: keep the raw file items (peer_id) for the credit accounts
+        import json as _json
+        from pathlib import Path as _Path
+        raw_file = _json.loads(_Path(advice_file).read_text(encoding='utf8')) or []
+    channels = ['file'] * len(items)
     extraction = None
     if from_instruction and mode != 'off':
         extraction = extract_fn(instruction, **kw)
         # the operator names a supply's station ('W' / 'M'); with k stations that means the inventory's first station for it
-        items = items + [dict(a, station=stations.resolve(a['station'])) if stations is not None and a.get('station') else a
-                         for a in extraction['items']]
+        ex_items = [dict(a, station=stations.resolve(a['station'])) if stations is not None and a.get('station') else a
+                    for a in extraction['items']]
+        items = items + ex_items
+        raw_file = list(raw_file) + ex_items
+        channels += ['operator'] * len(ex_items)
     ffn = None
     if mode == 'filtered':      # baseline: the guardrail reads the operator text / each item's own text first
         ffn = filter_fn or make_filter_fn(instruction, url=filter_url, model=kw.get('model', PRIMARY_MODEL))
     if credit_path and mode == 'monotone':          # I-24: drop what the source's credit cannot pay for (never loosens)
         from . import advice_credit as ac
-        plan = ac.plan_with_credit(ac.load(credit_path), item, items, mode, base, stations=stations, scrutiny=scrutiny)
+        plan = ac.plan_with_credit(ac.load(credit_path), item, raw_file, mode, base, channels=channels,
+                                   stations=stations, scrutiny=scrutiny)
     else:
         plan = adv.plan(item, items, mode, base=base, filter_fn=ffn, stations=stations, scrutiny=scrutiny)
     if ffn is not None and hasattr(ffn, 'log'):

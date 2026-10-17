@@ -109,3 +109,16 @@ audited run.
 `scripts/b_analysis.py` (→ `experiments/results/b_summary.json`; `--pilot` for the pilot check), `scripts/run_campaign.py`
 (`advice_credit` trial field), `tests/test_study_b.py`. Ledgers: `experiments/results/campaign_B_ledger.jsonl`,
 `campaign_B_pilot_ledger.jsonl`; credit ledgers `experiments/results/credit_B/`, `credit_B_pilot/`.
+
+## Amendment 1 (2026-10-18, before the pilot and any B trial)
+Mock review R7 found four gaps in the price accounting of `advice_credit` (refund farming with duplicated supply, labels
+spreading one file over four accounts, caution-only refusals classified only under --caution-soft, certified peer ids
+dropped). The rule was changed to v2 (`VERSION = 'i24-v2'`):
+* accounts are input channels (`file`, `operator`; a certified `peer:<id>`), so the B peer's account is named `file`;
+* there is no refund for a confirmed reorder. Recovery is RHO_SHADOW per mission with a confirmed claim;
+* caution-only refusals are classified from the per-view scores.
+
+None of the registered predictions changes:
+* the liar is never confirmed, so it is charged 1 per admitted mission and throttled from mission 3;
+* the honest source is never charged, so its credit stays at C_LOC = 2.0 (no longer "refunds cap at C_LOC");
+* `b_analysis.py` reads the `file` account.
