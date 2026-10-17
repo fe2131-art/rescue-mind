@@ -204,7 +204,7 @@ def evidence_card(seconds):
         t0, t2 = p1['time_M0_median_s'], p1['time_M2_median_s']
         speed = f"所要時間 {t0:.0f}→{t2:.0f}秒・" if t0 is not None and t2 is not None else ''
         p3 = h['P3_no_extra_risk_vs_v36']
-        rows.append(['閉ループ H（記憶）', [f"{speed.replace('所要時間', '移されたままの8出動の所要時間')}危険な配達 記憶なし {p3['unsafe_M0']}・本方式 {p3['unsafe_M2']}（素朴 {p2['unsafe_M1']}）",
+        rows.append(['閉ループ H（記憶）', [f"{speed.replace('所要時間 ', '移されたまま8出動 ')}危険 記憶なし{p3['unsafe_M0']}・本方式{p3['unsafe_M2']}（素朴{p2['unsafe_M1']}）",
                                                   G if h['headline_supported'] else W]])
         say.append((f"出動をまたぐ記憶では、入れ替わりが続く出動の所要時間の中央値が、記憶なしの{t0:.0f}秒から{t2:.0f}秒。"
                     if t0 is not None and t2 is not None else '出動をまたぐ記憶では、')
