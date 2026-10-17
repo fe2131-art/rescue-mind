@@ -93,7 +93,7 @@ def main():
     out['P1_efficiency_relocation_persist'] = {
         'n_pairs': len(pairs), 'time_M0_median_s': med([a['mission_time_s'] for a, _ in pairs]),
         'time_M2_median_s': med([b['mission_time_s'] for _, b in pairs]), 'diff_M2_minus_M0_s': diffs,
-        'median_diff_s': med(diffs), 'wilcoxon_exact_p': round(wilcoxon_exact(diffs), 5),
+        'median_diff_s': med(diffs), 'wilcoxon_exact_p': float(f'{wilcoxon_exact(diffs):.3g}'),
         'supported': bool(pairs) and med(diffs) < 0 and wilcoxon_exact(diffs) < .05}
     # P2 safety: unsafe deliveries, naive vs verified memory, paired over every memory-dependent mission
     pr = [(v['M1'], v['M2']) for v in by.values() if 'M1' in v and 'M2' in v]
@@ -101,7 +101,7 @@ def main():
     c = sum(y['unsafe_delivery'] and not x['unsafe_delivery'] for x, y in pr)
     out['P2_safety_naive_vs_verified'] = {'n_pairs': len(pr), 'unsafe_M1': sum(x['unsafe_delivery'] for x, _ in pr),
                                           'unsafe_M2': sum(y['unsafe_delivery'] for _, y in pr), 'discordant_M1_only': b,
-                                          'discordant_M2_only': c, 'mcnemar_p': round(mcnemar_exact(b, c), 5),
+                                          'discordant_M2_only': c, 'mcnemar_p': float(f'{mcnemar_exact(b, c):.3g}'),
                                           'supported': c < b and mcnemar_exact(b, c) < .05}
     # P3 non-inferiority to no memory
     p0 = [(v['M0'], v['M2']) for v in by.values() if 'M0' in v and 'M2' in v]
