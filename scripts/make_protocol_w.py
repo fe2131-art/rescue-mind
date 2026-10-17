@@ -37,6 +37,8 @@ MIN_FIRE_PX = 614                      # a view shows the fire if >= 614 of 307 
 DESIGN_POSE = {'water': (1.03, 0.99, 0.769), 'medicine': (-1.03, 0.97, 2.388)}   # == fire_mask_at_pose.DESIGN_POSE
 STATION_XY = {'water': (2.0, 2.0), 'medicine': (-2.0, 2.0)}
 VIEWS = ('F', 'L', 'R')
+VIEWS_EXTRA = ('L2', 'R2', 'N')     # Amendment 1 (I-20): suspicion-triggered extra views, secondary analysis only
+EXTRA_SIDE_M, NEAR_M = 0.8, 0.3
 
 
 def world_spec(rng, fire: bool, item: str) -> dict:
@@ -70,6 +72,25 @@ def _trunc_gauss(rng, sd: float) -> float:
             return z * sd
 
 
+def extra_views(item: str) -> dict:
+    """Amendment 1 (I-20): two wider side poses (+-0.8 m) and a closer front pose (0.3 m nearer the station)."""
+    wide = nominal_views(item, EXTRA_SIDE_M)
+    x, y, yaw = DESIGN_POSE[item]
+    sx, sy = STATION_XY[item]
+    n = math.hypot(sx - x, sy - y)
+    near = (x + NEAR_M * (sx - x) / n, y + NEAR_M * (sy - y) / n, yaw)
+    return {'L2': wide['L'], 'R2': wide['R'], 'N': near}
+
+
+def jittered_extra_views(item: str, rng) -> dict:
+    out = {}
+    for v in VIEWS_EXTRA:
+        x, y, yaw = extra_views(item)[v]
+        out[v] = [round(x + _trunc_gauss(rng, POSE_SD[0]), 3), round(y + _trunc_gauss(rng, POSE_SD[1]), 3),
+                  round(yaw + _trunc_gauss(rng, POSE_SD[2]), 3)]
+    return out
+
+
 def jittered_views(item: str, rng) -> dict:
     out = {}
     for v in VIEWS:                       # fixed order so the stream is stable
@@ -82,12 +103,14 @@ def jittered_views(item: str, rng) -> dict:
 def build() -> dict:
     rng = random.Random(SEED)
     pose_rng = random.Random(SEED + '-poses')
+    extra_rng = random.Random(SEED + '-extra-poses')      # separate stream: F/L/R poses and worlds are unchanged
     items = ['water', 'medicine'] * (N_FIRE // 2)
     rng.shuffle(items)
     worlds = []
     for k, item in enumerate(items):
         spec = world_spec(rng, True, item)
         views = jittered_views(item, pose_rng)
+        views.update(jittered_extra_views(item, extra_rng))
         fid = f'wf{k:03d}'
         worlds.append({'id': fid, 'kind': 'fire', 'twin_of': None, 'item': item, 'scene': 'nominal',
                        'world_spec': spec, 'views': views})
@@ -97,9 +120,10 @@ def build() -> dict:
                            'world_spec': json.loads(json.dumps(twin)), 'views': json.loads(json.dumps(views))})
     n_twin = sum(w['kind'] == 'twin' for w in worlds)
     return {'schema': 'rescuemind_study_w_protocol', 'seed': SEED, 'n_fire_worlds': N_FIRE, 'n_twin_worlds': n_twin,
-            'planned_images': 3 * len(worlds), 'side_offset_m': SIDE_OFFSET_M,
+            'planned_images': 3 * len(worlds), 'planned_extra_images': len(VIEWS_EXTRA) * len(worlds), 'side_offset_m': SIDE_OFFSET_M,
             'pose_error_sd': {'x_m': POSE_SD[0], 'y_m': POSE_SD[1], 'yaw_rad': POSE_SD[2], 'truncated_at_sd': POSE_TRUNC_SD},
-            'min_fire_px': MIN_FIRE_PX, 'views': list(VIEWS),
+            'min_fire_px': MIN_FIRE_PX, 'views': list(VIEWS), 'views_extra': list(VIEWS_EXTRA),
+            'extra_views_m': {'side': EXTRA_SIDE_M, 'near': NEAR_M},
             'note': 'views[F|L|R] = [x, y, yaw] of the camera; F = front checkpoint, L/R = 0.4 m beside the waypoint facing the '
                     'station; twins share lighting, props, item and poses with their fire world; fire geometry '
                     '[back m, lateral m, scale] as in campaigns F/G/H',
