@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 import json
+import statistics
 import random
 import sys
 from pathlib import Path
@@ -69,7 +70,7 @@ def main():
                                 'gate_rejected': sum(not (by[im].get('quality') or {}).get('quality_ok', True) for im in imgs),
                                 'errors': sum(any('error' in by[im]['passes'][k] for k in '12') for im in imgs),
                                 'fa_newly_approved_vs_clean': b, 'fa_newly_refused_vs_clean': cc, 'mcnemar_p': round(p, 5),
-                                'latency_median_s': lat[len(lat) // 2]}
+                                'latency_median_s': statistics.median(lat)}
         pooled += [(lab[im]['world_id'], d[im]) for im in deny]
     for c, a in zip(conds, holm(ps)):
         o = out['conditions'][c]

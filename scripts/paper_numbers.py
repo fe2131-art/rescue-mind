@@ -352,7 +352,7 @@ def main():
         led = [r for r in led if r.get('final', True) and r['observed_action'] in ('ALLOW', 'ALLOW_AFTER_SEARCH') and r.get('wall_s')]
         for cfg in ('B', 'C'):
             w = sorted(r['wall_s'] for r in led if r.get('config') == cfg)
-            m[f'GWall{cfg}'] = f"{w[len(w) // 2]:.0f}" if w else r'\TBD'
+            m[f'GWall{cfg}'] = f"{statistics.median(w):.0f}" if w else r'\TBD'
         # like-for-like look-around cost: delivered fire-free ("plain") runs only, same worlds in both arms
         pw = {cfg: statistics.median(r['wall_s'] for r in led if r.get('config') == cfg and r.get('condition') == 'plain')
               for cfg in ('B', 'C')}

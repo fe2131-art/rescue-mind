@@ -203,7 +203,7 @@ def line_h(res):
         pa, p3 = h['per_arm'], h['P3_no_extra_risk_vs_v36']
         rc = {a: pa[a]['by_transition']['relocation_change']['time_median_s'] for a in ('M0', 'M2')}
         t = (f"所要時間の中央値は、物資が移されたままの{p1['n_pairs']}出動で 記憶なし {p1['time_M0_median_s']:.0f}秒・検証つき記憶 {p1['time_M2_median_s']:.0f}秒"
-             f"（物資が元に戻った出動では {rc['M0']:.0f}秒 対 {rc['M2']:.0f}秒とわずかに遅い。全体は {pa['M0']['time_median_s']:.0f}→{pa['M2']['time_median_s']:.0f}秒）。"
+             f"（物資が元に戻った出動では {rc['M0']:.0f}秒 対 {rc['M2']:.0f}秒と遅い（遠回りの代償）。全体は {pa['M0']['time_median_s']:.0f}→{pa['M2']['time_median_s']:.0f}秒）。"
              if p1['n_pairs'] else '')
         return (f"・出動をまたぐ記憶の評価H：{t}"
                 f"危険な配達は {p2['n_pairs']}出動のうち、確認を省く素朴な記憶 {p2['unsafe_M1']}件（省く代償を示す比較）、記憶なし {p3['unsafe_M0']}件、検証つき記憶 {p2['unsafe_M2']}件（記憶なしより危険ではない）")

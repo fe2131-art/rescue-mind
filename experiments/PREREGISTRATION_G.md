@@ -44,3 +44,8 @@ Fixed before any G trial, after campaign F.
 misses in F showed only 1 100–2 400 pixels at p ≈ 0.003. That holds for six of the seven. The seventh (W21) showed
 8 573 pixels at p = 0.019 (`experiments/results/f_summary.json`, `campaign_F_ledger_fire_masks.json`).
 
+
+**Erratum (2026-10-17, analysis code; no change to the protocol, endpoints or claims).** The analysis scripts computed
+"median" as the upper-middle element for even-length lists. They now use the true median (`statistics.median`), and
+all summaries were regenerated. Primary endpoints that are counts or exact tests are unaffected. For H, the
+relocation-persist medians are 114 → 79 s (previously reported as 85 s), and the claims are unchanged.

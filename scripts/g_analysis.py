@@ -8,6 +8,7 @@ experiments/campaign_g_protocol.json.
 """
 from __future__ import annotations
 import json
+import statistics
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -70,7 +71,7 @@ def main():
         out['per_config'][cfg] = {'n': len(ps), 'correct': ok, 'correct_ci95': wilson(ok, len(ps)),
                                   'visible_fire_trials': len(vis), 'wrong_deliveries': sum(p['wrong_delivery'] for p in vis),
                                   'fire_free_trials': len(free), 'false_hazard_stops': sum(p['false_hazard_stop'] for p in free),
-                                  'latency_median_s': lat[len(lat) // 2] if lat else None}
+                                  'latency_median_s': statistics.median(lat) if lat else None}
     (RES / 'g_summary.json').write_text(json.dumps(out, indent=1) + '\n')
     print(json.dumps({k: out[k] for k in ('primary', 'per_config')}, indent=1))
 

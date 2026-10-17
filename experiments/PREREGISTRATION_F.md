@@ -46,3 +46,8 @@ The protocol file is `experiments/campaign_f_protocol.json` (sha256 `0f28b97fc15
 
 ## Amendments
 (none)
+
+**Erratum (2026-10-17, analysis code; no change to the protocol, endpoints or claims).** The analysis scripts computed
+"median" as the upper-middle element for even-length lists. They now use the true median (`statistics.median`), and
+all summaries were regenerated. Primary endpoints that are counts or exact tests are unaffected. For H, the
+relocation-persist medians are 114 → 79 s (previously reported as 85 s), and the claims are unchanged.

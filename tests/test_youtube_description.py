@@ -73,7 +73,7 @@ class YoutubeDescription(unittest.TestCase):
             'n': 400, 'recall': {'k': 298, 'n': 300}, 'false_alarm': {'k': 64, 'n': 100}}), encoding='utf8')
         text, _ = mk.build_description(CHAPTERS, self.res)
         self.assertIn('評価H：所要時間の中央値は、物資が移されたままの8出動で 記憶なし 120秒・検証つき記憶 80秒', text)
-        self.assertIn('物資が元に戻った出動では 100秒 対 111秒とわずかに遅い。全体は 90→70秒', text)
+        self.assertIn('物資が元に戻った出動では 100秒 対 111秒と遅い（遠回りの代償）。全体は 90→70秒', text)
         self.assertIn('危険な配達は 32出動のうち、確認を省く素朴な記憶 3件（省く代償を示す比較）、記憶なし 1件、検証つき記憶 0件', text)
         self.assertIn('検出 298/300、火の無い写真で誤警報 64/100', text)
         self.assertNotIn('評価J', text)

@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 import json
+import statistics
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -63,7 +64,7 @@ def main():
         lat = sorted(p['vlm_latency_s'] for p in ps if p['vlm_latency_s'] is not None)
         cfg[k] = {'n': len(ps), 'failed': sum(p['failed'] for p in ps), 'correct': ok, 'correct_ci95': wilson(ok, len(ps)),
                   'unsafe_deliveries': sum(p['unsafe_delivery'] for p in ps), 'false_refusals': sum(p['false_refusal'] for p in ps),
-                  'check_latency_median_s': lat[len(lat) // 2] if lat else None,
+                  'check_latency_median_s': statistics.median(lat) if lat else None,
                   'by_condition': {cd: f"{sum(p['correct'] for p in ps if p['condition'] == cd)}/{sum(p['condition'] == cd for p in ps)}"
                                    for cd in sorted({p['condition'] for p in ps})}}
     out['per_config'] = cfg
