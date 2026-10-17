@@ -8,6 +8,7 @@ computed from the result files; a part whose input file is missing is skipped.
 from __future__ import annotations
 import json
 import re
+import statistics
 import sys
 from collections import Counter
 from pathlib import Path
@@ -227,7 +228,7 @@ def section_v36():
         return w[len(w) // 2] if w else None
     wb, wc = wall('B'), wall('C')
     lines = ['| | B：正面のみ | **C：＋横から見直す（v3.6）** |', '|---|---|---|',
-             f"| 火が見える{nf}世界で、それでも配達した回数 | {gc['B']['wrong_deliveries']}/{gc['B']['visible_fire_trials']} | **{gc['C']['wrong_deliveries']}/{gc['C']['visible_fire_trials']}** |",
+             f"| 3視点（正面・左右0.4 m）のどれかで火が見えた{nf}世界で、火があるのに配達した回数 | {gc['B']['wrong_deliveries']}/{gc['B']['visible_fire_trials']} | **{gc['C']['wrong_deliveries']}/{gc['C']['visible_fire_trials']}** |",
              f"| 火の無い世界での誤った停止 | {gc['B']['false_hazard_stops']}/{gc['B']['fire_free_trials']} | **{gc['C']['false_hazard_stops']}/{gc['C']['fire_free_trials']}** |",
              f"| 期待どおりの行動 | {gc['B']['correct']}/{gc['B']['n']}（{pct(gc['B']['correct_ci95'][0], 0)}〜{pct(gc['B']['correct_ci95'][1], 0)}） | **{gc['C']['correct']}/{gc['C']['n']}**（{pct(gc['C']['correct_ci95'][0], 0)}〜{pct(gc['C']['correct_ci95'][1], 0)}） |"]
     if wb and wc:
@@ -245,7 +246,7 @@ def section_v36():
         lat = sorted(r['clef']['latency_s'] for r in cl['records'] if r.get('clef')) if cl else []
         t2txt = (f"\n* **未使用テスト T2**（{ref['n_deny'] + ref['n_allow']}枚、描画前に登録）：v3.5 でも誤許可 **{ref['false_approvals']}/{ref['n_deny']}** と天井で、改善は測れない。"
                  f"Jev の役割を担うローカルの **Clef-Flash 単独**（課題向けの質問）も誤許可 **{j2['false_approvals']}/{j2['n_deny']}**・正しい許可 {j2['correct_approvals']}/{j2['n_allow']}"
-                 + (f"、1回の推論は中央値 {lat[len(lat) // 2]:.1f} 秒" if lat else '')
+                 + (f"、1画像あたりの推論は中央値 {statistics.median(lat):.1f} 秒（V100）" if lat else '')
                  + f"。Clef＋Qwen の2モデル確認（規則上の選定）は誤許可 {sel['false_approvals']}/{sel['n_deny']}・正しい許可 {sel['correct_approvals']}/{sel['n_allow']}（V100 1台には同時に載らず、既定には採用せず）")
     fm = sorted(x['fire_pixels'] for x in f.get('trials', []) if x['config'] == 'B' and x['wrong_delivery'] and x.get('fire_pixels'))
     fpx = f"Bが見逃した火は正面から {fm[0]:,}〜{fm[-1]:,} 画素（{len(fm)}件）" if fm else 'Bが見逃した火は小さい'
@@ -260,7 +261,8 @@ T1 で分かった弱点に、結果を見る前に固定した条件で段階�
 
 {chr(10).join(lines)}
 
-* 食い違いは B のみ {gp['discordant_B_only']}・C のみ {gp['discordant_C_only']}、McNemar正確検定 **p={gp['mcnemar_p']:.3f}**（事前登録した主張が成立）{mtxt}{t2txt}"""
+* 食い違いは B のみ {gp['discordant_B_only']}・C のみ {gp['discordant_C_only']}、McNemar正確検定 **p={gp['mcnemar_p']:.3f}**（事前登録した主張が成立）
+* 読み方：この{nf}世界の火の多くは、設計上、正面からは見えにくい（または見えない）。したがって評価Gが測るのは「VLMが良くなった」ことではなく、そのような火に対して**横から見ると効果がある**ことである{mtxt}{t2txt}"""
     return txt, dict(nf=nf, gb=gc['B']['wrong_deliveries'], gcw=gc['C']['wrong_deliveries'], p=gp['mcnemar_p'], fs=gc['C']['false_hazard_stops'],
                      nfree=gc['C']['fire_free_trials'], ok=gc['C']['correct'], n=gc['C']['n'], okb=gc['B']['correct'],
                      fa=fp['wrong_deliveries_A'], fb=fp['wrong_deliveries_B'], nfv=fp['n_world_pairs_fire_visible_both'], fp=fp['mcnemar_p'])
@@ -271,7 +273,7 @@ def main():
     head = ['| 評価（事前登録） | 内容 | 結果 |', '|---|---|---|']
     if v:
         G = v[1]
-        head.append(f"| **評価G（v3.6）** | 新しい世界での対比較の閉ループ。許可の直前に横から撮り直す | 火が見えるのに配達した回数 **{G['gb']}/{G['nf']} → {G['gcw']}/{G['nf']}**（McNemar正確検定 p={G['p']:.3f}）、火の無い世界の誤停止 **{G['fs']}/{G['nfree']}** |")
+        head.append(f"| **評価G（v3.6）** | 新しい世界での対比較の閉ループ。許可の直前に横から撮り直す | 3視点（正面・左右0.4 m）のどれかで火が見えた{G['nf']}世界で、火があるのに配達した回数 **{G['gb']}/{G['nf']} → {G['gcw']}/{G['nf']}**（McNemar正確検定 p={G['p']:.3f}）、火の無い世界の誤停止 **{G['fs']}/{G['nfree']}** |")
         head.append(f"| 評価F（問い方＋切り出し） | 同じ形式の対比較 | 配達した回数 {G['fa']}/{G['nfv']} → {G['fb']}/{G['nfv']}（p={G['fp']}、有意でない） |")
     if e:
         E = e[1]

@@ -9,6 +9,7 @@ only the omnicampus account name is allowed by the assignment rules).
 from __future__ import annotations
 import argparse
 import json
+import statistics
 import sys
 from collections import Counter
 from pathlib import Path
@@ -270,7 +271,7 @@ def v36_info():
     cf = RES / 'devset_t2_clef2.json'
     if cf.is_file():
         lt = sorted(r['clef']['latency_s'] for r in json.loads(cf.read_text())['records'] if r.get('clef'))
-        clef_lat = lt[len(lt) // 2] if lt else None
+        clef_lat = statistics.median(lt) if lt else None
     return {'f': f, 'g': g, 't2': t2, 'sel': sel, 'wall_B': wall('B'), 'wall_C': wall('C'), 'miss': miss, 'clef_lat': clef_lat}
 
 
@@ -314,7 +315,7 @@ def build(account: str, video_url: str | None, repo_url: str):
         head += (f"。v3.5の評価E（試行ごとにランダムな世界、{E['n']}試行）で <b>{E['ok']}/{E['n']}</b>、誤配達 {E['fa']} 件")
     if V:
         gp, gc = V['g']['primary'], V['g']['per_config']
-        head += (f"。v3.6（小さな火への対策）の評価G（新しい世界の対比較）では、火が見える{gp['n_world_pairs_fire_perceivable']}世界でそれでも配達した回数が "
+        head += (f"。v3.6（小さな火への対策）の評価G（新しい世界の対比較）では、3視点（正面・左右0.4 m）のどれかで火が見えた{gp['n_world_pairs_fire_perceivable']}世界で、火があるのに配達した回数が "
                  f"<b>{gp['wrong_deliveries_B']} → {gp['wrong_deliveries_C']}</b>（McNemar正確検定 p={pexact(gp['mcnemar_p'])}）、火の無い世界での誤停止 {gc['C']['false_hazard_stops']}/{gc['C']['fire_free_trials']}")
     if T:
         ru = T['t1']['models']['Qwen3.5-9B']['rules']['full']
@@ -326,6 +327,7 @@ def build(account: str, video_url: str | None, repo_url: str):
                  ['提出者', f'omnicampus アカウント：{account}'],
                  ['コード', repo_url],
                  ['動画', video_url or f'YouTube（タイトル：PAI最終課題_{account}）。{SP}（倍速は動画内に常時表示）。日本語ナレーション（VOICEVOX:四国めたん）'],
+                 ['範囲', '物資の現物確認と避難所Bへの接近まで。本資料の「配達」はこの意味で、物資の把持・荷降ろし・受け渡しはシミュレーションしていない'],
                  ['使用ツール', 'ROS 2 Jazzy / Gazebo Harmonic（Docker・EGLヘッドレス描画）/ PyTorch 2.8 + Transformers 5.20 / Tesla V100 32GB（sudo不要）'],
                  ['AIの活用', '① 自然言語指示の理解（ローカルLLM）② 搭載カメラ画像による現物・危険の確認（ローカルVLM、選択肢の確率で判断）③ 現場の人への日本語状況報告'],
                  ['主結果', head]],
@@ -350,7 +352,7 @@ def build(account: str, video_url: str | None, repo_url: str):
     s += [P('2. AIの活用と工夫', 'h1'),
           P('2.1 現地確認：文章を生成させず「選択肢の確率」で判断する', 'h2'),
           P('VLMに選択式の質問（台の上は 水／救急箱／なし・その他）を2問、選択肢の順序を入れ替えて出し、回答文字の次トークン確率を1回の順伝播で読む。'
-            '2問とも依頼物資が最大かつ確率0.50以上、火災・煙の Yes/No 質問が0.50未満のときだけ許可する。'
+            '2問とも依頼物資が最大かつ確率0.50以上（τ_s）、火災・煙の Yes/No 質問が0.05未満（τ_h、v3.6。v3.4までは0.50）のときだけ許可する。'
             '引継ぎ版の「JSONを自由生成させる」方式は、実画像で96応答中21件が解析不能、空の台で「水がある」と幻覚した。'
             '選択肢方式では解析不能0、開発画像で 37/48 → 48/48 となった。'),
           P('2.2 モデルの調査と選定（最新世代への更新）', 'h2'),
@@ -479,7 +481,7 @@ def build(account: str, video_url: str | None, repo_url: str):
             "<b>手2：I-14 横から見直す（能動知覚）</b>。同じ火は、確認位置から左右に0.4 mずらした視点では4,600〜22,000画素で見えた（開発用の予備走行、マスク画像で確認）。"
             "VLMの判定ではなく<b>ロボットの視点</b>を変える。"])
         rows = [['', 'B：正面のみ（手1）', 'C：＋横から見直す（v3.6）']]
-        rows.append([f"火が見える{gp['n_world_pairs_fire_perceivable']}世界で、それでも配達した回数",
+        rows.append([f"3視点（正面・左右0.4 m）のどれかで火が見えた{gp['n_world_pairs_fire_perceivable']}世界で、火があるのに配達した回数",
                      f"{gc['B']['wrong_deliveries']}/{gc['B']['visible_fire_trials']}", f"<b>{gc['C']['wrong_deliveries']}/{gc['C']['visible_fire_trials']}</b>"])
         rows.append([f"火の無い世界での誤った停止", f"{gc['B']['false_hazard_stops']}/{gc['B']['fire_free_trials']}", f"<b>{gc['C']['false_hazard_stops']}/{gc['C']['fire_free_trials']}</b>"])
         rows.append(['期待どおりの行動', f"{gc['B']['correct']}/{gc['B']['n']}（95%区間 {gc['B']['correct_ci95'][0] * 100:.0f}–{gc['B']['correct_ci95'][1] * 100:.0f} %）",
@@ -491,7 +493,8 @@ def build(account: str, video_url: str | None, repo_url: str):
                 f"「Cの方が配達してしまう回数が少なく、かつ p<0.05」で、結果を見る前に固定した。", 'body'),
               table(rows, [64, 52, 58]), Spacer(1, 3),
               P(f"食い違いは B のみ {gp['discordant_B_only']}・C のみ {gp['discordant_C_only']}、McNemar の正確検定で <b>p={pexact(gp['mcnemar_p'])}</b>。"
-                '事前登録した主張が成立した。評価の世界は拠点配置が固定でシミュレーションである点、試行数が少なく区間が広い点に注意。', 'small')]
+                f"事前登録した主張が成立した。ただしこの{gp['n_world_pairs_fire_perceivable']}世界の火の多くは設計上、正面からは見えにくい（または見えない）ため、これは「横から見る効果」の測定である。"
+                '評価の世界は拠点配置が固定でシミュレーションである点、試行数が少なく区間が広い点にも注意。', 'small')]
         if V['miss']:
             m = V['miss'][0]
             s += [P(f"<b>唯一の見逃し</b>（{m['world']}）：火が正面から{m['fire_pixels_front']}画素（完全に隠れる）、横からも最大 {m['fire_pixels_best_side']:,} 画素と最小で、"
@@ -508,7 +511,7 @@ def build(account: str, video_url: str | None, repo_url: str):
                   P(f"T2では v3.5 でも誤許可が {ref['false_approvals']}/{ref['n_deny']} と<b>天井</b>で、改善は測れない（判断を分ける画像がない）。"
                     f"T2の役割は、改良が正しい許可を減らさないことと、Jevの役割を担うClef-Flashがローカルで動くことの確認である。"
                     + (f"Clef-Flash単独は課題向けの質問にすると誤許可 {j2['false_approvals']}/{j2['n_deny']}・正しい許可 {j2['correct_approvals']}/{j2['n_allow']}、"
-                       f"1回の推論は中央値 {V['clef_lat']:.1f} 秒。" if V['clef_lat'] else '')
+                       f"1画像あたりの推論は中央値 {V['clef_lat']:.1f} 秒（V100）。" if V['clef_lat'] else '')
                     + "当初のJev要求（通路の安全を問う質問）のままでは物資の存在確率が低く出て、正しい配達の約半分を拒否した（"
                     + f"{R['J(Clef) tau_h=0.05']['correct_approvals']}/{R['J(Clef) tau_h=0.05']['n_allow']}）。判断モデルは<b>質問の書き方に強く依存</b>する。", 'small')]
     # ---- 5. improvements
@@ -540,7 +543,7 @@ def build(account: str, video_url: str | None, repo_url: str):
     # ---- 6. findings
     s += [P('6. 実際に動かして初めて分かった問題（v3.2引継ぎ → v3.3）', 'h1'),
           P('引継ぎ時点のコードは506件の単体テストに合格していたが、実Gazebo・実ROS 2・実GPUでは一度も動いていなかった。'
-            '実行して13件の問題を発見し、すべて再現→修正→確認した（<font name="IPAexG">docs/FINDINGS.md</font>）。代表例：')]
+            '実行して（v3.3〜v3.6の開発と評価準備を含め）21件の問題を発見し、すべて再現→修正→確認した（<font name="IPAexG">docs/FINDINGS.md</font>）。代表例：')]
     s += bullets(['車輪軸の定義誤り：オドメトリ上は1.1 m前進、実際の車体は0.15 m（→ Gazebo真値による監査を新設）',
                   'Best Effort QoS で 0.9 MB の画像が102枚中10枚しか届かない（→ Reliable に統一）',
                   'gpu_lidar が自機のカメラマスト（visual）を障害物として検出（→ 可視性マスク）',
@@ -555,7 +558,7 @@ def build(account: str, video_url: str | None, repo_url: str):
     s += bullets(['v3.6の横から見直す効果（評価G）は、拠点配置が固定の新しい世界での対比較で、試行数は少ない。完全に隠れた火は横からも見逃し得る。実機・実写では未検証。',
                   '物資の把持・運搬は未実装。Nav2の動的経路計画ではなく既知配置のウェイポイント追従。',
                   '小道具は単純形状、拠点は2か所・避難所は1か所の固定配置。実写画像・多様な物資・実機（SO-101等）でのSim-to-Realは未検証。',
-                  '閾値0.50は確率の較正ではない。開発データでは余裕が大きいが、分布の異なる環境では再評価が必要。',
+                  '閾値（τ_s=0.50、τ_h=0.05）は確率の較正ではない。開発データでは余裕が大きいが、分布の異なる環境では再評価が必要。',
                   'ROSグラフ監視は認証機構ではなく、実機の安全認証を意味しない。'])
     chap = ROOT / 'docs/video_chapters.json'
     if chap.is_file():
