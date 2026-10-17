@@ -242,14 +242,14 @@ def headline_block(res):
         n = pr['n_world_pairs_fire_perceivable']
         nums.append(f"②隠れた火のある{n}世界で、正面だけで判断すると火の拠点へ配達 {pr['wrong_deliveries_B']}回、横から撮り直すと {pr['wrong_deliveries_C']}回"
                     f"（火の無い世界での誤停止 {c['false_hazard_stops']}/{c['fire_free_trials']}、偶然とは考えにくい p={pr['mcnemar_p']:.3f}）。"
-                    f'火の多くは設計上、正面から見えにくい世界で、測っているのは「横から見る効果」')
+                    f'火は設計上、正面から見えにくく、測っているのは「横から見る効果」')
     except (TypeError, KeyError):
         pass
     h = jload(res / 'h_summary.json')
     try:
         p1, p3 = h['P1_efficiency_relocation_persist'], h['P3_no_extra_risk_vs_v36']
         nums.append(f"③記憶で先に向かう拠点を決めると、物資が移されたままの{p1['n_pairs']}出動で所要時間（中央値）{p1['time_M0_median_s']:.0f}秒→{p1['time_M2_median_s']:.0f}秒。"
-                    f"確認は省かないので危険な配達は 記憶なし {p3['unsafe_M0']}/{p3['n_pairs']}・記憶つき {p3['unsafe_M2']}/{p3['n_pairs']}。物資が元に戻った出動は遠回りで遅い（この数値は動画外、README・資料に掲載）")
+                    f"確認は省かないので危険な配達は 記憶なし {p3['unsafe_M0']}/{p3['n_pairs']}・記憶つき {p3['unsafe_M2']}/{p3['n_pairs']}。物資が元に戻った出動は遠回りで遅い（動画外。README・資料に掲載）")
     except (TypeError, KeyError):
         pass
     if nums:
