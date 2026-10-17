@@ -46,12 +46,14 @@ class FakeNode:
     def destroy_node(self): pass
 
 
-def run(order, verdicts, *, stations=None, recovery=True, first=None, config=None, centers=None):
+def run(order, verdicts, *, stations=None, recovery=True, first=None, config=None, centers=None, memory=None, extra_args=None):
     """Run the mission over `order` (candidate order) with one verdict per on-site check, in call order."""
     fake, clock, real_sleep = FakeNode(), [0.], time.sleep
     rclpy = types.ModuleType('rclpy'); rclpy.init = lambda: None; rclpy.shutdown = lambda: None; rclpy.create_node = lambda n: fake
     record = {'run_type': 'local_vlm_live_mission', 'success': False, 'events': [], 'trace': [], 'checkpoint': None,
               'intent': {'item': 'water'}}
+    if memory is not None:
+        record['memory'] = memory
     if stations is not None:
         record['stations'] = stations.to_block(); record['station_order'] = list(order)
 
@@ -77,10 +79,10 @@ def run(order, verdicts, *, stations=None, recovery=True, first=None, config=Non
     calls = []
 
     def fake_local(f, expected, *, mode, primary_url, secondary_url, primary_model=None):
-        reason, allow = verdicts[len(calls)]
+        reason, allow, *more = verdicts[len(calls)]
         calls.append(expected)
         return {'decision': {'allow': allow, 'reason': reason, 'expected': expected}, 'backend': 'OFFLINE_MOCK_ONLY',
-                'image_sha256': hashlib.sha256(Path(f).read_bytes()).hexdigest()}
+                'image_sha256': hashlib.sha256(Path(f).read_bytes()).hexdigest(), **(more[0] if more else {})}
 
     with tempfile.TemporaryDirectory() as d:
         d = Path(d)
@@ -91,7 +93,7 @@ def run(order, verdicts, *, stations=None, recovery=True, first=None, config=Non
                   settle_timeout=7., checkpoint_timeout=40., checkpoint_image=str(d / 'checkpoint.jpg'), camera_max_age=3.,
                   inference_backend='local', local_mode='single', local_primary_url='http://127.0.0.1:8765/v1/classify',
                   local_secondary_url='http://127.0.0.1:8766/v1/classify', recovery=recovery,
-                  config=str(cfgp), centers=str(ctp) if centers != 'default' else None)
+                  config=str(cfgp), centers=str(ctp) if centers != 'default' else None, **(extra_args or {}))
         wp = json.loads(cfgp.read_text())
         route = [('supply_station', order[0], tuple(wp[order[0]])), ('shelter_approach', 'B', tuple(wp['B']))]
         error = None

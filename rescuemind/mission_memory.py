@@ -33,6 +33,10 @@ def _hazard_prob(call: dict) -> float:
         return 0.0
 
 
+def hazard_prob(call: dict) -> float:
+    return _hazard_prob(call)
+
+
 def apply_memory_caution(decision: dict, first: dict, second: dict, tau_h: float | None) -> dict:
     """Stricter hazard threshold at a station with a remembered hazard.  Can only turn an approval into a hazard
     refusal (deterministic, so the run audit recomputes it)."""
@@ -92,9 +96,11 @@ def observations(mission: dict, tag: str) -> list[dict]:
 
     rec = mission.get('recovery') or {}
     if rec:
-        add(rec.get('first_station'), rec.get('first_checkpoint'))
+        # a caution-only refusal from a side view (R5 #5, --caution-soft) leaves that station's side views in its checkpoint
+        peeks = lambda cp: ((cp or {}).get('look_around') or {}).get('peeks') or []
+        add(rec.get('first_station'), rec.get('first_checkpoint'), peeks(rec.get('first_checkpoint')))
         for h in rec.get('hops') or []:          # I-21: every station of a k-station search is a fresh observation
-            add(h.get('station'), h.get('checkpoint'))
+            add(h.get('station'), h.get('checkpoint'), peeks(h.get('checkpoint')))
     station = mission.get('checkpoint_station')
     if station:
         add(station, mission.get('checkpoint'), ((mission.get('look_around') or {}).get('peeks') or []))

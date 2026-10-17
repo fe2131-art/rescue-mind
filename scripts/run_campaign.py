@@ -82,7 +82,9 @@ def summarize(trial: dict, run_dir: Path | None, rc: int, wall_s: float) -> dict
                               'extraction': adv.get('extraction'), 'dropped': adv.get('dropped'), 'filter': adv.get('filter')}
         row['advice_audit'] = result.get('advice_audit')
         row['first_station_planned'] = (mission.get('memory') or {}).get('first_station')
-    row['n_stations_visited'] = (1 if mission.get('checkpoint_station') else 0) + (1 if rec else 0)
+    row['n_stations_visited'] = (1 if mission.get('checkpoint_station') else 0) + ((1 + len(rec.get('hops') or [])) if rec else 0)
+    row['caution_refusals'] = [{k: c.get(k) for k in ('station', 'where', 'p_max', 'tau_mem', 'continued')}
+                               for c in mission.get('caution_refusals') or []]       # R5 #5: soft refusals (--caution-soft)
     t_end = [e.get('t_wall_s') for e in mission.get('events', [])
              if e.get('stage') in ('shelter_approach', 'checkpoint_denial_dwell_finished', 'memory_denial')]
     row['mission_time_s'] = max(t_end) if t_end else None     # start -> shelter arrival, or -> final refusal
@@ -120,6 +122,10 @@ def advice_flags(adv: dict) -> list[str]:
     if not (adv.get('file') or adv.get('from_instruction')):
         return []           # a no-advice control: the orchestrator is run exactly as without the feature
     flags = ['--advice-mode', adv['mode']]
+    if adv.get('scrutiny'):
+        flags += ['--advice-scrutiny']          # I-19: the advice-promoted station gets caution + extra views
+    if adv.get('caution_soft'):
+        flags += ['--caution-soft']             # R5 #5: caution-only refusals continue the search
     if adv.get('file'):
         flags += ['--advice-file', str(ROOT / adv['file'])]
     if adv.get('from_instruction'):
