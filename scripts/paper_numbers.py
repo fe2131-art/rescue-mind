@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import math
 import statistics
+import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -231,7 +232,7 @@ def main():
     phases = [('drive to station', None, 'supply_station'), ('aim camera', 'supply_station', 'camera_aim_aligned'),
               ('wait until stationary', 'camera_aim_aligned', 'checkpoint_stationary_verified'),
               ('acquire and check frames', 'checkpoint_stationary_verified', 'checkpoint_frame'),
-              ('VLM decision (4 scored queries)', 'checkpoint_frame', 'checkpoint_decision'),
+              ('VLM decision (scored queries)', 'checkpoint_frame', 'checkpoint_decision'),
               ('situation report (not used to decide)', 'checkpoint_decision', 'checkpoint_explanation'),
               ('drive to shelter', 'checkpoint_explanation', 'shelter_approach')]
     lines = [r'\begin{tabular}{lrrr}', r'\toprule', r'Phase & Median [s] & Min & Max \\', r'\midrule']
@@ -255,6 +256,11 @@ def main():
     lines += [r'\bottomrule', r'\end{tabular}']
     tables['tab_timing.tex'] = '\n'.join(lines)
     m['TimingN'] = n_timing
+    med = {k: statistics.median(v) for k, v in durs.items() if v}
+    if len(med) == len(phases):
+        m['TimDrive'] = f"{med['drive to station'] + med['drive to shelter']:.0f}"   # sum of phase medians
+        m['TimCheck'] = f"{sum(med[k] for k in ('aim camera', 'wait until stationary', 'acquire and check frames', 'VLM decision (scored queries)')):.1f}"
+        m['TimVlm'] = f"{med['VLM decision (scored queries)']:.1f}"
     # ---- I-13 development selection table
     sf = RES / 'i13_selection.json'
     if sf.is_file():
@@ -262,10 +268,10 @@ def main():
         keep = ['Q9B[h35_full] tau_h=0.05', 'Q9B[h35_tiles] tau_h=0.05', 'Q9B[h36_full] tau_h=0.05', 'Q9B[h36_tiles] tau_h=0.05',
                 'Q4B tau_h=0.05', 'J(Clef) tau_h=0.35', 'J2(Clef-task) tau_h=0.05', 'J2(Clef-task,0.05)+Q9B[h36_tiles]']
         label = {'Q9B[h35_full] tau_h=0.05': 'v3.5: Qwen3.5-9B', 'Q9B[h35_tiles] tau_h=0.05': '+ enlarged crops',
-                 'Q9B[h36_full] tau_h=0.05': '+ hidden-fire wording', 'Q9B[h36_tiles] tau_h=0.05': '+ wording + crops (B)',
+                 'Q9B[h36_full] tau_h=0.05': '+ hidden-fire wording', 'Q9B[h36_tiles] tau_h=0.05': '+ wording + crops (v3.6)',
                  'Q4B tau_h=0.05': 'Qwen3.5-4B', 'J(Clef) tau_h=0.35': 'Clef-Flash, original Jev request',
                  'J2(Clef-task) tau_h=0.05': 'Clef-Flash, task wording',
-                 'J2(Clef-task,0.05)+Q9B[h36_tiles]': 'Clef (task) + Qwen (B), both approve'}
+                 'J2(Clef-task,0.05)+Q9B[h36_tiles]': 'Clef (task) + Qwen (v3.6), both approve'}
         rows = {t['config']: t for t in sel['table']}
         lines = [r'\begin{tabular}{lrrrl}', r'\toprule', r'Configuration & False appr. & Correct appr. & Fires refused & One V100 \\', r'\midrule']
         for k in keep:
@@ -286,6 +292,7 @@ def main():
         pr = f['primary']
         m['FPairs'] = pr['n_world_pairs_fire_visible_both']; m['FWrongA'] = pr['wrong_deliveries_A']
         m['FWrongB'] = pr['wrong_deliveries_B']; m['FMcNemarP'] = f"{pr['mcnemar_p']:.4f}"
+        m['FDiscA'] = pr['discordant_A_only']; m['FDiscB'] = pr['discordant_B_only']
         for cfg in ('A', 'B'):
             c = f['per_config'][cfg]
             m[f'FCorrect{cfg}'] = f"{c['correct']}/{c['n']}"; m[f'FFalseStop{cfg}'] = f"{c['false_hazard_stops']}/{c['fire_free_trials']}"
@@ -307,12 +314,16 @@ def main():
         cj = t2['results'].get('J2(Clef-task) tau_h=0.05')
         if cj:
             m['TTClefFA'] = f"{cj['false_approvals']}/{cj['n_deny']}"; m['TTClefCA'] = f"{cj['correct_approvals']}/{cj['n_allow']}"
+        cq = t2['results'].get('J2(Clef-task,0.05)+Q4B')   # the on-robot pair (Qwen3.5-4B + Clef-Flash)
+        if cq:
+            m['TTPairFA'] = f"{cq['false_approvals']}/{cq['n_deny']}"; m['TTPairCA'] = f"{cq['correct_approvals']}/{cq['n_allow']}"
     # ---- campaign G (look-around, paired)
     gf = RES / 'g_summary.json'
     if gf.is_file():
         g = json.loads(gf.read_text()); pr = g['primary']
         m['GPairs'] = pr['n_world_pairs_fire_perceivable']; m['GWrongB'] = pr['wrong_deliveries_B']
         m['GWrongC'] = pr['wrong_deliveries_C']; m['GMcNemarP'] = f"{pr['mcnemar_p']:.4f}"
+        m['GDiscB'] = pr['discordant_B_only']; m['GDiscC'] = pr['discordant_C_only']
         for cfg in ('B', 'C'):
             c = g['per_config'][cfg]
             m[f'GCorrect{cfg}'] = f"{c['correct']}/{c['n']}"; m[f'GFalseStop{cfg}'] = f"{c['false_hazard_stops']}/{c['fire_free_trials']}"
@@ -321,6 +332,10 @@ def main():
         for cfg in ('B', 'C'):
             w = sorted(r['wall_s'] for r in led if r.get('config') == cfg)
             m[f'GWall{cfg}'] = f"{w[len(w) // 2]:.0f}" if w else r'\TBD'
+        # like-for-like look-around cost: delivered fire-free ("plain") runs only, same worlds in both arms
+        pw = {cfg: statistics.median(r['wall_s'] for r in led if r.get('config') == cfg and r.get('condition') == 'plain')
+              for cfg in ('B', 'C')}
+        m['GWallPlainB'] = f"{pw['B']:.0f}"; m['GWallPlainC'] = f"{pw['C']:.0f}"; m['GLookCost'] = f"{pw['C'] - pw['B']:.0f}"
     # ---- study R (camera degradations, T2 subset)
     rf = RES / 'r_summary.json'
     if rf.is_file():
@@ -456,7 +471,9 @@ def main():
     m.pending(['DevFAvThreeFive', 'DevFAB', 'DevFireN', 'FPairs', 'FWrongA', 'FWrongB', 'FMcNemarP', 'FCorrectA', 'FCorrectB',
                'FFalseStopA', 'FFalseStopB', 'FLatA', 'FLatB', 'TTRefFA', 'TTRefCA', 'TTRefSmall', 'TTSelFA', 'TTSelCA',
                'TTSelSmall', 'TTSelP', 'TTBFA', 'TTBCA', 'TTBSmall', 'TTBP', 'TTClefFA', 'TTClefCA', 'GPairs', 'GWrongB',
-               'GWrongC', 'GMcNemarP', 'GCorrectB', 'GCorrectC', 'GFalseStopB', 'GFalseStopC', 'GWallB', 'GWallC'])
+               'GWrongC', 'GMcNemarP', 'GCorrectB', 'GCorrectC', 'GFalseStopB', 'GFalseStopC', 'GWallB', 'GWallC',
+               'FDiscA', 'FDiscB', 'GDiscB', 'GDiscC', 'GWallPlainB', 'GWallPlainC', 'GLookCost', 'TTPairFA', 'TTPairCA',
+               'TimDrive', 'TimCheck', 'TimVlm'])
     m.pending(['RNimg', 'RNdeny', 'RNallow', 'RNfire', 'RNcond', 'RNworlds', 'RPoolFA', 'RPoolCI', 'RPoolSupported', 'RUnsafeConds',
                'RWorstCond', 'RWorstCA', 'RCleanCA', 'RGateRej', 'RFireMissMax',
                'HPOneN', 'HTimeMzero', 'HTimeMtwo', 'HTimeDiff', 'HPOneP', 'HPTwoN', 'HUnsafeMone', 'HUnsafeMtwo', 'HPTwoP',
@@ -469,6 +486,11 @@ def main():
     for name in ('tab_t1_models.tex', 'tab_t1_ablation.tex', 'tab_e_strata.tex', 'tab_i13_dev.tex', 'tab_r.tex', 'tab_h_arms.tex'):
         tables.setdefault(name, r'\begin{tabular}{l}\TBD\end{tabular}')
     (OUT / 'numbers.tex').write_text(m.text())
+    if '--final' in sys.argv:   # final build: refuse to produce a paper with pending results
+        pend = [ln.split('}')[0].split('{\\')[1] for ln in m.lines[2:] if ln.endswith('{\\TBD}')]
+        pend += [n for n, b in tables.items() if '\\TBD' in b]
+        if pend:
+            raise SystemExit(f'--final: {len(pend)} pending (TBD) macros/tables: {pend[:12]} ...')
     for name, body in tables.items():
         (OUT / name).write_text('% generated by scripts/paper_numbers.py\n' + body + '\n')
     print('macros', len(m.lines) - 2, 'tables', sorted(tables))
