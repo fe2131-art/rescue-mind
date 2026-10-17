@@ -60,8 +60,8 @@ def lines(ax, x, y, ls, size, col=INK, dy=4.6, weight='normal', ha='left'):
         ax.text(x, y - i * dy, s, fontsize=size, color=col, va='center', ha=ha, fontweight=weight)
 
 
-def render(lang):
-    t = T[lang]
+def render(lang, table=None, name='memory_principle'):
+    t = (table or T)[lang]
     setup_font(lang)
     plt.rcParams['font.family'] = 'Noto Sans CJK JP' if lang == 'ja' else 'DejaVu Sans'
     fig = plt.figure(figsize=(16, 9), dpi=100, facecolor=BG)
@@ -96,7 +96,7 @@ def render(lang):
         ax.text(x + 61, 30.3, tag, fontsize=16 if ja else 13.5, fontweight='bold', color='white', ha='center', va='center')
         lines(ax, x + 1, 23.2, body, 20 if ja else 16, INK, dy=5.4)
     ax.plot([81, 81], [6, 31], color='#cfcfcc', lw=2)
-    fig.savefig(OUT / f'memory_principle_{lang}.png', dpi=100, facecolor=BG)
+    fig.savefig(OUT / f'{name}_{lang}.png', dpi=100, facecolor=BG)
     plt.close(fig)
 
 
