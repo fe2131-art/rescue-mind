@@ -149,7 +149,7 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
   * 参考文献は 77件以上（検証メモは `docs/paper/REFERENCES_NOTES.md`）。
   * 注意：Clef-Flash は Qwen3.5-9B からの追加学習なので、Qwen とは系統が同じ。論文と D11 に明記済み。
   * 論文中の `% CHECK-AFTER-H` の文は、H の結果で必ず確認する。
-* サブエージェントは必ず Sonnet 5.5（`model: sonnet`）で起動し、同時に1つまで。
+* サブエージェントは必ず Sonnet 5.5（`model: sonnet`）。同時に2つまで（ユーザー指示 2026-10-17）。常に稼働させる。
 
 **次の手順**
 1. （済）予備走行2回目（HP02・HP03：記憶による経路と、素朴な記憶の確認省略の監査）を確認する → H の Amendment 1 → H を本実行（約7時間。R の終了後に）。
