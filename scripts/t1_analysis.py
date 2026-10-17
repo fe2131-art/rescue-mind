@@ -8,6 +8,7 @@ Primary: frozen system (Qwen3.5-9B, v35, tau_s = tau_h = 0.50) on non-ambiguous 
 """
 from __future__ import annotations
 import json
+import statistics
 import math
 from pathlib import Path
 
@@ -186,7 +187,7 @@ def main():
             curve35.append([t, mm['fa_rate'], mm['ca_rate']])
         m['risk_coverage_tau_h_0.05'] = curve35
         lat = [p['latency_s'] for r in recs for p in r['passes'].values() if 'latency_s' in p]
-        m['latency_per_pass_s'] = {'median': round(sorted(lat)[len(lat) // 2], 3), 'mean': round(sum(lat) / len(lat), 3)}
+        m['latency_per_pass_s'] = {'median': round(statistics.median(lat), 3), 'mean': round(sum(lat) / len(lat), 3)}
         m['errors_full'] = [(r['image'], stratum(r), 'FALSE_APPROVAL' if a else 'false_denial')
                             for r, a in zip(rows, full) if a != (r['expected'] == 'allow')]
         out['models'][name] = m

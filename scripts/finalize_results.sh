@@ -62,9 +62,11 @@ fi
 if [ "$H_OK" = 1 ]; then step h_change_rate_model python3 scripts/h_change_rate_model.py
 else skip h_change_rate_model "h_analysis did not run/succeed"; fi
 
-if [ -f $RES/campaign_J_ledger.jsonl ] && [ -f $RES/campaign_J_vram.csv ]; then
+J_FINAL=$( [ -f $RES/campaign_J_ledger.jsonl ] && python3 -c "import json;print(sum(json.loads(l).get('final',True) for l in open('$RES/campaign_J_ledger.jsonl') if l.strip()))" || echo 0)
+J_PLAN=$(python3 -c "import json;print(json.load(open('experiments/campaign_j_protocol.json'))['planned_n'])")
+if [ -f $RES/campaign_J_ledger.jsonl ] && [ -f $RES/campaign_J_vram.csv ] && { [ "$J_FINAL" -ge "$J_PLAN" ] || [ "${ALLOW_PARTIAL:-0}" = 1 ]; }; then
   step j_analysis python3 scripts/j_analysis.py
-else skip j_analysis "need campaign_J_ledger.jsonl and campaign_J_vram.csv"; fi
+else skip j_analysis "campaign J incomplete ($J_FINAL/$J_PLAN final rows)"; fi
 
 if [ -f $RES/p2_scores_h36.jsonl ] && [ -f $RES/p2_scores_h35.jsonl ]; then
   step p2_calibration python3 scripts/p2_calibration.py --analyse   # checks 400+400 rows per wording itself

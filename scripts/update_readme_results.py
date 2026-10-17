@@ -196,7 +196,7 @@ def section_d():
     miss_txt = ''.join(f"  * {r['trial_id']}（{GROUP[r['group']][0]}）：{OBS.get(r['observed_action'], r['observed_action'])}"
                        f"{' — ' + (r.get('error') or '')[:90] if r.get('error') else ''}\n" for r in misses)
     fig = ('\n![results](docs/figures/campaign_d_results.png)\n' if (ROOT / 'docs/figures/campaign_d_results.png').is_file() else '')
-    lat_txt = f"* 判断遅延（静止画取得→判断）中央値 **{lat[len(lat) // 2]:.2f} 秒**（最大 {lat[-1]:.2f} 秒）\n" if lat else ''
+    lat_txt = f"* 判断遅延（静止画取得→判断）中央値 **{statistics.median(lat):.2f} 秒**（最大 {lat[-1]:.2f} 秒）\n" if lat else ''
     txt = f"""<details>
 <summary>評価D（v3.4、{len(rows)}試行、固定配置の反復）の詳細</summary>
 
@@ -226,7 +226,7 @@ def section_v36():
 
     def wall(c):
         w = sorted(r['wall_s'] for r in gl if r['config'] == c and r['expected_action'] == 'ALLOW')
-        return w[len(w) // 2] if w else None
+        return statistics.median(w) if w else None
     wb, wc = wall('B'), wall('C')
     lines = ['| | B：正面のみ | **C：＋横から見直す（v3.6）** |', '|---|---|---|',
              f"| 3視点（正面・左右0.4 m）のどれかで火が見えた{nf}世界で、火があるのに配達した回数 | {gc['B']['wrong_deliveries']}/{gc['B']['visible_fire_trials']} | **{gc['C']['wrong_deliveries']}/{gc['C']['visible_fire_trials']}** |",
@@ -288,7 +288,7 @@ def h_text(short=False):
         rc = {a: pa[a]['by_transition']['relocation_change']['time_median_s'] for a in ('M0', 'M2')}
         t1 = ((f"所要時間の中央値は、置き場所が変わったままの出動（{p1['n_pairs']}対）で 記憶なし {p1['time_M0_median_s']:.0f} 秒 → 検証つき記憶 {p1['time_M2_median_s']:.0f} 秒"
                f"（対ごとの差の中央値 {p1['median_diff_s']} 秒、Wilcoxon正確検定 p={p1['wilcoxon_exact_p']}）。"
-               f"置き場所が元に戻った出動では検証つき記憶の方がわずかに遅い（{rc['M2']:.0f} 秒 対 記憶なし {rc['M0']:.0f} 秒）。"
+               f"置き場所が元に戻った出動では、記憶の提案先に寄ってから探すため検証つき記憶の方が遅い（{rc['M2']:.0f} 秒 対 記憶なし {rc['M0']:.0f} 秒）。"
                f"全体の中央値は {pa['M0']['time_median_s']:.0f} → {pa['M2']['time_median_s']:.0f} 秒")
               if p1['n_pairs'] else '置き場所が変わったままの出動で比べられる対はなし')
         if short:
@@ -479,7 +479,7 @@ def section_en(e, v):
         pa, p3h = h['per_arm'], h['P3_no_extra_risk_vs_v36']
         rch = {a: pa[a]['by_transition']['relocation_change']['time_median_s'] for a in ('M0', 'M2')}
         t1h = (f"median mission time, no memory vs. verified memory: {p1h['time_M0_median_s']:.0f} s vs. {p1h['time_M2_median_s']:.0f} s on the {p1h['n_pairs']} pairs whose supplies stayed relocated "
-               f"(paired difference {p1h['median_diff_s']} s); when supplies were moved back, verified memory was slightly slower ({rch['M2']:.0f} s vs. {rch['M0']:.0f} s); overall median {pa['M0']['time_median_s']:.0f} s vs. {pa['M2']['time_median_s']:.0f} s"
+               f"(paired difference {p1h['median_diff_s']} s); when supplies were moved back, verified memory was slower, paying for a detour ({rch['M2']:.0f} s vs. {rch['M0']:.0f} s); overall median {pa['M0']['time_median_s']:.0f} s vs. {pa['M2']['time_median_s']:.0f} s"
                if p1h['n_pairs'] else 'no paired missions with relocated supplies')
         L.append(f"| H: cross-mission memory | {t1h}. Unsafe deliveries: naive memory (skips checks by design) {p2h['unsafe_M1']}/{p2h['n_pairs']} vs. verified memory {p2h['unsafe_M2']}/{p2h['n_pairs']} shows what skipping costs; the comparison that matters is no memory {p3h['unsafe_M0']}/{p3h['n_pairs']} vs. verified memory {p3h['unsafe_M2']}/{p3h['n_pairs']} (not less safe) |")
         h_ok = True

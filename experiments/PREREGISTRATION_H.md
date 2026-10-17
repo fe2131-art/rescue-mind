@@ -97,3 +97,8 @@ Ground truth is never written. Plans:
 * The hazard paths had already passed in the first pilot: M1 refused without moving (`DENIED_BY_MEMORY`, 3 s), and M2
   applied caution and refused the fire at the front.
 * The protocol, arms, endpoints and analysis are unchanged.
+
+**Erratum (2026-10-17, analysis code; no change to the protocol, endpoints or claims).** The analysis scripts computed
+"median" as the upper-middle element for even-length lists. They now use the true median (`statistics.median`), and
+all summaries were regenerated. Primary endpoints that are counts or exact tests are unaffected. For H, the
+relocation-persist medians are 114 → 79 s (previously reported as 85 s), and the claims are unchanged.

@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 import json
+import statistics
 from pathlib import Path
 
 import matplotlib
@@ -317,7 +318,7 @@ def fig_h_outcomes(path=None, out=None):
         vs = [v[a] for v in by.values() if a in v]
         bx.scatter([i] * len(vs), vs, s=9, color=mk[a][0], marker=mk[a][1], zorder=3, label=mk[a][2], lw=0)
         if vs:
-            bx.hlines(sorted(vs)[len(vs) // 2], i - 0.22, i + 0.22, color=INK, lw=1.0, zorder=4)
+            bx.hlines(statistics.median(vs), i - 0.22, i + 0.22, color=INK, lw=1.0, zorder=4)
     bx.set_xticks([0, 1, 2]); bx.set_xticklabels(['M0', 'M1', 'M2']); bx.set_xlim(-0.5, 2.5)
     bx.set_ylabel('mission time (s)'); bx.spines[['top', 'right']].set_visible(False)
     bx.set_title(f'(b) relocation persists, paired (n={len(by)}; bar = median)', fontsize=6.6, pad=6)

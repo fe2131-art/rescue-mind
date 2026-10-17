@@ -6,6 +6,7 @@ evidence copies; nothing here is hand-typed.  Run inside docker/run.sh (IPAex fo
 """
 from __future__ import annotations
 import json
+import statistics
 import math
 import sys
 from pathlib import Path
@@ -39,57 +40,86 @@ def save(fig, name):
 
 
 # ------------------------------------------------------------------ architecture
+PURPLE = '#7b5cc4'
+
+
 def architecture():
-    fig, ax = plt.subplots(figsize=(12, 6.45))
-    ax.set_xlim(0, 12.1); ax.set_ylim(0, 6.45); ax.axis('off')
+    """v3.6 runtime pipeline (flat style, Japanese labels)."""
+    fig, ax = plt.subplots(figsize=(13.9, 8.6))
+    ax.set_xlim(0, 13.9); ax.set_ylim(0, 8.6); ax.axis('off')
 
-    def box(x, y, w, h, title, lines, color):
+    def box(x, y, w, h, title, lines, color, dashed=False):
         ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle='round,pad=0.02,rounding_size=0.12',
-                                    fc='white', ec=color, lw=2))
-        ax.text(x + 0.15, y + h - 0.28, title, fontsize=10.5, weight='bold', color=INK, va='center')
+                                    fc='white', ec=color, lw=2.2, ls='--' if dashed else '-'))
+        ax.text(x + 0.15, y + h - 0.3, title, fontsize=12, weight='bold', color=color, va='center')
         for i, ln in enumerate(lines):
-            ax.text(x + 0.15, y + h - 0.62 - i * 0.3, ln, fontsize=9, color=MUTED, va='center')
+            ax.text(x + 0.15, y + h - 0.72 - i * 0.37, ln, fontsize=10, color=INK, va='center')
 
-    def arrow(x1, y1, x2, y2, label='', color=MUTED):
+    def arrow(x1, y1, x2, y2, color=MUTED, rad=0.0, lw=1.8):
         ax.annotate('', xy=(x2, y2), xytext=(x1, y1),
-                    arrowprops=dict(arrowstyle='-|>', color=color, lw=1.6, shrinkA=2, shrinkB=2))
-        if label:
-            ax.text((x1 + x2) / 2, (y1 + y2) / 2 + 0.14, label, fontsize=8.5, color=color, ha='center')
+                    arrowprops=dict(arrowstyle='-|>', color=color, lw=lw, shrinkA=1, shrinkB=1,
+                                    connectionstyle=f'arc3,rad={rad}'))
 
-    ax.text(0.1, 6.15, 'RescueMind v3.4 — 実行時アーキテクチャ（全てローカル、クラウドAPI不使用）',
-            fontsize=13, weight='bold', color=INK)
-    X = (0.1, 3.25, 6.4, 9.55)   # column x; width 2.45 leaves 0.7 gaps for arrows
-    Wb = 2.45
-    box(X[0], 3.9, Wb, 1.7, '① 自然言語指示', ['例「喉が渇いた人が多い」', 'ローカルLLM（選択式2問）', '＋避難所名の規則ガード'], BLUE)
-    box(X[1], 3.9, Wb, 1.7, '② ミッション制御ノード', ['ウェイポイント追従', 'カメラ照準→静止確認', '新規2フレーム品質/時刻検査'], BLUE)
-    box(X[2], 3.9, Wb, 1.7, '③ ローカルVLMチェック', ['Qwen3.5-9B FP16 / V100', '選択式2問＋火災Yes/No', '日本語の状況報告（判断外）'], ORANGE)
-    box(X[3], 3.9, Wb, 1.7, '④ 判定', ['許可 → 避難所Bへ', '物資違い → 別拠点を探索', '危険・2回目 → 停止'], ORANGE)
-    box(X[0], 1.55, Wb, 1.75, '実行環境', ['Docker: ROS 2 Jazzy', 'torch 2.8 / transformers 5', 'sudo不要（dockerのみ）'], GRAY)
-    box(X[1], 1.55, Wb, 1.75, '独立速度ガード', ['唯一の /cmd_vel 発行者', 'センサー鮮度/前方障害物', '異常はラッチして停止'], AQUA)
-    box(X[2], 1.55, Wb, 1.75, 'Gazebo Harmonic', ['差動二輪＋LiDAR＋カメラ', '取違え/欠品/火災/照明', 'EGLヘッドレス描画'], AQUA)
-    box(X[3], 1.55, Wb, 1.75, '独立監査', ['Gazebo真値姿勢', 'ROS bag(MCAP)', 'Publisher監視'], AQUA)
-    for k, lab in ((0, '物資・行先'), (1, '静止画'), (2, '確率')):
-        arrow(X[k] + Wb, 4.75, X[k + 1], 4.75)
-        ax.text(X[k] + Wb + 0.35, 4.92, lab, fontsize=8, color=MUTED, ha='center')
-    arrow(X[1] + 1.2, 3.9, X[1] + 1.2, 3.3)
-    ax.text(X[1] + 1.3, 3.55, '速度要求', fontsize=8.5, color=MUTED)
-    arrow(X[1] + Wb, 2.15, X[2], 2.15)
-    ax.text(X[1] + Wb + 0.35, 1.9, '/cmd_vel', fontsize=7, color=MUTED, ha='center')
-    arrow(X[2], 2.8, X[1] + Wb, 2.8)
-    ax.text(X[1] + Wb + 0.35, 2.95, '/odom\n/scan', fontsize=8, color=MUTED, ha='center', va='bottom')
-    arrow(X[2] + 0.4, 3.3, X[1] + Wb - 0.3, 3.9)
-    ax.text(X[2] + 0.1, 3.6, '/camera', fontsize=8.5, color=MUTED)
-    ax.annotate('', xy=(X[1] + 1.6, 5.62), xytext=(X[3] + 1.2, 5.62),
-                arrowprops=dict(arrowstyle='-|>', color=ORANGE, lw=1.6, connectionstyle='arc3,rad=0.18'))
-    ax.text((X[1] + X[3]) / 2 + 1.4, 5.66, '許可：避難所Bへ ／ 物資違い：別拠点で再確認', fontsize=8.5, color=ORANGE, ha='center')
-    arrow(X[2] + Wb, 2.4, X[3], 2.4)
-    ax.text(X[2] + Wb + 0.35, 2.55, '真値', fontsize=8, color=MUTED, ha='center')
-    ax.text(0.1, 0.9, '凡例：', fontsize=9, color=MUTED, weight='bold')
-    for i, (c, t) in enumerate(((BLUE, '指示理解・制御'), (ORANGE, 'AI判断（VLM）'), (AQUA, '安全・シミュレーション・監査'))):
-        ax.add_patch(Rectangle((0.75 + i * 2.6, 0.82), 0.3, 0.18, color=c))
-        ax.text(1.15 + i * 2.6, 0.91, t, fontsize=9, color=INK, va='center')
-    ax.text(0.1, 0.35, 'ロボットは物資を把持しない：「現地で物資を目視確認してから避難所へ向かう」判断と移動を対象とする。',
-            fontsize=9, color=MUTED)
+    def label(x, y, t, ha='left', color=MUTED, fs=9.5):
+        ax.text(x, y, t, fontsize=fs, color=color, ha=ha, va='center')
+
+    ax.text(0.1, 8.25, 'RescueMind v3.6 — 実行時アーキテクチャ', fontsize=16, weight='bold', color=INK, va='center')
+    ax.text(0.1, 7.8, '全推論はローカルGPU（クラウドAPI不使用）。記憶は提案だけ、判断は必ずその場で。', fontsize=11, color=MUTED, va='center')
+
+    Wb, G = 2.5, 0.3
+    X = [0.1 + i * (Wb + G) for i in range(5)]
+    Y1, H1 = 3.7, 1.95          # main flow row
+    Y2, H2 = 0.95, 1.95          # support row
+    Y0, H0 = 6.2, 1.3            # memory row
+    # ---- row 1: decision pipeline
+    box(X[0], Y1, Wb, H1, '① 指示の理解', ['例「喉が渇いた人が多い」', 'ローカルLLMで意図解析', '選択式2問＋規則ガード'], BLUE)
+    box(X[1], Y1, Wb, H1, '② ミッション制御', ['走行→停止→照準', '新規フレームを取得', '品質・時刻を検査'], BLUE)
+    box(X[2], Y1, Wb, H1, '③ 現地VLMチェック', ['選択式2問（順序入替）', '＋危険の有無を質問', '不明は拒否（安全側）'], ORANGE)
+    box(X[3], Y1, Wb, H1, '④ 見回し（I-14）', ['±0.4 mから再撮影', '危険の確認のみ', '1枚でも危険→承認取消'], ORANGE)
+    box(X[4], Y1, Wb, H1, '⑤ 判定', ['許可 → 避難所へ配達', '物資違い → 別拠点を1回', '危険・不明 → 停止'], ORANGE)
+    ym = Y1 + H1 / 2
+    for k in range(4):
+        arrow(X[k] + Wb + 0.03, ym, X[k + 1] - 0.03, ym)
+    # ---- row 0: cross-mission memory
+    mx, mw = X[1], X[3] + Wb - X[1]
+    box(mx, Y0, mw, H0, '出動をまたぐ記憶（I-15）',
+        ['提案は「拠点の順序」と「注意」だけ。確認は決して省略しない',
+         '保存：見た物資の場所／火を見た拠点と向き（観測であり、正解データではない）'], PURPLE)
+    arrow(X[1] + Wb / 2, Y0 - 0.03, X[1] + Wb / 2, Y1 + H1 + 0.03, color=PURPLE, lw=2.0)
+    label(X[1] + Wb / 2 + 0.15, (Y0 + Y1 + H1) / 2, '提案：拠点順＋注意', color=PURPLE)
+    xr = X[4] + Wb / 2
+    yr = Y0 + H0 / 2
+    ax.plot([xr, xr], [Y1 + H1 + 0.03, yr], color=PURPLE, lw=2.0, solid_capstyle='butt')
+    arrow(xr, yr, mx + mw + 0.03, yr, color=PURPLE, lw=2.0)
+    label((xr + mx + mw) / 2, yr + 0.3, '出動後に\n観測を保存', ha='center', color=PURPLE, fs=9)
+    # ---- row 2: safety / simulation / audit / report
+    box(X[0], Y2, Wb, H2, 'Gazebo Harmonic', ['差動二輪＋LiDAR＋カメラ', '取違え/欠品/火災/照明', 'EGLヘッドレス描画'], AQUA)
+    box(X[1], Y2, Wb, H2, '独立速度ガード', ['唯一の /cmd_vel 発行者', '鮮度・前方障害物を検査', '異常はラッチして停止'], AQUA)
+    box(X[2], Y2, Wb, H2, '第2モデル（任意, I-16）', ['Clef-Flash（Jev役）', '同じ画像を独立に判定', '両方が許可で初めて許可'], PURPLE, dashed=True)
+    box(X[3], Y2, Wb, H2, '運用レポート（I-18）', ['ログから自動生成', '判断・根拠・画像を', '人が読める1枚にまとめる'], AQUA)
+    box(X[4], Y2, Wb, H2, '記録・独立監査', ['Gazebo真値姿勢', 'ROS bag（MCAP）', '判定の再計算で検証'], AQUA)
+    # mission node -> guard -> Gazebo, sensors back
+    arrow(X[1] + Wb / 2 + 0.5, Y1 - 0.03, X[1] + Wb / 2 + 0.5, Y2 + H2 + 0.03)
+    label(X[1] + Wb / 2 + 0.65, (Y1 + Y2 + H2) / 2, '速度要求')
+    arrow(X[1] - 0.03, Y2 + 0.6, X[0] + Wb + 0.03, Y2 + 0.6)
+    arrow(X[0] + Wb - 0.35, Y2 + H2 + 0.03, X[1] + 0.35, Y1 - 0.03, rad=0.0)
+    label(X[0] + Wb - 0.5, (Y1 + Y2 + H2) / 2 + 0.05, 'センサー\n/odom /scan /camera', ha='right')
+    # second model -> VLM check
+    arrow(X[2] + Wb / 2, Y2 + H2 + 0.03, X[2] + Wb / 2, Y1 - 0.03, color=PURPLE, lw=2.0)
+    label(X[2] + Wb / 2 + 0.15, (Y1 + Y2 + H2) / 2, '同じ画像を独立判定', color=PURPLE)
+    # decision -> recorder -> report
+    arrow(X[4] + Wb / 2, Y1 - 0.03, X[4] + Wb / 2, Y2 + H2 + 0.03)
+    label(X[4] + Wb / 2 + 0.15, (Y1 + Y2 + H2) / 2, '全判定を記録')
+    arrow(X[4] - 0.03, Y2 + H2 / 2, X[3] + Wb + 0.03, Y2 + H2 / 2)
+    # ---- legend / note
+    ax.text(0.1, 0.5, '凡例：', fontsize=10.5, color=MUTED, weight='bold', va='center')
+    for i, (c, t) in enumerate(((BLUE, '指示理解・制御'), (ORANGE, 'AI判断（ローカルVLM）'),
+                                (PURPLE, '記憶・第2モデル'), (AQUA, '安全・シミュレーション・監査'))):
+        x0 = 0.85 + i * 3.1
+        ax.add_patch(Rectangle((x0, 0.4), 0.3, 0.2, color=c))
+        ax.text(x0 + 0.4, 0.5, t, fontsize=10.5, color=INK, va='center')
+    ax.text(0.1, 0.08, 'ロボットは物資を把持しない：「現地で物資を目視確認してから避難所へ向かう」判断と移動を対象とする。',
+            fontsize=10, color=MUTED, va='center')
     save(fig, 'architecture.png')
 
 
@@ -168,14 +198,14 @@ def campaign_results():
     lat = [r['vlm_latency_s'] for r in final if r.get('vlm_latency_s') is not None]
     wall = [r['wall_s'] for r in final]
     ax.hist(lat, bins=12, color=ORANGE, edgecolor='#fcfcfb')
-    med = sorted(lat)[len(lat) // 2] if lat else 0
+    med = statistics.median(lat) if lat else 0
     ax.axvline(med, color=INK, lw=1.2, ls='--')
     ax.text(med, ax.get_ylim()[1] * 0.92, f' 中央値 {med:.2f} 秒', fontsize=10)
     ax.set_xlabel('静止画取得 → 判定 までの時間 [秒]（2問×1パス）'); ax.set_ylabel('試行数')
     ax.set_title(f'VLM判断の遅延（n={len(lat)}）')
     save(fig, 'campaign_results.png')
     return {'n': len(final), 'correct': correct, 'median_vlm_latency_s': med,
-            'median_wall_s': sorted(wall)[len(wall) // 2]}
+            'median_wall_s': statistics.median(wall)}
 
 
 def trajectories():

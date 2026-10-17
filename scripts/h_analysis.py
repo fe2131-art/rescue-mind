@@ -9,6 +9,7 @@ experiments/campaign_h_protocol_design_fire_masks.json; >= 614 px in any view, a
 """
 from __future__ import annotations
 import itertools
+import statistics
 import json
 import sys
 from collections import defaultdict
@@ -88,7 +89,7 @@ def main():
              and v['M0']['mission_time_s'] is not None and v['M2']['mission_time_s'] is not None
              and not v['M0']['failed'] and not v['M2']['failed']]
     diffs = [round(b['mission_time_s'] - a['mission_time_s'], 2) for a, b in pairs]
-    med = lambda v: sorted(v)[len(v) // 2] if v else None
+    med = lambda v: statistics.median(v) if v else None
     out['P1_efficiency_relocation_persist'] = {
         'n_pairs': len(pairs), 'time_M0_median_s': med([a['mission_time_s'] for a, _ in pairs]),
         'time_M2_median_s': med([b['mission_time_s'] for _, b in pairs]), 'diff_M2_minus_M0_s': diffs,

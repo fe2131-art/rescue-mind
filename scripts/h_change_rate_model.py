@@ -36,6 +36,7 @@ Additional outputs (do not alter 'q' / 'policies'):
 """
 from __future__ import annotations
 import json
+import statistics
 import random
 import sys
 from pathlib import Path
@@ -73,7 +74,7 @@ def rates():
                 kind = {'ALLOW_MEMORY': 'deliver_skip', 'DENY_MEMORY': 'deny_memory'}.get(p['observed'])
                 if kind:
                     times.setdefault(kind, []).append(p['mission_time_s'])
-    med = {k: sorted(v)[len(v) // 2] for k, v in times.items()}
+    med = {k: statistics.median(v) for k, v in times.items()}
     default = {'deliver_direct': 122.0, 'deliver_search': 150.0, 'deny_direct': 35.0, 'deny_search': 75.0,
                'deliver_skip': 75.0, 'deny_memory': 3.0}       # G medians / estimates, used only without H data
     return {'p_det': det_k / det_n, 'p_det_n': det_n, 'p_fs': fs_k / fs_n, 'p_fs_n': fs_n,

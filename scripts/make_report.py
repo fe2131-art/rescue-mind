@@ -169,7 +169,7 @@ def campaign_d():
           and r['expected_action'] in ('DENY', 'DENY_HAZARD')]
     intent_ok = sum(1 for r in rows if r.get('intent_item') == r['expected_supply'])
     return {'rows': rows, 'n': len(rows), 'correct': sum(r['correct'] for r in rows), 'false_approvals': len(fa),
-            'retries': len(allr) - len(rows), 'lat_med': lat[len(lat) // 2] if lat else None,
+            'retries': len(allr) - len(rows), 'lat_med': statistics.median(lat) if lat else None,
             'lat_max': lat[-1] if lat else None, 'intent_ok': intent_ok,
             'by': {g: [r for r in rows if r['group'] == g] for g in GROUP}}
 
@@ -209,7 +209,7 @@ def campaign_e():
     keys = sorted(strata, key=lambda k: (order.index(k[0]) if k[0] in order else 99,
                                               list(COND_E).index(k[1]) if k[1] in COND_E else 99))
     return {'n': n, 'ok': ok, 'fa': fa, 'allow': allow, 'retries': len(allr) - n, 'keys': keys, 'strata': strata,
-            'strata_ok': strata_ok, 'lat_med': lat[len(lat) // 2] if lat else None,
+            'strata_ok': strata_ok, 'lat_med': statistics.median(lat) if lat else None,
             'tau_h': next((r['stack_args'][r['stack_args'].index('--hazard-threshold') + 1] for r in rows
                            if '--hazard-threshold' in (r.get('stack_args') or [])), None)}
 
@@ -397,7 +397,7 @@ def sec_memory():
               f"新たに出た火の中への配達 {h['per_arm']['M1']['into_fire']} 件で、いずれも確認を省いた結果である（中央値 {h['per_arm']['M1']['time_median_s']:.0f} 秒が最短なのも同じ理由で、誤った停止も {h['per_arm']['M1']['false_refusals']} 件）。"
               'M1 は確認を省く設計なので20対0は意外な結果ではなく、意味のある比較は M0 対 M2（1件対0件）で、主張するのは「M2 は M0 より危険ではない」までである（1件対0件から「より安全」とは言えない）。'),
             Spacer(1, 3),
-            P(f"速さの限定：114→85秒は、置き場所が変わったままの8出動での差。置き場所が元に戻った8出動では検証つき記憶の方がわずかに遅い（中央値 {h['per_arm']['M2']['by_transition']['relocation_change']['time_median_s']:.0f} 秒 対 記憶なし "
+            P(f"速さの限定：{h['P1_efficiency_relocation_persist']['time_M0_median_s']:.0f}→{h['P1_efficiency_relocation_persist']['time_M2_median_s']:.0f}秒は、置き場所が変わったままの8出動での差。置き場所が元に戻った8出動では、記憶の提案した拠点に先に行ってから探すため検証つき記憶の方が遅い（中央値 {h['per_arm']['M2']['by_transition']['relocation_change']['time_median_s']:.0f} 秒 対 記憶なし "
               f"{h['per_arm']['M0']['by_transition']['relocation_change']['time_median_s']:.0f} 秒）。全体の中央値は {h['per_arm']['M0']['time_median_s']:.0f} → {h['per_arm']['M2']['time_median_s']:.0f} 秒。"), Spacer(1, 4)]
     out += fig('memory_case_ja.png', 135, '事例（評価H Q09）：記憶なし（M0）は隠れた火(p=0.0346、基準0.05未満)に配達したが、検証つき記憶（M2）は2出動前にそこで火を見たため閾値を0.01に厳しくし(p=0.0489)、止まった。'
                '記憶は確認を減らさず、慎重さだけを足す。その結果、記憶なしでは見逃した火で止まれた（1件の事例。統計的な主張ではない）。')
@@ -614,7 +614,7 @@ def headline(D, E, V, after_fig=()):
         pah = h['per_arm']
         rch = {a_: pah[a_]['by_transition']['relocation_change']['time_median_s'] for a_ in ('M0', 'M2')}
         h_res = (f"危険な配達：確認を省く素朴な記憶 {p2h['unsafe_M1']}/{p2h['n_pairs']} は省くことの代償を示し、実質の比較は記憶なし {p3h['unsafe_M0']}/{p3h['n_pairs']} 対 本方式 {p3h['unsafe_M2']}/{p3h['n_pairs']}（より危険ではない）。"
-                 f"時間（中央値）：物資の入れ替わりが続く{p1h['n_pairs']}出動で {p1h['time_M0_median_s']:.0f} → {p1h['time_M2_median_s']:.0f} 秒、置き場所が戻る出動では {rch['M0']:.0f} → {rch['M2']:.0f} 秒とわずかに遅い、全体 {pah['M0']['time_median_s']:.0f} → {pah['M2']['time_median_s']:.0f} 秒。"
+                 f"時間（中央値）：物資の入れ替わりが続く{p1h['n_pairs']}出動で {p1h['time_M0_median_s']:.0f} → {p1h['time_M2_median_s']:.0f} 秒、置き場所が戻る出動では {rch['M0']:.0f} → {rch['M2']:.0f} 秒と遅い（遠回りの代償）、全体 {pah['M0']['time_median_s']:.0f} → {pah['M2']['time_median_s']:.0f} 秒。"
                  f"速さ{ok_(p1h['supported'])}・安全{ok_(p2h['supported'])}・追加の危険なし{ok_(p3h['supported'])}で、全体の主張：<b>{ok_(h['headline_supported'])}</b>")
     else:
         h_res = PEND

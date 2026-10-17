@@ -19,6 +19,8 @@ flowchart LR
       WAT["runtime_guard_graph_watch.py<br/>/cmd_vel 発行者監視"]
       REC["odom_evidence_recorder.py<br/>独立レコーダ（真値含む）"]
       BAG["ros2 bag record（MCAP）"]
+      MEM["mission_memory.py（任意・I-15）<br/>出動をまたぐ記憶（JSONL）<br/>拠点の順序と注意を提案するだけ"]
+      OPR["make_operator_report.py（I-18）<br/>ログから現場向けの1枚報告を生成"]
     end
   end
   GZ <--> BR
@@ -28,6 +30,9 @@ flowchart LR
   GRD -- "/cmd_vel（唯一の発行者）" --> BR
   MIS -- "HTTP 127.0.0.1（画像・指示文）" --> VLM
   MIS -. "HTTP 127.0.0.1（Jev要求・任意）" .-> CLEF
+  MEM -. "提案（確認は省かない）" .-> MIS
+  ORC -. "出動後の観測を追記" .-> MEM
+  REC --> OPR
   WAT -. "異常時 /rescuemind/estop" .-> GRD
   BR -- "/ground_truth/odom /odom /cmd_vel" --> REC
   BR --> BAG
@@ -35,6 +40,7 @@ flowchart LR
 ```
 
 * ミッションは速度を**要求**するだけで、車輪への指令（`/cmd_vel`）を出せるのは独立した速度ガードだけ。
+* 見直し（I-14）は同じミッション制御が左右0.4 mへ動いて撮り直す（第3.2節）。出動をまたぐ記憶（I-15）は提案だけで、到着後の確認は必ず行う。運用レポート（I-18）は保存されたログから生成する。
 * VLM はループバック（127.0.0.1）だけで待ち受け、クラウドAPIは一切使わない。
 * Gazebo の真値（`/ground_truth/odom`）はレコーダと監査だけが使い、制御には使わない。
 * **DDS の非同期送信（I-12）**：オーケストレータの既定は `--dds-mode async`。スタック全体に `RMW_FASTRTPS_PUBLICATION_MODE=ASYNCHRONOUS` を設定する。
