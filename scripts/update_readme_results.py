@@ -90,7 +90,7 @@ def section_e():
     wrong_lo, wrong_hi = wilson(wrong, n)
     ok_lo, ok_hi = wilson(ok, n)
     s_lo, s_hi = wilson(safe_ok, len(safe))
-    txt = f"""### 評価E（v3.5・主結果）：試行ごとにランダムな世界で{n}試行
+    txt = f"""### 評価E：主結果（v3.5、ランダムな世界で{n}試行）
 
 照明・物資の位置と向き・妨害物（未知の木箱・コーンを含む）・火災を試行ごとに乱数で生成し、全スタック（Gazebo・ROS 2・ガード・ローカルVLM）を新規起動。
 Qwen3.5-9B、回復探索・状況報告・LLM指示理解あり。条件は結果を見る前に [`PREREGISTRATION_E.md`](experiments/PREREGISTRATION_E.md) に固定。
@@ -251,7 +251,7 @@ def section_v36():
                  + f"。Clef＋Qwen の2モデル確認（規則上の選定）は誤許可 {sel['false_approvals']}/{sel['n_deny']}・正しい許可 {sel['correct_approvals']}/{sel['n_allow']}（V100 1台には同時に載らず、既定には採用せず）")
     fm = sorted(x['fire_pixels'] for x in f.get('trials', []) if x['config'] == 'B' and x['wrong_delivery'] and x.get('fire_pixels'))
     fpx = f"Bが見逃した火は正面から {fm[0]:,}〜{fm[-1]:,} 画素（{len(fm)}件）" if fm else 'Bが見逃した火は小さい'
-    txt = f"""### v3.6：物資の陰に隠れた小さな火への対策（現在の既定構成）
+    txt = f"""### 火の見逃し対策：横から見直す（v3.6、現在の既定構成）
 
 T1 で分かった弱点に、結果を見る前に固定した条件で段階的に対策（[`IMPROVEMENT_LOG.md`](docs/IMPROVEMENT_LOG.md) I-11・I-13・I-14）。
 **v3.6 = オーケストレータの既定値**：Qwen3.5-9B、危険の問い方 h36＋拡大切り出し tiles、τ_h=0.05、**横から見直す 0.4 m**、回復探索・状況報告あり、DDS非同期。
@@ -280,7 +280,7 @@ def jl(name):
         return None
 
 
-def h_text():
+def h_text(short=False):
     h = jl('h_summary.json')
     try:
         p1, p2, p3 = h['P1_efficiency_relocation_persist'], h['P2_safety_naive_vs_verified'], h['P3_no_extra_risk_vs_v36']
@@ -291,22 +291,25 @@ def h_text():
                f"置き場所が元に戻った出動では検証つき記憶の方がわずかに遅い（{rc['M2']:.0f} 秒 対 記憶なし {rc['M0']:.0f} 秒）。"
                f"全体の中央値は {pa['M0']['time_median_s']:.0f} → {pa['M2']['time_median_s']:.0f} 秒")
               if p1['n_pairs'] else '置き場所が変わったままの出動で比べられる対はなし')
-        return (f"評価H 結果：{t1}。"
+        if short:
+            return (f"評価H：置き場所が変わったままの出動（{p1['n_pairs']}対）の所要時間の中央値 {p1['time_M0_median_s']:.0f} 秒 → {p1['time_M2_median_s']:.0f} 秒"
+                    f"（Wilcoxon正確検定 p={p1['wilcoxon_exact_p']}）、危険な配達は記憶なし {p3['unsafe_M0']}/{p3['n_pairs']} 対 検証つき記憶 {p3['unsafe_M2']}/{p3['n_pairs']}。詳しくは[結果](#結果)の評価H")
+        return (f"{t1}。"
                 f"比較対象の素朴な記憶は確認を省く方式なので、危険な配達 {p2['unsafe_M1']}/{p2['n_pairs']} 対 検証つき記憶 {p2['unsafe_M2']}/{p2['n_pairs']}は、確認を省く代償を示すもの（設計上の帰結）。"
                 f"安全面で意味のある比較は 記憶なし {p3['unsafe_M0']}/{p3['n_pairs']} 対 検証つき記憶 {p3['unsafe_M2']}/{p3['n_pairs']} で、検証つき記憶は記憶なしより危険ではない"
                 f"（{'追加リスクなし' if p3['supported'] else '追加リスクあり'}。1件対0件のため「より安全」とは言わない）")
     except (TypeError, KeyError):
-        return f'評価H（16系列×3出動）：{PENDING}'
+        return f'評価H（16系列×3出動）：{PENDING}' if short else PENDING
 
 
-def j_text():
+def j_text(short=False):
     j = jl('j_summary.json')
     try:
         c, p2 = j['per_config'], j['P2_no_extra_unsafe']
-        return (f"評価J 結果：2つのAI構成 {c['J']['correct']}/{c['J']['n']} 期待どおり（v3.6単独 {c['A']['correct']}/{c['A']['n']}）、"
+        return (f"2つのAI構成 {c['J']['correct']}/{c['J']['n']} 期待どおり（v3.6単独 {c['A']['correct']}/{c['A']['n']}）、"
                 f"危険な配達は 2つのAI構成 {p2['unsafe_J']}件・v3.6単独 {p2['unsafe_A']}件、2つのAI構成の実行失敗 {c['J']['failed']}件")
     except (TypeError, KeyError):
-        return f'評価J（24世界の対比較）：{PENDING}'
+        return f'評価J（24世界の対比較）：{PENDING}' if short else PENDING
 
 
 def audit_text():
@@ -329,18 +332,18 @@ def section_novelty():
                 f"**{gc['B']['wrong_deliveries']}/{nf} → {gc['C']['wrong_deliveries']}/{nf}**（p={g['primary']['mcnemar_p']:.3f}）、火の無い世界の誤った停止 {gc['C']['false_hazard_stops']}/{gc['C']['fire_free_trials']}")
     except (TypeError, KeyError):
         gtxt = f'横から撮り直す能動知覚（評価G）：{PENDING}'
-    return f"""## 新規性（この課題で工夫した点）
+    return f"""## 工夫した点
 
 ![記憶は提案、判断はその場の目で（出動をまたぐ記憶の原則）](docs/figures/memory_principle_ja.png)
 
-* **記憶は「提案」だけ、確認は減らさない**（出動をまたぐ記憶、[I-15](docs/IMPROVEMENT_LOG.md)・[D13](docs/DESIGN_DECISIONS.md)）：前回の物資の場所は「先に行く拠点」を決めるだけで、行った先で必ず確認する。火を見た拠点は閾値を厳しくする。同じ画像なら記憶ありの許可は記憶なしの許可の部分集合になる（コードで強制）。事前登録 [`PREREGISTRATION_H.md`](experiments/PREREGISTRATION_H.md)。{h_text()}
+* **記憶は「提案」だけ、確認は減らさない**（[I-15](docs/IMPROVEMENT_LOG.md)・[D13](docs/DESIGN_DECISIONS.md)）：前回の物資の場所は「先に行く拠点」を決めるだけで、行った先で必ず確認する。火を見た拠点は閾値を厳しくする。同じ画像なら記憶ありの許可は記憶なしの許可の部分集合になる（コードで強制）。{h_text(True)}
 
   ![事例：記憶なしは隠れた火に配達（p_h=0.0346）、検証つき記憶は火を見た拠点の閾値を0.01に厳しくして停止（p_h=0.0489）。1件の事例で、統計的な主張ではない](docs/figures/memory_case_ja.png)
 
-* **横から見直す能動知覚**（[I-14](docs/IMPROVEMENT_LOG.md)）：{gtxt}。
-* **当初計画の2つのAI（Jev役 Clef-Flash＋Qwen）をロボットの判断に組み込んで**（[I-16](docs/IMPROVEMENT_LOG.md)）：オフライン評価だけだった2モデル確認を、V100 1台に載る組で閉ループに載せた。Clef-Flash は Qwen3.5-9B の追加学習版なので、2つは独立ではなく系統を共有する（相関した失敗が残り得ると明記）。{j_text()}
-* **事前登録と時系列監査**（論文 [`docs/paper/main.pdf`](docs/paper/main.pdf) 付録「Registration audit」）：条件・閾値・解析を結果を見る前にコミットし、{audit_text()}。支持されなかった主張も、そのまま載せる。
-* **実用性：各出動の記録から、1枚の現場報告を生成できる**（[I-18](docs/IMPROVEMENT_LOG.md)）：依頼・判断の理由・確認に使った写真と確率・次にしてほしいことを1枚にまとめ、現場の人が結論だけ読めば動ける（例：物資の陰の火で停止した出動）。生成は `scripts/make_operator_report.py`（各出動の記録から1枚を生成）。全出動での自動生成は評価終了後に組み込む。
+* **横から見直す能動知覚**（[I-14](docs/IMPROVEMENT_LOG.md)）：{gtxt}。表は[結果](#結果)の評価G。
+* **2つのAI（Jev役 Clef-Flash＋Qwen）を判断に組み込む**（[I-16](docs/IMPROVEMENT_LOG.md)）：オフラインだけだった2モデル確認を、V100 1台に載る組で閉ループに載せた。2つは系統を共有する（Clef-Flash は Qwen3.5-9B の追加学習版）ので、相関した失敗が残り得る。評価Jは[結果](#結果)の表。
+* **事前登録と時系列監査**（[論文](docs/paper/main.pdf)付録）：条件・閾値・解析を結果を見る前にコミットし、{audit_text()}。支持されなかった主張も、そのまま載せる。
+* **実用性：出動ごとに1枚の現場報告を生成**（[I-18](docs/IMPROVEMENT_LOG.md)）：依頼・判断の理由・確認に使った写真と確率・次にしてほしいことを1枚にまとめ、現場の人が結論だけ読めば動ける。生成は `scripts/make_operator_report.py`、全出動での自動生成は評価終了後に組み込む。
 
 ![出動の記録から生成した1枚の現場報告（隠れた火で停止した例）](docs/figures/operator_report_hidden_fire.png)"""
 
@@ -540,8 +543,10 @@ def main():
     k_ja, k_en = section_k()
     if k_ja:
         head.append(k_ja)
-    parts = ['<!-- RESULTS:START -->', '## 結果：事前登録した評価（D・E・F・G・T1・T2・Z・P・R・K）', '',
-             'Qwen3.5-9B（ローカル・V100）。条件・閾値・解析は結果を見る前に `experiments/PREREGISTRATION_*.md` に固定し、台帳は全試行を記録。', '',
+    head.append(f"| 評価H（出動をまたぐ記憶） | 前回の物資の場所を「先に行く拠点」の提案だけに使う。記憶なし・素朴な記憶・検証つき記憶を対比較 | {h_text()} |")
+    head.append(f"| 評価J（2つのAI） | Jev役 Clef-Flash＋Qwen の2モデル確認を閉ループで、v3.6単独と対比較 | {j_text()} |")
+    parts = ['<!-- RESULTS:START -->', '## 結果', '',
+             '事前登録した評価の一覧（D・E・F・G・T1・T2・Z・P・R・K・H・J）。Qwen3.5-9B（ローカル・V100）。条件・閾値・解析は結果を見る前に `experiments/PREREGISTRATION_*.md` に固定し、台帳は全試行を記録。', '',
              '用語：**誤許可**＝届けてはいけない場面で「届けてよい」と判断してしまうこと（ロボットを実際に動かす評価では**誤配達**。火のある拠点から届けてしまうことは**危険な配達**）。**正しい許可**＝届けてよい場面で正しく「よい」と判断できること。**閉ループ**＝AIの判断でロボットが実際に動くところまで含めた評価。', '',
              '\n'.join(head), '']
     if t1_block:
@@ -575,9 +580,9 @@ def main():
         demos = [c['title'].split('：', 1)[-1] for c in ch if c.get('kind') == 'mission']
         n_tab = sum(c.get('kind') == 'table' for c in ch)
         length = '3分以内' if ch[-1]['end_s'] <= 180 else f"{int(ch[-1]['end_s'] // 60)}分{int(round(ch[-1]['end_s'] % 60)):02d}秒"
-        desc = (f"デモ動画（YouTube、{length}、日本語ナレーション付き。実走デモ{len(demos)}本（{'／'.join(demos)}）と、事前登録した結果の表{n_tab}枚"
-                + (f"。{sp}で、速度は画面に常時表示）" if sp else '）'))
-        txt = re.sub(r'デモ動画（YouTube、[^\n]*?）(?=／ 本リポジトリ)', lambda _: desc, txt, count=1)
+        desc = (f"{length}、日本語ナレーション付き。実走デモ{len(demos)}本（{'／'.join(demos)}）と、事前登録した結果の表{n_tab}枚"
+                + (f"。{sp}（速度は画面に常時表示）" if sp else '。'))
+        txt = re.sub(r'(<!-- VIDEO:START -->\n).*?(\n<!-- VIDEO:END -->)', lambda m: m.group(1) + '  * ' + desc + m.group(2), txt, count=1, flags=re.S)
     txt = sync_counts(txt, readme)
     readme.write_text(txt, encoding='utf8')
     for name in ('FINDINGS.md', 'HANDOFF.md'):       # prose counts in the other docs
