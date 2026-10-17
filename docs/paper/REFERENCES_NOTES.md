@@ -1,0 +1,56 @@
+# new_refs.bib verification notes (checked 2026-10-17)
+
+Method: arXiv abstract pages (title/authors/comments); venue, DOI, pages via publisher/proceedings pages (PMLR, NeurIPS proceedings, MIT DSpace) or OpenAlex DOI records (IEEE Xplore pages returned empty to the fetcher).
+Raw author lists were checked against arXiv/proceedings. Lists >10 authors: ConceptGraphs kept full (16, as requested); Hofer truncated (15, first 6 + others).
+
+## 1. Memory / changing environments
+- anwar2025remembr — long-horizon spatio-temporal robot memory; ICRA 2025 pp.2838-2845 — https://arxiv.org/abs/2409.13682 ; https://api.openalex.org/works/doi:10.1109/ICRA55743.2025.11127706
+- xie2024embodiedrag — graph-structured embodied memory for retrieval (arXiv only, no venue found) — https://arxiv.org/abs/2409.18313
+- gu2024conceptgraphs — open-vocabulary 3D scene graph map for planning; ICRA 2024 pp.5021-5028 — https://arxiv.org/abs/2309.16650 ; OpenAlex doi 10.1109/ICRA57147.2024.10610243
+- werby2024hovsg — hierarchical scene-graph memory for language navigation; RSS 2024 — https://arxiv.org/abs/2403.17846 ; OpenAlex doi 10.15607/RSS.2024.XX.077
+- rana2023sayplan — LLM planning over scene-graph memory; CoRL 2023 (PMLR 229:23-72) — https://proceedings.mlr.press/v229/rana23a.html ; https://arxiv.org/abs/2307.06135
+- wang2025karma — long/short-term memory for embodied agents; ICRA 2025 — https://arxiv.org/abs/2409.14908 ; OpenAlex doi 10.1109/ICRA55743.2025.11128047 (title match; authors from arXiv)
+- barmann2025hemv — hierarchical episodic memory verbalization over life-long robot experience; Humanoids 2025 pp.783-790 — https://arxiv.org/abs/2409.17702 ; OpenAlex doi 10.1109/Humanoids65713.2025.11203101
+- hughes2022hydra — real-time 3D scene graph building (spatial perception baseline); RSS 2022 — https://arxiv.org/abs/2201.13360 ; OpenAlex doi 10.15607/RSS.2022.XVIII.050
+- schmid2024khronos — spatio-temporal SLAM detecting scene changes over time; RSS 2024 — https://arxiv.org/abs/2402.13817 ; OpenAlex doi 10.15607/RSS.2024.XX.081
+- behrens2025lostfound — tracking object changes in dynamic scene graphs; RA-L 10(4):3739-3746 — https://arxiv.org/abs/2411.19162 ; OpenAlex doi 10.1109/LRA.2025.3544518
+- sun2026memorylies — stale spatial memory degrades VLM agents (core motivation for remembered-supply failure) — https://arxiv.org/abs/2608.04574 (arXiv preprint, no venue)
+- yin2026glove — verifying LLM memory against environment to realign stale memory — https://arxiv.org/abs/2601.19249 (arXiv preprint; v2 dated 2026-09-26)
+- tang2026vlmdewm — external verifiable world model for resilient VLM planning — https://arxiv.org/abs/2602.15549 (arXiv preprint)
+- biber2005dynamic — classic long-term mapping in changing environments; RSS I pp.17-24 — OpenAlex doi 10.15607/RSS.2005.I.003
+- krajnik2017fremen — long-term autonomy by modelling environmental change over time; T-RO 33(4):964-977 — OpenAlex doi 10.1109/TRO.2017.2665664
+
+## 2. Active perception
+- bajcsy1988active — foundational active-perception definition; Proc. IEEE 76(8):966-1005 — OpenAlex doi 10.1109/5.5968
+- bajcsy2018revisiting — modern restatement of active perception; Autonomous Robots 42(2):177-196 — OpenAlex doi 10.1007/s10514-017-9615-3
+- ren2024exploreuntil — VLM confidence-driven exploration, calibrated stopping; RSS 2024 — https://arxiv.org/abs/2403.15941 ; OpenAlex doi 10.15607/RSS.2024.XX.089
+- scott2003viewplanning — classic view-planning / next-best-view survey; ACM CSUR 35(1):64-96 — OpenAlex doi 10.1145/641865.641868
+- sripada2024sceneexploration — VLM-driven scene exploration for active perception (arXiv only) — https://arxiv.org/abs/2409.17641
+
+## 3. Robustness / sim-to-real
+- hendrycks2019benchmarking — ImageNet-C corruption benchmark (ICLR 2019, per arXiv comment "ICLR 2019 camera-ready") — https://arxiv.org/abs/1903.12261
+- michaelis2019benchmarking — corruption benchmark for object detection (arXiv only) — https://arxiv.org/abs/1907.07484
+- chen2023benchmarking — multimodal corruption benchmark for pre-trained VLMs; NeurIPS 2023 D&B (vol 36) — https://proceedings.neurips.cc/paper_files/paper/2023/hash/a2a544e43acb8b954dc5846ff0d77ad5-Abstract.html
+- schiappa2022robustness — video-language models degrade under visual perturbations; NeurIPS 2022 D&B (vol 35) — https://proceedings.neurips.cc/paper_files/paper/2022/hash/de6ff07cbd222c10d694c2b2f732aceb-Abstract.html ; https://arxiv.org/abs/2207.02159
+- hofer2021sim2real — sim-to-real gap survey/editorial; T-ASE 18(2):398-400 — https://dspace.mit.edu/handle/1721.1/138850?show=full ; https://www.ias.informatik.tu-darmstadt.de/Publications/BibTex?id=11417. Author order follows MIT record (first 6 shown); arXiv 2012.03806 (workshop-summary title, 15 authors) swaps Mozifian/Golemo.
+
+## 4. Diverse redundancy
+- avizienis1985nversion — N-version programming for design-fault tolerance; TSE SE-11(12):1491-1501 — OpenAlex doi 10.1109/TSE.1985.231893 (author listed as "A. Avizienis")
+- knight1986experimental — independent versions still fail together; TSE SE-12(1):96-109 — OpenAlex doi 10.1109/TSE.1986.6312924
+- du2024debate — multiple LLM instances debating improves factuality; ICML 2024 (PMLR 235:11733-11763) — https://proceedings.mlr.press/v235/du24e.html ; https://arxiv.org/abs/2305.14325
+
+## 5. Run-time safety
+- sinha2024realtime — fast LLM anomaly detection plus reactive safe fallback; RSS 2024 — https://arxiv.org/abs/2407.08735 ; OpenAlex doi 10.15607/RSS.2024.XX.114
+- yuan2026whentoact — uncertainty-aware policy steering: act, ask or learn — https://arxiv.org/abs/2602.22474 (v2 comment: "To appear in RSS 2026"; proceedings page not checked, hence the note field)
+
+## 6. Cloudflare Clef
+- chen2026clefblog — primary source for Clef/Clef-flash decision models (Cloudflare Blog, 2026-10-01, author Michelle Chen) — https://blog.cloudflare.com/clef-decision-models
+- cloudflare2026clefchangelog — Workers AI release notice: Clef 27B, Clef-flash 9B, Apache 2.0 (2026-10-01) — https://developers.cloudflare.com/changelog/post/2026-10-01-clef-workers-ai/
+- gihyo2026clef — Japanese news coverage of Clef release (2026-10-02, no author listed) — https://gihyo.jp/article/2026/10/cloudflare-clef-decision-model
+  Original title: Cloudflare、オープンソースのマルチモーダル意思決定モデル「Clef」と「Clef-flash」をリリース (the .bib uses a bracketed English gloss to stay ASCII/pdfLaTeX-safe).
+
+## Caveats / not independently verified
+- Blog and changelog differ on base model: blog says Clef = Qwen3.8-27B, Clef-flash = Qwen3.5-9B; changelog names none. Cite the blog for base models.
+- Embodied-RAG, Sun&Zhang, GLOVE, VLM-DEWM, Sripada, Michaelis: arXiv-only (no venue listed anywhere found); kept as @misc preprints.
+- No entries were dropped for failing verification. Page numbers left out where not verified (RSS, KARMA, Chen/Schiappa NeurIPS).
+- Wrong guess corrected: arXiv 2107.00222 is not Hofer; Hofer is DOI 10.1109/TASE.2021.3064065.

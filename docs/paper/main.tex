@@ -3,6 +3,7 @@
 \usepackage{graphicx,booktabs,amsmath,amssymb,xcolor,url,multirow}
 \usepackage[hidelinks]{hyperref}
 \usepackage{cite}
+\usepackage{algorithm}\usepackage[noend]{algpseudocode}
 \input{numbers.tex}
 \newcommand{\sys}{RescueMind}
 \newcommand{\fig}[2][\linewidth]{\IfFileExists{#2}{\includegraphics[width=#1]{#2}}{\fbox{\parbox{0.9\linewidth}{\centering\TBD: \detokenize{#2}}}}}
@@ -99,7 +100,8 @@ REFLECT \cite{liu2023reflect} and AHA \cite{duan2025aha} explain manipulation fa
 after the fact. Inner Monologue \cite{huang2023innermonologue} feeds success detection back into a planner.
 Du et al.\ \cite{du2023successdetectors} fine-tune a VLM as a success detector.
 Sentinel \cite{agia2025sentinel}, FAIL-Detect \cite{xu2025faildetect} and Code-as-Monitor \cite{zhou2025codeasmonitor}
-monitor learned policies at run time. Our check runs \emph{before} the robot acts and is closed-set and zero-shot. Its output is a
+monitor learned policies at run time, an LLM-based anomaly monitor triggers reactive fallbacks \cite{sinha2024realtime},
+and uncertainty-aware policy steering decides when to act, ask or learn \cite{yuan2026whentoact}. Our check runs \emph{before} the robot acts and is closed-set and zero-shot. Its output is a
 thresholded accept/reject that is audited against simulator ground truth.
 The closest methodological relative is KnowNo \cite{ren2023knowno}, which scores multiple-choice answers by
 next-token probability and asks a human for help, with a conformal guarantee \cite{angelopoulos2021conformal}.
@@ -122,29 +124,32 @@ In contrast to vision-language-action models \cite{zitkovich2023rt2,kim2025openv
 
 \textbf{Memory for robots in changing environments.}
 Robots increasingly keep long-horizon semantic memory. ReMEmbR \cite{anwar2025remembr} and Embodied-RAG
-\cite{xie2024embodiedrag} retrieve from a database of captioned observations. 3D scene graphs such as Hydra
+\cite{xie2024embodiedrag} retrieve from a database of captioned observations; KARMA \cite{wang2025karma} adds long- and
+short-term memory to embodied agents, and H-EMV \cite{barmann2025hemv} verbalises a robot's episodic memory. 3D scene graphs such as Hydra
 \cite{hughes2022hydra}, ConceptGraphs \cite{gu2024conceptgraphs} and HOV-SG \cite{werby2024hovsg} support planning
 \cite{rana2023sayplan} and language grounding \cite{huang2023vlmaps}. Long-term mapping has long dealt with change
 \cite{biber2005dynamic,krajnik2017fremen}, and recent work tracks changes in dynamic scene graphs
 \cite{schmid2024khronos,behrens2025lostfound}. These systems use memory to \emph{answer} or \emph{plan}. Recent evidence
-shows that acting on unaudited stale memory can be worse than having no memory \cite{sun2026memorylies}.
+shows that acting on unaudited stale memory can be worse than having no memory \cite{sun2026memorylies}. GLOVE
+\cite{yin2026glove} and VLM-DEWM \cite{tang2026vlmdewm} check memory or a world model against fresh observations to keep
+the memory \emph{correct}.
 We study a different use: memory decides \emph{where and how carefully to verify}. We restrict it so that it can never
 reduce verification, and we state this as a provable invariant and test it under scripted change.
 
 \textbf{Active perception.} Moving the sensor to resolve ambiguity is a classic idea \cite{bajcsy1988active,bajcsy2018revisiting},
 and view planning for inspection is well studied \cite{scott2003viewplanning}. Recent embodied agents explore until a VLM
-is confident \cite{ren2024explore} or let a VLM choose views \cite{sripada2024sceneexploration}. Our look-around is
+is confident \cite{ren2024exploreuntil} or let a VLM choose views \cite{sripada2024sceneexploration}. Our look-around is
 deliberately simple: two fixed side views, used only to \emph{revoke} an approval. This makes its effect auditable and
 its safety direction obvious.
 
 \textbf{Robustness and the sim-to-real gap.} Image classifiers degrade under common corruptions
-\cite{hendrycks2019benchmarking}, and so do detectors \cite{michaelis2019benchmarking} and vision-language models
-\cite{chen2023benchmarking}. Sim-to-real transfer remains a central obstacle in robotics \cite{hofer2021sim2real}.
+\cite{hendrycks2019benchmarking}, and so do detectors \cite{michaelis2019benchmarking}, adapted vision-language models
+\cite{chen2023benchmarking} and video-language models \cite{schiappa2022robustness}. Sim-to-real transfer remains a central obstacle in robotics \cite{hofer2021sim2real}.
 Without a physical platform, we measure one part of this gap, sensor degradation, under a pre-registered protocol. What
 we care about is the \emph{direction} of the errors, not only accuracy.
 
 \textbf{Diverse redundancy.} Requiring agreement between independently developed versions is a classic fault-tolerance
-technique \cite{avizienis1985nversion}. Its benefit is limited by correlated failures \cite{knight1986independence}, and
+technique \cite{avizienis1985nversion}. Its benefit is limited by correlated failures \cite{knight1986experimental}, and
 model-agreement schemes for language models have reappeared recently \cite{du2024debate}. We report both sides: the two
 models agree on most images, and the second model's value depends strongly on how it is asked.
 
@@ -227,9 +232,12 @@ hazard question refuses.}\label{fig:lookaround}\end{figure}
 \subsection{Two differently trained models: the ``Jev'' role}\label{sec:jev}
 The original design of this robot asked two different AIs, ``Jev'' and Qwen, and moved only when both agreed. This
 follows the old idea of diverse redundancy: independently built versions are unlikely to fail on the same input
-\cite{avizienis1985nversion}, although their failures are known to be correlated in practice \cite{knight1986independence}.
-In our system the Jev role is played by Cloudflare's Clef-Flash decision model \cite{cloudflare2026clef}, served
-locally through the same Jev request/response API. Its parsed answer gives a supply label with a confidence, a presence
+\cite{avizienis1985nversion}, although their failures are known to be correlated in practice \cite{knight1986experimental}.
+In our system the Jev role is played by Cloudflare's Clef-Flash decision model \cite{chen2026clefblog,gihyo2026clef}, served
+locally through the same Jev request/response API. Its model card states that it is post-trained from Qwen3.5-9B. The two
+models therefore share lineage. Their diversity lies in post-training, in model size (our on-robot pair uses
+Qwen3.5-4B) and in the question asked, not in independent development, so the correlated-failure caveat of
+\cite{knight1986experimental} applies in full. Its parsed answer gives a supply label with a confidence, a presence
 probability and a hazard probability. The two-model rule approves only if Eq.~\eqref{eq:rule} holds for Qwen \emph{and}
 Clef-Flash names the requested supply with confidence $\ge 0.65$, presence $\ge 0.80$ and hazard probability below its
 own threshold. A hazard seen by either model stops the robot. A wrong supply seen by either model allows the one-time
@@ -269,6 +277,27 @@ Because every approval still passes the memory-free check of the same station on
 The guarantee is per check, not per trajectory. A different route sees different frames, and staleness can still waste
 time. Campaign H therefore measures safety and time at the mission level.
 
+\begin{algorithm}[t]\caption{One mission: verify, look again, search or stop, remember}\label{alg:mission}
+\small\begin{algorithmic}[1]
+\Require request $r$, memory $\mathcal{H}$
+\State $s^\ast \gets$ parse$(r)$; \textbf{if} rejected \textbf{then} refuse before moving
+\State $(\pi, \theta') \gets \mu(\mathcal{H}, s^\ast)$ \Comment{order of stations; $\tauh'\le\tauh$ at remembered hazards}
+\For{station $k$ in $\pi$ (at most two)}
+  \State drive to $k$; aim; wait until stationary; capture new frames $o_k$
+  \State $d \gets$ \textsc{Check}$(o_k, s^\ast; \theta'_k)$ \Comment{Eq.~\eqref{eq:rule}; and the Jev-role model, if used}
+  \If{$d=$ hazard} \State hold zero 2.5\,s; report; \textbf{stop} \EndIf
+  \If{$d=$ approve}
+    \For{side $v$ in order$(\theta'_k)$} \State move 0.4\,m to side $v$; capture $o_{k,v}$
+      \If{$p_h(o_{k,v})\ge\tau'_{h,k}$} \State hold; report; \textbf{stop} \EndIf
+    \EndFor
+    \State deliver to the shelter; \textbf{break}
+  \EndIf
+  \If{$d=$ low confidence} \textbf{stop} \EndIf
+  \State \Comment{wrong or missing supply: try the next station once}
+\EndFor
+\State $\mathcal{H} \gets \mathcal{H} \cup$ observations$(o)$ \Comment{what the robot saw, never ground truth}
+\end{algorithmic}\end{algorithm}
+Algorithm~\ref{alg:mission} summarises one mission.
 A \emph{naive} memory violates the premise of Proposition~1. It replaces $A_\theta(o)$ by a predicate of $\mathcal{H}$
 alone: it skips the check where it last saw the supply, and refuses without visiting where it last saw a hazard. We
 implement it only as a baseline. The code enforces the premise: \texttt{apply\_memory\_caution} can only turn approvals into
