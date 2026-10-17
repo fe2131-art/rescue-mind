@@ -68,6 +68,12 @@ if [ -f $RES/campaign_J_ledger.jsonl ] && [ -f $RES/campaign_J_vram.csv ] && { [
   step j_analysis python3 scripts/j_analysis.py
 else skip j_analysis "campaign J incomplete ($J_FINAL/$J_PLAN final rows)"; fi
 
+V_FINAL=$( [ -f $RES/campaign_V_ledger.jsonl ] && python3 -c "import json;print(sum(json.loads(l).get('final',True) for l in open('$RES/campaign_V_ledger.jsonl') if l.strip()))" || echo 0)
+V_PLAN=$(python3 -c "import json;print(json.load(open('experiments/campaign_v_protocol.json'))['planned_n'])")
+if [ -f $RES/campaign_V_ledger.jsonl ] && [ -f $RES/v_predictions.json ] && [ -f experiments/campaign_v_protocol_design_fire_masks.json ] && { [ "$V_FINAL" -ge "$V_PLAN" ] || [ "${ALLOW_PARTIAL:-0}" = 1 ]; }; then
+  step v_analysis python3 scripts/v_analysis.py
+else skip v_analysis "study V incomplete ($V_FINAL/$V_PLAN final rows, or predictions/masks missing)"; fi
+
 if [ -f $RES/p2_scores_h36.jsonl ] && [ -f $RES/p2_scores_h35.jsonl ]; then
   step p2_calibration python3 scripts/p2_calibration.py --analyse   # checks 400+400 rows per wording itself
 else skip p2_calibration "need p2_scores_h36.jsonl and p2_scores_h35.jsonl"; fi

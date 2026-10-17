@@ -481,6 +481,24 @@ def main():
         m['JPeakVram'] = f"{j['P1_runs_on_one_v100']['peak_vram_mib'] / 1024:.1f}" if j['P1_runs_on_one_v100']['peak_vram_mib'] else r'\TBD'
         m['JMcNemarP'] = f"{j['P3_correct_paired']['mcnemar_p']:.4f}"
         m['JClaim'] = 'supported' if (j['P1_runs_on_one_v100']['supported'] and j['P2_no_extra_unsafe']['supported']) else 'not supported'
+    # ---- study V (closed-loop test of the repeated-mission model's predictions)
+    vp = RES / 'v_predictions.json'
+    if vp.is_file():
+        pv = json.loads(vp.read_text())
+        d = pv['paired_mean_time_diff_s']['M0-M2']
+        m['VPredDiff'] = f"{d['p50']:.0f}"; m['VPredDiffPI'] = f"{d['p2.5']:.0f}--{d['p97.5']:.0f}"
+        for k, a in zip(('zero', 'one', 'two'), ('M0', 'M1', 'M2')):
+            u = pv['arms'][a]['unsafe']
+            m[f'VPredUnsafe{k}'] = f"{u['p50']:.0f} ({u['p2.5']:.0f}--{u['p97.5']:.0f})"
+    vf = RES / 'v_summary.json'
+    if vf.is_file():
+        v = json.loads(vf.read_text())
+        m['VObsDiff'] = f"{v['V1_time_diff']['mean_M0_minus_M2_s']:.0f}"
+        for k, a in zip(('zero', 'one', 'two'), ('M0', 'M1', 'M2')):
+            m[f'VUnsafeM{k}'] = v['arms'][a]['unsafe']
+        m['VSeqP'] = f"{v['V4_safety']['seq_mcnemar_M1_vs_M2_p']:.4f}"
+        m['VClaimModel'] = 'supported' if v['claim_model_predicts'] else 'not supported'
+        m['VClaimMemory'] = 'supported' if v['claim_memory_under_random_change'] else 'not supported'
     # ---- study Z (zero-shot contrastive baselines)
     zf = RES / 'z_summary.json'
     if zf.is_file():
@@ -555,6 +573,7 @@ def main():
                ('T2', 'PREREGISTRATION_T2.md', 'devset_t2_i11_h36_tiles.json'), ('F', 'PREREGISTRATION_F.md', 'campaign_F_ledger.jsonl'),
                ('G', 'PREREGISTRATION_G.md', 'campaign_G_ledger.jsonl'), ('R', 'PREREGISTRATION_R.md', 'devset_r_gaussian_noise_M.json'),
                ('H', 'PREREGISTRATION_H.md', 'campaign_H_ledger.jsonl'), ('J', 'PREREGISTRATION_J.md', 'campaign_J_ledger.jsonl'),
+               ('V', 'PREREGISTRATION_V.md', 'v_summary.json'),
                ('Z', 'PREREGISTRATION_Z.md', 'z_summary.json'), ('K', 'PREREGISTRATION_K.md', 'k_summary.json'), ('P', 'PREREGISTRATION_P.md', 'p_summary.json')]
     rows = [r'\begin{tabular}{llllc}', r'\toprule', r'Study & Registered (commit, date) & First results (commit, date) & Amendments & Order \\', r'\midrule']
     ok_all = True
@@ -607,7 +626,9 @@ def main():
                'HModelPdet', 'HModelPdetN', 'HModelQ', 'HModelUnsafezero', 'HModelUnsafeone', 'HModelUnsafetwo',
                'HModelTimezero', 'HModelTimeone', 'HModelTimetwo',
                'JCorrectA', 'JCorrectJ', 'JUnsafeA', 'JUnsafeJ', 'JFalseRefA', 'JFalseRefJ', 'JFailedA', 'JFailedJ', 'JLatA', 'JLatJ',
-               'JPeakVram', 'JMcNemarP', 'JClaim', 'PRecall', 'PFalseAlarm', 'PRecallCI', 'PFalseAlarmCI', 'PAuroc',
+               'JPeakVram', 'JMcNemarP', 'JClaim',
+               'VPredDiff', 'VPredDiffPI', 'VObsDiff', 'VPredUnsafezero', 'VPredUnsafeone', 'VPredUnsafetwo', 'VUnsafeMzero', 'VUnsafeMone', 'VUnsafeMtwo',
+               'VSeqP', 'VClaimModel', 'VClaimMemory', 'PRecall', 'PFalseAlarm', 'PRecallCI', 'PFalseAlarmCI', 'PAuroc',
                'PTwoWording', 'PTwoTau', 'PTwoRecall', 'PTwoRecallCI', 'PTwoFA', 'PTwoFACI', 'PTwoClaim', 'PTwoFrozenRecall', 'PTwoFrozenFA'])
     for name in ('tab_t1_models.tex', 'tab_t1_ablation.tex', 'tab_e_strata.tex', 'tab_i13_dev.tex', 'tab_r.tex', 'tab_h_arms.tex', 'tab_h_sequences.tex'):
         tables.setdefault(name, r'\begin{tabular}{l}\TBD\end{tabular}')
