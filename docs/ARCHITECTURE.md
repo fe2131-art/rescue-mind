@@ -117,11 +117,11 @@ flowchart TD
   サーバの既定値は `h35`／`full`／τ_h=0.5 のままで、`--hazard-prompt h36 --hazard-views tiles --hazard-threshold 0.05` で指定する。
 * 危険の質問は経路に依存しないので、**画像ごとに1回だけ計算**する（画像ハッシュでキャッシュ）。1回の確認でモデル呼び出しが1回減る。
 
-### 3.2 横から見直す（I-14、任意）
+### 3.2 横から見直す（I-14、v3.6 の既定）
 * `--look-around 0.4`：正面の確認で許可したら、ステーションのウェイポイントから左右に 0.4 m 移動し（`schedule_look_around`）、そのたびに照準・静止確認・新しい画像の取得をやり直して**危険だけ**を再判定する（`look_around_peek`）。
 * どちらかの側で危険を見たら、許可を危険による拒否に変える（`combine_with_look_around`）。**探索はしない**。横からの物資の判定は使わない（横からは物資が見えないことがあるため）。
 * 根拠：評価Fで構成Bが見逃した火は、正面からは 1,100〜2,400 画素しか写らず、p(危険) が火の無い画像と重なった。同じ火が横の視点からは 4,600〜22,000 画素で見える（マスク画像での確認、D10）。
-* 代償：配達1回あたり約+30秒。**採用は評価G（事前登録済み）で判断する**。
+* 代償：配達1回あたり約+30秒。評価G（B と C の対比較、食い違い 10:0、p=0.002）で確認し、**v3.6 の既定**になった。
 
 ### 3.3 Jev の役割：Clef-Flash（I-13、任意・評価用）
 * 当初計画の「異なる2つのAIで確認する」の復活。Cloudflare の Clef-Flash（Apache-2.0、Jev/SystemOne 互換）を `scripts/clef_server.py`（ポート 8767）でローカルに動かし、`combine_with_jev`（`rescuemind/local_vision.py`）で Qwen と合議する。
@@ -129,6 +129,15 @@ flowchart TD
 * **評価した構成であり、既定ではない**。Qwen3.5-9B と同時には約37 GB が必要で、V100 1台（32 GB）に載らないため、オフライン評価のみ（開発データ：誤許可 15/413、正しい許可 350/360、止めた火 196/211）。
 * 質問の書き方に強く依存する：当初の Jev 要求（「通路」の安全を問う）では正しい配達の半分を拒否した（182/360）が、課題向けの質問にすると 350/360。
   T2 では**課題向けの質問を使った Clef-Flash 単独が v3.5 と同等**（1回の順伝播で約0.8秒）だった。
+
+### 3.4 出動をまたぐ記憶（I-15、任意）
+* `--memory-file`／`--memory-mode verified|naive|off`（`rescuemind/mission_memory.py`）。各出動の後、オーケストレータがロボット自身の観測（拠点ごとの物資の判定、危険を見た方向）を JSONL に追記する。真値は書かない。
+* **記憶が決めるのは経路の順序と慎重さだけで、確認は省かない**（D13）：物資を見た拠点へ先に行く、最近危険を見た拠点では τ_h=0.01 にして火が見えた側から先に見る。監査は記憶で厳しくした判定を保存出力から再計算する。
+* 比較対象の `naive` は記憶を信じて確認を省く。終了状態は `COMPLETED_MEMORY_TRUSTED`（配達）と `DENIED_BY_MEMORY`（拒否）で、評価Hで測るためだけに使う。
+
+### 3.5 Jev の役割を実機で動かす（I-16、任意）
+* `--jev-local clef --jev-schema task`：Clef-Flash（`scripts/clef_server.py`、ポート 8767）に課題向けの質問を送り、Qwen と**両方が許可したときだけ許可**する。`--jev-schema jev` は当初の Jev 要求。
+* V100 1台に載せるため Qwen3.5-4B と組にする（約28 GB、D14）。Clef-Flash は Qwen3.5-9B の追加学習なので、2モデルは独立ではない（D11）。評価Jで測る。
 
 ## 4. 開発と評価の流れ（なぜ数値を信用できるか）
 
@@ -164,7 +173,7 @@ flowchart LR
 | 世界 | `worlds/rescuemind_test_arena.sdf` → `scripts/v22_generate_scenes.py` で3シーン生成、`rescuemind/robust_scenes.py` で照明・妨害物・火災の派生 |
 | ロボット制御 | `ros/gazebo_waypoint_mission.py`（`schedule_look_around`, `look_around_peek`）, `rescuemind/waypoint.py`, `rescuemind/camera_aim.py`, `rescuemind/stationary_gate.py` |
 | 安全 | `ros/guarded_cmd_relay.py`, `rescuemind/velocity_relay.py`, `ros/runtime_guard_graph_watch.py`, `scripts/stack_quiescence.py` |
-| AI | `scripts/local_vlm_server.py`, `rescuemind/local_vision.py`（`combine_with_jev`, `combine_with_look_around`）, `scripts/clef_server.py`（Jev の役割・任意）, `rescuemind/intent.py`, `rescuemind/intent_llm.py` |
+| AI | `scripts/local_vlm_server.py`, `rescuemind/local_vision.py`（`combine_with_jev`, `combine_with_look_around`, `verify_station_local`）, `rescuemind/mission_memory.py`（出動をまたぐ記憶）, `scripts/clef_server.py`（Jev の役割・任意）, `rescuemind/intent.py`, `rescuemind/intent_llm.py` |
 | 監査 | `rescuemind/ground_truth_evidence.py`, `rescuemind/causal_evidence.py`, `rescuemind/negative_evidence.py`, `rescuemind/recovery_evidence.py`, `rescuemind/run_completion.py` |
 | 評価 | `experiments/*`（事前登録・プロトコル・開発セット・台帳・証拠）, `scripts/run_campaign.py`, `scripts/*_eval.py` |
 | 成果物生成 | `scripts/make_figures.py`, `scripts/make_report.py`, `scripts/make_video_plan.py`, `scripts/make_demo_video.py` |
