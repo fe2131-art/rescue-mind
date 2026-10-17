@@ -24,7 +24,7 @@
 
 ![記憶は提案、判断はその場の目で（出動をまたぐ記憶の原則）](docs/figures/memory_principle_ja.png)
 
-* **記憶は「提案」だけ、確認は減らさない**（出動をまたぐ記憶、[I-15](docs/IMPROVEMENT_LOG.md)・[D13](docs/DESIGN_DECISIONS.md)）：前回の物資の場所は「先に行く拠点」を決めるだけで、行った先で必ず確認する。火を見た拠点は閾値を厳しくする。同じ画像なら記憶ありの許可は記憶なしの許可の部分集合になる（コードで強制）。事前登録 [`PREREGISTRATION_H.md`](experiments/PREREGISTRATION_H.md)。評価H（16系列×3出動）：実行中（事前登録済み）
+* **記憶は「提案」だけ、確認は減らさない**（出動をまたぐ記憶、[I-15](docs/IMPROVEMENT_LOG.md)・[D13](docs/DESIGN_DECISIONS.md)）：前回の物資の場所は「先に行く拠点」を決めるだけで、行った先で必ず確認する。火を見た拠点は閾値を厳しくする。同じ画像なら記憶ありの許可は記憶なしの許可の部分集合になる（コードで強制）。事前登録 [`PREREGISTRATION_H.md`](experiments/PREREGISTRATION_H.md)。評価H 結果：置き場所が変わったままの出動で、所要時間の中央値差（検証つき記憶 − 記憶なし）-34.5 秒（8対、p=0.00781）、危険な配達は 素朴な記憶 20 対 検証つき記憶 0（p=0.0）、記憶なし比で追加リスクなし（1 対 0）
 * **横から見直す能動知覚**（[I-14](docs/IMPROVEMENT_LOG.md)）：正面で判断し切れない小さな火に、モデルを大きくせず**横へ動いて撮り直す**。事前登録の対比較で、火があるのに配達した回数 **11/16 → 1/16**（p=0.002）、火の無い世界の誤った停止 0/8。
 * **当初計画の2つのAI（Jev役 Clef-Flash＋Qwen）をロボットの判断に組み込んで**（[I-16](docs/IMPROVEMENT_LOG.md)）：オフライン評価だけだった2モデル確認を、V100 1台に載る組で閉ループに載せた。Clef-Flash は Qwen3.5-9B の追加学習版なので、2つは独立ではなく系統を共有する（相関した失敗が残り得ると明記）。評価J（24世界の対比較）：実行中（事前登録済み）
 * **事前登録と時系列監査**（論文 [`docs/paper/main.pdf`](docs/paper/main.pdf) 付録「Registration audit」）：条件・閾値・解析を結果を見る前にコミットし、全13研究の登録時刻と最初の結果の時刻を、git の履歴から機械的に監査（`git merge-base --is-ancestor`）。結果のある研究のうち **10件で登録コミットが結果コミットより前**、2件は結果待ち（登録のみ済み）。支持されなかった主張も、そのまま載せる。
@@ -46,8 +46,9 @@
 | Z: zero-shot baselines on T1 (false approvals / correct approvals) | ours 3/408, 187/191; SigLIP 44/408, 191/191; CLIP 0/408, 2/191 |
 | P: real photos (D-Fire, 400) | fire/smoke detected 298/300; false alarms on fire-free photos 64/100 |
 | K: conformal threshold (stored scores, offline) | on unseen T2 (76 fires, 193 fire-free must-approve): frozen tau=0.05 misses 0/76, false alarms 0/193; calibrated alpha=0.05 (tau=0.005) misses 0/76, false alarms 26/193; alpha=0.10 (tau=0.0113) 0/76, 4/193. No threshold misses a T2 fire (a ceiling, so no difference is shown); the calibrated ones only add false alarms (T2 fires are easier: small fires 6.6% vs. 27% in calibration). K was registered after the T2 scores existed (scores were not re-tuned) |
+| H: cross-mission memory | median time difference, verified memory minus no memory, -34.5 s (8 pairs with relocated supplies); unsafe deliveries naive 20 vs. verified memory 0 |
 
-Campaigns H and J: pre-registered, running.
+Campaigns J: pre-registered, running.
 
 **Limitations.** Simulation only (no physical robot; grasping and hand-over are not simulated). On real photos the hazard question raises false alarms on 64/100 fire-free images, so a per-site calibration is needed (false alarms only stop the robot; they never cause a delivery). The two models of the two-model check share a lineage (Clef-Flash is a fine-tune of Qwen3.5-9B), so their failures can be correlated.
 
@@ -185,7 +186,7 @@ v3.3 以降の改善の経緯（Before/After）は [`docs/IMPROVEMENT_LOG.md`](d
 bash docker/build.sh                                   # ROS 2 Jazzy + Gazebo Harmonic + PyTorch 2.8/cu126 + transformers 5（STACK=v33 で旧環境）
 # 1) モデル重みを一度だけ取得（以降の実行は HF_HUB_OFFLINE=1）
 HF_HUB_OFFLINE=0 bash docker/run.sh python3 -c "from huggingface_hub import snapshot_download as s; s('Qwen/Qwen3.5-9B')"
-# 2) テスト（606件。ROS/Gazebo不要の部分はDockerなしでも実行可）
+# 2) テスト（612件。ROS/Gazebo不要の部分はDockerなしでも実行可）
 bash docker/run.sh python3 -m unittest discover -s tests -q
 # 3) 1回のAIミッション（Gazebo・ブリッジ・ガード・VLMを自動起動、証拠は outputs/runs/<run_id>/）
 V34="--model Qwen/Qwen3.5-9B --prompt-set v35 --intent-backend llm --intent-prompt i35 --recovery --explain"

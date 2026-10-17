@@ -99,6 +99,17 @@ def campaign(m: Macros, prefix: str, file: str):
     return rows
 
 
+def _pfmt(b, c):
+    """Exact two-sided McNemar p from discordant counts, in LaTeX (tiny values in powers of ten, never 0.0000)."""
+    import math
+    n, k = b + c, min(b, c)
+    pv = min(1.0, 2 * sum(math.comb(n, i) for i in range(k + 1)) / 2 ** n) if n else 1.0   # exact two-sided McNemar
+    if pv >= 1e-4:
+        return f"{pv:.4f}"
+    e = math.floor(math.log10(pv))
+    return f"{pv / 10 ** e:.1f}\\times10^{{{e}}}"
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     m = Macros()
@@ -371,9 +382,12 @@ def main():
     if hf.is_file():
         h = json.loads(hf.read_text())
         p1, p2, p3 = h['P1_efficiency_relocation_persist'], h['P2_safety_naive_vs_verified'], h['P3_no_extra_risk_vs_v36']
+        for arm, k in (('M0', 'zero'), ('M1', 'one'), ('M2', 'two')):
+            m[f'HWrong{k}'] = h['per_arm'][arm]['wrong_supply']; m[f'HFire{k}'] = h['per_arm'][arm]['into_fire']
+        m['HFasterPairs'] = f"{sum(1 for d in p1['diff_M2_minus_M0_s'] if d < 0)}/{p1['n_pairs']}"
         m['HPOneN'] = p1['n_pairs']; m['HTimeMzero'] = _num(p1['time_M0_median_s']); m['HTimeMtwo'] = _num(p1['time_M2_median_s'])
         m['HTimeDiff'] = _num(None if p1['median_diff_s'] is None else -p1['median_diff_s']); m['HPOneP'] = f"{p1['wilcoxon_exact_p']:.4f}"
-        m['HPTwoN'] = p2['n_pairs']; m['HUnsafeMone'] = p2['unsafe_M1']; m['HUnsafeMtwo'] = p2['unsafe_M2']; m['HPTwoP'] = f"{p2['mcnemar_p']:.4f}"
+        m['HPTwoN'] = p2['n_pairs']; m['HUnsafeMone'] = p2['unsafe_M1']; m['HUnsafeMtwo'] = p2['unsafe_M2']; m['HPTwoP'] = _pfmt(p2['discordant_M1_only'], p2['discordant_M2_only'])
         m['HUnsafeMzero'] = p3['unsafe_M0']
         m['HHeadline'] = 'supported' if h['headline_supported'] else 'not supported'
         for arm in ('M0', 'M1', 'M2'):
@@ -547,7 +561,7 @@ def main():
                'TimDrive', 'TimCheck', 'TimVlm'])
     m.pending(['RNimg', 'RNdeny', 'RNallow', 'RNfire', 'RNcond', 'RNworlds', 'RPoolFA', 'RPoolCI', 'RPoolSupported', 'RUnsafeConds',
                'RWorstCond', 'RWorstCA', 'RCleanCA', 'RGateRej', 'RFireMissMax',
-               'HPOneN', 'HTimeMzero', 'HTimeMtwo', 'HTimeDiff', 'HPOneP', 'HPTwoN', 'HUnsafeMone', 'HUnsafeMtwo', 'HPTwoP',
+               'HPOneN', 'HWrongzero', 'HWrongone', 'HWrongtwo', 'HFirezero', 'HFireone', 'HFiretwo', 'HFasterPairs', 'HTimeMzero', 'HTimeMtwo', 'HTimeDiff', 'HPOneP', 'HPTwoN', 'HUnsafeMone', 'HUnsafeMtwo', 'HPTwoP',
                'HUnsafeMzero', 'HHeadline', 'HFalseRefzero', 'HFalseRefone', 'HFalseReftwo', 'HTimeAllzero', 'HTimeAllone',
                'HTimeAlltwo', 'HSafeCorrectzero', 'HSafeCorrectone', 'HSafeCorrecttwo', 'HFailedzero', 'HFailedone', 'HFailedtwo',
                'HModelPdet', 'HModelPdetN', 'HModelQ', 'HModelUnsafezero', 'HModelUnsafeone', 'HModelUnsafetwo',
