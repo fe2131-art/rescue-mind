@@ -386,6 +386,15 @@ def main():
             m[f'HWrong{k}'] = h['per_arm'][arm]['wrong_supply']; m[f'HFire{k}'] = h['per_arm'][arm]['into_fire']
         bt0, bt2 = h['per_arm']['M0']['by_transition'], h['per_arm']['M2']['by_transition']
         m['HChangeMzero'] = _num(bt0.get('relocation_change', {}).get('time_median_s')); m['HChangeMtwo'] = _num(bt2.get('relocation_change', {}).get('time_median_s'))
+        import collections as _col
+        seq = _col.defaultdict(lambda: _col.defaultdict(bool))
+        for t in h['trials']:
+            if t['k'] > 1:
+                seq[t['sequence']][t['arm']] |= bool(t['unsafe_delivery'])
+        b1 = sum(v['M1'] and not v['M2'] for v in seq.values()); c1 = sum(v['M2'] and not v['M1'] for v in seq.values())
+        m['HSeqN'] = len(seq); m['HSeqMone'] = sum(v['M1'] for v in seq.values()); m['HSeqMtwo'] = sum(v['M2'] for v in seq.values())
+        m['HSeqP'] = _pfmt(b1, c1)
+        m['HUnsafeUpperzero'] = f"{100 * h['per_arm']['M0']['unsafe_ci95'][1]:.0f}"; m['HUnsafeUppertwo'] = f"{100 * h['per_arm']['M2']['unsafe_ci95'][1]:.0f}"
         m['HFasterPairs'] = f"{sum(1 for d in p1['diff_M2_minus_M0_s'] if d < 0)}/{p1['n_pairs']}"
         m['HPOneN'] = p1['n_pairs']; m['HTimeMzero'] = _num(p1['time_M0_median_s']); m['HTimeMtwo'] = _num(p1['time_M2_median_s'])
         m['HTimeDiff'] = _num(None if p1['median_diff_s'] is None else -p1['median_diff_s']); m['HPOneP'] = f"{p1['wilcoxon_exact_p']:.4f}"
@@ -563,7 +572,7 @@ def main():
                'TimDrive', 'TimCheck', 'TimVlm'])
     m.pending(['RNimg', 'RNdeny', 'RNallow', 'RNfire', 'RNcond', 'RNworlds', 'RPoolFA', 'RPoolCI', 'RPoolSupported', 'RUnsafeConds',
                'RWorstCond', 'RWorstCA', 'RCleanCA', 'RGateRej', 'RFireMissMax',
-               'HPOneN', 'HWrongzero', 'HWrongone', 'HWrongtwo', 'HFirezero', 'HFireone', 'HFiretwo', 'HFasterPairs', 'HChangeMzero', 'HChangeMtwo', 'HTimeMzero', 'HTimeMtwo', 'HTimeDiff', 'HPOneP', 'HPTwoN', 'HUnsafeMone', 'HUnsafeMtwo', 'HPTwoP',
+               'HPOneN', 'HWrongzero', 'HWrongone', 'HWrongtwo', 'HFirezero', 'HFireone', 'HFiretwo', 'HFasterPairs', 'HSeqN', 'HSeqMone', 'HSeqMtwo', 'HSeqP', 'HUnsafeUpperzero', 'HUnsafeUppertwo', 'HChangeMzero', 'HChangeMtwo', 'HTimeMzero', 'HTimeMtwo', 'HTimeDiff', 'HPOneP', 'HPTwoN', 'HUnsafeMone', 'HUnsafeMtwo', 'HPTwoP',
                'HUnsafeMzero', 'HHeadline', 'HFalseRefzero', 'HFalseRefone', 'HFalseReftwo', 'HTimeAllzero', 'HTimeAllone',
                'HTimeAlltwo', 'HSafeCorrectzero', 'HSafeCorrectone', 'HSafeCorrecttwo', 'HFailedzero', 'HFailedone', 'HFailedtwo',
                'HModelPdet', 'HModelPdetN', 'HModelQ', 'HModelUnsafezero', 'HModelUnsafeone', 'HModelUnsafetwo',
