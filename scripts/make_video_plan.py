@@ -347,9 +347,12 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False):
         c = card_fn(sec if cs is None else cs)
         if c:
             parts.append(c)
-    parts.append({'kind': 'card', 'seconds': 5, 'title': 'RescueMind', 'sub': a.repo_url, 'image': 'docs/figures/hero_gazebo.png',
+    report = 'docs/figures/operator_report_hidden_fire.png'      # I-18: what the robot leaves for the people on site
+    parts.append({'kind': 'card', 'seconds': 5, 'title': 'RescueMind', 'sub': a.repo_url,
+                  'image': report if (ROOT / report).is_file() else 'docs/figures/hero_gazebo.png',
                   'narration': '確かめて、見直して、迷ったら止まる。全試行の証拠を公開しています。',
                   'body': ['確かめて、見直して、迷ったら止まる。間違った配達より、止まる方がいい。',
+                           '毎回、写真と理由と「次にすること」を1枚の現場報告に残す（右）。',
                            'コード・事前登録・全試行の証拠・再現用Dockerを公開しています。',
                            'ナレーション：VOICEVOX:四国めたん']})
     return parts
