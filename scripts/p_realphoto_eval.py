@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Study P (experiments/PREREGISTRATION_P.md): the v3.6 hazard question on real photographs (D-Fire test split, CC0).
 
-  <python with pyarrow> scripts/p_realphoto_eval.py --data ~/.cache/rescuemind/dfire --sample   # write the sample list
-  <python with pyarrow> scripts/p_realphoto_eval.py --data ~/.cache/rescuemind/dfire --run      # score via :8765 (resumable)
+  ~/.cache/rescuemind/pqvenv/bin/python scripts/p_realphoto_eval.py --data ~/.cache/rescuemind/dfire --sample   # write the sample list
+  ~/.cache/rescuemind/pqvenv/bin/python scripts/p_realphoto_eval.py --data ~/.cache/rescuemind/dfire --run      # score via :8765 (resumable)
   python3 scripts/p_realphoto_eval.py --analyse
 
 Images stay outside the repository; only file names, labels, box areas and scores are written.
