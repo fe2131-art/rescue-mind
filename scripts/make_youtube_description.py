@@ -191,8 +191,25 @@ def line_p(res):
         s = f"・実写（D-Fire {p['n']}枚）の評価P：火・煙のある写真の検出 {rc['k']}/{rc['n']}、火の無い写真で誤警報 {fa['k']}/{fa['n']}"
         if fa['k'] / fa['n'] >= 0.2:
             s += '（誤警報が多く、現場ごとの調整が必要）'
+        p2 = jload(Path(res) / 'p2_summary.json')
+        try:      # P2: threshold calibrated on site photographs, tested on unseen ones
+            ct = p2['chosen_test']
+            s += (f"。現場の写真で閾値を較正した評価P2：未使用の写真で検出 {ct['recall']['k']}/{ct['recall']['n']}、"
+                  f"誤警報 {ct['false_alarm']['k']}/{ct['false_alarm']['n']}（基準{'成立' if p2['claim_supported'] else '不成立'}）")
+        except (TypeError, KeyError):
+            pass
         return s
     except (TypeError, KeyError, ZeroDivisionError):
+        return None
+
+
+def line_l(res):
+    l = jload(Path(res) / 'l_summary.json')
+    try:
+        pl = l['primary']
+        return (f"・未知の配置24通りでの閉ループ評価L：期待どおり {pl['expected_behaviour']}、危険な配達 {pl['unsafe_deliveries']}件"
+                f"（基準{'成立' if pl['claim_supported'] else '不成立'}）")
+    except (TypeError, KeyError):
         return None
 
 
@@ -258,12 +275,12 @@ def headline_block(res):
 
 
 def number_lines(res):
-    fns = (line_t1, line_t2, line_z, line_r, line_p, line_h, line_j)
+    fns = (line_t1, line_t2, line_z, line_r, line_p, line_l, line_h, line_j)
     return [x for x in (f(res) for f in fns) if x]
 
 
 # ------------------------------------------------------------------ documents
-DROP_ORDER = ('（T2）', 'ゼロショット', '劣化', '（T1）')     # detail lines dropped first when over YouTube's 5000 bytes
+DROP_ORDER = ('（T2）', 'ゼロショット', '劣化', '（T1）', '評価J')     # detail lines dropped first when over YouTube's 5000 bytes
 LIMIT = 4950
 
 

@@ -44,7 +44,7 @@ BUILD_LATEX = docker build -t $(LATEX_IMG) docker/latex
 NEED_DEV   = $(call REQ_CONT,$(DEV),$(START_DEV),$(BUILD_DEV))
 NEED_LATEX = $(call REQ_IMG,$(LATEX_IMG),$(BUILD_LATEX))
 
-.PHONY: help doctor test numbers figures paper report readme youtube all-docs finalize assets video-plan video \
+.PHONY: help doctor test check numbers figures paper report readme youtube all-docs finalize assets video-plan video \
         study-D study-E study-F study-G study-H study-J study-V study-L study-A study-X study-W study-S study-XD \
         study-T1 study-T2 study-R study-P2 study-K
 
@@ -53,7 +53,7 @@ help: ## List the targets (default)
 	@echo
 	@awk 'BEGIN{FS=":.*## "} /^[a-zA-Z0-9_-]+:.*## /{printf "  make %-12s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo
-	@echo "Variables: ACCOUNT=$(ACCOUNT)  FINAL=1 (paper: refuse pending TBD)  NICE='$(NICE)'  ADVICE=<run_id> (video: advice-injection shot)"
+	@echo "Variables: ACCOUNT=$(ACCOUNT)  FINAL=1 (paper: refuse pending results; otherwise they print a grey \"(pending)\", PENDING_TEXT=0 gives the red TBD)  NICE='$(NICE)'  ADVICE=<run_id> (video: advice-injection shot)"
 	@echo "study-* targets never run anything: they print the commands (GPU, quiet host, no other Gazebo stack needed)."
 
 doctor: ## Check docker, containers (rm-dev, rm-next), images and the latex image; print what is missing
@@ -71,6 +71,9 @@ test: ## Unit tests (in rm-dev; falls back to the host python3 where ROS parts a
 	  echo "WARN: container $(DEV) is not running ($(START_DEV)); running on the host (tests that need ROS/reportlab may fail)."; \
 	  $(NICE) python3 -m unittest discover -s tests -q; \
 	fi
+
+check: ## Consistency check: README, YouTube text, paper macros and report agree with experiments/results (exit 1 on mismatch; needs docker only for the PDF text)
+	$(NICE) python3 scripts/check_consistency.py
 
 numbers: ## Regenerate docs/paper/numbers.tex and tab_*.tex from experiments/results (host python3, no docker)
 	$(NICE) python3 scripts/paper_numbers.py

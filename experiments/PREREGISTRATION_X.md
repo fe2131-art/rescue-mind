@@ -149,6 +149,9 @@ GPU hours (the local VLM plus Gazebo rendering, as A: about 1.25 × wall time): 
 runs the core only; the steer cell can follow.
 
 ## Known limits, stated now
+* **The delivery interlock (I-22) is OFF in X.** It is implemented and default-off; no trial of `campaign_x_protocol.json` or of the
+  pilot sets `delivery_interlock`, so X, like A, measures the audited mission code with the independent velocity guard only. Its
+  Gazebo check is still open; switching it on for X would need an amendment committed before the first X trial.
 * Simulation; the depot is third-party warehouse art, the pallets, flames and smoke are ours. Real smoke, lighting noise and sensor
   noise are not modelled; X cannot show grasping or handover (the supply is a prop that is not picked up).
 * 4 memory sequences (12 pairs) and at most 8 hidden-fire worlds are small: X tests mechanisms and a registered prediction, it does not

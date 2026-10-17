@@ -192,6 +192,11 @@ def evidence_card(seconds):
         wrong = sum(r['observed_action'] in DELIVERED and r['expected_action'] not in ('ALLOW', 'DELIVER_AFTER_SEARCH') for r in rs)
         rows.append(['閉ループ E（ランダムな世界）', [f'期待どおり {ok}/{len(rs)}・誤配達 {wrong}', G if wrong == 0 else R]])
         say.append(f'ランダムな{len(rs)}世界で、誤配達は{wrong}件。')
+    lj = jload(RES / 'l_summary.json')
+    if lj and lj.get('primary'):
+        pl = lj['primary']
+        rows.append(['閉ループ L（未知の配置24通り）', [f"期待どおり {pl['expected_behaviour']}・危険な配達 {pl['unsafe_deliveries']}", G if pl['claim_supported'] else W]])
+        say.append(f"未知の配置でも、期待どおりの行動は{pl['expected_behaviour']}でした。")
     g = jload(RES / 'g_summary.json')
     if g:
         pr = g['primary']

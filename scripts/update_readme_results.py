@@ -271,6 +271,54 @@ T1 で分かった弱点に、結果を見る前に固定した条件で段階�
 
 PENDING = '実行中（事前登録済み）'
 PENDING_NOT_RUN = '結果待ち（事前登録済み・未実行）'
+I22_JA = ('配送インターロック（[I-22](docs/IMPROVEMENT_LOG.md)：許可証が無ければ速度ガードが配送区間を通さない）は実装済み・既定はオフで、'
+          'Gazebo での確認は未了。評価A・Xはインターロックなしで走らせる（事前登録に明記）。')
+I22_EN = ('A delivery interlock (I-22: the velocity guard blocks delivery legs without an independently recomputed permit) is implemented and off by default; '
+          'its Gazebo check is pending, and studies A and X run with it off (stated in their registrations).')
+
+
+def n_runs(protocol):
+    """Number of trials in a campaign protocol file (single source for run counts printed in the documents)."""
+    try:
+        return len(json.loads((ROOT / 'experiments' / protocol).read_text(encoding='utf8'))['trials'])
+    except (OSError, ValueError, KeyError):
+        return None
+
+
+A_RUNS = n_runs('campaign_a_protocol.json') or 226
+
+
+def waiting_studies():
+    """Registered studies whose summary file does not exist yet (README says 'awaiting results' for these)."""
+    files = (('V', 'v_summary.json'), ('W', 'w_summary.json'), ('A', 'a_summary.json'), ('S', 's_summary.json'),
+             ('XD', 'xd_summary.json'), ('X', 'x_summary.json'), ('Q', 'q_summary.json'))
+    return [k for k, f in files if not (RES / f).is_file()]
+
+
+def watch_text():
+    """'What to watch' from the chapters of the video that exists (docs/video_chapters.json): never a demo that is not in it."""
+    try:
+        ch = json.loads((ROOT / 'docs/video_chapters.json').read_text(encoding='utf8'))
+    except (OSError, ValueError):
+        return '動画の章立て（`docs/video_chapters.json`）が無いため、見どころは書かない。'
+    titles = ' '.join(c.get('title', '') for c in ch)
+    demos = [c['title'].split('：', 1)[-1] for c in ch if c.get('kind') == 'mission']
+    parts = []
+    if '隠れた' in titles:
+        parts.append('「隠れた小さな火」のデモ（正面では見えない火を、横へ動いて撮り直して見つけて止まる）')
+    if '取り違え' in titles:
+        parts.append('「取り違え」のデモ（違えば別の拠点を探し、無ければ止まって報告する）')
+    if '記憶' in titles:
+        parts.append('「記憶」のデモ（前回見た拠点へ直行し、着いたら必ず確かめる）')
+    if '言い換え' in titles:
+        parts.append('「言い換えた指示でも配達」のデモ')
+    total = ch[-1]['end_s']
+    txt = (f'**動画で見てほしい点**（現行の動画、約{int(total // 60)}分{int(round(total % 60)):02d}秒、実走デモ{len(demos)}本。`docs/video_chapters.json` の章立てから生成）：'
+           + '、'.join(parts) + '。評価の表が1枚入っている。')
+    missing = [n for n, key in (('助言', '助言'), ('倉庫', '倉庫'), ('未知の配置（L）', '配置')) if key not in titles]
+    if missing:
+        txt += f'{"・".join(missing)}の場面は現行の動画に無い。助言と倉庫は評価Aと倉庫の予備実験のあとで撮影して加える予定（動画 v5、[計画](docs/design/video_v5_plan.md)）。'
+    return txt + '数値は[結果](#結果)と説明資料で確認できる。'
 
 
 def jl(name):
@@ -347,7 +395,7 @@ def w_text():
                 f"見逃しの上限の主張 {'成立' if a['criteria']['claim_eps_tight'] else '不成立'}、先行手法と区別できた数 "
                 f"{sum(bool(S[n].get('mechanism_matters')) for n in b['primary_baselines'])}/3")
     except (TypeError, KeyError):
-        return PENDING
+        return PENDING_NOT_RUN
 
 
 def a_text():
@@ -383,7 +431,7 @@ def l_text():
     l = jl('l_summary.json')
     try:
         pl = l['primary']
-        return (f"評価L 結果：未知の配置24通りで期待どおり {pl['expected_behaviour']}、危険な配達 {pl['unsafe_deliveries']}件、"
+        return (f"期待どおり {pl['expected_behaviour']}、危険な配達 {pl['unsafe_deliveries']}件、"
                 f"主張は{'成立' if pl['claim_supported'] else '不成立'}")
     except (TypeError, KeyError):
         return f'評価L（未知の配置24通り）：{PENDING}'
@@ -394,10 +442,13 @@ def audit_text():
     if not f.is_file():
         return '登録コミットが結果コミットより前にあることを付録で監査'
     rows = [x for x in f.read_text().splitlines() if x.count('&') >= 4 and not x.startswith('Study')]
+    n_studies = sum(not x.startswith('C (v3.3)') for x in rows)
     ok = sum('checkmark' in x for x in rows)
-    pend = sum('pending' in x for x in rows)
-    return (f'全{len(rows)}研究の登録時刻と最初の結果の時刻を、git の履歴から機械的に監査（`git merge-base --is-ancestor`）。'
-            f'結果のある研究のうち **{ok}件で登録コミットが結果コミットより前**、{pend}件は結果待ち（登録のみ済み）')
+    same = sum('same commit' in x for x in rows)
+    pend = sum('pending' in x.split('&')[2] or 'pending' in x.split('&')[-1] for x in rows)
+    return (f'論文の{n_studies}研究（と初期の評価C）の登録時刻と最初の結果の時刻を、git の履歴から機械的に監査（`git merge-base --is-ancestor`）。'
+            f'結果のある研究のうち **{ok}件で登録コミットが結果コミットより前**（{same}件は同じコミットで順序を確認できない）、{pend}件は結果待ち'
+            f'（登録は統合ブランチの main への統合時。Q の設計は別ブランチで、統合まで「登録済み」とは書かない）')
 
 
 def x_text():
@@ -445,15 +496,7 @@ def section_judge(e):
                      f"危険な配達は記憶なし {p3['unsafe_M0']}/{p3['n_pairs']}・記憶つき {p3['unsafe_M2']}/{p3['n_pairs']}（記憶つきの方が危険、とはならなかった）。物資が元に戻った出動では遠回りで遅くなる")
     except (TypeError, KeyError):
         lines.append(f'3. 出動をまたぐ記憶（評価H）：{PENDING}')
-    try:
-        mem_in_video = any('記憶' in c.get('title', '') for c in json.loads((ROOT / 'docs/video_chapters.json').read_text(encoding='utf8')))
-    except (OSError, ValueError):
-        mem_in_video = False
-    mem_txt = ('記憶のデモ（前回見た拠点へ直行し、着いたら必ず確かめる）も動画に入っている。「偽の助言を受けても確認は省かない」場面と倉庫の世界の場面は、評価Aと倉庫の予備実験のあとで撮影して加える予定。数値は[結果](#結果)と説明資料で確認できる。' if mem_in_video
-               else '記憶の効果（上の3）は動画ではなく、このREADMEの[結果](#結果)と説明資料で確認できる。')
-    lines += ['',
-              '**動画で見てほしい点**：「隠れた小さな火」のデモ（正面では見えない火を、横へ動いて撮り直して見つけて止まる）と、「取り違え」「欠品」のデモ（違えば別の拠点を探し、無ければ止まって日本語で報告する）。' + mem_txt,
-              '',
+    lines += ['', watch_text(), '',
               '用語は[結果](#結果)の冒頭に説明がある。版名（v3.4〜v3.6）は本システムの改良段階で、v3.6が提出版。結果待ちの研究は「結果待ち」と書き、数値は結果ファイルから自動で入る。']
     return '\n'.join(lines)
 
@@ -483,12 +526,13 @@ def section_novelty():
     ![事例：記憶なしは隠れた火に配達（p_h=0.0346）、検証つき記憶は火を見た拠点の閾値を0.01に厳しくして停止（p_h=0.0489）。1件の事例で、統計的な主張ではない](docs/figures/memory_case_ja.png)
 
   * 悪意のある助言の閉ループ評価（評価A）：{a_text()}
+  * {I22_JA}
 * **この安全の規則そのものを、どう試したか**（[FINDINGS](docs/FINDINGS.md) #24・#25）：規則の実装の単体テストは、実装と同じ考え方で書くので同じ見落としをする。そこで、規則を仕様から**独立に書き直した参照実装**と突き合わせ、わざと壊した実装（**変異テスト**）とでたらめな入力（ファズ）で確かめた。実際にバグが見つかった：#24 は助言の規則の実装バグ5件（不変条件の確認の見落とし、NaN の扱いなど）、#25 は追加視点の監査が「位置」ではなく「枚数」で数えていた誤り。すべて修正し、回帰テストを追加した。
 * **保証の外：画像に映る文字と、現実との差**：画像に映る文字は知覚なので構造的な保証の外にあり、評価Sで実測する。{s_text()}。現実との差は、散らかった倉庫の世界（4拠点、[I-21](docs/IMPROVEMENT_LOG.md)）で測る（評価XD・X）：{x_text()}。下の図は描画の確認用で、ロボットの結果ではない。
 
   ![倉庫の世界の描画プレビュー（I-21）。上から 通常・煙・暗い照明と障害物、列は別のカメラ位置。描画の確認であり結果ではない](docs/figures/depot_preview_sheet.jpg)
 
-* **試したが採用しなかったもの**：2つのAI（Jev役 Clef-Flash＋Qwen）の2モデル確認（[I-16](docs/IMPROVEMENT_LOG.md)）。2つは系統を共有する（Clef-Flash は Qwen3.5-9B の追加学習版）ので失敗が相関し得て、評価Jでは単独より安全にならず、既定には採用しなかった（[結果](#結果)）。{l_text()}
+* **試したが採用しなかったもの**：2つのAI（Jev役 Clef-Flash＋Qwen）の2モデル確認（[I-16](docs/IMPROVEMENT_LOG.md)）。2つは系統を共有する（Clef-Flash は Qwen3.5-9B の追加学習版）ので失敗が相関し得て、評価Jでは単独より安全にならず、既定には採用しなかった（[結果](#結果)）。
 * **事前登録と時系列監査**（[論文](docs/paper/main.pdf)付録）：条件・閾値・解析を結果を見る前にコミットし、{audit_text()}。支持されなかった主張も、そのまま載せる。
 * **実用性：出動ごとに1枚の現場報告を生成**（[I-18](docs/IMPROVEMENT_LOG.md)）：依頼・判断の理由・確認に使った写真と確率・次にしてほしいことを1枚にまとめ、現場の人が結論だけ読めば動ける。生成は `scripts/make_operator_report.py`、全出動での自動生成は評価終了後に組み込む。
 
@@ -580,7 +624,8 @@ def section_en(e, v):
          "(2) The check's errors are dominated by **fires hidden behind the supply**, so before approving the robot **looks again from 0.4 m to either side** (study G); extra views only when a score is suspicious (I-20) are pending. "
          "(3) **Everything the robot did not perceive itself may only reorder or tighten, never remove a check**: memory from earlier missions, a peer's report, the inventory, hints in the operator's request are typed as *advice*; "
          "'safe' and 'skip' advice has no effect. So for any advice, even adversarial, the risk of an unsafe delivery stays within the check's own error budget eps_any (Proposition 2 of the paper; a relative guarantee). "
-         "Memory (H) is the measured example; adversarial advice (A) is pending. The rule itself was tested against an independent reference implementation, mutation tests and fuzzing, which found real bugs (FINDINGS #24, #25). "
+         "Memory (H) is the measured example; adversarial advice (A) is pending. "
+         + I22_EN + " The rule itself was tested against an independent reference implementation, mutation tests and fuzzing, which found real bugs (FINDINGS #24, #25). "
          "(4) **Outside the guarantee**: text written in the scene (S, pending) and realism (a cluttered four-station depot, I-21: rendering preview only, [`docs/figures/depot_preview_sheet.jpg`](docs/figures/depot_preview_sheet.jpg); XD/X pending) are measured, not claimed. "
          "(5) **Honest limits** are listed below. All studies are pre-registered (`experiments/PREREGISTRATION_*.md`); every trial is audited against simulator ground truth and a ROS bag.",
          '', 'Rows are ordered by that chain: [1] check, [2] where the error lives and the threshold, [3] look again, [4] advice, [5] outside the guarantee, [6] tried and not adopted.',
@@ -595,10 +640,10 @@ def section_en(e, v):
     try:
         a1, a2, a3 = a_['A1_unsafe_naive_vs_monotone'], a_['A2_time_saved_truthful'], a_['A3_dos_cost_vs_bound']
         rr = a1['runs']
-        L.append(f"| A: adversarial advice (114 closed-loop runs) | unsafe-delivery runs under false advice: advice-following {rr['naive']['unsafe']}/{rr['naive']['n']}, ours {rr['monotone']['unsafe']}/{rr['monotone']['n']}, no advice {a1['control_runs_F_N']['unsafe']}/{a1['control_runs_F_N']['n']} (exact McNemar p={a1['mcnemar_p']}); "
+        L.append(f"| A: adversarial advice ({A_RUNS} closed-loop runs) | unsafe-delivery runs under false advice: advice-following {rr['naive']['unsafe']}/{rr['naive']['n']}, ours {rr['monotone']['unsafe']}/{rr['monotone']['n']}, no advice {a1['control_runs_F_N']['unsafe']}/{a1['control_runs_F_N']['n']} (exact McNemar p={a1['mcnemar_p']}); "
                  f"truthful advice saved a median {a2['monotone']['median_saved_s']} s; denial-of-service cost: at most {a3['max_extra_visits']} extra visit, {a3['false_refusals_monotone']} false refusals (allowed {a3['allowed_max_false_refusals_95']}) |")
     except (TypeError, KeyError):
-        L.append('| A: adversarial advice (114 closed-loop runs) | pre-registered, not yet run |')
+        L.append(f'| A: adversarial advice ({A_RUNS} closed-loop runs) | pre-registered, not yet run |')
     try:
         so = s_['systems']['OURS']
         fl = lambda x: f"{x['attack_vs_none']['flips']}/{x['n_pairs']}"
@@ -713,6 +758,7 @@ def sync_counts(txt, path):
             (r'(単体テストは現在)\d+(件）)', rf'\g<1>{nt}\g<2>' if nt else None),
             (r'(FINDINGS\()\d+(件\))', rf'\g<1>{nf}\g<2>'),
             (r'(実行で見つけた)\d+(件)', rf'\g<1>{nf}\g<2>'),
+            (r'(テスト関数 )\d+( 件)', rf'\g<1>{nt}\g<2>' if nt else None),
             (r'(\| テスト \| )[^|]*?(件)前後(（`python3)', rf'\g<1>{nt}\g<2>\g<3>' if nt else None)]
     for pat, rep in subs:
         if rep:
@@ -746,15 +792,16 @@ def main():
     if k_ja:
         R['K'] = k_ja
     R['H'] = f"| 評価H（出動をまたぐ記憶） | 前回の物資の場所を「先に行く拠点」の提案だけに使う（助言の一例）。記憶なし・素朴な記憶・検証つき記憶を対比較 | {h_text()} |"
+    R['L'] = f"| 評価L（未知の配置） | 2つの拠点と避難所の位置をランダムに変えた24通りの未知の配置で、v3.6 が期待どおり動くか（閉ループ） | {l_text()} |"
     R['J'] = f"| 評価J（2つのAI）：**採用せず** | Jev役 Clef-Flash＋Qwen の2モデル確認を閉ループで、v3.6単独と対比較 | {j_text()} |"
     R['V'] = f"| 評価V（ランダムな変化での予測検証） | 出動ごとに世界がランダムに変わる10系列×6出動で、事前登録した予測区間と実測を比較 | {v_text()} |"
-    R['A'] = f"| 評価A（信頼できない助言、閉ループ） | 他ロボット・依頼文の助言は順序変更と閾値の強化にしか使えない（I-19）。偽の「火は消えた」「別の拠点にある」を、助言に従う方式と対比較（114試行）。ε_any の操縦（真の助言で隠れた火の拠点へ誘導）は別セルで測る | {a_text()} |"
+    R['A'] = f"| 評価A（信頼できない助言、閉ループ） | 他ロボット・依頼文の助言は順序変更と閾値の強化にしか使えない（I-19）。偽の「火は消えた」「別の拠点にある」を、助言に従う方式と対比較（{A_RUNS}試行）。ε_any の操縦（真の助言で隠れた火の拠点へ誘導）は別セルで測る | {a_text()} |"
     R['S'] = f"| 評価S（画像内の文字による注入、画像レベル） | 標識・ラベル・「Cと答えよ」を置いた52世界を、標識なし・攻撃・無害の3通りで描画し、本方式・1回判定・自由記述・全体画像で比較 | {s_text()} |"
     R['W'] = f"| 評価W（小さく隠れた火の見逃しと先行手法、I-20の副次解析を含む） | 画像レベル：正面のみ対見回し（150火世界＋75双子）、VAP-TAMP風の投票・KnowNo風の共形集合との誤許可の比較 | {w_text()} |"
     R['X'] = f"| 評価XD・X（倉庫の世界、4拠点） | XD：倉庫の保留画像で ε と閾値の再較正（画像レベル）。X：記憶なし対検証つき記憶を80試行の閉ループで。描画の確認は I-21（`docs/figures/depot_preview_sheet.jpg`） | {x_text()} |"
     head = ['| 評価（事前登録） | 内容 | 結果 |', '|---|---|---|']
     stages = [
-        ('1. 届ける前に確かめる（確認は閉集合の確率、迷えば止まる）', ['E', 'D', 'Z']),
+        ('1. 届ける前に確かめる（確認は閉集合の確率、迷えば止まる）', ['E', 'L', 'D', 'Z']),
         ('2. 誤りはどこにあるか（隠れた火が大半）・閾値', ['T1', 'T1b', 'K']),
         ('3. 横から見直す（誤りを小さくする）', ['F', 'G', 'W']),
         ('4. 見ていないものは「厳しくする」だけ（記憶・他のロボット・依頼文・在庫表）', ['H', 'V', 'A']),
@@ -767,7 +814,7 @@ def main():
         if rows:
             tables += [f'#### {title}', '', '\n'.join(head + rows), '']
     parts = ['<!-- RESULTS:START -->', '## 結果', '',
-             '事前登録した評価の一覧（D・E・F・G・T1・T2・Z・P・R・K・H・J、結果待ちのA・S・V・W・XD・X）を、論文と同じ**一本の筋**の順に並べる：①確かめる ②誤りの大半は隠れた火 ③横から見直す ④見ていないものは締めるだけ ⑤保証の外 ⑥採用しなかったもの。Qwen3.5-9B（ローカル・V100）。条件・閾値・解析は結果を見る前に `experiments/PREREGISTRATION_*.md` に固定し、台帳は全試行を記録。結果待ちの研究は、結果ファイルができると数値が自動で入る。', '',
+             '事前登録した評価の一覧（D・E・F・G・T1・T2・Z・P・R・K・H・J、結果待ちの' + '・'.join(waiting_studies()) + '）を、論文と同じ**一本の筋**の順に並べる：①確かめる ②誤りの大半は隠れた火 ③横から見直す ④見ていないものは締めるだけ ⑤保証の外 ⑥採用しなかったもの。Qwen3.5-9B（ローカル・V100）。条件・閾値・解析は結果を見る前に `experiments/PREREGISTRATION_*.md` に固定し、台帳は全試行を記録。結果待ちの研究は、結果ファイルができると数値が自動で入る。', '',
              '用語：**誤許可**＝届けてはいけない場面で「届けてよい」と判断してしまうこと（ロボットを実際に動かす評価では**誤配達**。火のある拠点から届けてしまうことは**危険な配達**）。**正しい許可**＝届けてよい場面で正しく「よい」と判断できること。**閉ループ**＝AIの判断でロボットが実際に動くところまで含めた評価。**ε**＝確認そのものが、届けてはいけない拠点を許可してしまう確率（助言の危険は、この内側に収まる）。', '',
              '\n'.join(tables)]
     if t1_block:

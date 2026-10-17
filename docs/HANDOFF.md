@@ -22,7 +22,7 @@
 | J / P2 / L | 実行中・待機中（§「★」参照） | — |
 | 動画 | 2:46（v3.6）。記憶デモ入りの再描画は撮影後に自動 | `outputs/video/`（Git管理外） |
 | 論文・説明資料 | 本文8頁＋補足、説明資料12頁、第三者採点 32.0/40（第6回） | `docs/paper/`, `docs/report/` |
-| テスト | 620件（main。i19 ブランチは約750件） | `python3 -m unittest discover -s tests` |
+| テスト | テスト関数 1142 件（`python3 scripts/count_tests.py` の静的な数え方） | `python3 -m unittest discover -s tests` |
 
 **v3.6 = オーケストレータの既定構成**（`--model Qwen/Qwen3.5-9B --prompt-set v35 --intent-backend llm --intent-prompt i35`、τ_s=0.5、τ_h=0.05、h36＋tiles、横から見直す ±0.4 m、回復探索）。過去の評価の再現は各台帳の `stack_args` を使う。
 
@@ -121,7 +121,7 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
   * 予備走行（`campaign_H_pilot*_ledger.jsonl`）で、見た物資の判定に誤りを発見して修正した（判断の確信度は依頼物資のものだった）。H の Amendment 1 に記録すること。
 
 * **I-16：当初計画の Jev＋Qwen を実機（閉ループ）で動かす**。ユーザーの指示（2026-10-17）。
-  * 構成：Clef-Flash（課題向けの質問、τ 0.05）＋Qwen3.5-4B。V100 1台に載る（約28GB）。
+  * 構成：Clef-Flash（課題向けの質問、τ 0.05）＋Qwen3.5-4B。V100 1台に載る（約28 GiB）。
   * 評価J を事前登録済み：`PREREGISTRATION_J.md`、24世界の対比較（A：v3.6、J：2モデル）、48 run。解析は `scripts/j_analysis.py`。
   * フラグ：`--jev-local clef --jev-schema task --jev-hazard-threshold 0.05 --model Qwen/Qwen3.5-4B --hazard-prompt h35 --hazard-views full`。
 * H の予備走行2回目に合格し、Amendment 1 として記録済み。
@@ -148,7 +148,7 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 **2026-10-17 13:10 時点**
 * 完了：
   * R：12条件の誤許可は合計 0/2304 で、主張は成立。もっとも厳しいのは強い露出オーバーで、正しい許可 59/108。
-  * J の試運転：完了、GPU メモリのピークは 28.7 GB。
+  * J の試運転：完了、GPU メモリのピークは試運転で 28.7 GiB（本実行は 28,676 MiB = 28.0 GiB）。
   * Z、P（実写）。
   * 論文：命題を「観察」と「1出動あたりの系」に変更、要旨を中立的に書き直し、用語を定義。
   * 第三者採点：1回目 28.0、2回目 29.5/40。

@@ -143,7 +143,7 @@ flowchart TD
 
 ### 3.5 Jev の役割を実機で動かす（I-16、任意）
 * `--jev-local clef --jev-schema task`：Clef-Flash（`scripts/clef_server.py`、ポート 8767）に課題向けの質問を送り、Qwen と**両方が許可したときだけ許可**する。`--jev-schema jev` は当初の Jev 要求。
-* V100 1台に載せるため Qwen3.5-4B と組にする（約28 GB、D14）。Clef-Flash は Qwen3.5-9B の追加学習なので、2モデルは独立ではない（D11）。評価Jで測る。
+* V100 1台に載せるため Qwen3.5-4B と組にする（約28 GiB、D14）。Clef-Flash は Qwen3.5-9B の追加学習なので、2モデルは独立ではない（D11）。評価Jで測る。
 
 ## 4. 開発と評価の流れ（なぜ数値を信用できるか）
 
