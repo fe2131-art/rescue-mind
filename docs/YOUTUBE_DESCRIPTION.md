@@ -1,6 +1,6 @@
 # YouTube 投稿用テキスト（コピーして使用）
 
-**ファイル**：`outputs/video/PAI最終課題_tetsutetsu.mp4`（1920×1080, 30fps, 約2分51秒（`docs/video_chapters.json` の終端 170.93 秒）、日本語ナレーション付き）
+**ファイル**：`outputs/video/PAI最終課題_tetsutetsu.mp4`（1920×1080, 30fps, 約2分53秒（`docs/video_chapters.json` の終端 173.03 秒）、日本語ナレーション付き）
 
 ## タイトル
 PAI最終課題_tetsutetsu
@@ -43,7 +43,7 @@ RescueMind：現地で「目で確かめてから」届ける災害物資ロボ�
 1:48 記憶が慎重さを足した例（評価H）
 1:54 デモ4：隠れた小さな火 → 停止
 2:15 事前登録した評価のまとめ（全試行を公開）
-2:44 RescueMind
+2:46 RescueMind
 
 ## 公開設定チェック（課題の指定）
 - 公開（推奨）または限定公開（最低条件）
