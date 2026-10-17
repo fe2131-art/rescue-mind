@@ -218,6 +218,9 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 4. `after_p2_chain.sh`：P2 の後に L のブランチ（`worktree-agent-ac85b5ba081cc1f61`）を main へマージ → テスト → push → `l_run.sh`（マスク → 試運転 → 本番 → 解析）。
    * マージで衝突したら `MERGE_CONFLICT` で止まる。その場合はブランチを main に追従させてから、手動でマージして `l_run.sh` を実行する。
 5. 待機中：`broolkxvo`（J 終了後に `j_analysis.py` を実行）。
+6. **（17:50 追加）`after_l_chain.sh`**（タスク `byvmbjuo9`）：L の終了（`L_DONE`/`L_ABORT`/`MERGE_CONFLICT`）を待つ → I-18 ブランチをマージ（テストが通らなければ revert）→ **study V**（`v_run.sh`：予備走行 → マスク → 予測を自動コミット → 160 run → `v_analysis.py`）→ `V_DONE`。
+   * study V（`PREREGISTRATION_V.md`）：H のモデルの予測（M0−M2 の時間差、各群の危険な配達の 95% 予測区間）を、ランダムな変化（q=0.2、10系列×6出動）の閉ループで検証する。「台本が結果を決めている」という指摘への回答。
+   * 予備走行が失敗したら `V_ABORT` で止まる → 原因を直し、Amendment に記録してから `bash scripts/v_run.sh` を再実行する。
 
 **評価中の厳守事項**：重い処理（ビルド・テスト・図の生成・動画）をしない。J では CPU 負荷とページキャッシュの取り合いで判断時間が延びた。逸脱は J の事前登録に記録済み。
 
