@@ -246,6 +246,85 @@ def fig_fire_size():
     plt.close(fig)
 
 
+def fig_h_outcomes(path=None, out=None):
+    """Campaign H: per-mission outcome grid (left) and paired relocation_persist times (right)."""
+    from matplotlib.patches import Rectangle, Patch
+    from matplotlib.lines import Line2D
+    f = Path(path) if path else RES / 'h_summary.json'
+    if not f.is_file():
+        print('fig_h_outcomes: no', f, '- skipped')
+        return
+    trials = json.loads(f.read_text())['trials']
+    cell = {(t['sequence'], t['k'], t['arm']): t for t in trials if t['k'] in (2, 3) and t['arm'] in ('M0', 'M1', 'M2')}
+    seqs = sorted({t['sequence'] for t in trials}, key=lambda q: (min(t['story'] for t in trials if t['sequence'] == q), str(q)))
+    story_of = {t['sequence']: t['story'] for t in trials}
+    stories = sorted(set(story_of.values()))
+    col = {'safe delivery': GREEN, 'safe refusal': GREY, 'unsafe delivery': RED, 'false refusal': ORANGE, 'failed': 'white'}
+
+    def kind(t):
+        if t['failed']:
+            return 'failed'
+        if t['unsafe_delivery']:
+            return 'unsafe delivery'
+        if t['delivered']:
+            return 'safe delivery'
+        return 'false refusal' if t['false_refusal'] else 'safe refusal'
+
+    fig, (ax, bx) = plt.subplots(1, 2, figsize=(7.0, 2.5), gridspec_kw={'width_ratios': [1.35, 1], 'wspace': 0.32})
+    xs = {(k, a): i + (0.5 if k == 3 else 0) for i, (k, a) in enumerate([(k, a) for k in (2, 3) for a in ('M0', 'M1', 'M2')])}
+    row = {}
+    y = 0
+    prev = None
+    for q in seqs:
+        if prev is not None and story_of[q] != prev:
+            y += 0.5
+        prev = story_of[q]
+        row[q] = y
+        y += 1
+    for q in seqs:
+        for (k, a), x in xs.items():
+            t = cell.get((q, k, a))
+            if t is None:
+                continue
+            kd = kind(t)
+            ax.add_patch(Rectangle((x, row[q]), 0.92, 0.9, fc=col[kd], ec=INK if kd == 'failed' else 'white', lw=0.4,
+                                   hatch='////' if kd == 'failed' else None))
+    for si, sname in enumerate(stories):
+        rs = [row[q] for q in seqs if story_of[q] == sname]
+        ax.plot([-0.25, -0.25], [min(rs) + 0.05, max(rs) + 0.85], color=INK, lw=0.8, clip_on=False)
+        ax.text(-0.45, (min(rs) + max(rs) + 0.9) / 2, f'S{si + 1}', ha='right', va='center', fontsize=6.5, color=INK, weight='bold')
+    for (k, a), x in xs.items():
+        ax.text(x + 0.46, -0.35, a, ha='center', va='bottom', fontsize=5.5, color=INK)
+    for k in (2, 3):
+        x0 = xs[(k, 'M0')]
+        ax.text(x0 + 1.46, -1.3, f'mission {k}', ha='center', va='bottom', fontsize=6.2, color=INK)
+    ax.set_xlim(-0.25, 6.5); ax.axis('off')
+    ax.set_ylim(y + 0.1, -1.9)
+    ax.legend(handles=[Patch(fc=col[n], ec=INK if n == 'failed' else col[n], lw=0.4, hatch='////' if n == 'failed' else None, label=n) for n in col],
+              loc='upper center', bbox_to_anchor=(0.5, -0.01), ncol=5, fontsize=5.0, frameon=False, handlelength=1.0, columnspacing=0.9,
+              handletextpad=0.4)
+    ax.set_title('(a) outcome per mission, 16 sequences', fontsize=6.6, pad=6)
+
+    by = {}
+    for t in trials:
+        if t['k'] in (2, 3) and t['transition'] == 'relocation_persist' and not t['failed'] and t.get('mission_time_s') is not None:
+            by.setdefault((t['sequence'], t['k']), {})[t['arm']] = t['mission_time_s']
+    mk = {'M0': (GREY, 'o', 'M0 no memory'), 'M1': (ORANGE, 's', 'M1 naive'), 'M2': (BLUE, 'D', 'M2 verified')}
+    for v in by.values():
+        if 'M0' in v and 'M2' in v:
+            bx.plot([0, 2], [v['M0'], v['M2']], color=GREY, lw=0.5, alpha=0.7, zorder=1)
+    for i, a in enumerate(('M0', 'M1', 'M2')):
+        vs = [v[a] for v in by.values() if a in v]
+        bx.scatter([i] * len(vs), vs, s=9, color=mk[a][0], marker=mk[a][1], zorder=3, label=mk[a][2], lw=0)
+        if vs:
+            bx.hlines(sorted(vs)[len(vs) // 2], i - 0.22, i + 0.22, color=INK, lw=1.0, zorder=4)
+    bx.set_xticks([0, 1, 2]); bx.set_xticklabels(['M0', 'M1', 'M2']); bx.set_xlim(-0.5, 2.5)
+    bx.set_ylabel('mission time (s)'); bx.spines[['top', 'right']].set_visible(False)
+    bx.set_title(f'(b) relocation persists, paired (n={len(by)}; bar = median)', fontsize=6.6, pad=6)
+    fig.savefig(Path(out) if out else OUT / 'fig_h_outcomes.pdf', bbox_inches='tight', pad_inches=0.01)
+    plt.close(fig)
+
+
 if __name__ == '__main__':
     OUT.mkdir(parents=True, exist_ok=True)
     fig_fire_size()
@@ -255,4 +334,5 @@ if __name__ == '__main__':
     fig_risk_coverage()
     fig_t1_examples()
     fig_e_trajectories()
+    fig_h_outcomes()
     print('figures written to', OUT)
