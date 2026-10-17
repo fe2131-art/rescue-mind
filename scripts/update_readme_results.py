@@ -268,6 +268,114 @@ T1 で分かった弱点に、結果を見る前に固定した条件で段階�
                      fa=fp['wrong_deliveries_A'], fb=fp['wrong_deliveries_B'], nfv=fp['n_world_pairs_fire_visible_both'], fp=fp['mcnemar_p'])
 
 
+PENDING = '実行中（事前登録済み）'
+
+
+def jl(name):
+    f = RES / name
+    try:
+        return json.loads(f.read_text()) if f.is_file() else None
+    except ValueError:
+        return None
+
+
+def h_text():
+    h = jl('h_summary.json')
+    try:
+        p1, p2, p3 = h['P1_efficiency_relocation_persist'], h['P2_safety_naive_vs_verified'], h['P3_no_extra_risk_vs_v36']
+        return (f"評価H 結果：置き場所が変わったままの出動で所要時間の中央値差 {p1['median_diff_s']} 秒（{p1['n_pairs']}対、p={p1['wilcoxon_exact_p']}）、"
+                f"危険な配達は 素朴な記憶 {p2['unsafe_M1']} 対 検証つき記憶 {p2['unsafe_M2']}（p={p2['mcnemar_p']}）、記憶なし比で追加リスク"
+                f"{'なし' if p3['supported'] else 'あり'}（{p3['unsafe_M0']} 対 {p3['unsafe_M2']}）")
+    except (TypeError, KeyError):
+        return f'評価H（16系列×3出動）：{PENDING}'
+
+
+def j_text():
+    j = jl('j_summary.json')
+    try:
+        c, p2 = j['per_config'], j['P2_no_extra_unsafe']
+        return (f"評価J 結果：2つのAI構成 {c['J']['correct']}/{c['J']['n']} 期待どおり（v3.6単独 {c['A']['correct']}/{c['A']['n']}）、"
+                f"危険な配達 {p2['unsafe_J']} 対 {p2['unsafe_A']}、V100 1台での失敗 {c['J']['failed']}件")
+    except (TypeError, KeyError):
+        return f'評価J（24世界の対比較）：{PENDING}'
+
+
+def audit_text():
+    f = ROOT / 'docs/paper/tab_prereg.tex'
+    if not f.is_file():
+        return '登録コミットが結果コミットより前にあることを付録で監査'
+    rows = [x for x in f.read_text().splitlines() if x.count('&') >= 4 and not x.startswith('Study')]
+    ok = sum('checkmark' in x for x in rows)
+    pend = sum('pending' in x for x in rows)
+    return (f'全{len(rows)}研究の登録時刻と最初の結果の時刻を、git の履歴から機械的に監査（`git merge-base --is-ancestor`）。'
+            f'結果のある研究のうち **{ok}件で登録コミットが結果コミットより前**、{pend}件は結果待ち（登録のみ済み）')
+
+
+def section_novelty():
+    g = jl('g_summary.json')
+    try:
+        gc = g['per_config']
+        nf = g['primary']['n_world_pairs_fire_perceivable']
+        gtxt = (f"正面で判断し切れない小さな火に、モデルを大きくせず**横へ動いて撮り直す**。事前登録の対比較で、火があるのに配達した回数 "
+                f"**{gc['B']['wrong_deliveries']}/{nf} → {gc['C']['wrong_deliveries']}/{nf}**（p={g['primary']['mcnemar_p']:.3f}）、火の無い世界の誤停止 {gc['C']['false_hazard_stops']}/{gc['C']['fire_free_trials']}")
+    except (TypeError, KeyError):
+        gtxt = f'横から撮り直す能動知覚（評価G）：{PENDING}'
+    return f"""## 新規性（この課題で工夫した点）
+
+* **記憶は「提案」だけ、確認は減らさない**（出動をまたぐ記憶、[I-15](docs/IMPROVEMENT_LOG.md)・[D13](docs/DESIGN_DECISIONS.md)）：前回の物資の場所は「先に行く拠点」を決めるだけで、行った先で必ず確認する。火を見た拠点は閾値を厳しくする。同じ画像なら記憶ありの許可は記憶なしの許可の部分集合になる（コードで強制）。事前登録 [`PREREGISTRATION_H.md`](experiments/PREREGISTRATION_H.md)。{h_text()}
+* **横から見直す能動知覚**（[I-14](docs/IMPROVEMENT_LOG.md)）：{gtxt}。
+* **当初計画の2つのAI（Jev役 Clef-Flash＋Qwen）を実機で**（[I-16](docs/IMPROVEMENT_LOG.md)）：オフライン評価だけだった2モデル確認を、V100 1台に載る組で閉ループに載せた。Clef-Flash は Qwen3.5-9B の追加学習版なので、2つは独立ではなく系統を共有する（相関した失敗が残り得ると明記）。{j_text()}
+* **事前登録と時系列監査**（論文 [`docs/paper/main.pdf`](docs/paper/main.pdf) 付録「Registration audit」）：条件・閾値・解析を結果を見る前にコミットし、{audit_text()}。支持されなかった主張も、そのまま載せる。"""
+
+
+def section_zpr():
+    """Rows for the table head (Z, P, R) plus an honest note under the table. Missing file -> pending."""
+    rows, notes = [], []
+    z = jl('z_summary.json')
+    try:
+        def zc(m, t):
+            b, o = z['models'][m][t]['baseline'], z['models'][m][t]['ours']
+            return b, o
+        parts = []
+        for t, tn in (('t1', 'T1'), ('t2', 'T2')):
+            sb, o = zc('siglip', t)
+            cb, _ = zc('clip', t)
+            parts.append(f"{tn}：本方式 誤許可 {o['FA']}/{o['n_deny']}・正しい許可 {o['CA']}/{o['n_allow']}、"
+                         f"SigLIP {sb['FA']}/{sb['n_deny']}・{sb['CA']}/{sb['n_allow']}、CLIP {cb['FA']}/{cb['n_deny']}・{cb['CA']}/{cb['n_allow']}")
+        notes_z = "* 評価Z：SigLIP は正しい許可は満点でも誤許可が1割超。CLIP は誤許可0でも**ほぼ何も許可しない**（配達できない）。本方式だけが両立する"
+        notes.append(notes_z)
+        rows.append("| 評価Z（生成しないゼロショット基準） | 同じ画像・同じ判定構造で SigLIP・CLIP と比較（閾値は開発データだけで決定）。誤許可／正しい許可 | "
+                    + '<br>'.join(parts) + ' |')
+    except (TypeError, KeyError):
+        rows.append(f'| 評価Z（SigLIP・CLIPとの比較） | 生成しないゼロショット基準 | {PENDING} |')
+    p, p2 = jl('p_summary.json'), jl('p2_summary.json')
+    try:
+        r, fa = p['recall'], p['false_alarm']
+        p2t = PENDING
+        try:
+            p2t = f"サイト較正（P2）：再現率 {p2['recall']['k']}/{p2['recall']['n']}、誤警報 {p2['false_alarm']['k']}/{p2['false_alarm']['n']}"
+        except (TypeError, KeyError):
+            pass
+        rows.append(f"| 評価P（実写真） | Gazebo外の実写真400枚（D-Fire）で火・煙の問いを検証 | 火・煙のある画像の検出 **{r['k']}/{r['n']}**（95%CI {pct(r['ci95'][0])}〜{pct(r['ci95'][1])}）、"
+                    f"火の無い画像の誤警報 **{fa['k']}/{fa['n']}**（{pct(fa['ci95'][0])}〜{pct(fa['ci95'][1])}）。P2（現場の火の無い画像で閾値を較正）：{p2t} |")
+        notes.append(f"* 評価P：見逃しはほぼ無いが、火の無い実写真（霞・低い雲・夕焼け・光るテント）への誤警報は {fa['k']}/{fa['n']} と多い。**そのまま実機に使える水準ではなく、現場ごとの閾値の較正が必要**（P2 で「較正した閾値が未使用の写真で通用するか」を登録済み）。誤警報は停止になるだけで、誤配達にはならない側の失敗")
+    except (TypeError, KeyError):
+        rows.append(f'| 評価P（実写真） | Gazebo外の実写真での火・煙の検出 | {PENDING} |')
+    r = jl('r_summary.json')
+    try:
+        p1 = r['P1_pooled']
+        worst = min(r['conditions'].items(), key=lambda kv: kv[1]['ca_rate'])
+        cl = r.get('clean', {})
+        rows.append(f"| 評価R（カメラの劣化） | 未使用T2の30世界に、ノイズ・ぼけ・露出・JPEG の12条件を加えて再評価 | 全条件をまとめた誤許可 **{p1['false_approvals']}/{p1['n']}**"
+                    f"（世界単位ブートストラップ95%CI {pct(p1['cluster_ci95'][0])}〜{pct(p1['cluster_ci95'][1])}、"
+                    f"{'「劣化に対して安全側」を支持' if p1['supported'] else '登録した「上限2%未満」は支持されず'}）、"
+                    f"最悪条件（{worst[0]}）の正しい許可 {worst[1]['correct_approvals']}（{pct(worst[1]['ca_rate'])}）"
+                    f"{'、清浄画像では ' + str(cl['correct_approvals']) if 'correct_approvals' in cl else ''} |")
+    except (TypeError, KeyError, ValueError):
+        rows.append(f'| 評価R（カメラの劣化） | ノイズ・ぼけ・露出・JPEG の12条件でも安全側に倒れるか | {PENDING} |')
+    return rows, notes
+
+
 def main():
     e, d, t, v = section_e(), section_d(), t1_parts(), section_v36()
     head = ['| 評価（事前登録） | 内容 | 結果 |', '|---|---|---|']
@@ -281,17 +389,19 @@ def main():
     if d:
         D = d[1]
         head.append(f"| 評価D v3.4 | 固定配置の閉ループ {D['n']}試行 | 期待どおり **{D['ok']}/{D['n']}**、誤許可 **{D['fa']}件** |")
+    zrows, znotes = section_zpr()
     t1_block = ''
     if t:
         s, m, full, v35, n_img, fa_txt, ca_txt, claim, dev = t
         head.append(f"| 未使用テスト T1（オフライン） | 開発に一度も使わない{n_img}枚（照明・位置・未知の妨害物・火災）、v3.4規則 | 誤許可 {fa_txt(full)}、正しい許可 {ca_txt(full)} |")
         head.append(f"| 〃 v3.5（τ_h=0.05、副の事前指定） | 同じ画像・同じ保存済み確率から再計算 | 誤許可 {fa_txt(v35)}、正しい許可 {ca_txt(v35)} |")
         t1_block = f"* T1：{claim}主な原因は下の「残る弱点」"
-    parts = ['<!-- RESULTS:START -->', '## 結果：事前登録した評価（D・E・F・G・T1・T2）', '',
+    head += zrows
+    parts = ['<!-- RESULTS:START -->', '## 結果：事前登録した評価（D・E・F・G・T1・T2・Z・P・R）', '',
              'Qwen3.5-9B（ローカル・V100）。条件・閾値・解析は結果を見る前に `experiments/PREREGISTRATION_*.md` に固定し、台帳は全試行を記録。', '',
              '\n'.join(head), '']
     if t1_block:
-        parts += [t1_block, '']
+        parts += [t1_block] + znotes + ['']
     if v:
         parts += [v[0], '']
     if e:
@@ -308,13 +418,19 @@ def main():
     txt = readme.read_text(encoding='utf8')
     a, b = txt.index('<!-- RESULTS:START -->'), txt.index('<!-- RESULTS:END -->') + len('<!-- RESULTS:END -->')
     txt = txt[:a] + block + txt[b:]
+    if '<!-- NOVELTY:START -->' in txt:     # novelty section near the top, numbers from the summaries
+        a, b = txt.index('<!-- NOVELTY:START -->'), txt.index('<!-- NOVELTY:END -->') + len('<!-- NOVELTY:END -->')
+        txt = txt[:a] + '<!-- NOVELTY:START -->\n' + section_novelty() + '\n<!-- NOVELTY:END -->' + txt[b:]
     chap = ROOT / 'docs/video_chapters.json'
-    if chap.is_file():     # keep the video length and speed-up statement in sync with the video script's chapter file
+    if chap.is_file():     # describe the video from the chapter file (length kept generic: it is re-rendered later)
         ch = json.loads(chap.read_text(encoding='utf8'))
         sp = next((c['speed'] for c in ch if c.get('speed')), None)
-        end = ch[-1]['end_s']
-        if sp:
-            txt = re.sub(r'デモ動画（YouTube、[^）]*）', f'デモ動画（YouTube、{int(end // 60)}分{int(round(end % 60)):02d}秒、日本語ナレーション付き。{sp}で、速度は画面に常時表示）', txt, count=1)
+        demos = [c['title'].split('：', 1)[-1] for c in ch if c.get('kind') == 'mission']
+        n_tab = sum(c.get('kind') == 'table' for c in ch)
+        length = '3分以内' if ch[-1]['end_s'] <= 180 else f"{int(ch[-1]['end_s'] // 60)}分{int(round(ch[-1]['end_s'] % 60)):02d}秒"
+        desc = (f"デモ動画（YouTube、{length}、日本語ナレーション付き。実走デモ{len(demos)}本（{'／'.join(demos)}）と、事前登録した結果の表{n_tab}枚"
+                + (f"。{sp}で、速度は画面に常時表示）" if sp else '）'))
+        txt = re.sub(r'デモ動画（YouTube、[^\n]*?）(?=／ 本リポジトリ)', lambda _: desc, txt, count=1)
     readme.write_text(txt, encoding='utf8')
     print('README results updated: G', v[1] if v else None, '| E', e[1] if e else None, '| D', d[1] if d else None, '| T1', bool(t))
 
