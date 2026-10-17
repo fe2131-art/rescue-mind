@@ -24,7 +24,12 @@ import scripts.build_testset_t1 as t1  # noqa: E402
 PROTOCOL = ROOT / 'experiments/campaign_w_protocol.json'
 OUT = ROOT / 'experiments/vlm_testset_w'
 VIEWS = ('F', 'L', 'R')
+VIEWS_EXTRA = ('L2', 'R2', 'N')     # Amendment 1 (I-20): rendered too, used only by the secondary adaptive analysis
 MIN_FIRE_PX = 614
+
+
+def all_views(w: dict) -> tuple:
+    return VIEWS + tuple(v for v in VIEWS_EXTRA if v in w['views'])
 
 
 def load_protocol(path: Path = PROTOCOL) -> dict:
@@ -42,10 +47,12 @@ def view_label(px: int) -> str:
 def world_labels(px_by_view: dict) -> dict:
     """World-level label from the three mask pixel counts."""
     vis = {v: view_label(px_by_view[v]) for v in VIEWS}
+    vis.update({v: view_label(px_by_view[v]) for v in VIEWS_EXTRA if v in px_by_view})
     return {'perceivable': any(px_by_view[v] >= MIN_FIRE_PX for v in VIEWS),
+            'perceivable_any_view': any(p >= MIN_FIRE_PX for p in px_by_view.values()),
             'front_perceivable': px_by_view['F'] >= MIN_FIRE_PX,
             'side_only': px_by_view['F'] < MIN_FIRE_PX and any(px_by_view[v] >= MIN_FIRE_PX for v in ('L', 'R')),
-            'view_visibility': vis, 'max_fire_pixels': max(px_by_view.values())}
+            'view_visibility': vis, 'max_fire_pixels': max(px_by_view[v] for v in VIEWS)}
 
 
 def image_name(world_id: str, view: str, ext: str = 'jpg') -> str:
@@ -82,7 +89,7 @@ def render(worlds: list, masks: bool):
     node.create_subscription(Image, '/camera', lambda m: latest.__setitem__('msg', m), image_qos())
     ext = 'png' if masks else 'jpg'
     todo = [w for w in worlds if (w['kind'] == 'fire' or not masks)
-            and not all((img_dir / image_name(w['id'], v, ext)).is_file() for v in VIEWS)]
+            and not all((img_dir / image_name(w['id'], v, ext)).is_file() for v in all_views(w))]
     print(f'{len(todo)} of {len(worlds)} worlds to render ({"masks" if masks else "images"})', flush=True)
     for wi, w in enumerate(todo):
         world = wdir / f"rescuemind_{w['id']}{'_mask' if masks else ''}.sdf"
@@ -93,7 +100,7 @@ def render(worlds: list, masks: bool):
                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)]
         try:
             time.sleep(9)
-            for v in VIEWS:
+            for v in all_views(w):
                 t1.set_pose(*w['views'][v])
                 latest['msg'] = None
                 t0 = time.monotonic()
@@ -127,7 +134,7 @@ def build_labels(proto: dict, out_dir: Path = OUT, pixels=None) -> list:
         px = None
         if w['kind'] == 'fire':
             px = {}
-            for v in VIEWS:
+            for v in all_views(w):
                 if pixels is not None:
                     px[v] = pixels[(w['id'], v)]
                 else:
@@ -137,16 +144,17 @@ def build_labels(proto: dict, out_dir: Path = OUT, pixels=None) -> list:
                     px[v] = t1.fire_pixels(f)
             wl = world_labels(px)
         else:
-            wl = {'perceivable': False, 'front_perceivable': False, 'side_only': False,
-                  'view_visibility': {v: 'hidden' for v in VIEWS}, 'max_fire_pixels': 0}
-        for v in VIEWS:
+            wl = {'perceivable': False, 'perceivable_any_view': False, 'front_perceivable': False, 'side_only': False,
+                  'view_visibility': {v: 'hidden' for v in all_views(w)}, 'max_fire_pixels': 0}
+        for v in all_views(w):
             rows.append({'image': f'images/{image_name(w["id"], v)}', 'world_id': w['id'], 'world_kind': w['kind'],
                          'twin_of': w['twin_of'], 'view': v, 'station': w['item'], 'scene': 'nominal',
                          'truth_supply': w['item'], 'hazard_at': w['world_spec'].get('hazard_at'),
                          'fire_pixels': 0 if px is None else px[v],
                          'hazard_visibility': wl['view_visibility'][v], 'truth_hazard_visible': wl['view_visibility'][v] == 'visible',
                          'world_perceivable': wl['perceivable'], 'world_front_perceivable': wl['front_perceivable'],
-                         'world_side_only': wl['side_only'], 'pose': w['views'][v]})
+                         'world_side_only': wl['side_only'], 'world_perceivable_any_view': wl['perceivable_any_view'],
+                         'extra_view': v in VIEWS_EXTRA, 'pose': w['views'][v]})
     return rows
 
 

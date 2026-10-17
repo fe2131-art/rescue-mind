@@ -62,7 +62,7 @@ def world_outcomes(records: list, tau_s: float = TAU_S, tau_h: float = TAU_H) ->
         by.setdefault(r['world_id'], {})[r['view']] = r
     out, incomplete = {}, []
     for wid, v in by.items():
-        if set(v) != {'F', 'L', 'R'}:
+        if not {'F', 'L', 'R'} <= set(v):
             incomplete.append(wid); continue
         f = v['F']
         fa = front_allows(f, tau_s, tau_h)
@@ -153,6 +153,49 @@ def summarise_a(records: list, tau_s: float = TAU_S, tau_h: float = TAU_H) -> di
                                                   out['twins']['extra_false_stop_from_side_views']['rate'] <= A3_MAX_EXTRA_STOP)}
     out['criteria']['claim_eps_tight'] = out['criteria']['P1_look_around_fewer_misses'] and out['criteria']['P2_eps_upper_bound_below_0.15']
     out['criteria']['claim_cost_acceptable'] = out['criteria']['P3_extra_false_stops_at_most_0.10']
+    return out
+
+
+TAU_SUS = 0.005      # Amendment 1 (I-20): "suspicious" = p(hazard) >= 0.005 in any standard view (90th percentile of the
+                     # fire-free development views DH+DH2, 40/380; it covers 17 of the 23 visible development fires missed at 0.05)
+EXTRA = ('L2', 'R2', 'N')
+
+
+def max_hazard(rec: dict) -> float:
+    ps = [((rec['passes'].get(k) or {}).get('scores') or {}).get('hazard_prob') for k in '12']
+    ps = [p for p in ps if p is not None]
+    return max(ps) if ps else 1.0
+
+
+def summarise_adaptive(records: list, tau_h: float = TAU_H, tau_sus: float = TAU_SUS) -> dict:
+    """Secondary (Amendment 1, I-20): suspicion-triggered extra views.  The robot looks from +-0.8 m and 0.3 m closer only
+    if some standard view (F, L, R) is suspicious (p >= tau_sus) but none is a hazard (p >= tau_h); it then refuses if any
+    extra view is a hazard.  Compared with the fixed look-around on the same worlds (paired)."""
+    by: dict = {}
+    for r in records:
+        by.setdefault(r['world_id'], {})[r['view']] = r
+    rows = []
+    for wid, v in by.items():
+        if not ({'F', 'L', 'R'} <= set(v) and set(EXTRA) <= set(v)):
+            continue
+        f = v['F']
+        la = front_allows(f, TAU_S, tau_h) and not peek_hazard(v['L'], tau_h) and not peek_hazard(v['R'], tau_h)
+        sus = max(max_hazard(v[k]) for k in 'FLR') >= tau_sus
+        ad = la and not (sus and any(peek_hazard(v[k], tau_h) for k in EXTRA))
+        rows.append({'id': wid, 'kind': f['world_kind'], 'perceivable': f['world_perceivable'],
+                     'perceivable_any': f.get('world_perceivable_any_view', f['world_perceivable']),
+                     'la_allow': la, 'adaptive_allow': ad, 'triggered': la and sus})
+    fire = [r for r in rows if r['kind'] == 'fire']
+    twin = [r for r in rows if r['kind'] == 'twin']
+    out = {'tau_sus': tau_sus, 'n_worlds': len(rows)}
+    for name, S in (('perceivable_FLR', [r for r in fire if r['perceivable']]), ('perceivable_any_view', [r for r in fire if r['perceivable_any']])):
+        out[name] = {'miss_look_around': rate(sum(r['la_allow'] for r in S), len(S)),
+                     'miss_adaptive': rate(sum(r['adaptive_allow'] for r in S), len(S)),
+                     'paired': paired_counts([r['la_allow'] for r in S], [r['adaptive_allow'] for r in S])}
+    out['twins'] = {'correct_approval_look_around': rate(sum(r['la_allow'] for r in twin), len(twin)),
+                    'correct_approval_adaptive': rate(sum(r['adaptive_allow'] for r in twin), len(twin)),
+                    'extra_view_trigger_rate': rate(sum(r['triggered'] for r in twin), len(twin))}
+    out['fire_trigger_rate'] = rate(sum(r['triggered'] for r in fire), len(fire))
     return out
 
 
@@ -360,6 +403,7 @@ def run_part_a(out: dict):
     if recs is None:
         out['W-a'] = 'not run'; return
     out['W-a'] = summarise_a(recs)
+    out['W-a_adaptive'] = summarise_adaptive(recs)
     ref = _load('w_h35_full')
     if ref:
         out['W-a_v35_reference'] = summarise_a(ref)
