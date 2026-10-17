@@ -68,6 +68,14 @@ class PredictLogic(unittest.TestCase):
             st = perceivable_states(proto, m)['V01']
         self.assertEqual([s['fire'] for s in st], [False, True])
 
+    def test_missing_mask_key_stops_the_prediction(self):
+        proto = {'sequence_states': {'V01': [{'relocated': False, 'fire': True}]}}
+        with tempfile.TemporaryDirectory() as d:
+            m = Path(d) / 'masks.json'
+            m.write_text(json.dumps([{'key': 'V01m1', 'fire_pixels': 900}]))     # side views missing
+            with self.assertRaises(SystemExit):
+                perceivable_states(proto, m)
+
 
 if __name__ == '__main__':
     unittest.main()

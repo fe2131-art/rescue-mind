@@ -52,6 +52,8 @@ git merge-base --is-ancestor "$(git log -1 --format=%H -- "$RES/v_predictions.js
 echo "V_PREDICTIONS_COMMITTED"
 
 # (d) campaign
+for i in $(seq 1 60); do awk '{exit !($1 < 6)}' /proc/loadavg && break; sleep 60; done   # Amendment 1: quiet host
+echo "V_LOAD_AT_START $(cut -d' ' -f1-3 /proc/loadavg)"
 "${IN_NEXT[@]}" python3 scripts/run_campaign.py --protocol "$PROTO" --ledger "$RES/campaign_V_ledger.jsonl" \
   2>&1 | tee -a "$RES/campaign_V_stdout.log" | grep -E "^\[|trial|ERROR" | tail -5
 [ "${PIPESTATUS[0]}" -eq 0 ] || { echo "V_ABORT: run_campaign.py failed (rerun resumes)" >&2; exit 1; }

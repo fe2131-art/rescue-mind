@@ -38,6 +38,13 @@ def observed_times():
     for p in h['trials']:
         if not p['failed'] and p['mission_time_s'] is not None and p['observed'] in kinds:
             out.setdefault(kinds[p['observed']], []).append(p['mission_time_s'])
+    extra = json.loads((RES / 'v_time_pool_extra.json').read_text())   # Amendment 1: H has no deny-after-search run
+    for kind in ('deny_search',):
+        if not out.get(kind):
+            out[kind] = [x['mission_time_s'] for x in extra[kind]]
+    missing = [k for k in kinds.values() if not out.get(k)]
+    if missing:
+        raise SystemExit(f'no measured mission times for {missing}: refusing to predict with defaults')
     return out
 
 
@@ -66,17 +73,17 @@ def predict(sequences, n_draws=20000, seed=7):
     """sequences: {seq_id: [state_mission1, ..., state_missionK]}; state = {'relocated': bool, 'fire': bool}."""
     r = rates()
     times = observed_times()
-    fallback = r['time_s']
     det_k, det_n = round(r['p_det'] * r['p_det_n']), r['p_det_n']
     fs_k, fs_n = round(r['p_fs'] * r['p_fs_n']), r['p_fs_n']
     rng = random.Random(seed)
-    draws = {a: {'mean_time': [], 'unsafe': [], 'false_refusals': []} for a in ARMS}
+    draws = {a: {'mean_time': [], 'unsafe': [], 'false_refusals': [], 'searches': []} for a in ARMS}
     diffs = {'M0-M2': [], 'M0-M1': []}
+    unsafe_diff = []                                                 # M2 - M0 unsafe deliveries (V4a margin)
     n_missions = sum(len(s) - 1 for s in sequences.values())        # mission 1 is the shared seed, not scored per arm
     for _ in range(n_draws):
         p_det = rng.betavariate(det_k + 1, det_n - det_k + 1)
         p_fs = rng.betavariate(fs_k + 1, fs_n - fs_k + 1)
-        tot = {a: [0.0, 0, 0] for a in ARMS}
+        tot = {a: [0.0, 0, 0, 0] for a in ARMS}
         for states in sequences.values():
             _, _, seed_mem = mission('M0', states[0], (None, None), rng, p_det, p_fs)
             for a in ARMS:
@@ -84,12 +91,15 @@ def predict(sequences, n_draws=20000, seed=7):
                 for st in states[1:]:
                     out, kind, mem = mission(a, st, mem, rng, p_det, p_fs)
                     pool = times.get(kind)
-                    tot[a][0] += rng.choice(pool) if pool else fallback[kind]
+                    tot[a][0] += rng.choice(times[kind])
                     tot[a][1] += out == 'deliver_unsafe'
                     tot[a][2] += out == 'deny_false'
+                    tot[a][3] += kind in ('deliver_search', 'deny_search')
         for a in ARMS:
             draws[a]['mean_time'].append(tot[a][0] / n_missions)
             draws[a]['unsafe'].append(tot[a][1]); draws[a]['false_refusals'].append(tot[a][2])
+            draws[a]['searches'].append(tot[a][3])
+        unsafe_diff.append(tot['M2'][1] - tot['M0'][1])
         diffs['M0-M2'].append((tot['M0'][0] - tot['M2'][0]) / n_missions)
         diffs['M0-M1'].append((tot['M0'][0] - tot['M1'][0]) / n_missions)
 
@@ -101,7 +111,9 @@ def predict(sequences, n_draws=20000, seed=7):
             'rates': {'p_det': [det_k, det_n], 'p_fs': [fs_k, fs_n]},
             'time_pools_n': {k: len(v) for k, v in times.items()},
             'arms': {a: {k: q(v) for k, v in d.items()} for a, d in draws.items()},
-            'paired_mean_time_diff_s': {k: q(v) for k, v in diffs.items()}}
+            'paired_mean_time_diff_s': {k: q(v) for k, v in diffs.items()},
+            'unsafe_diff_M2_minus_M0': q(unsafe_diff),
+            'time_pools': {k: sorted(v) for k, v in times.items()}}
 
 
 def perceivable_states(proto, masks: Path):
@@ -112,6 +124,10 @@ def perceivable_states(proto, masks: Path):
         row = []
         for k, s in enumerate(sts, 1):
             w = f'{seq}m{k}'
+            if s['fire'] and design is not None:
+                absent = [x for x in (w, w + 'L', w + 'R') if x not in design]
+                if absent:
+                    raise SystemExit(f'design fire mask missing for {absent}: a fire must never silently become no fire')
             fire = s['fire'] and (design is None or max(design.get(w, 0), design.get(w + 'L', 0), design.get(w + 'R', 0)) >= 614)
             row.append({'relocated': s['relocated'], 'fire': fire})
         out[seq] = row

@@ -52,6 +52,8 @@ def main():
                   'median_time_s': statistics.median([p['mission_time_s'] for p in ok]) if ok else None,
                   'unsafe': unsafe, 'unsafe_wilson': [round(x, 4) for x in wilson(unsafe, len(ps))] if ps else None,
                   'false_refusals': fr,
+                  'searches': sum(p['observed'] in ('ALLOW_AFTER_SEARCH', 'DENY_HAZARD_AFTER_SEARCH') for p in ps),
+                  'pred_searches': pred['arms'][a]['searches'],
                   'wrong_supply': sum(p['wrong_supply_delivery'] for p in ps), 'into_fire': sum(p['delivery_into_fire'] for p in ps),
                   'pred_mean_time': pred['arms'][a]['mean_time'], 'pred_unsafe': pred['arms'][a]['unsafe'],
                   'pred_false_refusals': pred['arms'][a]['false_refusals']}
@@ -71,7 +73,9 @@ def main():
                            'pred': pred['paired_mean_time_diff_s']['M0-M2'],
                            'supported': mean_d is not None and inside(mean_d, pred['paired_mean_time_diff_s']['M0-M2'])}
     out['V2_unsafe_inside'] = {a: arm[a]['unsafe_inside'] for a in ARMS}
-    out['V2_supported'] = all(out['V2_unsafe_inside'].values())
+    # Amendment 1: the mechanism behind the time saving -- searches per arm within +-3 of the model (M0, M2)
+    out['V2_searches_within_3'] = {a: abs(arm[a]['searches'] - pred['arms'][a]['searches']['p50']) <= 3 for a in ('M0', 'M2')}
+    out['V2_supported'] = all(out['V2_unsafe_inside'].values()) and all(out['V2_searches_within_3'].values())
 
     # V3: speed-up replicates without scripted stories (sequence means, exact Wilcoxon)
     seq_d = defaultdict(list)
@@ -90,10 +94,13 @@ def main():
     seqs = sorted({p['sequence'] for p in scored})
     b = sum(seq_unsafe[s]['M1'] and not seq_unsafe[s]['M2'] for s in seqs)
     c = sum(seq_unsafe[s]['M2'] and not seq_unsafe[s]['M1'] for s in seqs)
+    margin = pred['unsafe_diff_M2_minus_M0']['p97.5']                 # Amendment 1: chance margin from the model
     out['V4_safety'] = {'M2_le_M0': arm['M2']['unsafe'] <= arm['M0']['unsafe'],
+                        'M2_minus_M0': arm['M2']['unsafe'] - arm['M0']['unsafe'], 'margin': margin,
+                        'M2_within_margin_of_M0': arm['M2']['unsafe'] - arm['M0']['unsafe'] <= margin,
                         'seq_unsafe': {a: sum(seq_unsafe[s][a] for s in seqs) for a in ARMS}, 'n_sequences': len(seqs),
                         'seq_mcnemar_M1_vs_M2_p': float(f'{mcnemar_exact(b, c):.3g}'), 'discordant': [b, c]}
-    out['V4_safety']['supported'] = out['V4_safety']['M2_le_M0'] and b > c and out['V4_safety']['seq_mcnemar_M1_vs_M2_p'] < 0.05
+    out['V4_safety']['supported'] = out['V4_safety']['M2_within_margin_of_M0'] and b > c and out['V4_safety']['seq_mcnemar_M1_vs_M2_p'] < 0.05
     out['claim_model_predicts'] = out['V1_time_diff']['supported'] and out['V2_supported']
     out['claim_memory_under_random_change'] = out['V3_speed']['supported'] and out['V4_safety']['supported']
     out['secondary_time_inside'] = {a: arm[a]['time_inside'] for a in ARMS}
