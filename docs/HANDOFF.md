@@ -245,6 +245,22 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 * study A：LLM フィルタ（ガードレール）の群を追加して 162 run に。study Q（実写の物資確認）は Sonnet が設計中。
 * **優秀賞に向けた次の一手**：A の後に I-19 の撮影（「確認不要」と書かれた依頼や「SAFE」の看板があっても確認して止まる）を動画に入れる。説明資料は1枚目を図中心にする。PDF の TBD を0にする。
 
+**2026-10-17 21:00 追記（ユーザー指示「小手先ではなく、ロジックと環境の根本的な改良を」）**
+* **I-20：疑わしいときだけ視点を増やす**。開発データでは、0.05 で見逃した火 23 件のうち 17 件が 0.005 以上で、火の無い画像は 40/380。
+  * W の Amendment 1 に登録済み（main とブランチ）：±0.8 m と 0.3 m 近い正面の3視点を追加で描画し、副次解析 `summarise_adaptive` で評価する。F/L/R の世界は変えていない。
+* **I-21：現実的な救援物資の倉庫**（`docs/design/I21_realistic_depot.md`、ブランチ `i21-depot`、worktree `.claude/worktrees/i21`）。
+  * AWS small warehouse（MIT-0）を `worlds/assets/aws-wh` に置く（git 管理外。`scripts/fetch_depot_assets.sh` で取得）。
+  * 壁・床・棚・散乱物（世界ごとのランダム配置）・パレットジャッキの障害物・粒子の煙を、操作領域の外に配置した。
+  * `build_variant(depot={...})` で使う。テスト合格。
+  * `v_run.sh` が V の前にプレビュー画像を描画する（`docs/figures/depot_preview_*.jpg`、ログは `experiments/results/depot_preview.log`）。
+  * 次の段階：拠点を4か所にして研究X。
+* **文献調査（全文）**：`docs/paper/LITERATURE_REVIEW.md` に、新規性への脅威トップ5と、論文に貼れる位置づけ文がある。
+  * I-19 版の論文の関連研究を書き直した（「完全性の非干渉を一方向に緩めたもの」「予測つきアルゴリズム」と位置づけ、新規なのは知覚の門への適用・上界・監査つきの閉ループ評価）。
+* **一貫性と頑健性の曲線**（`scripts/advice_curve.py`、`fig_advice_curve.pdf`）：本方式は助言の正答率によらず危険が助言なしと同じで、正しい助言では 118→74 秒（k=4）。素朴な追従は 10〜51/100、LLM フィルタは 3〜11/100 の危険が残る。
+* **研究Q（実写の物資確認）**：ブランチ `worktree-agent-ac893207bdda069d9`。Wikimedia Commons の 405 枚で、ラベルは目視確認済み。GPU で 30〜40 分。`q_run.sh` は作成中。
+* **研究S**：OCR マスクと「文字を無視せよ」の防御群を追加中（Sonnet）。
+* GPU の順番（予定）：L → V → W → Q → A → S → X。
+
 **評価中の厳守事項**：重い処理（ビルド・テスト・図の生成・動画）をしない。J では CPU 負荷とページキャッシュの取り合いで判断時間が延びた。逸脱は J の事前登録に記録済み。
 
 **各段が終わったらすること**
