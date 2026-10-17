@@ -94,8 +94,8 @@ search of the other station, unchanged (all existing tests pass; the arena's rec
   M2. `truth_for_depot` gives the label.
 * Furniture of the four-bay depot is dropped when its collision footprint (from the collision meshes) comes within 0.5 m of
   a pallet or the shelter or within 0.6 m of ANY straight leg (start to bay, all waypoint and look-around pairs, so a
-  recovery in any candidate order is covered). This drops the rack `ShelfD_01 (4.73, -1.24)` and one clutter crate; the other
-  racks stay. Clutter slots are separate for k=4.
+  recovery in any candidate order is covered). This drops the racks `ShelfD_01` at (4.73, -1.24) and (4.73, -3.04) and the crate `ClutteringC_01` at (3.33, 3.82);
+  the other racks stay. Clutter slots are separate for k=4.
 
 **Tests (all ROS-free).** `tests/test_i21_stations.py` (station set, order, candidate walk, config validation, memory and
 advice over 4 stations including the random adversarial property test extended to k=4: monotone plans approve only what the
