@@ -14,7 +14,7 @@ a caution-only refusal no longer ends the mission (the denial-of-service lever o
 Pure functions: no ROS.
 """
 from __future__ import annotations
-from .mission_memory import hazard_prob, CAUTION_TAU_H
+from .mission_memory import hazard_prob, scores_valid, CAUTION_TAU_H
 
 HAZARD = 'visible_hazard_at_checkpoint'
 KIND = 'caution_only'
@@ -34,8 +34,8 @@ def front_caution_only(decision: dict | None) -> bool:
 
 def classify_view(reason: str, first: dict, second: dict, tau_mem: float | None) -> str:
     """One side view: 'hazard' (the standard rule saw one: p >= tau_h), 'caution_only' (p >= tau_mem only) or 'clear'."""
-    if reason == HAZARD:
-        return 'hazard'
+    if reason == HAZARD or not (scores_valid(first) and scores_valid(second)):
+        return 'hazard'      # a broken view (invalid score) is never a soft, caution-only refusal
     if tau_mem is not None and max(hazard_prob(first), hazard_prob(second)) >= tau_mem:
         return 'caution_only'
     return 'clear'
