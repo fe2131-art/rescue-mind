@@ -36,6 +36,20 @@ def run(args):
             self.create_subscription(Image,'/camera',self.on_camera,image_qos())
             self.create_subscription(LaserScan,'/scan',self.on_lidar,qos_profile_sensor_data)
             self.create_subscription(Bool,'/rescuemind/estop',self.on_estop,10)
+            self.gate=None
+            if getattr(args,'delivery_interlock',False):
+                # I-22: during the 'deliver' phase non-zero velocity needs a valid permit for the latest approval record.
+                # Imports only the tiny permit module; knows nothing about the mission node or the decision rule.
+                from std_msgs.msg import String
+                from rescuemind import delivery_permit as dp
+                key=dp.load_key(args.permit_key_file) if getattr(args,'permit_key_file',None) else None
+                self.gate=dp.PermitGate(key=key)
+                q=control_qos('reliable')
+                self.create_subscription(String,dp.TOPIC_RECORD,lambda m:self.gate.on_record(m.data),q)
+                self.create_subscription(String,dp.TOPIC_PERMIT,lambda m:self.gate.on_permit(m.data),q)
+                self.create_subscription(String,dp.TOPIC_PHASE,lambda m:self.gate.on_phase(m.data,time.time()),q)
+                self.get_logger().info('delivery interlock ON, hmac='+str(key is not None))
+            self.last_gate=None
             self.timer=self.create_timer(.10,self.on_tick)
             self.last_reason=None
             self.last_tick=None
@@ -70,6 +84,13 @@ def run(args):
             velocity=Twist()
             velocity.linear.x=outcome.linear
             velocity.angular.z=outcome.angular
+            if self.gate is not None:
+                lin,ang,why=self.gate.filter(outcome.linear,outcome.angular,time.time())
+                velocity.linear.x=lin
+                velocity.angular.z=ang
+                if why!=self.last_gate:
+                    self.get_logger().info('delivery gate: '+(why or 'pass'))
+                    self.last_gate=why
             self.command_pub.publish(velocity)
             self.status_pub.publish(Bool(data=outcome.ready))
             if outcome.reason != self.last_reason:
@@ -94,4 +115,7 @@ if __name__=='__main__':
                         help='I-12: QoS of the request / heartbeat topics (must match the mission)')
     parser.add_argument('--legacy-latch-zero',action='store_true',
                         help='pre-v3.4: latch even when the stale request was zero (A/B experiments only)')
+    parser.add_argument('--delivery-interlock',action='store_true',
+                        help='I-22 (default off): in the mission phase \'deliver\' forward non-zero velocity only with a valid permit')
+    parser.add_argument('--permit-key-file',default=None,help='I-22: HMAC key shared with the interlock node (omit: unsigned permits)')
     run(parser.parse_args())
