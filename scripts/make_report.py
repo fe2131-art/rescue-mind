@@ -401,8 +401,13 @@ def sec_memory():
             Spacer(1, 3),
             P(f"速さの限定：{h['P1_efficiency_relocation_persist']['time_M0_median_s']:.0f}→{h['P1_efficiency_relocation_persist']['time_M2_median_s']:.0f}秒は、置き場所が変わったままの8出動での差。置き場所が元に戻った8出動では、記憶の提案した拠点に先に行ってから探すため検証つき記憶の方が遅い（中央値 {h['per_arm']['M2']['by_transition']['relocation_change']['time_median_s']:.0f} 秒 対 記憶なし "
               f"{h['per_arm']['M0']['by_transition']['relocation_change']['time_median_s']:.0f} 秒）。全体の中央値は {h['per_arm']['M0']['time_median_s']:.0f} → {h['per_arm']['M2']['time_median_s']:.0f} 秒。"), Spacer(1, 4)]
+    _c = [t for t in h['trials'] if t['arm'] == 'M2' and t['k'] > 1 and t.get('caution')]
+    _free = [t for t in _c if not t['fire_perceivable_at']]
+    _cn, _cf, _cfr = len(_c), len(_free), sum(bool(t['false_refusal']) for t in _free)
+    _cup = 100 * wilson(_cfr, _cf)[1]
     out += fig('memory_case_ja.png', 135, '事例（評価H Q09）：記憶なし（M0）は隠れた火(p=0.0346、基準0.05未満)に配達したが、検証つき記憶（M2）は2出動前にそこで火を見たため閾値を0.01に厳しくし(p=0.0489)、止まった。'
-               '記憶は確認を減らさず、慎重さだけを足す。その結果、記憶なしでは見逃した火で止まれた（1件の事例。統計的な主張ではない）。')
+               '記憶は確認を減らさず、慎重さだけを足す。その結果、記憶なしでは見逃した火で止まれた（1件の事例。統計的な主張ではない）。'
+               f"慎重さが使われたのは32出動中{_cn}出動で、火のない拠点は{_cf}出動だけ（誤拒否 {_cfr}/{_cf}、Wilson上限 {_cup:.0f}%）。慎重さの費用はまだ確立していない。")
     return out
 
 
@@ -516,8 +521,7 @@ def sec_camera():
     pp, cond = r['P1_pooled'], r['conditions']
     worst = min(cond, key=lambda c: cond[c]['ca_rate'])
     nm = lambda c: f"{R_FAM.get(c.rsplit('_', 1)[0], c)}（{'中' if c.endswith('_M') else '強'}）"
-    out += [P(f"12条件をまとめた誤許可は <b>{pp['false_approvals']}/{pp['n']}（{pp['rate'] * 100:.2f} %）</b>、世界単位のブートストラップ95%区間の上限 "
-              f"{pp['cluster_ci95'][1] * 100:.2f} %、Wilson 95%区間の上限 {pp['wilson_ci95'][1] * 100:.2f} %（上限が2 %未満なら「フェイルクローズ」と主張すると登録した）→ "
+    out += [P(f"12条件をまとめた誤許可は <b>{pp['false_approvals']}/{pp['n']}（{pp['rate'] * 100:.2f} %）</b>、Wilson 95%区間の上限 {pp['wilson_ci95'][1] * 100:.2f} %（上限が2 %未満なら「フェイルクローズ」と主張すると登録した）→ "
               f"<b>{'成立' if pp['supported'] else '不成立'}</b>。清浄な画像の誤許可は {r['clean']['false_approvals']}/{r['n_deny']}。"
               f"代償は可用性で、正しい許可が最も下がったのは<b>{nm(worst)}</b>の <b>{cond[worst]['correct_approvals']}/{r['n_allow']}</b>"
               f"（清浄 {r['clean']['correct_approvals']}/{r['n_allow']}、品質ゲートによる棄却 {cond[worst]['gate_rejected']}件）。"

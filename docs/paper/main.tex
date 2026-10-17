@@ -281,22 +281,23 @@ refusal; odometry agrees with ground truth; and the ROS bag is finalised. Only s
 
 \begin{table*}[t]\centering\caption{All pre-registered studies. Each was registered (protocol, configuration, endpoints and
 analysis code) before its first trial or inference; studies were designed sequentially, each after the previous results, so registration is confirmatory within a study (Supp.~Table~S7). Amendments made before the first trial are published with the
-registration.}\label{tab:studies}
-\footnotesize\renewcommand{\arraystretch}{0.92}\resizebox{\textwidth}{!}{\begin{tabular}{lllll}\toprule
-Study & Question & Data & Arms (systems) & Primary endpoint \\\midrule
-D & Does the v3.4 system behave as expected? & 42 closed-loop trials, 3 scenes + variants & 1 (v3.4) & expected behaviour \\
-T1 & Does the check generalise to unseen variation? & 600 held-out images, 60 worlds & 1 (v3.4; v3.5, ablations secondary) & false approvals $<2\%$ \\
-E & Closed loop in freshly randomised worlds & 60 trials, one world each & 1 (v3.5; counterfactuals) & expected behaviour, wrong deliveries \\
-T2 & Do hazard fixes chosen on dev data hold? & 600 new held-out images & 2 (v3.5; selected) & false approvals \\
-F & Do they help in closed loop on small hidden fires? & 24 worlds, paired & 2 (v3.5, v3.6) & deliveries despite a visible fire \\
-G & Does looking from the side help? & 24 new worlds, paired & 2 (v3.6, v3.6 + look-around) & deliveries despite a perceivable fire \\
-R & Is the check fail-closed under camera degradation? & 300 T2 images $\times$ 12 degradations & 1 (v3.6) & pooled false approvals $<2\%$ \\
-H & Can memory speed missions up without new risk? & 16 sequences $\times$ 3 missions, changing worlds & 3 (v3.6 with no, naive, verified memory) & time; unsafe deliveries \\
-J & Does the two-model design run on the robot? & 24 worlds, paired & 2 (v3.6; Qwen3.5-4B + Clef-Flash) & completes on one GPU; unsafe deliveries \\
-V & Does the repeated-mission model predict closed-loop behaviour? & 10 sequences $\times$ 6 missions, random change & 3 (v3.6 with no, naive, verified memory) & prediction intervals; unsafe deliveries \\
-Z & Is a generative VLM needed? & T1 + T2, contrastive zero-shot baselines & 3 & false and correct approvals \\
-K & Does a conformal $\tau_h$ keep a miss bound? & \KNcal{} dev fires $\to$ T2 (offline) & 2 ($\alpha=0.05,0.10$) vs frozen & held-out fire miss rate $\le\alpha$ \\
-P & Does the hazard question transfer to real photos? & 400 D-Fire test images (CC0) & 1 (v3.6 hazard question) & recall; false alarms (descriptive) \\
+registration. Claim: status of the registered claim (descriptive: none registered; pending: not yet run).}\label{tab:studies}
+\footnotesize\renewcommand{\arraystretch}{0.92}\resizebox{\textwidth}{!}{\begin{tabular}{llllll}\toprule
+Study & Question & Data & Arms (systems) & Primary endpoint & Claim \\\midrule
+D & Does the v3.4 system behave as expected? & 42 closed-loop trials, 3 scenes + variants & 1 (v3.4) & expected behaviour & \StatD \\
+T1 & Does the check generalise to unseen variation? & 600 held-out images, 60 worlds & 1 (v3.4; v3.5, ablations secondary) & false approvals $<2\%$ & \StatTone \\
+E & Closed loop in freshly randomised worlds & 60 trials, one world each & 1 (v3.5; counterfactuals) & expected behaviour, wrong deliveries & \StatE \\
+T2 & Do hazard fixes chosen on dev data hold? & 600 new held-out images & 2 (v3.5; selected) & false approvals & \StatTtwo \\
+F & Do they help in closed loop on small hidden fires? & 24 worlds, paired & 2 (v3.5, v3.6) & deliveries despite a visible fire & \StatF \\
+G & Does looking from the side help? & 24 new worlds, paired & 2 (v3.6, v3.6 + look-around) & deliveries despite a perceivable fire & \StatG \\
+R & Is the check fail-closed under camera degradation? & 300 T2 images $\times$ 12 degradations & 1 (v3.6) & pooled false approvals $<2\%$ & \StatR \\
+H & Can memory speed missions up without new risk? & 16 sequences $\times$ 3 missions, changing worlds & 3 (v3.6 with no, naive, verified memory) & time; unsafe deliveries & \StatH \\
+J & Does the two-model design run on the robot? & 24 worlds, paired & 2 (v3.6; Qwen3.5-4B + Clef-Flash) & completes on one GPU; unsafe deliveries & \StatJ \\
+V & Does the repeated-mission model predict closed-loop behaviour? & 10 sequences $\times$ 6 missions, random change & 3 (v3.6 with no, naive, verified memory) & prediction intervals; unsafe deliveries & \StatV \\
+Z & Is a generative VLM needed? & T1 + T2, contrastive zero-shot baselines & 3 & false and correct approvals & \StatZ \\
+K & Does a conformal $\tau_h$ keep a miss bound? & \KNcal{} dev fires $\to$ T2 (offline) & 2 ($\alpha=0.05,0.10$) vs frozen & held-out fire miss rate $\le\alpha$ & \StatK \\
+P & Does the hazard question transfer to real photos? & 400 D-Fire test images (CC0) & 1 (v3.6 hazard question) & recall; false alarms (descriptive) & \StatP \\
+P2 & Does a site-calibrated $\tau_h$ make the hazard question usable on real photos? & D-Fire: 400 calibration, 400 test images & 2 wordings vs frozen & recall $\ge0.90$ and false alarms $\le0.20$ & \StatPtwo \\
 \bottomrule\end{tabular}}\end{table*}
 
 \textbf{Metrics and statistics.} The primary safety metric is the false-approval rate: approvals among
@@ -405,8 +406,7 @@ Gazebo renders are noise-free and well exposed. To probe this part of the sim-to
 (\RNworlds{} worlds) in \RNcond{} pre-registered ways. There are six families, in the spirit of ImageNet-C~\cite{hendrycks2019benchmarking}: sensor noise, motion blur, defocus, under- and
 over-exposure, and JPEG compression, each at a moderate and a severe level (Fig.~\ref{fig:rex}). A frame that the robot's own acquisition gate
 rejects (black-out, white-out or flat frame) never reaches the VLM and counts as a refusal.
-Supp.~Table~S5 gives every condition. Pooled over all conditions, the check made \RPoolFA{} false approvals (world-cluster
-95\% CI \RPoolCI), so the registered fail-closed claim is \RPoolSupported. Pooling repeats the same \RNdeny{} must-refuse images, so the image-level bound is per condition: at most \RCondFAMax{} false approvals, Wilson upper bound \RCondFAUpper. \RUnsafeConds{} conditions increased false
+Supp.~Table~S5 gives every condition. Pooled over all conditions, the check made \RPoolFA{} false approvals, so the registered fail-closed claim is \RPoolSupported. Pooling repeats the same \RNdeny{} must-refuse images, so the image-level bound is per condition: at most \RCondFAMax{} false approvals, Wilson upper bound \RCondFAUpper. \RUnsafeConds{} conditions increased false
 approvals significantly. Correct approvals went from \RCleanCA{} on clean frames to \RWorstCA{} in the
 worst condition (\RWorstCond). The gate refused \RGateRej{} frames in total, and \RFireMissMax{} of \RNfire{} visible fires were missed in any
 condition. Under shift, refusal rather than unsafe approval is the intended failure direction of a selective classifier~\cite{geifman2017selective}.
@@ -438,11 +438,13 @@ $p=\HPOneP$). M1 made \HUnsafeMone{} unsafe deliveries, against
 memory, so we also test at the sequence level: M1 made at least one unsafe delivery in \HSeqMone{} of \HSeqN{} sequences
 and M2 in \HSeqMtwo{} (exact McNemar $p=\HSeqP$). The M1--M2 contrast is large by design, since the naive arm skips checks;
 the comparison that bounds our risk is M2 versus M0, \HUnsafeMtwo/32 versus \HUnsafeMzero/32 (Wilson upper bounds
-\HUnsafeUppertwo\% and \HUnsafeUpperzero\%). False refusals (stops at a station whose fire was already out) were \HFalseRefzero{} for M0, \HFalseRefone{} for M1
-and \HFalseReftwo{} for M2. The registered headline claim, verified memory keeping memory's speed-up without its safety cost, is \HHeadline. M1's unsafe deliveries were \HWrongone{} wrong supplies, relocated since it last looked, and \HFireone{} deliveries into a fire that had appeared since; every one of them followed a skipped check. M2 made neither kind of error and no false refusal, and it was faster in \HFasterPairs{} persistent-relocation pairs. A stale proposal has a price: when the supplies had been moved back, M2 first visited the station memory proposed and then searched, and its median mission time was \HChangeMtwo\,s against \HChangeMzero\,s for M0. M0's single unsafe delivery shows what caution is for. In that world the new fire was invisible from the front (0 mask pixels) and small from the side (2\,219 pixels). Without memory, the left view scored $p_h=0.035$, below $\tauh=0.05$, and the robot delivered. Memory had recorded a fire at this station two missions earlier, so M2 checked with $\tau_h^{\mathrm{mem}}=0.01$; its left view scored $p_h=0.049$ and the robot stopped (Supp.~Fig.~S5). This single case does not show that M2 is safer than M0 (1 versus 0 events), only that it is not less safe (P3). It does show the asymmetry at work: memory can make the robot more careful, never less. Caution is cheap because it is local:
-applying $\tau_h=0.01$ everywhere would refuse correct deliveries on fire-free views (on T2, the conformal threshold
-$\tau=\KTauTen$ already raised false alarms to \KFATen, study K), whereas memory applies it only at stations with a recent hazard;
-in the \HPTwoN{} M2 missions this caused \HFalseReftwo{} false refusals. Every paired mission is listed in Supp.~Table~S8.
+\HUnsafeUppertwo\% and \HUnsafeUpperzero\%), so P3 (M2 $\le$ M0) is met as registered but informative only down to those bounds. False refusals (stops at a station whose fire was already out) were \HFalseRefzero{} for M0, \HFalseRefone{} for M1
+and \HFalseReftwo{} for M2. The registered headline claim, verified memory keeping memory's speed-up without its safety cost, is \HHeadline. M1's unsafe deliveries were \HWrongone{} wrong supplies, relocated since it last looked, and \HFireone{} deliveries into a fire that had appeared since; every one of them followed a skipped check. M2 made neither kind of error and no false refusal, and it was faster in \HFasterPairs{} persistent-relocation pairs. A stale proposal has a price: when the supplies had been moved back, M2 first visited the station memory proposed and then searched, and its median mission time was \HChangeMtwo\,s against \HChangeMzero\,s for M0. M0's single unsafe delivery shows what caution is for. In that world the new fire was invisible from the front (0 mask pixels) and small from the side (2\,219 pixels). Without memory, the left view scored $p_h=0.035$, below $\tauh=0.05$, and the robot delivered. Memory had recorded a fire at this station two missions earlier, so M2 checked with $\tau_h^{\mathrm{mem}}=0.01$; its left view scored $p_h=0.049$ and the robot stopped (Supp.~Fig.~S5). This single case does not show that M2 is safer than M0 (1 versus 0 events), only that it is not less safe (P3). It does show the asymmetry at work: memory can make the robot more careful, never less. Caution is local:
+a global $\tau_h=0.01$ would refuse correct deliveries on fire-free views (on T2, the conformal threshold
+$\tau=\KTauTen$ already raised false alarms to \KFATen, study K), whereas memory applies it only at stations with a recent hazard.
+Its cost is not established: caution applied in \HCautN{} of the \HPTwoN{} M2 missions, only \HCautFree{} of them at a fire-free station,
+with \HCautFalse{} false refusals there (Wilson upper bound \HCautFalseUpper). A global $\tau=\KTauTen$ would also have stopped M0 in Q09.3
+(descriptive, not registered; Supp.~Sec.~S7). Every paired mission is listed in Supp.~Table~S8.
 \begin{table}[t]\centering\caption{Campaign H, missions 2--3 (paired). Unsafe = wrong supply or a perceivable fire at the
 delivering station. Time: median over all 32 missions.}\label{tab:h}\resizebox{\linewidth}{!}{\input{tab_h_arms.tex}}\end{table}
 \begin{figure}[t]\centering\fig[0.88\linewidth]{fig_h_change_rate.pdf}
@@ -452,6 +454,7 @@ Fig.~\ref{fig:hrate} extends the campaign. At a change probability of
 $q=\HModelQ$ per mission, the model predicts \HModelUnsafeone{} unsafe deliveries per 100 missions for naive memory, against
 \HModelUnsafetwo{} for verified memory and \HModelUnsafezero{} without memory; the mean mission times are \HModelTimeone,
 \HModelTimetwo{} and \HModelTimezero\,s.
+Keeping every check has a price: verified memory keeps \HPriceFracZero{} of naive memory's modelled time saving at $q=0$ (\HPriceVerZero{} of \HPriceNaiveZero\,s) and \HPriceFracHalf{} at $q=0.5$.
 The saving is bounded by the arena: with two stations memory can only avoid one search detour ($\delta=\HKDelta$\,s). With $k$
 stations and a supply that relocates uniformly with probability $q$, verified memory saves $\delta\,((k-1)-qk)/2$ per mission
 (\HKSaveTwo\,s at $k=2$ and \HKSaveEight\,s at $k=8$ for $q=0.2$; break-even at $q^\ast=(k-1)/k$; Supp.~Sec.~S7) while every
@@ -464,7 +467,7 @@ On T2, Clef-Flash together with
 Qwen3.5-4B, the pair that fits on one 32\,GB V100, made \TTPairFA{} false approvals (\TTPairCA{} correct).
 Campaign J ran this pair on the robot, paired with v3.6 on 24 worlds with swapped, empty and small-fire stations;
 it behaved as expected in \JCorrectJ{} (v3.6: \JCorrectA, exact McNemar $p=\JMcNemarP$), with
-unsafe deliveries: \JUnsafeJ{} (v3.6: \JUnsafeA); stack failures: \JFailedJ{}. Peak GPU memory was \JPeakVram\,GB, and
+unsafe deliveries: \JUnsafeJ{} (v3.6: \JUnsafeA; Wilson upper bounds \JUnsafeJUpper{} and \JUnsafeAUpper); stack failures: \JFailedJ{}. Peak GPU memory was \JPeakVram\,GB, and
 the median check latency was \JLatJ\,s for the two-model system and \JLatA\,s for v3.6; on our host, alternating $\approx$46\,GB of weights thrashed the page cache, so both include model I/O (registered deviation note). The registered claim (two-model design on the
 simulated robot, no extra risk) is \JClaim.
 
@@ -489,7 +492,7 @@ station and shelter, which is favourable where a wrong delivery costs a round tr
 
 \section{Limitations}
 All results are from simulation: simple meshes, two supply types, fixed station geometry, one robot, a stylised fire, and sensor degradations rather than the appearance gap of real objects or smoke. Campaign H scripts its changes, assumes
-independent changes, and spans three missions and two stations. Corollary~1 assumes a per-check false-approval bound uniform over the stations a route meets.
+independent changes, spans three missions and two stations, and does not compare memory caution with a global threshold at equal false-stop rate (Supp.~Sec.~S7). Corollary~1 assumes a per-check false-approval bound uniform over the stations a route meets.
 Counterfactual baselines were not run physically, barely visible fires (21--613 pixels) are excluded, and the guard is hand-written, not formally synthesised~\cite{alshiekh2018shielding,ames2019cbf}.
 The next step is a real platform. Threats to validity: Supp.~Sec.~S9.
 
