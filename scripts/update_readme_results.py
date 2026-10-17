@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Rewrite the README results block from experiments/results (no hand-typed numbers).
 
-Three pre-registered evaluations: campaign E (closed loop, v3.5, primary), campaign D (v3.4) and the
-held-out test T1 (offline, 600 images). Every number is computed from the result files; a part whose
-input file is missing is skipped.
+Pre-registered evaluations: campaigns G and F (closed loop, paired, v3.6 look-around), E (v3.5, primary
+for the broad scenarios), D (v3.4) and the held-out tests T1 and T2 (offline, 600 images each). Every number is
+computed from the result files; a part whose input file is missing is skipped.
 """
 from __future__ import annotations
 import json
+import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -210,9 +211,68 @@ Qwen3.5-9B（ローカル・V100）、回復探索・状況報告・LLM指示理
     return txt, dict(n=len(rows), ok=ok, fa=fa)
 
 
+def section_v36():
+    """Campaigns F and G (paired closed loop) and the held-out T2: the v3.6 story, all from the summaries."""
+    jl = lambda n: json.loads((RES / n).read_text()) if (RES / n).is_file() else None
+    f, g, t2 = jl('f_summary.json'), jl('g_summary.json'), jl('t2_summary.json')
+    if not (f and g):
+        return None
+    gp, gc, fp, fc = g['primary'], g['per_config'], f['primary'], f['per_config']
+    nf = gp['n_world_pairs_fire_perceivable']
+    miss = [x for x in g.get('trials', []) if x['config'] == 'C' and x['wrong_delivery']]
+    gl = [r for r in read_jsonl(RES / 'campaign_G_ledger.jsonl') if r.get('final', True)] if (RES / 'campaign_G_ledger.jsonl').is_file() else []
+
+    def wall(c):
+        w = sorted(r['wall_s'] for r in gl if r['config'] == c and r['expected_action'] == 'ALLOW')
+        return w[len(w) // 2] if w else None
+    wb, wc = wall('B'), wall('C')
+    lines = ['| | B：正面のみ | **C：＋横から見直す（v3.6）** |', '|---|---|---|',
+             f"| 火が見える{nf}世界で、それでも配達した回数 | {gc['B']['wrong_deliveries']}/{gc['B']['visible_fire_trials']} | **{gc['C']['wrong_deliveries']}/{gc['C']['visible_fire_trials']}** |",
+             f"| 火の無い世界での誤った停止 | {gc['B']['false_hazard_stops']}/{gc['B']['fire_free_trials']} | **{gc['C']['false_hazard_stops']}/{gc['C']['fire_free_trials']}** |",
+             f"| 期待どおりの行動 | {gc['B']['correct']}/{gc['B']['n']}（{pct(gc['B']['correct_ci95'][0], 0)}〜{pct(gc['B']['correct_ci95'][1], 0)}） | **{gc['C']['correct']}/{gc['C']['n']}**（{pct(gc['C']['correct_ci95'][0], 0)}〜{pct(gc['C']['correct_ci95'][1], 0)}） |"]
+    if wb and wc:
+        lines.append(f"| 正常配達1回の所要時間（中央値） | {wb:.0f} 秒 | {wc:.0f} 秒（+{wc - wb:.0f} 秒） |")
+    mtxt = ''
+    if miss:
+        m = miss[0]
+        mtxt = (f"\n* 唯一の見逃し（{m['world']}）：火が正面から {m['fire_pixels_front']} 画素（完全に隠れる）、横からも最大 {m['fire_pixels_best_side']:,} 画素と最小で、"
+                f"p(危険)が閾値0.05に届かなかった。限界として明記")
+    t2txt = ''
+    if t2:
+        R = t2['results']
+        ref, j2, sel = R[t2['reference']], R['J2(Clef-task) tau_h=0.05'], R[t2['selected']]
+        cl = jl('devset_t2_clef2.json')
+        lat = sorted(r['clef']['latency_s'] for r in cl['records'] if r.get('clef')) if cl else []
+        t2txt = (f"\n* **未使用テスト T2**（{ref['n_deny'] + ref['n_allow']}枚、描画前に登録）：v3.5 でも誤許可 **{ref['false_approvals']}/{ref['n_deny']}** と天井で、改善は測れない。"
+                 f"Jev の役割を担うローカルの **Clef-Flash 単独**（課題向けの質問）も誤許可 **{j2['false_approvals']}/{j2['n_deny']}**・正しい許可 {j2['correct_approvals']}/{j2['n_allow']}"
+                 + (f"、1回の推論は中央値 {lat[len(lat) // 2]:.1f} 秒" if lat else '')
+                 + f"。Clef＋Qwen の2モデル確認（規則上の選定）は誤許可 {sel['false_approvals']}/{sel['n_deny']}・正しい許可 {sel['correct_approvals']}/{sel['n_allow']}（V100 1台には同時に載らず、既定には採用せず）")
+    fm = sorted(x['fire_pixels'] for x in f.get('trials', []) if x['config'] == 'B' and x['wrong_delivery'] and x.get('fire_pixels'))
+    fpx = f"Bが見逃した火は正面から {fm[0]:,}〜{fm[-1]:,} 画素（{len(fm)}件）" if fm else 'Bが見逃した火は小さい'
+    txt = f"""### v3.6：物資の陰に隠れた小さな火への対策（現在の既定構成）
+
+T1 で分かった弱点に、結果を見る前に固定した条件で段階的に対策（[`IMPROVEMENT_LOG.md`](docs/IMPROVEMENT_LOG.md) I-11・I-13・I-14）。
+**v3.6 = オーケストレータの既定値**：Qwen3.5-9B、危険の問い方 h36＋拡大切り出し tiles、τ_h=0.05、**横から見直す 0.4 m**、回復探索・状況報告あり、DDS非同期。
+
+* 評価F（問い方＋切り出し、対比較、[`PREREGISTRATION_F.md`](experiments/PREREGISTRATION_F.md)）：小さな火が見えていた{fp['n_world_pairs_fire_visible_both']}世界で配達した回数
+  v3.5 **{fp['wrong_deliveries_A']}/{fp['n_world_pairs_fire_visible_both']}** → **{fp['wrong_deliveries_B']}/{fp['n_world_pairs_fire_visible_both']}**（McNemar正確検定 p={fp['mcnemar_p']}、**有意でない**）。{fpx}、閾値では分けられなかった
+* 評価G（**横から見直す**、新しい世界の対比較、[`PREREGISTRATION_G.md`](experiments/PREREGISTRATION_G.md)、{g['n_trials']}試行）：
+
+{chr(10).join(lines)}
+
+* 食い違いは B のみ {gp['discordant_B_only']}・C のみ {gp['discordant_C_only']}、McNemar正確検定 **p={gp['mcnemar_p']:.3f}**（事前登録した主張が成立）{mtxt}{t2txt}"""
+    return txt, dict(nf=nf, gb=gc['B']['wrong_deliveries'], gcw=gc['C']['wrong_deliveries'], p=gp['mcnemar_p'], fs=gc['C']['false_hazard_stops'],
+                     nfree=gc['C']['fire_free_trials'], ok=gc['C']['correct'], n=gc['C']['n'], okb=gc['B']['correct'],
+                     fa=fp['wrong_deliveries_A'], fb=fp['wrong_deliveries_B'], nfv=fp['n_world_pairs_fire_visible_both'], fp=fp['mcnemar_p'])
+
+
 def main():
-    e, d, t = section_e(), section_d(), t1_parts()
+    e, d, t, v = section_e(), section_d(), t1_parts(), section_v36()
     head = ['| 評価（事前登録） | 内容 | 結果 |', '|---|---|---|']
+    if v:
+        G = v[1]
+        head.append(f"| **評価G（v3.6）** | 新しい世界での対比較の閉ループ。許可の直前に横から撮り直す | 火が見えるのに配達した回数 **{G['gb']}/{G['nf']} → {G['gcw']}/{G['nf']}**（McNemar正確検定 p={G['p']:.3f}）、火の無い世界の誤停止 **{G['fs']}/{G['nfree']}** |")
+        head.append(f"| 評価F（問い方＋切り出し） | 同じ形式の対比較 | 配達した回数 {G['fa']}/{G['nfv']} → {G['fb']}/{G['nfv']}（p={G['fp']}、有意でない） |")
     if e:
         E = e[1]
         head.append(f"| **評価E（主結果）** v3.5 | 試行ごとにランダムな世界での閉ループ {E['n']}試行 | 期待どおり **{E['ok']}/{E['n']}**、誤配達 **{E['wrong']}/{E['n']}**（{ci_txt(E['wrong'], E['n'])}） |")
@@ -225,11 +285,13 @@ def main():
         head.append(f"| 未使用テスト T1（オフライン） | 開発に一度も使わない{n_img}枚（照明・位置・未知の妨害物・火災）、v3.4規則 | 誤許可 {fa_txt(full)}、正しい許可 {ca_txt(full)} |")
         head.append(f"| 〃 v3.5（τ_h=0.05、副の事前指定） | 同じ画像・同じ保存済み確率から再計算 | 誤許可 {fa_txt(v35)}、正しい許可 {ca_txt(v35)} |")
         t1_block = f"* T1：{claim}主な原因は下の「残る弱点」"
-    parts = ['<!-- RESULTS:START -->', '## 結果：事前登録した3つの評価', '',
+    parts = ['<!-- RESULTS:START -->', '## 結果：事前登録した評価（D・E・F・G・T1・T2）', '',
              'Qwen3.5-9B（ローカル・V100）。条件・閾値・解析は結果を見る前に `experiments/PREREGISTRATION_*.md` に固定し、台帳は全試行を記録。', '',
              '\n'.join(head), '']
     if t1_block:
         parts += [t1_block, '']
+    if v:
+        parts += [v[0], '']
     if e:
         parts += [e[0], '']
     if t:
@@ -243,8 +305,16 @@ def main():
     readme = ROOT / 'README.md'
     txt = readme.read_text(encoding='utf8')
     a, b = txt.index('<!-- RESULTS:START -->'), txt.index('<!-- RESULTS:END -->') + len('<!-- RESULTS:END -->')
-    readme.write_text(txt[:a] + block + txt[b:], encoding='utf8')
-    print('README results updated: E', e[1] if e else None, '| D', d[1] if d else None, '| T1', bool(t))
+    txt = txt[:a] + block + txt[b:]
+    chap = ROOT / 'docs/video_chapters.json'
+    if chap.is_file():     # keep the video length and speed-up statement in sync with the video script's chapter file
+        ch = json.loads(chap.read_text(encoding='utf8'))
+        sp = next((c['speed'] for c in ch if c.get('speed')), None)
+        end = ch[-1]['end_s']
+        if sp:
+            txt = re.sub(r'デモ動画（YouTube、[^）]*）', f'デモ動画（YouTube、{int(end // 60)}分{int(round(end % 60)):02d}秒、日本語ナレーション付き。{sp}で、速度は画面に常時表示）', txt, count=1)
+    readme.write_text(txt, encoding='utf8')
+    print('README results updated: G', v[1] if v else None, '| E', e[1] if e else None, '| D', d[1] if d else None, '| T1', bool(t))
 
 
 if __name__ == '__main__':

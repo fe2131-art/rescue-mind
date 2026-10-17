@@ -6,8 +6,21 @@
 |---|---|---|
 | 説明資料PDF | `docs/report/説明資料_PAI最終課題_tetsutetsu.pdf`（`scripts/make_report.py --account tetsutetsu` で再生成） | 作成済み |
 | GitHub リポジトリ（public） | https://github.com/fe2131-art/rescue-mind | **公開設定はご本人が変更** |
-| 動画（MP4、1〜3分） | `outputs/video/PAI最終課題_tetsutetsu.mp4`（Git管理外、`scripts/make_demo_video.py` で再生成） | 作成済み |
+| 動画（MP4、1〜3分） | `outputs/video/PAI最終課題_tetsutetsu.mp4`（約2分46秒、v3.6 の4デモ＋評価の表。Git管理外、`scripts/make_demo_video.py` で再生成。章立ては `docs/video_chapters.json`） | 作成済み |
 | YouTube 投稿用テキスト | [`docs/YOUTUBE_DESCRIPTION.md`](YOUTUBE_DESCRIPTION.md)（タイトル・概要・倍速表記・チャプター・クレジット） | 作成済み |
+
+## 提出する版（v3.6）の要点
+
+* **構成**：Qwen3.5-9B（ローカル・V100）。v3.6 はオーケストレータの既定値（危険の問い方 h36＋拡大切り出し、τ_h=0.05、横から見直す 0.4 m、回復探索・状況報告、DDS非同期）。
+* **動画の4デモ**：①言い換えた指示でも配達 ②物資の取り違え → 別の拠点を探索して配達 ③欠品 → 両拠点を確認して停止 ④物資の陰に隠れた小さな火 → 正面では見えず、横から見て検知して停止。
+* **倍速の明記**：走行8倍速・確認動作3倍速・AI判断の瞬間は等速（画面左上に常時表示。YouTube概要欄にも記載）。
+* **主な数値**（すべて事前登録、`experiments/results/` の結果ファイルから生成）：
+  * 評価E（ランダムな世界の閉ループ60試行）：期待どおり 60/60、誤配達 0件
+  * 未使用の画像600枚 T1：誤許可 5/408（v3.4の規則。物資の陰の小さな火が残る弱点）
+  * 評価G（対比較、新しい世界）：火が見えるのに配達した回数 11/16 → 1/16（McNemar正確検定 p=0.002）、火の無い世界での誤停止 0/8（`g_summary.json`）
+  * 評価F（問い方＋切り出し）：12/13 → 7/13（p=0.0625、有意でない。`f_summary.json`）
+  * 未使用の画像600枚 T2：v3.5 でも誤許可 0/407（天井で改善は測れない）。Clef-Flash（Jevの役割）単独も 0/407（`t2_summary.json`）
+* **限界**：すべてシミュレーション。評価Gの唯一の見逃しは、正面から完全に隠れ、横からも最小だった火。
 
 ## 提出前チェック
 
