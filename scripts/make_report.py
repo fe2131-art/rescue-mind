@@ -395,7 +395,9 @@ def sec_memory():
             Spacer(1, 3),
             P(f"素朴な記憶（M1）の危険な配達 {h['per_arm']['M1']['unsafe_deliveries']} 件の内訳は、前回から入れ替わった物資 {h['per_arm']['M1']['wrong_supply']} 件と、"
               f"新たに出た火の中への配達 {h['per_arm']['M1']['into_fire']} 件で、いずれも確認を省いた結果である（中央値 {h['per_arm']['M1']['time_median_s']:.0f} 秒が最短なのも同じ理由で、誤った停止も {h['per_arm']['M1']['false_refusals']} 件）。"
-              'M1 は確認を省く設計なので20対0は意外な結果ではなく、意味のある比較は M0 対 M2（1件対0件）で、主張するのは「M2 は M0 より危険ではない」までである（1件対0件から「より安全」とは言えない）。'),
+              f"M1 は確認を省く設計なので{h['P2_safety_naive_vs_verified']['unsafe_M1']}対{h['P2_safety_naive_vs_verified']['unsafe_M2']}は意外な結果ではなく、"
+              f"意味のある比較は M0 対 M2（{h['P3_no_extra_risk_vs_v36']['unsafe_M0']}件対{h['P3_no_extra_risk_vs_v36']['unsafe_M2']}件）で、主張するのは「M2 は M0 より危険ではない」までである"
+              f"（{h['P3_no_extra_risk_vs_v36']['unsafe_M0']}件対{h['P3_no_extra_risk_vs_v36']['unsafe_M2']}件から「より安全」とは言えない）。"),
             Spacer(1, 3),
             P(f"速さの限定：{h['P1_efficiency_relocation_persist']['time_M0_median_s']:.0f}→{h['P1_efficiency_relocation_persist']['time_M2_median_s']:.0f}秒は、置き場所が変わったままの8出動での差。置き場所が元に戻った8出動では、記憶の提案した拠点に先に行ってから探すため検証つき記憶の方が遅い（中央値 {h['per_arm']['M2']['by_transition']['relocation_change']['time_median_s']:.0f} 秒 対 記憶なし "
               f"{h['per_arm']['M0']['by_transition']['relocation_change']['time_median_s']:.0f} 秒）。全体の中央値は {h['per_arm']['M0']['time_median_s']:.0f} → {h['per_arm']['M2']['time_median_s']:.0f} 秒。"), Spacer(1, 4)]
