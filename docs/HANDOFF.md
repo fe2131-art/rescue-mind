@@ -126,8 +126,16 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
     * 解析：`scripts/h_analysis.py`、`scripts/h_change_rate_model.py`（変化率スイープ、図 `fig_h_change_rate.pdf`）。
   * 予備走行（`campaign_H_pilot*_ledger.jsonl`）で、見た物資の判定に誤りを発見して修正した（判断の確信度は依頼物資のものだった）。H の Amendment 1 に記録すること。
 
+* **I-16：当初計画の Jev＋Qwen を実機（閉ループ）で動かす**。ユーザーの指示（2026-10-17）。
+  * 構成：Clef-Flash（課題向けの質問、τ 0.05）＋Qwen3.5-4B。V100 1台に載る（約28GB）。
+  * 評価J を事前登録済み：`PREREGISTRATION_J.md`、24世界の対比較（A：v3.6、J：2モデル）、48 run。解析は `scripts/j_analysis.py`。
+  * フラグ：`--jev-local clef --jev-schema task --jev-hazard-threshold 0.05 --model Qwen/Qwen3.5-4B --hazard-prompt h35 --hazard-views full`。
+* H の予備走行2回目に合格し、Amendment 1 として記録済み。
+* **実行中の連鎖**：`scripts/final_chain.sh`。R の終了 → `r_analysis.py` → J の試運転（GPUメモリの確認）→ H 本番 → J 本番（試運転が成功した場合のみ）。
+  * 出力：`r_analysis_stdout.log`、`j_smoke_stdout.log`、`campaign_H_ledger.jsonl`、`campaign_J_ledger.jsonl`、`campaign_J_vram.csv`。
+
 **次の手順**
-1. 予備走行2回目（HP02・HP03：記憶による経路と、素朴な記憶の確認省略の監査）を確認する → H の Amendment 1 → H を本実行（約7時間。R の終了後に）。
+1. （済）予備走行2回目（HP02・HP03：記憶による経路と、素朴な記憶の確認省略の監査）を確認する → H の Amendment 1 → H を本実行（約7時間。R の終了後に）。
 2. R の解析（`r_analysis.py`。事前登録どおり）→ 論文に「センサー劣化」節、図。
 3. H の解析 → 論文の主貢献に I-15 を入れる。題名・Abstract・Method（単調性の命題）・Results・図（変化率）を書き直す。
 4. 残り：アーキテクチャ図（v3.4 表記が古い）、`video_frame_decision.png` の更新、REVIEW_NOTES、HANDOFF の更新。
