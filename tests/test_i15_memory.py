@@ -21,7 +21,9 @@ def checkpoint(seen, expected, hz=0.001, scene='clear', peeks=None):
     cp = {'model_calls': {'first': call(seen, hz, scene), 'second': call(seen, hz, scene, 2)},
           'decision': {'allow': ok, 'reason': 'on_site_supply_confirmed' if ok else
                        ('visible_hazard_at_checkpoint' if scene == 'hazard' else 'local_vlm_disagree_or_wrong_supply'),
-                       'first_supply': seen, 'second_supply': seen, 'first_confidence': .97, 'second_confidence': .97,
+                       'first_supply': seen, 'second_supply': seen,
+                       # as in local_decision: confidence of the REQUESTED supply, not of what was seen
+                       'first_confidence': .97 if seen == expected else .003, 'second_confidence': .97 if seen == expected else .004,
                        'min_confidence': .5}}
     return cp
 
@@ -108,6 +110,14 @@ class Memory(unittest.TestCase):
         up = mem.append_mission(mission('water', 'medicine', 'water', recovery=None), 'r2')
         kinds = {c['kind'] for c in up['changes']}
         self.assertEqual(kinds, {'supply_changed', 'hazard_not_seen_now'})
+
+    def test_a_disagreeing_or_unsure_pass_is_uncertain(self):
+        m = mission('water', 'medicine', 'water')
+        m['checkpoint']['model_calls']['second']['result']['supply'] = 'other'
+        self.assertEqual(observations(m, 'r1')[0]['supply'], 'uncertain')
+        m = mission('water', 'medicine', 'water')
+        m['checkpoint']['model_calls']['first']['scores']['supply_probs'] = {'medicine': .4}
+        self.assertEqual(observations(m, 'r1')[0]['supply'], 'uncertain')
 
     def test_naive_trusted_checkpoint_is_not_remembered_as_an_observation(self):
         m = {'checkpoint_station': 'water', 'checkpoint': {'memory_trusted': True, 'decision': {'allow': True}}}

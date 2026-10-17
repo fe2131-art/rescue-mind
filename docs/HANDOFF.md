@@ -1,4 +1,4 @@
-# HANDOFF — RescueMind（最終更新 2026-10-17）
+# HANDOFF — RescueMind（最終更新 2026-10-17 午後）
 
 作業を中断・文脈圧縮した後でも、このファイルだけで正確に再開できるようにまとめたもの。
 **最優先ルール**（ユーザー指示）：
@@ -109,26 +109,28 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 | F（閉ループ、対比較） | 小さな火で配達してしまった回数：v3.5 12/13 → B 7/13（p=0.0625、有意でない） |
 | G（閉ループ、対比較、新しい世界） | **横から見直す（I-14）で 11/16 → 1/16、p=0.002、誤った停止 0/8**。唯一の見逃し W19 は正面から0画素、横からも最小の2,308画素 |
 
-**実行中（バックグラウンド）**
-* `scripts/film_v36.sh`：最終構成での動画撮影（deliver / recover / empty / hidden_fire）。結果の run_id は `experiments/results/film_v36_runs.txt`。
+**2026-10-17 の進捗**
+* 動画（v3.6）は完成：2:46・ナレーションあり、走行8倍速・確認3倍速・判断は等速で、横から見直す場面を含む。
+  * 使った run：deliver dbed92419f88479e、recover b4fcd9d164444db7、empty 367928c988f34e34、hidden_fire 9d73663832c94f16。
+  * 再生成：`make_video_plan.py --deliver .. --recover .. --empty .. --hidden-fire ..` → `make_demo_video.py --narrate 2`。
+* 説明資料PDF（9ページ）・README・YouTube説明文・SUBMISSION を v3.6（F・G・T2・I-14）に更新した。論文の Abstract と貢献に G を追加した。
+* 訂正：F で B が見逃した7件のうち1件（W21）は 8,573画素・p=0.019 だった（G の事前登録に Erratum を追記）。
+* **R（カメラ劣化12条件、事前登録 `PREREGISTRATION_R.md`）**：
+  * 実行：`scripts/r_eval.sh`（再開可能。停止は `scripts/stop_r.sh`）。結果は `devset_r_<条件>.json`。
+  * 解析スクリプト `r_analysis.py` は未作成。主評価は P1：12条件をまとめた誤許可の、world 単位クラスタ CI の上限が 2% 未満かどうか。
+* **新規性 I-15：出動をまたぐ記憶**（`rescuemind/mission_memory.py`、D13、IMPROVEMENT_LOG I-15）。
+  * 記憶にできるのは順序の提案と慎重さの追加だけ。確認は減らさない（安全側への単調性。監査が再計算する）。
+  * 文献調査の結果、この「記憶で確認の場所と量を決め、確認は減らさない」型の先行研究は見当たらなかった（ReMEmbR、Embodied-RAG、When Memory Lies など）。
+  * 評価H は事前登録済み：`PREREGISTRATION_H.md`、16系列×3出動、M0（記憶なし）・M1（素朴な記憶）・M2（検証付きの記憶）、計112 run。
+    * 実行：`run_campaign.py --protocol experiments/campaign_h_protocol.json --ledger experiments/results/campaign_H_ledger.jsonl`
+    * 解析：`scripts/h_analysis.py`、`scripts/h_change_rate_model.py`（変化率スイープ、図 `fig_h_change_rate.pdf`）。
+  * 予備走行（`campaign_H_pilot*_ledger.jsonl`）で、見た物資の判定に誤りを発見して修正した（判断の確信度は依頼物資のものだった）。H の Amendment 1 に記録すること。
 
-**次の手順（優先順）**
-1. **動画**：
-   * `docker exec rm-dev rescuemind-entrypoint python3 scripts/make_video_plan.py --deliver <id> --recover <id> --empty <id> --hidden-fire <id>`（v3.6 の絵コンテに対応済み、目安175秒以下）
-   * → `docker exec rm-dev rescuemind-entrypoint python3 scripts/make_demo_video.py --plan docs/video_plan.json --out outputs/video/PAI最終課題_tetsutetsu.mp4 --narrate 2`
-   * VOICEVOX の docker（rm-voicevox）が必要。**3分以内**であることと、倍速が画面に表示されていることを確認する。
-2. **最終数値の反映**：
-   * `bash scripts/build_paper.sh`（論文。G の数値は自動で入る。TBD が残っていないか確認）
-   * `python3 scripts/update_readme_results.py`（README）
-   * `make_report.py`（説明資料PDF。サブエージェントが更新済み。G・F・T2・I-14 を追加する必要がある）
-   * YOUTUBE_DESCRIPTION・SUBMISSION を更新する。
-3. **シミュレーションでできる、現実への近さの検証**（実機の代わり。論文の最大の弱点への対策）。候補：
-   * (a) カメラのノイズ・ぼけ・露出の変化・圧縮劣化への頑健性
-   * (b) 写実的なテクスチャ・モデルの物資と火災
-   * (c) 公開されている実写画像（ライセンスを確認）でのオフライン検査
-   * (d) センサー遅延・ホイールの滑り
-   * どれも、事前登録 → 開発／テストの分離、の手順で行う。
-4. 論文の残り：`docs/paper/REVIEW_NOTES.md` の未対応分、図（G の結果、横からの視点の例）、Abstract と Contribution を v3.6 の結果で書き直す。
+**次の手順**
+1. 予備走行2回目（HP02・HP03：記憶による経路と、素朴な記憶の確認省略の監査）を確認する → H の Amendment 1 → H を本実行（約7時間。R の終了後に）。
+2. R の解析（`r_analysis.py`。事前登録どおり）→ 論文に「センサー劣化」節、図。
+3. H の解析 → 論文の主貢献に I-15 を入れる。題名・Abstract・Method（単調性の命題）・Results・図（変化率）を書き直す。
+4. 残り：アーキテクチャ図（v3.4 表記が古い）、`video_frame_decision.png` の更新、REVIEW_NOTES、HANDOFF の更新。
 
 ## 6. 論文化で残っている作業
 
