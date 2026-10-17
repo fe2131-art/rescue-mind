@@ -319,3 +319,13 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 
 `docs/ARCHITECTURE.md`（全体フロー図）、`docs/DESIGN_DECISIONS.md`（D1–D15）、`docs/IMPROVEMENT_LOG.md`（I-01–I-18）、
 `docs/FINDINGS.md`（実行で見つけた23件）、`docs/REVIEW_AND_PLAN.md`（審査基準別レビュー）、`experiments/`（事前登録・プロトコル・開発セット・台帳・証拠）。
+
+**2026-10-17 22:00 実行中の連鎖（最新）**
+* `byvmbjuo9`：V の本番（予測は最初の試行より前にコミット済み：0118289）→ `V_DONE`（10月18日 6時ごろの見込み）。
+* `bn71t32h1`：`V_DONE` を待つ → W のブランチをマージ（Amendment 1 の追加視点を含む）→ 描画（約2.6時間）→ 採点 → `W_DONE`。
+* `b1lqzbr20`：`W_DONE` を待つ → Q のブランチをマージ（これが事前登録）→ テスト → `q_run.sh`（約40分）→ `Q_CHAIN_DONE`。
+* その後は手動で進める：
+  1. 統合ブランチ `i21-depot` を main にマージする（I-19・I-20・I-21・4拠点・軟拒否・scrutiny を含む）。
+  2. 注入文の dev 半分でプロンプトを調整し、凍結 → A を事前登録 → 予備走行 → 本番（226 run、約11.5時間）。
+  3. S（約2.4時間）→ XD・X（Sonnet が設計中）。
+
