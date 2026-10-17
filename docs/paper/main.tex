@@ -88,7 +88,7 @@ stops on stale sensors, nearby obstacles or stale requests.
 on development images only. We registered a 600-image held-out test set with unseen variation and two
 closed-loop campaigns before running them \cite{nosek2018preregistration,hofman2023preregistration}.
 Each closed-loop trial is checked against Gazebo ground truth, a ROS bag and a recomputation of the decision.
-Every attempt is kept, including aborted campaigns. Nine studies (Table~\ref{tab:studies}) include a camera-degradation
+Every attempt is kept, including aborted campaigns. Eleven studies (Table~\ref{tab:studies}) include a camera-degradation
 study that probes part of the sim-to-real gap without a physical robot.
 \item \textbf{Lessons from running the real stack} (Sec.~\ref{sec:findings}). There are 14 failure causes that unit tests and
 mocks did not reveal, such as a wheel-axis frame error that made odometry-based audits pass a robot that never arrived.
@@ -349,6 +349,8 @@ G & Does looking from the side help? & 24 new worlds, paired & 2 & deliveries de
 R & Is the check fail-closed under camera degradation? & 300 T2 images $\times$ 12 degradations & 1 & pooled false approvals $<2\%$ \\
 H & Can memory speed missions up without new risk? & 16 sequences $\times$ 3 missions, changing worlds & 3 & time; unsafe deliveries \\
 J & Does the two-AI design run on the robot? & 24 worlds, paired & 2 & completes on one GPU; unsafe deliveries \\
+Z & Is a generative VLM needed? & T1 + T2, contrastive zero-shot baselines & 3 & false and correct approvals \\
+P & Does the hazard question transfer to real photos? & 400 D-Fire test images (CC0) & 1 & recall; false alarms \\
 \bottomrule\end{tabular}}\end{table*}
 
 \textbf{Metrics and statistics.} The primary safety metric is the false-approval rate: approvals among
@@ -400,6 +402,16 @@ over $\taus$; these are descriptive only, since $\taus$ was not tuned on T1.
 \caption{T1 risk--coverage: false-approval rate versus correct-approval rate as $\taus$ varies ($\tauh=0.05$, v3.5).
 Markers show the frozen $\taus=0.5$. The curves are flat over most of the range: the remaining errors are missed fires,
 which $\taus$ cannot fix.}\label{fig:riskcov}\end{figure}
+
+\emph{Is a generative VLM needed? (study Z, pre-registered).} We ran contrastive zero-shot baselines with the same
+decision structure. They used SigLIP \cite{zhai2023siglip} and CLIP \cite{radford2021clip} prompts for the supply and the
+hazard, the same crops, and thresholds chosen on development data only (Table~\ref{tab:z}). SigLIP approved
+\ZSigTOneFA{} (T1) and \ZSigTTwoFA{} (T2) must-refuse images, against \ZOursTOneFA{} and \ZOursTTwoFA{} for our check
+(exact McNemar $p<10^{-6}$). CLIP refused almost everything: it approved \ZClipTOneCA{} and \ZClipTTwoCA{} correct deliveries.
+On development data no threshold pair gave both. The contrastive scores do not separate ``right supply, no fire'' from
+the alternatives in these scenes.
+\begin{table}[t]\centering\caption{Study Z: zero-shot contrastive baselines vs our check on the held-out sets (false approvals / correct approvals).}
+\label{tab:z}\resizebox{\linewidth}{!}{\input{tab_z.tex}}\end{table}
 
 \subsection{Closed-loop missions}
 \begin{figure}[t]\centering\fig{fig_e_trajectories.pdf}

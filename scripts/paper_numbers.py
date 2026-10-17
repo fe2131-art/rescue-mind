@@ -385,6 +385,20 @@ def main():
         m['JPeakVram'] = f"{j['P1_runs_on_one_v100']['peak_vram_mib'] / 1024:.1f}" if j['P1_runs_on_one_v100']['peak_vram_mib'] else r'\TBD'
         m['JMcNemarP'] = f"{j['P3_correct_paired']['mcnemar_p']:.4f}"
         m['JClaim'] = 'supported' if (j['P1_runs_on_one_v100']['supported'] and j['P2_no_extra_unsafe']['supported']) else 'not supported'
+    # ---- study Z (zero-shot contrastive baselines)
+    zf = RES / 'z_summary.json'
+    if zf.is_file():
+        z = json.loads(zf.read_text())['models']
+        for key, mk in (('siglip', 'Sig'), ('clip', 'Clip')):
+            for t, tk in (('t1', 'TOne'), ('t2', 'TTwo')):
+                b = z[key][t]['baseline']
+                m[f'Z{mk}{tk}FA'] = f"{b['FA']}/{b['n_deny']}"; m[f'Z{mk}{tk}CA'] = f"{b['CA']}/{b['n_allow']}"
+        for t, tk in (('t1', 'TOne'), ('t2', 'TTwo')):
+            o = z['siglip'][t]['ours']
+            m[f'ZOurs{tk}FA'] = f"{o['FA']}/{o['n_deny']}"; m[f'ZOurs{tk}CA'] = f"{o['CA']}/{o['n_allow']}"
+        tab = ROOT / 'docs/paper/tab_z.tex'
+        if tab.is_file():
+            tables['tab_z.tex'] = '\n'.join(l for l in tab.read_text().splitlines() if not l.startswith('% generated'))
     # ---- registration audit: each registration commit must precede the first commit of its results
     import subprocess
 
@@ -396,7 +410,7 @@ def main():
                ('T2', 'PREREGISTRATION_T2.md', 'devset_t2_i11_h36_tiles.json'), ('F', 'PREREGISTRATION_F.md', 'campaign_F_ledger.jsonl'),
                ('G', 'PREREGISTRATION_G.md', 'campaign_G_ledger.jsonl'), ('R', 'PREREGISTRATION_R.md', 'devset_r_gaussian_noise_M.json'),
                ('H', 'PREREGISTRATION_H.md', 'campaign_H_ledger.jsonl'), ('J', 'PREREGISTRATION_J.md', 'campaign_J_ledger.jsonl'),
-               ('Z', 'PREREGISTRATION_Z.md', 'z_summary.json')]
+               ('Z', 'PREREGISTRATION_Z.md', 'z_summary.json'), ('P', 'PREREGISTRATION_P.md', 'p_summary.json')]
     rows = [r'\begin{tabular}{llllc}', r'\toprule', r'Study & Registered (commit, date) & First results (commit, date) & Amendments & Order \\', r'\midrule']
     ok_all = True
     for name, reg, res in studies:
