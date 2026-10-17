@@ -385,6 +385,30 @@ def main():
                         f"{a['false_refusals']} & {a['time_median_s']:.0f} \\\\")
         rows += [r'\bottomrule', r'\end{tabular}']
         tables['tab_h_arms.tex'] = '\n'.join(rows)
+        # supplementary table: every paired mission (sequence, k) with the outcome and time under M0/M1/M2
+        sym = {'deliver': r'\checkmark', 'unsafe': r'$\times$', 'refuse': r'$\circ$', 'false': r'$\triangle$', 'failed': 'F'}
+
+        def cell(t):
+            if t is None:
+                return '--'
+            o = ('failed' if t['failed'] else 'unsafe' if t['unsafe_delivery'] else 'deliver' if t['delivered']
+                 else 'false' if t['false_refusal'] else 'refuse')
+            tm = t.get('mission_time_s')
+            return sym[o] + (f' ({tm:.0f}\\,s)' if tm is not None else '')
+        by = {}
+        for t in h['trials']:
+            if t['k'] > 1:
+                by.setdefault((t['sequence'], t['k']), {})[t['arm']] = t
+        hr = [r'\begin{tabular}{rlllllc}', r'\toprule',
+              r'Seq & Story & Transition & M0 & M1 & M2 & M2 source \\', r'\midrule']
+        for (sq, k), v in sorted(by.items(), key=lambda kv: (str(kv[0][0]).zfill(4), kv[0][1])):
+            ref = v.get('M2') or next(iter(v.values()))
+            m2 = v.get('M2') or {}
+            src = [n for n, on in (('memory', m2.get('first_station')), ('caution', m2.get('caution'))) if on]
+            hr.append(f"{sq}.{k} & {ref['story']} & {(ref['transition'] or '--').replace('_', ' ')} & "
+                      f"{cell(v.get('M0'))} & {cell(v.get('M1'))} & {cell(v.get('M2'))} & {'+'.join(src) or '--'} \\\\")
+        hr += [r'\bottomrule', r'\end{tabular}']
+        tables['tab_h_sequences.tex'] = '\n'.join(hr)
     cr = RES / 'h_change_rate.json'
     if cr.is_file():
         c = json.loads(cr.read_text())
@@ -510,7 +534,7 @@ def main():
                'JCorrectA', 'JCorrectJ', 'JUnsafeA', 'JUnsafeJ', 'JFalseRefA', 'JFalseRefJ', 'JFailedA', 'JFailedJ', 'JLatA', 'JLatJ',
                'JPeakVram', 'JMcNemarP', 'JClaim', 'PRecall', 'PFalseAlarm', 'PRecallCI', 'PFalseAlarmCI',
                'PTwoWording', 'PTwoTau', 'PTwoRecall', 'PTwoRecallCI', 'PTwoFA', 'PTwoFACI', 'PTwoClaim', 'PTwoFrozenRecall', 'PTwoFrozenFA'])
-    for name in ('tab_t1_models.tex', 'tab_t1_ablation.tex', 'tab_e_strata.tex', 'tab_i13_dev.tex', 'tab_r.tex', 'tab_h_arms.tex'):
+    for name in ('tab_t1_models.tex', 'tab_t1_ablation.tex', 'tab_e_strata.tex', 'tab_i13_dev.tex', 'tab_r.tex', 'tab_h_arms.tex', 'tab_h_sequences.tex'):
         tables.setdefault(name, r'\begin{tabular}{l}\TBD\end{tabular}')
     (OUT / 'numbers.tex').write_text(m.text())
     if '--final' in sys.argv:   # final build: refuse to produce a paper with pending results
