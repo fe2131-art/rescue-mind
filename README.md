@@ -21,7 +21,7 @@
 * **記憶は「提案」だけ、確認は減らさない**（出動をまたぐ記憶、[I-15](docs/IMPROVEMENT_LOG.md)・[D13](docs/DESIGN_DECISIONS.md)）：前回の物資の場所は「先に行く拠点」を決めるだけで、行った先で必ず確認する。火を見た拠点は閾値を厳しくする。同じ画像なら記憶ありの許可は記憶なしの許可の部分集合になる（コードで強制）。事前登録 [`PREREGISTRATION_H.md`](experiments/PREREGISTRATION_H.md)。評価H（16系列×3出動）：実行中（事前登録済み）
 * **横から見直す能動知覚**（[I-14](docs/IMPROVEMENT_LOG.md)）：正面で判断し切れない小さな火に、モデルを大きくせず**横へ動いて撮り直す**。事前登録の対比較で、火があるのに配達した回数 **11/16 → 1/16**（p=0.002）、火の無い世界の誤停止 0/8。
 * **当初計画の2つのAI（Jev役 Clef-Flash＋Qwen）を実機で**（[I-16](docs/IMPROVEMENT_LOG.md)）：オフライン評価だけだった2モデル確認を、V100 1台に載る組で閉ループに載せた。Clef-Flash は Qwen3.5-9B の追加学習版なので、2つは独立ではなく系統を共有する（相関した失敗が残り得ると明記）。評価J（24世界の対比較）：実行中（事前登録済み）
-* **事前登録と時系列監査**（論文 [`docs/paper/main.pdf`](docs/paper/main.pdf) 付録「Registration audit」）：条件・閾値・解析を結果を見る前にコミットし、全12研究の登録時刻と最初の結果の時刻を、git の履歴から機械的に監査（`git merge-base --is-ancestor`）。結果のある研究のうち **8件で登録コミットが結果コミットより前**、3件は結果待ち（登録のみ済み）。支持されなかった主張も、そのまま載せる。
+* **事前登録と時系列監査**（論文 [`docs/paper/main.pdf`](docs/paper/main.pdf) 付録「Registration audit」）：条件・閾値・解析を結果を見る前にコミットし、全12研究の登録時刻と最初の結果の時刻を、git の履歴から機械的に監査（`git merge-base --is-ancestor`）。結果のある研究のうち **9件で登録コミットが結果コミットより前**、2件は結果待ち（登録のみ済み）。支持されなかった主張も、そのまま載せる。
 <!-- NOVELTY:END -->
 
 <!-- RESULTS:START -->
@@ -152,7 +152,7 @@ v3.3 以降の改善の経緯（Before/After）は [`docs/IMPROVEMENT_LOG.md`](d
 bash docker/build.sh                                   # ROS 2 Jazzy + Gazebo Harmonic + PyTorch 2.8/cu126 + transformers 5（STACK=v33 で旧環境）
 # 1) モデル重みを一度だけ取得（以降の実行は HF_HUB_OFFLINE=1）
 HF_HUB_OFFLINE=0 bash docker/run.sh python3 -c "from huggingface_hub import snapshot_download as s; s('Qwen/Qwen3.5-9B')"
-# 2) テスト（約550件。ROS/Gazebo不要の部分はDockerなしでも実行可）
+# 2) テスト（599件。ROS/Gazebo不要の部分はDockerなしでも実行可）
 bash docker/run.sh python3 -m unittest discover -s tests -q
 # 3) 1回のAIミッション（Gazebo・ブリッジ・ガード・VLMを自動起動、証拠は outputs/runs/<run_id>/）
 V34="--model Qwen/Qwen3.5-9B --prompt-set v35 --intent-backend llm --intent-prompt i35 --recovery --explain"
