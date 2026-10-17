@@ -98,7 +98,8 @@ def run(source, k, credit, rates, delta, m=100, p_fire=0.2, seed=3, **params):
 
 def main():
     rates = json.loads((RES / 'h_change_rate.json').read_text())['rates']
-    delta = 4 / 193        # study K: 4/193 fire-free held-out views flagged at tau_h = 0.0113 (supplement S10)
+    fa = (json.loads((RES / 'k_summary.json').read_text()).get('caution') or {}).get('heldout_false_alarm')
+    delta = fa['k'] / fa['n'] if fa else 4 / 193      # study K: per-view false alarms at the caution threshold (S10)
     out = {'note': 'descriptive model, not registered; drives rescuemind.advice_credit with synthetic outcomes',
            'delta': delta, 'params': ac.new_ledger()['params'], 'runs': {}}
     for k in (2, 4):

@@ -633,6 +633,18 @@ def main():
                 m[f'KCaut{nm_}Up'] = f"{100 * (1 - (1 - up_) ** v_):.1f}\\%"
                 m[f'KCaut{nm_}Boole'] = f"{100 * min(1.0, v_ * up_):.1f}\\%"
         m['KSmallCal'] = f"{100 * kk['small_fire_frac']['cal']:.0f}\\%"; m['KSmallHeld'] = f"{100 * kk['small_fire_frac']['heldout']:.0f}\\%"
+    cr = json.loads((RES / 'advice_credit_horizon.json').read_text()) if (RES / 'advice_credit_horizon.json').is_file() else None
+    if cr:      # I-24 descriptive 100-mission model of advice credit (k = 4); not a registered claim
+        last = lambda key: cr['runs'][key]['series'][-1]
+        m['CrLiarNo'] = f"{last('k4/liar/monotone')['extra_s']:.0f}"
+        m['CrLiarYes'] = f"{last('k4/liar/credit')['extra_s']:.0f}"
+        m['CrFarmYes'] = f"{last('k4/farmer/credit')['extra_s']:.0f}"
+        m['CrHonest'] = f"{-last('k4/honest/credit')['extra_s']:.0f}"
+        m['CrFloodNo'] = str(last('k4/flooder_real/monotone')['false_refusals'])
+        m['CrFloodYes'] = str(last('k4/flooder_real/credit')['false_refusals'])
+        m['CrFloodDelta'] = f"{cr['delta_real']:.2f}"
+        m['CrNoisyKeep'] = f"{100 * last('k4/noisy/credit')['extra_s'] / last('k4/noisy/monotone')['extra_s']:.0f}\\%"
+        m['CrMissions'] = str(len(cr['runs']['k4/liar/credit']['series']))
     # ---- registered-claim status per study (Table of all studies): supported / not supported / pending / descriptive (no claim registered)
     def _load(n):
         f = RES / n
