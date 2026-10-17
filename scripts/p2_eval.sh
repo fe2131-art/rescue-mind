@@ -4,7 +4,7 @@
 # The VLM server runs in the container rm-next (host network, same repo path); nothing else may be using port 8765.
 set -uo pipefail
 cd "$(dirname "$0")/.."
-PY=${P2_PYTHON:-/tmp/claude-1008/-home-tetsutani-work-rescue-mind/f9e995f0-1ad1-4f13-bc51-5244c361c481/scratchpad/pqvenv/bin/python}
+PY=${P2_PYTHON:-$HOME/.cache/rescuemind/pqvenv/bin/python}   # any Python with pyarrow + Pillow
 CT=${P2_CONTAINER:-rm-next}
 STOP=experiments/results/p2_stop_server.sh
 LOG=experiments/results/p2_server.log
