@@ -1,6 +1,6 @@
 # I-21 design: a realistic relief depot (replaces the bare arena for the final closed-loop study)
 
-Status: design (2026-10-17 21:10). Motivation: the user and the reviewers (R3/R4, EVAL_5/6) point out that the arena is
+Status: design (2026-10-17 21:10); phase 2 (k stations) implemented 2026-10-17, see the last section. Motivation: the user and the reviewers (R3/R4, EVAL_5/6) point out that the arena is
 not realistic:
 * a flat empty floor, two stations, primitive props and a stylised flame;
 * known straight-line waypoints, no obstacles, no clutter;
@@ -44,3 +44,85 @@ The checks we claim to be robust may only work because the world is easy.
 ## What it does not fix
 It is still simulation. Real smoke, real lighting noise and real shelves differ. Real-photo studies (P/P2, Q) remain the
 link to reality.
+
+
+## Phase 2 as implemented (k supply stations; no Gazebo run yet)
+
+**Design in one paragraph.** A station is an id with a centre, a waypoint and the supply the inventory says it holds
+(`rescuemind/stations.py`, `StationSet`). The intent still asks for `water` or `medicine`. The candidate order for a
+request is the inventory's stations for that supply (in id order), then all others: `water -> [W1, W2, M1, M2]`. The robot
+visits the candidates in order, checks each one on site, and a wrong/missing-supply denial continues to the next unchecked
+candidate until a check confirms or all k are checked (at most k-1 more checks), then it stops and reports. A hazard (or low
+confidence) at ANY visited station stops the mission as before. Memory and advice may reorder the candidates, never remove
+one. The arena keeps ids `water` / `medicine` and no `stations` block: `water -> [water, medicine]`, the one-time
+search of the other station, unchanged (all existing tests pass; the arena's recovery record only gains `candidates`).
+
+**Per-run configuration (extends I-17 `--config` / `--centers`).**
+* `waypoints.json`: the arena file with the station ids as keys (`"W1": [wx, wy]`, ...), `"B"`, plus
+  `"stations": {"ids": [...], "inventory": {"W1": "water", ...}}`. Written by `depot.write_k4_configs(run_dir)`; the
+  orchestrator does this when the world spec has `depot.stations == 4`, and the audits read the run folder's own file
+  (`waypoint_config_path`).
+* `station_centers.json`: `{"W1": [cx, cy], ...}`. `camera_aim.station_centers(..., locked=False)` accepts 2..8 ids; the
+  locked default stays the arena's two. The mission refuses to start if a station set is given without a matching
+  `--centers` file.
+* mission record (k > 2 only): `stations` (the block), `station_order` (the candidate order after memory/advice).
+  Recovery block: `first_station`/`first_checkpoint`/`first_checkpoint_image` (hop 1, as before), `hops`
+  (`[{station, checkpoint, checkpoint_image, reason}]` for further denied stations), `searched_station` (the station of
+  the final checkpoint), `candidates`. Denied images: `recovery_*.jpg`, `recovery2_*.jpg`, `recovery3_*.jpg`.
+
+**Code map.**
+* `rescuemind/stations.py`: `StationSet`, `next_candidate`, `validate_visits`, `plan_order`, `check_centers`.
+* `ros/gazebo_waypoint_mission.py`: `route_from_config` for any station id; the recovery block continues to the next
+  candidate (`next_candidate`), records hops, stops on hazard / exhaustion.
+* `rescuemind/mission_memory.py` (`plan(..., stations=)`): stations where the item was last seen come first, then unknown,
+  then those seen holding something else; the reordering still triggers only if the catalog station was last seen
+  holding something else AND another station was seen holding the item (identical to before for k=2). Every station of a
+  search chain becomes an observation.
+* `rescuemind/advice.py` (`plan/validate/base_plan(..., stations=)`): station ids validated against the set; a location
+  claim moves that station to the front; `assert_monotone` (and so `audit_plan`) now also requires the candidate order to be
+  a permutation of the order before advice (nothing dropped or added) with `first_station` at its head. Operator text
+  that names a supply's station ("W"/"M") resolves to the inventory's first station for it.
+* `rescuemind/recovery_evidence.py`: audits a hop chain: every hop a wrong-supply denial for the same request, each hop's
+  image hash and event order, and the visited stations are a prefix of `candidates` (a skipped or repeated candidate is
+  rejected). Records without `candidates` (old arena logs) still need water+medicine.
+* `scripts/v32_orchestrate.py`: station-name check from the run's station set; depot configs written per run.
+* `rescuemind/depot.py`: `K4_*` geometry (W1 2,2 and M1 -2,2 as in the arena; W2 -2.8,-1.4; M2 -0.2,-3.0; shelter 3,-2;
+  waypoints 1.2 m off the centre, W1/M1/B hand-tuned as before), `OPERATING_AREA_K4`, `check_k4_layout`,
+  `add_k4_stations`, `supply_map`, `k4_configs`/`write_k4_configs`. `robust_scenes.build_variant(depot={'stations': 4,
+  'supply_at': {'W2': None, 'M2': 'water'}, ...})` places the four pallets with props (default: W1/M1 from the scene file,
+  W2/M2 from the inventory; `supply_at` swaps or empties any), and `hazard_at` / `distractor_at` then take the ids W1 M1 W2
+  M2. `truth_for_depot` gives the label.
+* Furniture of the four-bay depot is dropped when its collision footprint (from the collision meshes) comes within 0.5 m of
+  a pallet or the shelter or within 0.6 m of ANY straight leg (start to bay, all waypoint and look-around pairs, so a
+  recovery in any candidate order is covered). This drops the rack `ShelfD_01 (4.73, -1.24)` and one clutter crate; the other
+  racks stay. Clutter slots are separate for k=4.
+
+**Tests (all ROS-free).** `tests/test_i21_stations.py` (station set, order, candidate walk, config validation, memory and
+advice over 4 stations including the random adversarial property test extended to k=4: monotone plans approve only what the
+no-advice plan approves, the order is always a permutation of all four stations, `audit_plan` recomputes it; recovery audit
+accepts 1..3-denial chains in candidate order, also memory-reordered, and rejects a skipped / repeated candidate, a non
+wrong-supply hop, a tampered hop image, a missing event). `tests/test_i21_recovery_run.py` drives the real `run_ros` with
+simulated ROS messages and a mocked checkpoint: 3 wrong then confirmed visits W1 W2 M1 M2 in order; 4 wrong stops after
+exactly 4 checks; a hazard at the 2nd station stops; no `--recovery` stops at the first; a memory-reordered order is followed;
+the 2-station arena behaves exactly as before. `tests/test_i21_depot.py` (feasibility check incl. negative cases, configs
+round-trip through the mission's readers, worlds with 4 pallets / swapped / empty pallets, hazard and distractor ids).
+Full suite: no new failures (the 12 `test_v30_*` failures on python 3.10 are `TestCase.enterContext`, 3.11+; they pass with
+a shim; `test_core`/`test_v08` need scikit-learn).
+
+**Not done / needs a Gazebo smoke test (about 30 min, before study X).**
+1. Render the four stations' front views from their waypoints: the props on W2/M2 and the clutter must be in view, the
+   camera must be able to aim (waypoint to centre distance 1.2 m, bearing error < 0.1 rad) and no rack or clutter may block
+   the line of sight (only checked against platforms and the shelter, not against furniture).
+2. Drive the legs W1 -> W2 -> M1 -> M2 -> B with the lidar guard on: the guard must not trip on the racks (the nearest kept
+   rack is ShelfE at x >= 2.77, y in [0.14, 1.02]); the straight legs have no obstacle avoidance.
+3. One full k=4 recovery run (`--recovery`, supplies swapped so the first three candidates are wrong): check that the
+   independent motion / ground-truth / causal audits accept the chain (they only look at the final station and the shelter),
+   that `outputs/runs/<id>/mission.json` has `recovery.hops`, and that `audit_recovery` passes on the real record. Time
+   budget: each wrong candidate costs roughly one full checkpoint (about 60-90 s with Qwen 9B), so a 4-station search is
+   about 4 times the arena's; check `--stage-timeout` and the orchestrator's `--mission-timeout`.
+4. The phase-1 note stands: the east racks `ShelfD/E` are 3.9 m long in x (collision meshes), so their west ends reach
+   x = 2.77. In the two-station depot the rack at y = -1.24 touches shelter B's footprint (8 cm); the four-bay depot drops it.
+   Look at the two-station depot render as well.
+5. `scripts/make_demo_video.py` (two-station names only) and the arena-only builders (`build_image_set`, `build_testset_t1`,
+   `vlm_devset_capture`) are not generalised. Study X still needs its world sampler (supply arrangement via `supply_at`,
+   smoke/fire, obstacle, lighting) and its registration.
