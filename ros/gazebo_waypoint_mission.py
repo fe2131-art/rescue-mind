@@ -465,7 +465,26 @@ def run_ros(route, args, record):
             pts.reverse()     # I-15: look first from the side that revealed the remembered hazard
         la=record.setdefault('look_around',{'offset_m':d,'station':station,'points':[],'peeks':[]})
         la['points']=[{'side':sd,'xy':list(xy)} for sd,xy in pts]
+        la['waypoint']=[round(wx,3),round(wy,3)]; la['center']=[round(cx,3),round(cy,3)]
         record['events'].append({'stage':'look_around_scheduled','station':station,'points':la['points'],
+                                 't_wall_s':round(time.monotonic()-start,3)})
+        return [('peek',f'{station}:{sd}',xy) for sd,xy in pts]
+
+    def schedule_adaptive_views(station, cp, la):
+        """I-20: after the standard views all passed, if any of them was suspicious (p(hazard) >= tau_sus), look again
+        from wider side poses and closer to the station.  Can only add refusals (an extra view with a hazard revokes)."""
+        off=float(getattr(args,'adaptive_views',0) or 0)
+        if off <= 0 or la.get('adaptive') is not None or len(la['peeks']) < len(la['points']):
+            return None
+        from rescuemind.adaptive_views import suspicion, extra_points
+        p_max=suspicion(cp, la['peeks'])
+        tau=float(args.adaptive_tau_sus)
+        la['adaptive']={'p_max':p_max,'tau_sus':tau,'triggered':p_max>=tau,'offset_m':off,'near_m':float(args.adaptive_near)}
+        if p_max < tau:
+            return None
+        pts=extra_points(la['waypoint'],la['center'],off,float(args.adaptive_near))
+        la['points']+= [{'side':sd,'xy':list(xy)} for sd,xy in pts]
+        record['events'].append({'stage':'adaptive_views_scheduled','station':station,'p_max':p_max,'points':[sd for sd,_ in pts],
                                  't_wall_s':round(time.monotonic()-start,3)})
         return [('peek',f'{station}:{sd}',xy) for sd,xy in pts]
 
@@ -493,7 +512,7 @@ def run_ros(route, args, record):
         la=record['look_around']; la['peeks'].append(entry)
         cp=record['checkpoint']; cp['look_around']=la
         if not hazard:
-            return
+            return schedule_adaptive_views(station, cp, la)
         # a hazard seen from the side: the approval becomes a hazard refusal, exactly as at the front
         from rescuemind.local_vision import combine_with_look_around
         cp['decision']=combine_with_look_around(cp['decision'],[{'side':q['side'],'hazard':q['hazard']} for q in la['peeks']])
@@ -601,7 +620,9 @@ def run_ros(route, args, record):
                                                  'duration_wall_s':round(now-begun,3),'t_wall_s':round(now-start,3),
                                                  'last_pose':list(ctx['pose'].__dict__.values())})
                         record['trace'].extend(samples)
-                        look_around_peek(target, goal)
+                        extra=look_around_peek(target, goal)
+                        if extra:
+                            route[index:index]=extra      # I-20: suspicion-triggered extra views, before leaving
                         break
                     record['events'].append({'stage':stage,'target':target,'arrived':True,
                                               'duration_wall_s':round(now-begun,3),'t_wall_s':round(now-start,3),'samples':len(samples),
@@ -712,6 +733,11 @@ def main():
     ap.add_argument('--memory-file',default=None,help='I-15: cross-mission memory (JSONL of what the robot saw before)')
     ap.add_argument('--memory-mode',choices=['off','verified','naive'],default='off',
                     help='I-15: verified = memory proposes, perception disposes; naive = trust memory (baseline only)')
+    ap.add_argument('--adaptive-views',type=float,default=0.0,
+                    help='I-20: if a standard view is suspicious (p(hazard) >= --adaptive-tau-sus) look again from this '
+                         'side offset (m) and from --adaptive-near closer; 0 = off')
+    ap.add_argument('--adaptive-tau-sus',type=float,default=0.005)
+    ap.add_argument('--adaptive-near',type=float,default=0.3)
     ap.add_argument('--advice-file',default=None,
                     help='I-19: JSON list of advice items (peer robot / inventory / memory claims), see rescuemind.advice.validate')
     ap.add_argument('--advice-mode',choices=['off','monotone','naive','filtered'],default='off',
