@@ -805,8 +805,15 @@ def headline(D, E, V, after_fig=()):
     return gloss, out
 
 
-def judge_box(D, E, V):
-    """3-minute box at the top of page 1: problem, what is new, three numbers in plain words (all read from result files)."""
+def judge_box(D, E, V, compact=False):
+    """3-minute box on page 1: problem, what is new, three numbers in plain words (all read from result files).
+    compact: three short lines under the graphical abstract (the figure already carries the numbers)."""
+    if compact:
+        lines = ['<b>問題</b>：在庫表と現物の食い違いや火災があると、指示どおり運ぶロボットは誤った物資や危険な場所へ届けてしまう。',
+                 '<b>解き方</b>：届ける前に拠点で止まり、ローカルのAIが<b>選択肢の確率</b>で現物と火・煙を確かめる。迷ったら止まる。'
+                 '正面で見えない火は<b>横へ0.4 m動いて</b>見直す。前回の記憶は<b>行く順番の提案だけ</b>で、確認は決して省かない。',
+                 '<b>動画で見てほしい点</b>：物資の取り違え → 別の拠点を探す／記憶で直行しても着いたら確かめる／隠れた火を横から見つけて止まる。']
+        return [P(x, 'small') for x in lines] + [Spacer(1, 3)]
     h = jload('h_summary.json')
     items = ['<b>問題</b>：災害時の物資配達ロボットは、在庫表と現物の食い違い（水のはずが救急箱・空）や火災に出会う。指示どおり運ぶだけでは、誤った物資や危険な場所へ届けてしまう。',
              '<b>新しさ</b>：前回の出動の記憶は「どの拠点を先に見るか」を<b>提案するだけ</b>で、届けてよいかは必ず<b>その場のカメラ</b>で決める（記憶は提案、判断は目）。'
@@ -907,6 +914,16 @@ def main_tail(account, SP, p_fa):
     s += [P('各出動の記録（依頼・判断・確認に使った画像と各質問の確率・次の作業・監査結果）から、現場の人が1枚で読める報告書を生成できる（I-18、scripts/make_operator_report.py）。全出動での自動生成は評価終了後に組み込む。'
             '人は結論と写真を見れば足り、「止まった」「別の拠点へ行った」理由は元のログまでさかのぼって確かめられる。次にしてほしいこと（火の確認、在庫表の訂正など）を迷わず決められ、実用の最後の一歩になる。')]
     s += fig('operator_report_hidden_fire.png', 125, '図 出動の記録から生成した1枚の現場報告（写真・判断の理由・次にしてほしいこと）。例：物資の陰に隠れた火で停止した出動。')
+    p2 = jload('p2_summary.json')
+    if p2:
+        c, fz = p2['chosen_test'], p2['test_at_frozen_tau_0.05'][p2['chosen_wording']]
+        cal = (f"現場写真での較正（評価P2、事前登録）：凍結した閾値のままでは実写の誤警報 {fz['false_alarm']['k']}/{fz['false_alarm']['n']} だったが、"
+               f"別の400枚で閾値を選び直すと、未使用の写真で検出 {c['recall']['k']}/{c['recall']['n']}・誤警報 {c['false_alarm']['k']}/{c['false_alarm']['n']}"
+               f"（基準：検出0.90以上・誤警報0.20以下 → <b>{'成立' if p2.get('claim_supported', p2.get('supported')) else '不成立'}</b>）。")
+    else:
+        cal = '現場写真での較正（評価P2）は実行中。'
+    s += [P('<b>現場への導入手順（docs/DEPLOYMENT.md）</b>：必要なのは /odom・/scan・/camera を出す差動二輪と約20 GBのGPUだけで、ネットワークは不要。'
+            '拠点座標の登録、現場写真約400枚での火・煙の閾値の較正（30〜60分）、物資の見た目の確認、3場面×3回の試運転と監査、という半日の手順にまとめた。' + cal)]
     s += [P('6. 限界・反省と今後の課題', 'h1')]
     lim = ['v3.6の横から見直す効果（評価G）は、拠点配置が固定の新しい世界での対比較で、試行数は少ない。完全に隠れた火は横からも見逃し得る。実機・実写では未検証。',
            '物資の把持・運搬は未実装。Nav2の動的経路計画ではなく既知配置のウェイポイント追従。',
@@ -963,8 +980,8 @@ def build(account: str, video_url: str | None, repo_url: str):
                  ['AIの活用', '① 自然言語指示の理解（ローカルLLM）② 搭載カメラ画像による現物・危険の確認（ローカルVLM、選択肢の確率で判断）③ 現場の人への日本語状況報告']],
                 [28, 146]), Spacer(1, 4)]
     gloss, _unused = headline(D, E, V, info)
-    s += judge_box(D, E, V)
-    s += gloss
+    # page 1 for a judge with three minutes: the figure first, then three short lines, then the submission table
+    s += gloss[:1] + judge_box(D, E, V, compact=True) + gloss[1:]
     crit = [['審査基準', '本作品での取り組み', '根拠（本資料の節）'],
             ['創造性', '「運ぶAI」ではなく「間違えたら動かないAI」。新規性3つ：横から見直す能動知覚、確認を減らさない出動をまたぐ記憶、当初計画の2つのAI', '要旨, 4.1–4.3章'],
             ['技術力', '選択肢の確率によるVLM判定、独立速度ガード、Gazebo真値による独立監査、事前登録した閉ループ評価（結果あり：D・E・F・G・H'+('・J' if jload('j_summary.json') else '、実行中：J')+('' if jload('v_summary.json') and jload('w_summary.json') else '。' + ('' if jload('v_summary.json') else 'V') + ('' if jload('w_summary.json') else 'W') + 'は実行中')+'）と未使用画像の評価（T1・T2・Z・P・R）、対比較の検定つきで弱点を段階的に改善', '2–4章, 付録'],
