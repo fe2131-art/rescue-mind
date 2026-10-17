@@ -6,7 +6,7 @@ The VLM's one-sentence description is shown as the robot's own words and is neve
 from __future__ import annotations
 
 ITEM_JA = {'water': '飲料水', 'medicine': '医療物資', 'other': '依頼物資以外／空', 'uncertain': '不確か'}
-STATION_JA = {'water': '拠点W', 'medicine': '拠点M'}
+STATION_JA = {'water': '拠点W', 'medicine': '拠点M', **{s: f'拠点{s}' for s in ('W1', 'M1', 'W2', 'M2')}}    # I-21: depot ids
 SIDE_JA = {'L': '左', 'R': '右'}
 REASON_JA = {
     'on_site_supply_confirmed': '依頼物資を確認',
@@ -50,6 +50,8 @@ def checks(mission: dict) -> list[dict]:
     rec = mission.get('recovery') or {}
     if rec:
         out.append(_check(rec.get('first_station'), rec.get('first_checkpoint'), 'front', image=rec.get('first_checkpoint_image')))
+        for h in rec.get('hops') or []:          # I-21: further wrong-supply stations of a k-station search
+            out.append(_check(h.get('station'), h.get('checkpoint'), 'front', image=h.get('checkpoint_image')))
     st = mission.get('checkpoint_station')
     cp = mission.get('checkpoint') or {}
     if st and not cp.get('memory_trusted'):

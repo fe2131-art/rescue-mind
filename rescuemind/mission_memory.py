@@ -93,6 +93,8 @@ def observations(mission: dict, tag: str) -> list[dict]:
     rec = mission.get('recovery') or {}
     if rec:
         add(rec.get('first_station'), rec.get('first_checkpoint'))
+        for h in rec.get('hops') or []:          # I-21: every station of a k-station search is a fresh observation
+            add(h.get('station'), h.get('checkpoint'))
     station = mission.get('checkpoint_station')
     if station:
         add(station, mission.get('checkpoint'), ((mission.get('look_around') or {}).get('peeks') or []))

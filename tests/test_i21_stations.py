@@ -322,5 +322,44 @@ class RecoveryChainAudit(unittest.TestCase):
             audit_recovery(m, self.dir, completed=True)
 
 
+class ReportAndMemoryOfASearch(unittest.TestCase):
+    """The k-station search chain feeds memory (every checked station) and the operator report (every check, JA names)."""
+
+    def setUp(self):
+        sys.path.insert(0, str(ROOT / 'tests'))
+        import test_i15_memory as t15
+        import test_i18_operator_report as t18
+        self.t15, self.t18 = t15, t18
+
+    def chain(self):
+        t15 = self.t15
+        m = t15.mission('M2', 'water', 'water')
+        m['recovery'] = {'first_station': 'W1', 'first_checkpoint': t15.checkpoint('medicine', 'water'), 'searched_station': 'M2',
+                         'candidates': ['W1', 'W2', 'M1', 'M2'],
+                         'hops': [{'station': 'W2', 'checkpoint': t15.checkpoint('other', 'water')},
+                                  {'station': 'M1', 'checkpoint': t15.checkpoint('medicine', 'water')}]}
+        return m
+
+    def test_memory_learns_every_checked_station(self):
+        from rescuemind.mission_memory import observations
+        o = observations(self.chain(), 'r1')
+        self.assertEqual([(x['station'], x['supply']) for x in o],
+                         [('W1', 'medicine'), ('W2', 'other'), ('M1', 'medicine'), ('M2', 'water')])
+        # ... and the next plan goes to M2 first (every other station was seen holding something else)
+        with tempfile.TemporaryDirectory() as d:
+            mem = MissionMemory(Path(d) / 'm.jsonl'); mem.append_mission(self.chain(), 'r1')
+            self.assertEqual(mem.plan('water', 'verified', stations=SS4)['order'], ['M2', 'W1', 'W2', 'M1'])
+
+    def test_operator_report_lists_all_checks_in_order(self):
+        t18 = self.t18
+        m = dict(t18.BASE, checkpoint_station='M2', checkpoint=t18.cp('on_site_supply_confirmed', True), recovery=self.chain()['recovery'])
+        for h in m['recovery']['hops']:
+            h['checkpoint'] = t18.cp('local_vlm_disagree_or_wrong_supply', False, supply='water')
+        m['recovery']['first_checkpoint'] = t18.cp('local_vlm_disagree_or_wrong_supply', False, supply='water')
+        r = t18.build(m, {'state': 'COMPLETED'})
+        self.assertEqual([c['station'] for c in r['checks']], ['W1', 'W2', 'M1', 'M2'])
+        self.assertEqual(r['outcome']['kind'], 'delivered_after_search')
+
+
 if __name__ == '__main__':
     unittest.main()
