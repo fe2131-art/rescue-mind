@@ -4,7 +4,7 @@
 #   W_STAGES="a" bash scripts/w_eval.sh     # only W-a;  "b" only W-b;  add "r" for the optional degradation stage
 # Run where the VLM server can start (host python, as scripts/t2_eval.sh, or inside rm-next).  Resumable: finished result
 # files are skipped.  An inference error in a stage triggers ONE full re-run of that stage (both files are kept).
-# Estimated GPU time: W-a 0.8 h, W-b 1.9 h (T1 with h36+tiles 0.45 h, paraphrases on 1 800 images 1.45 h), optional r 1.6 h.
+# Estimated GPU time: W-a 0.8 h, W-b 2.15 h (T1 with h36+tiles 0.45 h, paraphrases on 1 800 images 1.45 h, T1 with h36 full 0.25 h), optional r 1.6 h.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 renice -n 5 -p $$ >/dev/null 2>&1 || true
@@ -57,6 +57,8 @@ if [[ "$STAGES" == *b* ]]; then
   for s in dh:experiments/vlm_devset_hazard dh2:experiments/vlm_devset_hazard2 t1:experiments/vlm_testset_t1 t2:experiments/vlm_testset_t2; do
     guard w_para_${s%%:*} para "${s#*:}" "${s%%:*}"
   done
+  serve h36 full      # matched arm Ours-full: same wording, full image only (DH, DH2, T2 are already stored)
+  guard t1_i11_h36_full ev experiments/vlm_testset_t1 t1_i11_h36_full
 fi
 if [[ "$STAGES" == *r* ]]; then
   [ -f $RES/devset_w_r_jpeg_S.json ] || python3 scripts/w_degraded_eval.py --all --model $MODEL
