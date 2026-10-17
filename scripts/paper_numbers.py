@@ -384,6 +384,8 @@ def main():
         p1, p2, p3 = h['P1_efficiency_relocation_persist'], h['P2_safety_naive_vs_verified'], h['P3_no_extra_risk_vs_v36']
         for arm, k in (('M0', 'zero'), ('M1', 'one'), ('M2', 'two')):
             m[f'HWrong{k}'] = h['per_arm'][arm]['wrong_supply']; m[f'HFire{k}'] = h['per_arm'][arm]['into_fire']
+        bt0, bt2 = h['per_arm']['M0']['by_transition'], h['per_arm']['M2']['by_transition']
+        m['HChangeMzero'] = _num(bt0.get('relocation_change', {}).get('time_median_s')); m['HChangeMtwo'] = _num(bt2.get('relocation_change', {}).get('time_median_s'))
         m['HFasterPairs'] = f"{sum(1 for d in p1['diff_M2_minus_M0_s'] if d < 0)}/{p1['n_pairs']}"
         m['HPOneN'] = p1['n_pairs']; m['HTimeMzero'] = _num(p1['time_M0_median_s']); m['HTimeMtwo'] = _num(p1['time_M2_median_s'])
         m['HTimeDiff'] = _num(None if p1['median_diff_s'] is None else -p1['median_diff_s']); m['HPOneP'] = f"{p1['wilcoxon_exact_p']:.4f}"
@@ -561,7 +563,7 @@ def main():
                'TimDrive', 'TimCheck', 'TimVlm'])
     m.pending(['RNimg', 'RNdeny', 'RNallow', 'RNfire', 'RNcond', 'RNworlds', 'RPoolFA', 'RPoolCI', 'RPoolSupported', 'RUnsafeConds',
                'RWorstCond', 'RWorstCA', 'RCleanCA', 'RGateRej', 'RFireMissMax',
-               'HPOneN', 'HWrongzero', 'HWrongone', 'HWrongtwo', 'HFirezero', 'HFireone', 'HFiretwo', 'HFasterPairs', 'HTimeMzero', 'HTimeMtwo', 'HTimeDiff', 'HPOneP', 'HPTwoN', 'HUnsafeMone', 'HUnsafeMtwo', 'HPTwoP',
+               'HPOneN', 'HWrongzero', 'HWrongone', 'HWrongtwo', 'HFirezero', 'HFireone', 'HFiretwo', 'HFasterPairs', 'HChangeMzero', 'HChangeMtwo', 'HTimeMzero', 'HTimeMtwo', 'HTimeDiff', 'HPOneP', 'HPTwoN', 'HUnsafeMone', 'HUnsafeMtwo', 'HPTwoP',
                'HUnsafeMzero', 'HHeadline', 'HFalseRefzero', 'HFalseRefone', 'HFalseReftwo', 'HTimeAllzero', 'HTimeAllone',
                'HTimeAlltwo', 'HSafeCorrectzero', 'HSafeCorrectone', 'HSafeCorrecttwo', 'HFailedzero', 'HFailedone', 'HFailedtwo',
                'HModelPdet', 'HModelPdetN', 'HModelQ', 'HModelUnsafezero', 'HModelUnsafeone', 'HModelUnsafetwo',
