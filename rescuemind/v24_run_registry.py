@@ -51,7 +51,8 @@ def proof_for_trial(project_root:Path, protocol:dict,trial_id:str,run_dir:Path)-
         # v2.4 requires the completed post-decision zero-velocity dwell;
         # historical v2.2 FAILED receipts alone are not sufficient.
         from .v24_trial_outcome import classify_negative_run
-        cfg=json.loads((project_root/'configs/gazebo_waypoints.json').read_text())
+        own=run_dir/'waypoints.json'      # Study L: per-trial layout waypoints stored in the run folder
+        cfg=json.loads((own if own.is_file() else project_root/'configs/gazebo_waypoints.json').read_text())
         try:
             classify_negative_run(run_dir,scene=trial['scene'],run_id=run_dir.name,waypoints=cfg)
         except (ValueError,OSError,KeyError,TypeError) as exc:

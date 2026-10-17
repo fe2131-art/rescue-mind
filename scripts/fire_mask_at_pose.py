@@ -26,6 +26,31 @@ import scripts.build_testset_t1 as t1  # noqa: E402
 from rescuemind.robust_scenes import build_variant  # noqa: E402
 
 DESIGN_POSE = {'water': (1.03, 0.99, 0.769), 'medicine': (-1.03, 0.97, 2.388)}
+DESIGN_SHORT_OF_WAYPOINT_M = 0.2
+
+
+def design_pose(station: str, layout=None):
+    """Camera pose for the design-time fire mask: fixed constants for the default arena; for a Study L layout,
+    0.2 m short of the station waypoint on the start-waypoint line, yawed at the station centre."""
+    import math
+    if layout is None:
+        return DESIGN_POSE[station]
+    from rescuemind.layout import Layout
+    lay = Layout.from_dict(layout)
+    if lay.is_default():
+        return DESIGN_POSE[station]
+    wx, wy = lay.waypoint(station)
+    cx, cy = lay.center(station)
+    n = math.hypot(wx, wy)
+    px, py = wx - DESIGN_SHORT_OF_WAYPOINT_M * wx / n, wy - DESIGN_SHORT_OF_WAYPOINT_M * wy / n
+    return (round(px, 3), round(py, 3), round(math.atan2(cy - py, cx - px), 3))
+
+
+def station_center(station: str, layout=None):
+    if layout is None:
+        return {'water': (2.0, 2.0), 'medicine': (-2.0, 2.0)}[station]
+    from rescuemind.layout import Layout
+    return Layout.from_dict(layout).center(station)
 
 
 def logged_pose(run_id: str, fire_at: str):
@@ -55,6 +80,7 @@ def render(jobs):
     for job in jobs:
         world = wdir / f"rescuemind_{job['key']}_mask.sdf"
         kw = dict(job['world_spec']); kw['hazard_geom'] = tuple(kw['hazard_geom']); kw['hazard_mask'] = True
+        # Study L: kw['layout'] (a dict) is accepted by build_variant as is
         world.write_bytes(build_variant(ROOT / f"worlds/scenarios/rescuemind_{job['scene']}.sdf", **kw))
         procs = [subprocess.Popen(['gz', 'sim', '-s', '-r', '--headless-rendering', '-v', '1', str(world)],
                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True),
@@ -101,11 +127,11 @@ def main():
             if 'hazard_at' in spec and t['world'] not in seen:
                 seen.add(t['world'])
                 jobs.append({'key': t['world'], 'scene': t['scene'], 'world_spec': spec,
-                             'pose': DESIGN_POSE[spec['hazard_at']]})
+                             'pose': design_pose(spec['hazard_at'], spec.get('layout'))})
                 if a.design_sides:
                     import math
-                    x, y, _ = DESIGN_POSE[spec['hazard_at']]
-                    sx, sy = (2.0, 2.0) if spec['hazard_at'] == 'water' else (-2.0, 2.0)
+                    x, y, _ = design_pose(spec['hazard_at'], spec.get('layout'))
+                    sx, sy = station_center(spec['hazard_at'], spec.get('layout'))
                     n = math.hypot(sx - x, sy - y); vx, vy = -(sy - y) / n, (sx - x) / n
                     for side, k in (('L', -1), ('R', 1)):
                         px, py = x + k * a.design_sides * vx, y + k * a.design_sides * vy

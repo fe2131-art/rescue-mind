@@ -32,7 +32,9 @@ def evaluate(directory:Path)->dict:
     item=mission.get('intent',{}).get('item')
     if item not in ('water','medicine'):
         raise ValueError('unknown supply item')
-    waypoints=json.loads((ROOT/'configs/gazebo_waypoints.json').read_text())
+    # Study L: a run with a per-trial layout carries its own waypoints.json
+    own=directory/'waypoints.json'
+    waypoints=json.loads((own if own.is_file() else ROOT/'configs/gazebo_waypoints.json').read_text())
     observed='UNVERIFIED'
     try:
         if expected=='ALLOW':

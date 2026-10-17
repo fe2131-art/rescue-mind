@@ -52,6 +52,13 @@ def route_from_config(config_path, item, station=None):
 
 
 
+def load_centers(args):
+    """Station centres: the locked default file, or (Study L) the per-run --centers file, shape-checked only."""
+    custom=getattr(args,'centers',None)
+    path=Path(custom) if custom else ROOT/'configs/gazebo_station_centers.json'
+    return station_centers(json.loads(path.read_text(encoding='utf-8')),locked=not custom)
+
+
 def require_api_configuration(qwen_model: str) -> None:
     """Fail BEFORE first wheel command if the mandatory vision stack cannot run.
 
@@ -245,7 +252,7 @@ def run_ros(route, args, record):
         # The robot can finish a waypoint within 23 cm at an arbitrary yaw.
         # Before VLM inference, actively point its camera at the expected
         # supply station. Scene truth labels are NOT supplied to the models.
-        centers=station_centers(json.loads((ROOT/'configs/gazebo_station_centers.json').read_text()))
+        centers=load_centers(args)
         if station not in centers:
             raise RuntimeError('Unknown camera aiming station; do not infer')
         set_phase('aim:'+station)
@@ -446,7 +453,7 @@ def run_ros(route, args, record):
         return outcome
 
     def schedule_look_around(station, waypoint):
-        centers=station_centers(json.loads((ROOT/'configs/gazebo_station_centers.json').read_text()))
+        centers=load_centers(args)
         cx,cy=centers[station][:2] if isinstance(centers[station],(list,tuple)) else (centers[station].x,centers[station].y)
         wx,wy=waypoint[:2]
         n=math.hypot(cx-wx,cy-wy) or 1.
@@ -663,6 +670,8 @@ def main():
     ap.add_argument('--motion-check',action='store_true',help='just move in Gazebo; no AI claim')
     ap.add_argument('--instruction',default='避難所Bに飲料水を届けて')
     ap.add_argument('--config',default=str(ROOT/'configs/gazebo_waypoints.json'))
+    ap.add_argument('--centers',default=None,
+        help='Study L: per-run station centres JSON (default: locked configs/gazebo_station_centers.json)')
     ap.add_argument('--preflight-image')
     ap.add_argument('--corridor-image')
     ap.add_argument('--inference-backend',choices=['local','cloud'],default='cloud',
