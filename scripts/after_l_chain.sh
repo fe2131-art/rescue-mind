@@ -8,6 +8,6 @@ elif git merge --no-edit -m "I-18: operator report generated after every run (no
 
 Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>" worktree-agent-a94afbeadff714e1e; then
   if nice -n 10 python3 -m unittest discover -s tests > experiments/results/after_l_tests.log 2>&1; then git push -q; echo "I18_MERGED"
-  else git reset --hard HEAD~1 -q; echo "I18_TESTS_FAILED (merge reverted; see experiments/results/after_l_tests.log)"; fi
+  else git revert -m 1 --no-edit HEAD -q; git push -q; echo "I18_TESTS_FAILED (merge reverted; see experiments/results/after_l_tests.log)"; fi
 else git merge --abort; echo "I18_MERGE_CONFLICT (skipped)"; fi
 bash scripts/v_run.sh
