@@ -350,7 +350,7 @@ R & Is the check fail-closed under camera degradation? & 300 T2 images $\times$ 
 H & Can memory speed missions up without new risk? & 16 sequences $\times$ 3 missions, changing worlds & 3 & time; unsafe deliveries \\
 J & Does the two-AI design run on the robot? & 24 worlds, paired & 2 & completes on one GPU; unsafe deliveries \\
 Z & Is a generative VLM needed? & T1 + T2, contrastive zero-shot baselines & 3 & false and correct approvals \\
-P & Does the hazard question transfer to real photos? & 400 D-Fire test images (CC0) & 1 & recall; false alarms \\
+P & Does the hazard question transfer to real photos? & 400 D-Fire test images (CC0) & 1 & recall; false alarms (descriptive) \\
 \bottomrule\end{tabular}}\end{table*}
 
 \textbf{Metrics and statistics.} The primary safety metric is the false-approval rate: approvals among
@@ -497,6 +497,16 @@ direction of a selective classifier \cite{geifman2017selective}.
 level is milder). Over-exposure washes out the flames, and the acquisition gate rejects the most extreme frames.}\label{fig:rex}\end{figure*}
 \begin{table}[t]\centering\caption{Study R: v3.6 offline check under camera degradations (T2 subset). Severity M = moderate, S = severe.}
 \label{tab:r}\resizebox{\linewidth}{!}{\input{tab_r.tex}}\end{table}
+
+\textbf{Real photographs (study P).} Rendered fire is stylised. We therefore also asked the frozen v3.6 hazard question about 400
+real photographs from the test split of D-Fire \cite{venancio2022dfire}, a public-domain (CC0) fire and smoke dataset:
+100 each with no fire, smoke only, fire only, and both. It flagged \PRecall{} of the photographs with fire or smoke (95\% CI
+\PRecallCI) and \PFalseAlarm{} of the fire-free ones (\PFalseAlarmCI). The false alarms are not random. D-Fire's fire-free class
+comes from fire-surveillance cameras and is rich in hard negatives: hazy hillsides, low clouds, a smudge on the lens, red
+sunset clouds, glowing tents. Everyday scenes such as streets, beaches and roads scored $p_h\approx0.01$. The question was worded to
+catch faint smoke (``a grey or black cloud'') and thresholded at 0.05, so it errs strongly toward stopping on real images.
+This is the safe direction, but outdoors it would cost much of the availability. A site-specific threshold calibration on
+local fire-free images is therefore a deployment prerequisite. We registered it as a follow-up study.
 
 \subsection{Cross-mission memory (campaign H)}\label{sec:res-h}
 Campaign H has 16 sequences of three missions to the same shelter. Lighting and prop placement are re-drawn each mission,
