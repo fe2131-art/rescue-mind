@@ -134,6 +134,23 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 * **実行中の連鎖**：`scripts/final_chain.sh`。R の終了 → `r_analysis.py` → J の試運転（GPUメモリの確認）→ H 本番 → J 本番（試運転が成功した場合のみ）。
   * 出力：`r_analysis_stdout.log`、`j_smoke_stdout.log`、`campaign_H_ledger.jsonl`、`campaign_J_ledger.jsonl`、`campaign_J_vram.csv`。
 
+* **Z（事前登録、完了）**：比較対象として、画像と言葉の対応だけで判定するゼロショットの SigLIP と CLIP を、未使用データ T1/T2 で評価した。
+  * SigLIP は誤許可 44/408（T1）、47/407（T2）。こちらは 3 と 0 で、p<1e-6。
+  * CLIP はほぼすべて拒否した（正しい許可 2/191、0/193）。
+  * 論文の表は `tab_z.tex`。
+* **P（事前登録、実行中）**：実写画像で危険の質問が通用するか。D-Fire（CC0）のテスト用400枚を使う。画像はリポジトリの外の `~/.cache/rescuemind/dfire` に置く。
+  * 実行：`scripts/p_realphoto_eval.py --run`（pyarrow が必要。スクラッチパッドの venv を使う）。解析は `--analyse`。
+* **第三者評価（ユーザー指示）**：Sonnet 5.5 に、評価基準に基づいて定期的に採点させる。
+  * 指示文は固定：`docs/evaluations/EVALUATOR_PROMPT.md`。課題文の場所は起動時に渡す。
+  * 結果は `docs/evaluations/EVAL_<日付>_<連番>.md`。点数を上げる改善点トップ5に沿って改善する。
+* **論文**：
+  * 新しい章：横から見直す・Jev役・記憶（命題1と Algorithm 1）、全11研究の一覧表、R・H・J・Z の結果、Discussion、事前登録の時系列監査（付録）。
+  * 図：横から見直す例、火の大きさと検出、R の例、系統図。
+  * 参考文献は 77件以上（検証メモは `docs/paper/REFERENCES_NOTES.md`）。
+  * 注意：Clef-Flash は Qwen3.5-9B からの追加学習なので、Qwen とは系統が同じ。論文と D11 に明記済み。
+  * 論文中の `% CHECK-AFTER-H` の文は、H の結果で必ず確認する。
+* サブエージェントは必ず Sonnet 5.5（`model: sonnet`）で起動し、同時に1つまで。
+
 **次の手順**
 1. （済）予備走行2回目（HP02・HP03：記憶による経路と、素朴な記憶の確認省略の監査）を確認する → H の Amendment 1 → H を本実行（約7時間。R の終了後に）。
 2. R の解析（`r_analysis.py`。事前登録どおり）→ 論文に「センサー劣化」節、図。
