@@ -32,7 +32,7 @@ The instruction parser was tuned on 40 development utterances. The later hazard 
 hazard development sets of 300 rendered images each: DH, and DH2, which emphasises small early-stage fires.
 
 \textbf{Two-model rule.} The two-model rule (Sec.~\ref{app:jev}) approves only if Eq.~\eqref{M-eq:rule} holds for Qwen \emph{and}
-Clef-Flash names the requested supply with confidence $\ge 0.65$, presence $\ge 0.80$ and hazard probability below its
+Clef-Flash names the requested supply with confidence $\ge 0.65$, presence $\ge 0.80$ and hazard score below its
 own threshold.
 
 \textbf{T1 examples.} Fig.~\ref{fig:t1ex} shows held-out T1 images. T1 used 60 Gazebo worlds $\times$ 2 stations $\times$ 5 viewpoints
@@ -42,8 +42,8 @@ Two of the distractors never appeared during development: a blue crate and an or
 \caption{Held-out T1 images (robot camera, 640$\times$480) with the generator's expected decision. The crate and the
 traffic cone never appeared during development.}\label{fig:t1ex}\end{figure}
 
-\section{Model selection on development data}\label{app:models}
-\begin{table}[h]\centering\caption{Candidate models with the final prompts (\texttt{v35}: checkpoint questions of v3.5; \texttt{i35}: instruction parser) on development data only.
+\section{Model Selection on Development Data}\label{app:models}
+\begin{table}[h]\centering\caption{Candidate models with the final prompts (\texttt{v35}: check questions of v3.5; \texttt{i35}: instruction parser) on development data only.
 Images: correct decisions with false approvals (FA) and false denials (FD). Explanations: one-sentence reports judged
 correct against the generator labels. Intent: development utterances, with unsafe acceptances. VRAM in MiB.}
 \label{tab:devmodels}\resizebox{\linewidth}{!}{\input{tab_dev_models.tex}}\end{table}
@@ -68,11 +68,11 @@ For each predicate it generates several semantically equivalent yes/no questions
 otherwise the VLM proposes a viewing direction and the robot moves there, up to a viewpoint budget. A failed verification corrects the scene graph and triggers PDDL replanning.
 It was evaluated by task success on 100 real mobile-manipulation trials and on injected failures in OmniGibson. The overlap with our design is real: paraphrase agreement
 is the counterpart of our permuted-question agreement, and VLM-chosen views are the counterpart of our look-around. To our knowledge, the differences are
-(i) our scores are next-token probabilities over a closed answer set with a threshold calibrated on development data, whereas VAP-TAMP uses textual yes/no answers and a vote;
+(i) our scores are next-token scores over a closed answer set with a threshold calibrated on development data, whereas VAP-TAMP uses textual yes/no answers and a vote;
 (ii) in our design every check is combined in a fail-closed conjunction, so a failed check or an extra view can only refuse or revoke, whereas in VAP-TAMP a verification result corrects the symbolic state in either direction;
-(iii) an independent velocity guard that the VLM cannot command;
-(iv) memory that may only reorder checks and add caution; and
-(v) pre-registered closed-loop audits of the error direction against simulator ground truth, which report the unsafe-delivery rate and not task success.
+(iii) ours has an independent velocity guard that the VLM cannot command;
+(iv) in ours, memory may only reorder checks and tighten thresholds; and
+(v) ours is audited in pre-registered closed loop against simulator ground truth, which reports the unsafe-delivery rate and not task success.
 VAP-TAMP covers things we do not: PDDL task and motion planning, manipulation, and real-robot trials.
 Semantic anomaly detection with LLMs~\cite{elhafsi2023semantic} and visual question answering that abstains rather than
 answers wrongly~\cite{whitehead2022reliablevqa} are close in spirit to a gate that prefers refusal. Our check runs \emph{before} the robot acts and is closed-set and zero-shot. Its output is a
@@ -100,7 +100,7 @@ the actuators. LLM-controlled robots can be manipulated into harmful actions~\ci
 guardrails such as RoboGuard~\cite{ravichandran2026guardrails} check plans before execution.
 The safety filter~\cite{hsu2024safetyfilter} is the current umbrella for such least-restrictive overrides of a nominal controller; our velocity guard is a minimal instance and the VLM check is a perception-side gate in the same spirit.
 Closest in using a VLM for safety, Santos et al.~\cite{santos2025updating} turn images and language feedback into a failure set that a Hamilton--Jacobi safety filter enforces,
-so the guarantee comes from the verified filter; ours is a union bound over check errors. RoboSafe~\cite{wang2025robosafe} guards VLM-driven embodied agents with executable safety rules and a short- and long-term safety memory, which drives rule-based replanning and is not constrained to be safety-monotone.
+so the guarantee comes from the verified filter; ours is a union bound over check errors. RoboSafe~\cite{wang2025robosafe} guards VLM-driven embodied agents with executable safety rules and a short- and long-term safety memory, which drives rule-based replanning and is not constrained to tighten only.
 In contrast to vision-language-action models~\cite{zitkovich2023rt2,kim2025openvla}, our VLM never commands motion.
 
 \textbf{Memory for robots in changing environments.}
@@ -124,7 +124,7 @@ its safety direction obvious.
 Without a physical platform, we measure one part of this gap, sensor degradation, under a pre-registered protocol. What
 we care about is the \emph{direction} of the errors, not only accuracy.
 
-\paragraph{Untrusted inputs to embodied agents.}
+\textbf{Untrusted inputs to embodied agents.}
 Jailbreaks of LLM-controlled robots are now well documented: RoboPAIR~\cite{robey2025jailbreaking},
 BadRobot~\cite{zhang2025badrobot}, the policy-executable attacks of Lu et al.~\cite{lu2024poex} and
 adversarial text attacks on vision-language-action models~\cite{jones2025vla} all steer the planner through the instruction channel.
@@ -139,7 +139,7 @@ and the mitigations proposed alongside the attacks are prompt defences, two-stag
 The closest conceptual relatives are structural defences for software agents: CaMeL separates control and data flow and attaches capabilities to tool calls~\cite{debenedetti2025camel},
 and information-flow control labels the integrity of inputs and enforces policy deterministically~\cite{costa2025fides}.
 We carry this idea to a physical pre-action gate: advice from memory, peer robots, inventory and operator text is typed so that it can only reorder visits or tighten thresholds,
-never skip or relax a check, which yields a bound on unsafe deliveries that holds for any advice (advice monotonicity) and is evaluated closed-loop against poisoned memory and injected instructions (study~A).
+never skip or relax a check, which yields a bound on unsafe deliveries that holds for any advice (the tighten-only rule) and is evaluated closed-loop against poisoned memory and injected instructions (study~A).
 Text in the scene is perception, not advice, and so lies outside this guarantee; we measure it separately (study~S) and report the residual vulnerability.
 
 \textbf{Diverse redundancy.} Requiring agreement between independently developed versions is a classic fault-tolerance
@@ -157,7 +157,7 @@ How far simulation predicts real-world behaviour is itself measurable~\cite{li20
 is a larger alternative with ground-level, UAV and satellite subsets and a possible future source. Local open-weight VLMs have been used for wildfire detection from UAV imagery~\cite{seidel2025wildfirevlm},
 descriptively and without refusal semantics or a closed-loop audit.
 
-\section{Additional T1 analyses}\label{sec:t1extra}
+\section{Additional T1 Analyses}\label{sec:t1extra}
 \begin{table}[t]\centering\caption{T1 held-out test, registered v3.4 rule (Eq.~\ref{M-eq:rule}) unless marked free JSON; 408 must-refuse and 191 must-approve images.}
 \label{tab:t1models}\resizebox{\linewidth}{!}{\input{tab_t1_models.tex}}\end{table}
 
@@ -185,7 +185,7 @@ question brought this down to \TThreeBFullFA{}, which is the option-letter bias 
 (Table~\ref{tab:t1ablation}). Asking this model for free JSON (A5) left \TJsonThreeErr{} of the 1200 generations unparseable and
 approved \TJsonThreeCA{} images; Qwen3.5-9B gave no parse errors (main paper, Sec.~\ref{M-sec:results}).
 
-\section{Campaign E details}\label{sec:camp-e}
+\section{Campaign E Details}\label{sec:camp-e}
 Campaign E used a new randomised world in every trial (main paper, Sec.~\ref{M-sec:results}); Table~\ref{tab:e} gives the outcomes by stratum and
 Fig.~\ref{fig:etraj} the ground-truth trajectories.
 \begin{table}[t]\centering\caption{Campaign E (randomised worlds) by stratum.}\label{tab:e}
@@ -193,7 +193,7 @@ Fig.~\ref{fig:etraj} the ground-truth trajectories.
 \begin{figure}[t]\centering\fig{fig_e_trajectories.pdf}
 \caption{Campaign E: ground-truth trajectories of all final trials, coloured by audited outcome.}\label{fig:etraj}\end{figure}
 
-\section{Wall-clock timing}\label{sec:timing}
+\section{Wall-Clock Timing}\label{sec:timing}
 \textbf{Where the time goes.} Table~\ref{tab:timing} breaks down the \TimingN{} delivered missions that needed no search.
 The check itself takes about \TimCheck\,s: aiming, waiting until stationary, frame checks, and the scored VLM queries
 (\TimVlm\,s). Driving between station and shelter takes about \TimDrive\,s (sum of phase medians). The check is therefore short
@@ -206,7 +206,7 @@ compared with driving. The situation report adds about 5\,s but could run in par
 real photographs from the test split of D-Fire~\cite{venancio2022dfire}, a CC0 fire and smoke dataset
 (100 each with no fire, smoke only, fire only, and both). It flagged \PRecall{} of the photographs with fire or smoke (95\% CI
 \PRecallCI) and \PFalseAlarm{} of the fire-free ones (\PFalseAlarmCI); the false alarms concentrate on hard negatives such as hazy
-hillsides and sunset clouds (Supp.~Sec.~S7). The probabilities still rank the photographs well (AUROC \PAuroc, not registered), so the problem is the threshold, not the question. The question thus errs strongly toward stopping on real images, which is
+hillsides and sunset clouds (Supp.~Sec.~S7). The scores still rank the photographs well (AUROC \PAuroc, not registered), so the problem is the threshold, not the question. The question thus errs strongly toward stopping on real images, which is
 the safe direction but would cost availability outdoors, so a site-specific threshold calibration is a deployment prerequisite.
 Study P2 tested this: it chose wording and $\tau_h$ on 400 separate calibration photographs
 (recall $\ge 0.95$ first, then the lower false-alarm rate), with wording \PTwoWording{} and $\tau_h=\PTwoTau$, and applied it to 400 test photographs.
@@ -239,7 +239,7 @@ contrastive scores do not separate ``right supply, no fire'' from the alternativ
 and on \TNoFireAlarm{} images without fire. With the v3.5 rule, it raised false alarms on \TvConeAlarm{} cone and \TvNoFireAlarm{} fire-free images.
 
 \textbf{Campaign F, remaining misses.} Six of v3.6's seven remaining misses were fires of 1\,100--2\,400 visible pixels with hazard
-probabilities of 0.002--0.006, which overlap those of fire-free views, so no threshold can separate them. The seventh showed 8\,600
+scores of 0.002--0.006, which overlap those of fire-free views, so no threshold can separate them. The seventh showed 8\,600
 pixels at $p_h=0.019$.
 
 \textbf{Campaign G, world set and medians.} The set of worlds is defined from mask renders at all three views, so it includes the side
@@ -269,7 +269,7 @@ study R (Sec.~\ref{sec:moved-r}) for every degradation and severity.
 \begin{tabular}{lrr}\toprule & Clef-Flash misses & Clef-Flash catches \\\midrule
 Qwen misses & \JevOvBoth & \JevOvQOnly \\
 Qwen catches & \JevOvCOnly & \JevOvNeither \\\bottomrule\end{tabular}\\[2pt]
-\footnotesize Qwen misses \JevOvQ, Clef misses \JevOvC; $P(\text{Clef misses}\mid\text{Qwen misses})=\JevOvCond$ (Wilson \JevOvCondCI); Jaccard \JevOvJaccard. Counting only the hazard question (probability $\ge0.05$ in the hazard question alone): Qwen misses \JevOvHQ, Clef misses \JevOvHC, both miss \JevOvHBoth.
+\footnotesize Qwen misses \JevOvQ, Clef misses \JevOvC; $P(\text{Clef misses}\mid\text{Qwen misses})=\JevOvCond$ (Wilson \JevOvCondCI); Jaccard \JevOvJaccard. Counting only the hazard question (score $\ge0.05$ in the hazard question alone): Qwen misses \JevOvHQ, Clef misses \JevOvHC, both miss \JevOvHBoth.
 \end{table}\addtocounter{table}{-1}}
 
 \textbf{Campaign H, per-mission outcomes.} Fig.~\ref{fig:hout} shows every mission of campaign H (main paper, Sec.~\ref{M-sec:res-h}).
@@ -314,7 +314,7 @@ average; with verified memory it first visits the station where it last saw the 
 $\delta=\HKDelta$\,s measured in H, the expected saving is $\delta\,((k-1)-qk)/2$ per mission and vanishes at $q^\ast=(k-1)/k$.
 For $k=2$ this reproduces the Monte-Carlo model above (\HKSaveTwo\,s at $q=0.2$); for $k=8$ it is \HKSaveEight\,s. A simulation of the same
 process agrees within 1\,s for $q>0$ (\texttt{scripts/h\_k\_scaling.py}). The safety side does not depend on $k$ in this way:
-each policy checks every station it delivers from with the same rule, so Corollary~1 applies unchanged, and memory lowers the
+each policy checks every station it delivers from with the same rule, so Proposition~2 applies unchanged, and memory lowers the
 expected number of checks per mission rather than their strength. The model assumes the stations are equally far apart
 and that supply identification is perfect (T1: no supply false approvals in 332 images).
 
@@ -351,7 +351,7 @@ pre-registration amendment, before any model scored a T1 image. A second amendme
 label with the rendered-mask label, after we saw fires hidden behind supplies that the geometric label had called visible.
 \end{itemize}
 
-\section{Registration audit}\label{app:prereg}
+\section{Registration Audit}\label{app:prereg}
 \begin{table}[h]\centering\caption{When each study was registered and when its first results entered the repository. ``Order''
 checks that the registration commit is an ancestor of the first results commit (\texttt{git merge-base --is-ancestor}).
 Registrations are also mirrored in the public repository history. Studies without results yet show the draft commit or ``registered at merge, pending''.}\label{tab:prereg}
@@ -379,7 +379,7 @@ stylised. ``Delivery'' means that the robot reached the shelter after approving;
 reports false alarms on D-Fire images; it does not test a robot. The two checkers in J share lineage (Clef-Flash is post-trained from
 Qwen3.5-9B), so errors may be correlated.
 
-\textbf{Statistical.} Samples are small: P1 has 8 relocation-persist pairs, and P3 compares 0 unsafe deliveries (M2) with 1 (M0), which shows only that M2 is not less safe (Wilson upper bounds 11\% and 16\%).
+\textbf{Statistical.} Samples are small: the time comparison has 8 relocation-persist pairs, and the safety comparison contrasts 0 unsafe deliveries (M2) with 1 (M0), which shows only that M2 is not less safe (Wilson upper bounds 11\% and 16\%).
 Images of one world, and missions of one sequence, are not independent; we therefore add world-cluster bootstrap intervals and a
 sequence-level McNemar test, which are wider or less powerful than the pooled ones. Several studies are reported without family-wise correction,
 because each has its own registered endpoint and the claims are not pooled.
@@ -391,7 +391,7 @@ $\text{kind}\in\{\text{location},\text{hazard},\text{safe},\text{skip}\}$ and st
 $\mathrm{plan}(\theta,\mathbf{a})=(\pi,\theta')$ implemented in \texttt{rescuemind/advice.py}:
 \begin{itemize}
 \item $\pi$ is an order of the $k$ stations: a location item for station $j$ moves $j$ first; all other items leave $\pi$ unchanged. The set of stations is never changed, so $\pi$ is a permutation of the order before advice.
-\item $\theta'_j=(\taus,\;\min(\tauh,\tau_h^{\mathrm{caut}}\text{ if some hazard item names }j),\;V)$ at station $j$, with $\tau_h^{\mathrm{caut}}=0.01$.
+\item $\theta'_j=(\taus,\;\tau'_{h,j},\;V)$ at station $j$, with $\tau'_{h,j}=\min(\tauh,\tau_h^{\mathrm{caut}})$ if some hazard item names $j$ and $\tau'_{h,j}=\tauh$ otherwise, where $\tau_h^{\mathrm{caut}}=0.01$.
 \item \emph{safe} and \emph{skip} items are rejected and logged; no item can create a refusal without a visit, a delivery without a check, or a change of $\taus$ or $V$.
 \end{itemize}
 Two optional hardenings, both off by default and both on the tighten-only side, change $\theta'$ further. \emph{Scrutiny} gives the station that location advice moved to the front the caution threshold and the extra views of the adaptive rule (two poses at 0.8\,m and one 0.3\,m closer), whether or not anything looked suspicious; it only lowers $\tauh'$ and enlarges $V'$. \emph{Soft refusal} turns a refusal caused only by the caution threshold ($\tau_h^{\mathrm{caut}}\le p_h<\tauh$, nothing else wrong) into a refusal of that station and a continued search; a delivery still needs an approval of the full check at the delivering station, a real hazard ($p_h\ge\tauh$) still stops the mission, and the audit accepts a soft hop only if the saved model outputs recompute it as caution-only.
@@ -401,7 +401,7 @@ Two optional hardenings, both off by default and both on the tighten-only side, 
 $\mathrm{plan}(\theta,\mathbf{a})$ from the logged items and rejects the run if the logged $\theta'$ differs or is not of this form (\texttt{advice.assert\_monotone}). $\square$
 
 \textbf{The error budget.} Let the world $w$ (supply arrangement, lighting, props, fire) be drawn from the generator's distribution, and let $M_s(w)$ say that station $s$ is \emph{must-refuse}: it holds the wrong or no supply, or a fire perceivable at one of the three design views. Let $o_s$ be the frames the robot captures at $s$ (they depend on $w$ and on the sensor and model randomness, not on when $s$ is visited, since the world is static during a mission), and
-\[\varepsilon_s \;=\; \Pr\big[\,M_s(w)\;\wedge\;A_\theta(o_s)=1\,\big]\qquad(\text{over worlds and noise}).\]
+\[\varepsilon_s \;=\; \Pr\big[\,M_s(w)\;\wedge\;A_\theta(o_s)=1\,\big]\;(\text{over worlds and noise}).\]
 $\varepsilon_s$ is a property of the site and the check, not of the order or of the advice. $\varepsilon_{\max}=\max_s\varepsilon_s$. Let $E_w=\{\exists s:\ M_s(w)\wedge A_\theta(o_s)=1\}$ and $\varepsilon_{\mathrm{any}}=\Pr[E_w]\le\min(1,\sum_s\varepsilon_s)$; it does not depend on $k$ (a bound read per class: the number plugged in is conditional on the class, here the hard one). The proof needs $o_s$ not to depend on the visiting order: in the depot the arrival pose depends on the previous bay and the smoke emitter moves, so there $\varepsilon_s$ is a supremum over predecessors, arrival-pose laws and visit times, or the stationary value.
 
 \textbf{Proposition 2 (advice stays inside the error budget).} For every $\mathbf{a}$ and every observation $o$ at a station, $A_{\theta'}(o)\Rightarrow A_\theta(o)$, and for every rule that picks the order and the advice as a function of the world,
@@ -414,14 +414,14 @@ By the implication, $A_\theta(o_s)=1$ on the same frames. An unsafe delivery mea
 
 \textbf{Relative, not absolute.} The proposition bounds the robot with advice, and the advice-free robot, by the same budget; it does not say that the two have the same risk. The advice-free robot's order is the inventory's, which is itself advice, and it checks the stations in that order and cannot be fooled by a station it never visits: the unsafe rate with advice can exceed the control's by up to the budget of the extra must-refuse stations that advice makes the robot check. We therefore do not claim ``as safe as without advice''. With $k=2$ and the hardest class (a small fire, front pixels 0, side pixels 2\,000--5\,000), the plug-in is $\hat\varepsilon=\GEpsHat$ with look-around (Wilson upper bound \GEpsUpper), so $k\hat\varepsilon=\GKEpsHat$ (upper bound \GKEpsUpper); front-only it was \GWrongB/\GPairs. At $k=4$ the upper bound exceeds 1, so as an absolute number the guarantee is vacuous for this class. The measured part of the budget is the point: it shows that $\varepsilon$, not advice, is what to reduce (Sec.~\ref{M-sec:fix}).
 
-\textbf{Exposure and steering.} Advice that changes \emph{which} station is checked changes exposure, in two ways. (a)~\emph{Delivery risk.} With duplicated supply (two bays hold the requested supply; $k=4$ in the depot) location advice can put the bay with the hardest-to-see fire first, so the unsafe rate is $\varepsilon_{\mathrm{hard}}$ where the control's is 0 by construction; truthful advice cannot be flagged by a filter, a provenance rule or a reputation system. In the 2-station arena only $\varepsilon_{\text{supply}}$ can be exploited (\TSupplyFA/\TSupplyN{} observed false supply approvals), which is why study A's first 162 runs cannot see this effect. The A-steer condition of study A builds the case: 16 duplicate-supply worlds in which a small, partly hidden fire (front view mostly 0 pixels, a side view a few thousand) stands behind the \emph{other} station, truthful location advice naming it, with arms control (clean station first), monotone, scrutiny with soft refusal, and naive. The registered prediction is that monotone is worse than the control (about $\hat\varepsilon_{\mathrm{hard}}$ unsafe worlds in 16) and scrutiny recovers part of it at a measured cost. Sixteen worlds cannot detect an effect of that size (about one unsafe world expected; a one-sided sign test needs five): a null is reported as undetectable at this $n$ with its Wilson upper bound, never as evidence that the order does not matter. The steering estimate is the order-independent $\varepsilon_{\mathrm{any}}$, measured at image level in studies W and XD (oracle steering, about 10 times the worlds). (b)~\emph{Physical exposure.} The robot is driven toward a station that really is on fire; the guarantee is about delivery, not travel. Both are reported as exposure (the share of runs whose first check was at a perceivable fire), never tolerated as noise.
+\textbf{Exposure and steering.} Advice that changes \emph{which} station is checked changes exposure, in two ways. (a)~\emph{Delivery risk.} With duplicated supply (two bays hold the requested supply; $k=4$ in the depot) location advice can put the bay with the hardest-to-see fire first, so the unsafe rate is $\varepsilon_{\mathrm{hard}}$ where the control's is 0 by construction; truthful advice cannot be flagged by a filter, a provenance rule or a reputation system. In the 2-station arena only $\varepsilon_{\text{supply}}$ can be exploited (\TSupplyFA/\TSupplyN{} observed false supply approvals), which is why study A's first 162 runs cannot see this effect. The A-steer condition of study A builds the case: 16 duplicate-supply worlds in which a small, partly hidden fire (front view mostly 0 pixels, a side view a few thousand) stands behind the \emph{other} station, truthful location advice naming it, with arms control (clean station first), tighten-only, scrutiny with soft refusal, and naive. The registered prediction is that tighten-only advice is worse than the control (about $\hat\varepsilon_{\mathrm{hard}}$ unsafe worlds in 16) and scrutiny recovers part of it at a measured cost. Sixteen worlds cannot detect an effect of that size (about one unsafe world expected; a one-sided sign test needs five): a null is reported as undetectable at this $n$ with its Wilson upper bound, never as evidence that the order does not matter. The steering estimate is the order-independent $\varepsilon_{\mathrm{any}}$, measured at image level in studies W and XD (oracle steering, about 10 times the worlds). (b)~\emph{Physical exposure.} The robot is driven toward a station that really is on fire; the guarantee is about delivery, not travel. Both are reported as exposure (the share of runs whose first check was at a perceivable fire), never tolerated as noise.
 
 \textbf{What the proposition does not say.} It does not bound time or availability; extraction of items from text may be wrong, which cannot matter for safety because the guarantee holds for \emph{any} advice set; it assumes a static world and that $\varepsilon_s$ is the measured per-station rate (it differs by station and fire geometry); and it does not cover anything that reaches the decision through the camera. The destination in the operator's request is parsed separately in a closed set with an explicit rule, not by this proposition; a mis-parse of the \emph{request} defeats everything, so the offline set of study A measures wrong-shelter acceptance (must be 0) as the evidence for it.
 
 \textbf{Cost bound (denial of service), in time and availability.} Let $W$ be the cost of one wasted visit (a drive plus a check; in study A the median mission time of the control in worlds where the supply is at the other station minus that in nominal worlds). Let $\delta$ be the per-view false-alarm rate of the hazard question on fire-free views at the caution threshold. Study K measured $4/193$ per view at $\tau_h=0.0113$ on the held-out fire-free images (\texttt{k\_summary.json}), an approximation for $0.01$.
 (i)~\emph{Reordering:} wrong or truthful-but-late location advice adds at most $k-1$ wasted visits per mission relative to the best order, so at most $W$ in the arena and $3W$ in the depot; a hazard stop is terminal, so if advice orders a station that really burns before a clean one, the mission ends without a delivery, which is safe but lost. A truthful hazard report that is repeated, or location advice delivered at every mission, is a time-budget attack of the same size per mission.
 (ii)~\emph{Caution:} hazard advice at a station adds at most one failure per view, so the added probability of a false refusal is at most $1-(1-\delta)^{v}$ with $v=3$ views (front and two sides): $0.061$; with the wasted front view of a false location item ($v=4$): $0.080$; in the worst case the adversary names both stations of the arena, $v=3k=6$ views: $0.118$ (independent views) and $\le3k\delta=0.124$ without independence. At $k=4$ the same worst case is $v=12$.
-In study A the sum of the per-run bounds over the 24 monotone runs on poison\_location and poison\_hazard worlds is 1.7 expected false refusals; \texttt{scripts/a\_analysis.py} compares the observed count with the 95th percentile of the Poisson-binomial sum (4) and reports the extra seconds per attacked mission against $1.5W$. These are statements about the arena and the simulated rate, not about the rule: on real photographs the frozen $\tauh=0.05$ already gave 64/100 false alarms (P) and the calibrated threshold is 0.3 (P2), so the caution threshold should be defined relative to the site's calibrated threshold and its false-alarm rate re-measured per site.
+In study A the sum of the per-run bounds over the 24 tighten-only runs on poison\_location and poison\_hazard worlds is 1.7 expected false refusals; \texttt{scripts/a\_analysis.py} compares the observed count with the 95th percentile of the Poisson-binomial sum (4) and reports the extra seconds per attacked mission against $1.5W$. These are statements about the arena and the simulated rate, not about the rule: on real photographs the frozen $\tauh=0.05$ already gave 64/100 false alarms (P) and the calibrated threshold is 0.3 (P2), so the caution threshold should be defined relative to the site's calibrated threshold and its false-alarm rate re-measured per site.
 (iii)~\emph{Soft refusal} removes the one-shot mission kill: a caution-only refusal continues to the next station, so hazard advice costs a visit instead of the mission. Persistent advice (a peer's memory file that names every station at every mission) multiplies the per-mission cost by the number of missions; the rule does not bound that, and a provenance field with decay is the natural mitigation that we have not evaluated.
 
 \textbf{Trust base.} ``Advice may only tighten'' is a claim about one small function, so the question is what else it rests on (Table~\ref{tab:tcb}). The advice audit recomputes \texttt{advice.plan} from the logged plan with the same module and a log written by the node under test, so it finds bugs, not a compromised node or a wrong specification; the evidence for safety in study A is the \emph{outcome} audit (Gazebo ground-truth trajectory and masks), which does not depend on those logs. We therefore wrote an independent reference implementation of the rule from its specification, compared it with the implementation by differential testing over every advice set of up to four items, injected plausible bugs (skip allowed, threshold raised, view dropped, a location item deleting a station) and fuzzed raw advice files and model outputs (unknown keys, duplicates, huge numbers, NaN, bool, non-UTF-8, nested objects). This found five bugs in the implementation (an audit that missed a removed caution and NaN thresholds; a reorder that moved a naive memory's skip to an unvouched station; unexpected exceptions on non-list or deeply nested files; booleans accepted as probabilities; a NaN hazard score ignored by \texttt{max}); all were fixed and all injected bugs are now killed. A further hardening, the delivery interlock (I-22: the velocity guard blocks delivery legs and shelter entry without a permit recomputed independently from the saved model outputs, with a guard-side shelter geofence), is implemented and off by default; its Gazebo check is still pending and studies A and X run with it off unless a registered amendment says otherwise.
@@ -435,9 +435,9 @@ mission gating & a check is skipped or a station refused unseen only in the naiv
 ground-truth recorder & outcome audit independent of the node's logs & simulator fidelity \\
 destination parse & outside Prop.~2: closed-set parse plus rule & a mis-parse of the request \\\bottomrule\end{tabular}\end{table}
 
-\textbf{Consistency--robustness curve (model illustration, not registered).} In the vocabulary of algorithms with predictions, Fig.~\ref{fig:advicecurve} plots mission time (consistency: advice is right) and unsafe deliveries (robustness: advice is wrong) against the advice accuracy $a$ for $k=4$, for no advice, our monotone rule, a naive advice follower, and a naive follower behind a filter that drops a ``safe/skip'' claim with probability 0.8; per-check rates and times are those measured in G and H. The monotone curve is flat in unsafe deliveries by construction: in this model the fire sits only at the requested supply's station and the check's detection rate is the same at every station, so the proposition is displayed, not tested. Its informative parts are the time axis and the naive and filtered curves. The curve omits exposure: a hidden-fire bay with its own $\varepsilon$ and duplicate supply would make the monotone curve rise above ``no advice'' as $a$ falls, which is what A-steer measures. We therefore treat it as an illustration.
+\textbf{Consistency--robustness curve (model illustration, not registered).} In the vocabulary of algorithms with predictions, Fig.~\ref{fig:advicecurve} plots mission time (consistency: advice is right) and unsafe deliveries (robustness: advice is wrong) against the advice accuracy $a$ for $k=4$, for no advice, our tighten-only rule, a naive advice follower, and a naive follower behind a filter that drops a ``safe/skip'' claim with probability 0.8; per-check rates and times are those measured in G and H. The tighten-only curve is flat in unsafe deliveries by construction: in this model the fire sits only at the requested supply's station and the check's detection rate is the same at every station, so the proposition is displayed, not tested. Its informative parts are the time axis and the naive and filtered curves. The curve omits exposure: a hidden-fire bay with its own $\varepsilon$ and duplicate supply would make the tighten-only curve rise above ``no advice'' as $a$ falls, which is what A-steer measures. We therefore treat it as an illustration.
 \begin{figure}[t]\centering\fig{fig_advice_curve.pdf}
-\caption{Consistency--robustness curve of four policies as advice accuracy falls ($k=4$; descriptive model with measured per-check rates; \texttt{scripts/advice\_curve.py}). The monotone curve is flat by construction; see the text for what the model omits.}\label{fig:advicecurve}\end{figure}
+\caption{Consistency--robustness curve of four policies as advice accuracy falls ($k=4$; descriptive model with measured per-check rates; \texttt{scripts/advice\_curve.py}). The tighten-only curve is flat by construction; see the text for what the model omits.}\label{fig:advicecurve}\end{figure}
 
 \begin{table}[t]\centering\caption{Threat model for inputs the robot did not perceive itself. ``Structural'': a guarantee that does not depend on the model's answers.}\label{tab:threat}
 \scriptsize\renewcommand{\arraystretch}{0.95}\resizebox{\linewidth}{!}{\begin{tabular}{p{2.3cm}p{4.2cm}p{1.9cm}p{2.7cm}}\toprule
@@ -476,7 +476,7 @@ does not test two-model checking in general, but it is why we did not adopt the 
 
 
 \section{Studies and Results Moved from the Main Paper}\label{app:moved}
-The main paper follows one chain (gate, error budget, look again, advice may only tighten, outside the guarantee) and keeps one sentence for each study that does not carry it. This section holds the rest.
+The main paper follows one chain (gate, error budget, look-around, advice may only tighten, outside the guarantee) and keeps one sentence for each study that does not carry it. This section holds the rest.
 
 \subsection{All registered studies}\label{sec:moved-all}
 Table~\ref{tab:studies-all} lists all registered studies; the main paper's table keeps the rows that carry the chain.
@@ -501,10 +501,10 @@ Z & Is a generative VLM needed? & T1 + T2, contrastive zero-shot baselines & 3 &
 K & Does a conformal $\tau_h$ keep a miss bound? & \KNcal{} dev fires $\to$ T2 (offline) & 2 ($\alpha=0.05,0.10$) vs frozen & held-out fire miss rate $\le\alpha$ & \StatK \\
 P & Does the hazard question transfer to real photos? & 400 D-Fire test images (CC0) & 1 (v3.6 hazard question) & recall; false alarms (descriptive) & \StatP \\
 P2 & Does a site-calibrated $\tau_h$ make the hazard question usable on real photos? & D-Fire: 400 calibration, 400 test images & 2 wordings vs frozen & recall $\ge0.90$ and false alarms $\le0.20$ & \StatPtwo \\
-A & Can untrusted advice relax a check, or steer it? & 226 runs: 18 worlds (162 runs) + 16 duplicate-supply worlds (A-steer, 64 runs); 224 offline texts & monotone, naive, LLM-filter, scrutiny + control & unsafe deliveries under false advice; steering; time and cost bound & \StatA \\
+A & Can untrusted advice relax a check, or steer it? & 226 runs: 18 worlds (162 runs) + 16 duplicate-supply worlds (A-steer, 64 runs); 224 offline texts & tighten-only, naive, LLM-filter, scrutiny + control & unsafe deliveries under false advice; steering; time and cost bound & \StatA \\
 S & Can a sign in the picture cause a wrong approval? & 64 worlds $\times$ {no sign, attack, benign} & 6 (ours, one pass, free-form, full image, OCR mask, ignore-text) & false approvals caused by the sign; defences (non-adaptive signs) & \StatS \\
 XD & Does the check transfer to cluttered four-bay depot images? & 308 worlds (hard class 100), 1\,932 images; 200 warehouse photographs & 3 (front only, look-around, adaptive) & hard-class $\hat\varepsilon$ upper bound $\le0.15$; relative claims O1--O4; recalibrated $\tauh$ & pending \\
-X & Does the memory result transfer to a cluttered four-station depot? & 80 closed-loop runs, $k=4$ & M0 vs M2 (memory); control, monotone, scrutiny (steering) & M2 vs M0 unsafe, time, visited bays; steering (descriptive) & pending \\
+X & Does the memory result transfer to a cluttered four-station depot? & 80 closed-loop runs, $k=4$ & M0 vs M2 (memory); control, tighten-only, scrutiny (steering) & M2 vs M0 unsafe, time, visited bays; steering (descriptive) & pending \\
 Q & Does the supply check work on real photographs? & 405 Commons photographs & 1 (v3.6 supply check) & false-approval upper bound $\le0.05$ and correct approvals $\ge0.70$ & pending \\
 \bottomrule\end{tabular}}\end{table*}
 
@@ -544,7 +544,7 @@ and CLIP~\cite{radford2021clip}, with the same decision structure and thresholds
 \emph{Conformal $\tau_h$ (study K, registered, offline)} kept its miss bound at the cost of more false alarms; the frozen threshold was not changed (Sec.~\ref{app:resdetails}).
 
 \subsection{Camera degradations (study R)}\label{sec:moved-r}
-Gazebo renders are noise-free and well exposed. To probe this part of the sim-to-real gap~\cite{hofer2021sim2real}, we degraded the checkpoint frames of \RNimg{} held-out T2 images
+Gazebo renders are noise-free and well exposed. To probe this part of the sim-to-real gap~\cite{hofer2021sim2real}, we degraded the front-view frames of \RNimg{} held-out T2 images
 (\RNworlds{} worlds) in \RNcond{} registered ways. There are six families, in the spirit of ImageNet-C~\cite{hendrycks2019benchmarking}: sensor noise, motion blur, defocus, under- and
 over-exposure, and JPEG compression, each at a moderate and a severe level (examples: Fig.~\ref{fig:rex}). A frame that the robot's own acquisition gate
 rejects (black-out, white-out or flat frame) never reaches the VLM and counts as a refusal.
@@ -563,7 +563,7 @@ $q=\HModelQ$ per mission, the model predicts \HModelUnsafeone{} unsafe deliverie
 \HModelTimetwo{} and \HModelTimezero\,s.
 Keeping every check has a price: verified memory keeps \HPriceFracZero{} of naive memory's modelled time saving at $q=0$ (\HPriceVerZero{} of \HPriceNaiveZero\,s) and \HPriceFracHalf{} at $q=0.5$.
 The saving grows with the number of stations while the risk bound does not change (Sec.~\ref{app:resdetails}). Study V tests the model in closed loop (main paper, Sec.~\ref{M-sec:res-h}).
-Further H details: the per-mission outcomes (Fig.~\ref{fig:hout}), the case in which caution stopped a delivery that no-memory made (main paper, Fig.~\ref{M-fig:hcase}), all paired missions (Table~\ref{tab:hseq}), the time of delivered missions by arm and false refusals: M0 \HFalseRefzero, M1 \HFalseRefone, M2 \HFalseReftwo. Caution applied in \HCautN{} of the \HPTwoN{} M2 missions, only \HCautFree{} at a fire-free station, with \HCautFalse{} false refusals there (Wilson upper bound \HCautFalseUpper); a global $\tau=\KTauTen$ would also have stopped M0 in Q09.3 (descriptive, not registered; Sec.~\ref{app:resdetails}).
+Further H details: the per-mission outcomes (Fig.~\ref{fig:hout}), the case in which caution stopped a delivery that no-memory made (main paper, Fig.~\ref{M-fig:hcase}), all paired missions (Table~\ref{tab:hseq}), the time of delivered missions by arm and false refusals: M0 \HFalseRefzero, M1 \HFalseRefone, M2 \HFalseReftwo. Caution applied in \HCautN{} of the \HPTwoN{} M2 missions, only \HCautFree{} at a fire-free station, with \HCautFalse{} false refusals there (Wilson upper bound \HCautFalseUpper); a global $\tauh=\KTauTen$ would also have stopped M0 in Q09.3 (descriptive, not registered; Sec.~\ref{app:resdetails}).
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
