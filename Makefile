@@ -44,7 +44,7 @@ BUILD_LATEX = docker build -t $(LATEX_IMG) docker/latex
 NEED_DEV   = $(call REQ_CONT,$(DEV),$(START_DEV),$(BUILD_DEV))
 NEED_LATEX = $(call REQ_IMG,$(LATEX_IMG),$(BUILD_LATEX))
 
-.PHONY: help doctor test check numbers figures paper report readme youtube all-docs finalize assets video-plan video \
+.PHONY: help doctor test check verify-quick reproduce-help numbers figures paper report readme youtube all-docs finalize assets video-plan video \
         study-D study-E study-F study-G study-H study-J study-V study-L study-A study-X study-W study-S study-XD \
         study-T1 study-T2 study-R study-P2 study-K
 
@@ -79,6 +79,30 @@ verify: ## Re-check Proposition 2 on the implementation (z3 proof + model-vs-cod
 	$(NICE) python3 scripts/verify_advice_smt.py --out /tmp/rescuemind_smt_fresh.json
 	$(NICE) python3 scripts/verify_compare.py /tmp/rescuemind_smt_fresh.json
 	$(NICE) python3 -m pytest -q tests/test_i23_smt_refinement.py tests/test_advice_independent.py tests/test_i24_advice_credit.py
+
+verify-quick: ## Proposition 2: the z3 proofs only (about 20 s, no differential runs); compares the verdicts with the committed record
+	$(NICE) python3 scripts/verify_advice_smt.py --no-link --out /tmp/rescuemind_smt_quick.json
+	$(NICE) python3 scripts/verify_compare.py /tmp/rescuemind_smt_quick.json
+
+reproduce-help: ## Print the three reproduction tiers (the full guide: docs/REPRODUCE.md)
+	@echo "RescueMind: reproduction in three tiers (full guide with expected outputs and timings: docs/REPRODUCE.md)"
+	@echo
+	@echo "Tier 1  no GPU, minutes (host python3 only)"
+	@echo "  pip install -r requirements-verify.txt   # z3, hypothesis, pytest (a venv is fine)"
+	@echo "  make verify-quick     # z3 proofs of Prop. 2 vs the committed record, ~20 s"
+	@echo "  make verify           # + 9000 differential cases, code mutants and tests, ~9 min"
+	@echo "  make numbers && make check   # regenerate every paper number from experiments/results, then check README/YouTube/paper/report"
+	@echo "  make test             # unit tests (host: ROS/Docker-only tests may fail or skip; in rm-dev: all)"
+	@echo
+	@echo "Tier 2  GPU (V100 32 GB), image level, hours: docker + model weights + stored images"
+	@echo "  make doctor           # what is missing (docker, containers, images)"
+	@echo "  make assets           # AWS small-warehouse models (MIT-0), needed for the depot studies XD and X"
+	@echo "  make study-T1 study-T2 study-R study-P2 study-W study-S study-XD   # PRINT the registered commands (nothing starts)"
+	@echo
+	@echo "Tier 3  closed loop (Gazebo + ROS 2 + VLM), one stack at a time"
+	@echo "  docker exec $(NEXT) rescuemind-entrypoint python3 scripts/v32_orchestrate.py --run --scenario live --scene swapped ...   # one mission (docs/REPRODUCE.md section 5)"
+	@echo "  make study-D study-E study-G study-H study-V ...                  # PRINT the registered campaign commands"
+	@echo "  registration predates results: python3 scripts/paper_numbers.py  -> docs/paper/tab_prereg.tex, or git merge-base --is-ancestor <registration> <results>"
 
 numbers: ## Regenerate docs/paper/numbers.tex and tab_*.tex from experiments/results (host python3, no docker)
 	$(NICE) python3 scripts/paper_numbers.py
