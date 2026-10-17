@@ -11,6 +11,7 @@ Writes docs/paper/fig_h_case.pdf (English, 3.4 in, vector) and docs/figures/memo
 """
 from __future__ import annotations
 import json
+import sys
 from pathlib import Path
 
 import matplotlib
@@ -20,7 +21,8 @@ from matplotlib import font_manager  # noqa: E402
 from PIL import Image  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
-RUNS = ROOT / 'outputs/runs'
+sys.path.insert(0, str(ROOT / 'scripts'))
+from run_paths import run_dir  # noqa: E402
 RUN = {'M0': '4e5461e9e58542c4', 'M2': '54c52d274181424a'}
 MASKS = ROOT / 'experiments/campaign_h_protocol_design_fire_masks.json'
 INK, MUTED = '#1f2933', '#616e7c'
@@ -54,7 +56,7 @@ def load():
     masks = {r['key']: r['fire_pixels'] for r in json.loads(MASKS.read_text())}
     out = {}
     for arm, rid in RUN.items():
-        d = RUNS / rid
+        d = run_dir(rid)
         m = json.loads((d / 'mission.json').read_text())
         sc = lambda c: c['model_calls']['first']['scores']
         front = sc(m['checkpoint'])

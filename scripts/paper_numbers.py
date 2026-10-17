@@ -16,6 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
+from run_paths import FULL as FULL_RUNS  # noqa: E402
 RES = ROOT / 'experiments/results'
 OUT = ROOT / 'docs/paper'
 
@@ -266,14 +267,19 @@ def main():
               ('drive to shelter', 'checkpoint_explanation', 'shelter_approach')]
     lines = [r'\begin{tabular}{lrrr}', r'\toprule', r'Phase & Median [s] & Min & Max \\', r'\midrule']
     durs = defaultdict(list)
+    tf = RES / 'timing_runs.json'   # written by scripts/export_run_evidence.py from outputs/runs
+    timing_runs = json.loads(tf.read_text()) if tf.is_file() else {}
     for rows in (d_rows or [], e_rows or []):
         for r in rows:
             if r['observed_action'] != 'ALLOW':
                 continue
-            mf = ROOT / 'outputs/runs' / r['run_id'] / 'mission.json'
-            if not mf.is_file():
+            mf = FULL_RUNS / r['run_id'] / 'mission.json'   # full record if present, else the committed export
+            if mf.is_file():
+                ev = {e['stage']: e.get('t_wall_s') for e in json.loads(mf.read_text())['events']}
+            elif r['run_id'] in timing_runs:
+                ev = timing_runs[r['run_id']]
+            else:
                 continue
-            ev = {e['stage']: e.get('t_wall_s') for e in json.loads(mf.read_text())['events']}
             for name, a, b in phases:
                 if b in ev and (a is None or a in ev):
                     durs[name].append(ev[b] - (ev[a] if a else 0.0))

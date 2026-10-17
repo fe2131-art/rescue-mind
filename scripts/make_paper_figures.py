@@ -158,7 +158,8 @@ def fig_lookaround(run='9d73663832c94f16'):
     """Front vs left side view of one v3.6 demo mission (campaign G world W03): the front check approved, the side view refused."""
     import json
     from PIL import Image
-    d = ROOT / 'outputs/runs' / run
+    from run_paths import run_dir
+    d = run_dir(run, 'peek_L_checkpoint.jpg')
     if not (d / 'peek_L_checkpoint.jpg').is_file():
         print('fig_lookaround: run not available, keeping the existing figure'); return
     m = json.loads((d / 'mission.json').read_text())

@@ -100,12 +100,12 @@ Y python3 scripts/make_report.py --account tetsutetsu   # docs/report/ の説明
 
 欠けている結果は論文中で `\TBD` と表示される。`python3 scripts/paper_numbers.py --final` は未了の結果があると失敗する。
 
-注意（`outputs/runs/` は Git 管理外。無いと `paper_numbers.py` は `tab_timing.tex` を空にし、`TimDrive` などを `\TBD` にする）：次の 3 つは個々の試行の記録を読むため、記録を持たない環境では再生成できず、コミット済みの PDF／表を使う。`fig_lookaround.pdf`（run `9d73663832c94f16` の `peek_L_checkpoint.jpg` と `mission.json`）、`fig_h_case.pdf`（H の run `4e5461e9e58542c4`・`54c52d274181424a`）、`tab_timing.tex` の中央値（台帳の各 `run_id` の `mission.json`）。同じ構成で再実行すれば別の run_id で近い図が得られるが、画素までは一致しない。他の図・表・マクロは `experiments/results/` とリポジトリ内の画像集合だけから再生成できる。
+注意（`outputs/runs/` は Git 管理外）：`fig_lookaround.pdf`、`fig_h_case.pdf`、`tab_timing.tex`（と `operator_report_*.png` の例）が読む試行の記録のうち、必要な最小部分は `experiments/evidence/runs/<run_id>/`（`mission.json`、`stack_result.json`、チェック画像 `*.jpg` のみ。rosbag・ログ・動画は含まない。合計約 0.7 MB）にコミットしてある。スクリプトは `outputs/runs/<run_id>/` を先に見て、無ければこのコピーを読む（`scripts/run_paths.py`。環境変数 `RESCUEMIND_RUNS_DIR` で前者の場所を変えられる）。対応する run は次の通り。`fig_lookaround.pdf` は `9d73663832c94f16`、`fig_h_case.pdf` は `4e5461e9e58542c4`（M0）と `54c52d274181424a`（M2）、`operator_report_hidden_fire`／`_recover`／`_memory_case` はそれぞれ `9d73663832c94f16`／`b4fcd9d164444db7`／`54c52d274181424a`。`tab_timing.tex` と `TimDrive` などは、台帳 D・E の配達した試行 34 件の段階別の経過時間を持つ `experiments/results/timing_runs.json` から再計算される（`outputs/runs` があればそちらが優先）。コピーは `python3 scripts/export_run_evidence.py` が作る（絶対パスは相対に置換）。図を作り直すと別の run_id で近い図になる点は変わらないが、コミット済みの記録からは同じ図が再生成できる（`operator_report_*` の再描画には CJK フォントが要る）。
 
 ## 5. 実行の証拠の確認
 
 * **テスト**：`Y python3 -m unittest discover -s tests -q`。公開物の個人パス検査は `Y python3 -m unittest tests.test_no_personal_paths`。
-* **1 試行の証拠**（`outputs/runs/<run_id>/` は Git 管理外。公開用の抜粋は `scripts/export_evidence.py` が `experiments/results/evidence/<run_id>/` に作る）：`stack_result.json`（最終状態）、`mission.json`（判断・各段階のイベント）、`checkpoint.jpg`（VLM が見た画像）、`rosbag2_metadata.yaml`、`ground_truth_xy.json`（Gazebo の真値軌跡）。
+* **1 試行の証拠**（`outputs/runs/<run_id>/` は Git 管理外。図が読む最小部分は `experiments/evidence/runs/<run_id>/` にコミット済み（`scripts/export_run_evidence.py`）。公開用の抜粋は `scripts/export_evidence.py` が `experiments/results/evidence/<run_id>/` に作る）：`stack_result.json`（最終状態）、`mission.json`（判断・各段階のイベント）、`checkpoint.jpg`（VLM が見た画像）、`rosbag2_metadata.yaml`、`ground_truth_xy.json`（Gazebo の真値軌跡）。
   * 画像の照合：`sha256sum experiments/results/evidence/<run_id>/checkpoint.jpg` が `mission.json` の `image_sha256` と一致すること。
   * rosbag（MCAP）は `--capture-rosbag` 付きの実行で `outputs/runs/<run_id>/` に残る。`ros2 bag info` で確認できる。
 * **台帳の整合**：台帳の各行に `run_id`、`state`、`image_sha256`、`models`、`stack_args` がある。事前登録の記録（`PREREGISTRATION_*.md`）は結果より前の git コミットで固定してあり、論文付録「Registration audit」が `git merge-base --is-ancestor` で機械的に確認している。
@@ -120,7 +120,7 @@ Y python3 scripts/make_report.py --account tetsutetsu   # docs/report/ の説明
 | 結果ファイル／図 | 生成スクリプト（実行場所） | 研究 | 論文での使用先 |
 |---|---|---|---|
 | `campaign_ledger.jsonl` | `run_campaign.py`（X、v33 イメージ） | C | マクロ `CN`、`CVlmCorrect`、`tab_prereg` |
-| `campaign_D_ledger.jsonl`、`campaign_D_ledger_fire_visibility.json` | `run_campaign.py`（X）、`fire_visibility_check.py` | D | マクロ `D*`、`tab_timing`（`outputs/runs` 必要）、`tab_prereg` |
+| `campaign_D_ledger.jsonl`、`campaign_D_ledger_fire_visibility.json` | `run_campaign.py`（X）、`fire_visibility_check.py` | D | マクロ `D*`、`tab_timing`（`timing_runs.json`）、`tab_prereg` |
 | `campaign_E_ledger.jsonl`、`evidence/<run_id>/ground_truth_xy.json` | `run_campaign.py`（X）、`export_evidence.py`（Y） | E | マクロ `E*`、`tab_e_strata`、`tab_timing`、`fig_e_trajectories.pdf`（補足） |
 | `devset_t1_*.json`（6 構成）、`t1_summary.json` | `t1_eval_all.sh`（X）、`t1_analysis.py`（Y） | T1 | マクロ `T*`・`Stat*`、`tab_t1_models`、`tab_t1_ablation`、`fig_t1_examples.pdf`・`fig_risk_coverage.pdf`（補足） |
 | `devset_t1_i11_h36_{tiles,full}.json`（W-b が必要とする T1 の v3.6 採点） | `w_eval.sh`（W のマージ後） | W-b | 未配線（W は論文に未接続） |
@@ -146,7 +146,7 @@ Y python3 scripts/make_report.py --account tetsutetsu   # docs/report/ の説明
 | `w_summary.json`（W のマージと実行後） | `w_render.sh`、`w_eval.sh`（`w_analysis.py`） | W | 未配線 |
 | `test_count.json` | `count_tests.py`（Y） | — | マクロ `NTests` |
 | `docs/paper/numbers.tex`、`tab_*.tex`（上記以外の `tab_prereg`、`tab_timing`） | `paper_numbers.py`（ホスト） | 全研究 | 本文・補足 |
-| `fig_system.pdf`、`fig_lookaround.pdf`（run 必要）、`fig_h_outcomes.pdf` ほか | `make_paper_figures.py`（Y。`build_paper.sh` が呼ぶ） | — | 本文・補足の図（`fig_h_case.pdf` は `make_memory_case_figure.py`、`fig_h_change_rate.pdf` は `h_change_rate_model.py`） |
+| `fig_system.pdf`、`fig_lookaround.pdf`（`experiments/evidence/runs/`）、`fig_h_outcomes.pdf` ほか | `make_paper_figures.py`（Y。`build_paper.sh` が呼ぶ） | — | 本文・補足の図（`fig_h_case.pdf` は `make_memory_case_figure.py`、`fig_h_change_rate.pdf` は `h_change_rate_model.py`） |
 | `figure_stats.json`、`docs/figures/*.png`（旧来の図） | `make_figures.py`（Y） | C/D ほか | README・説明資料 |
 | README の結果ブロック／`docs/report/` の PDF | `update_readme_results.py`、`make_report.py --account tetsutetsu`（Y） | 全研究 | README・説明資料 |
 
