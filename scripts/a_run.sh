@@ -32,6 +32,13 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>" -- experiments/campai
   && git push -q || echo "A_NOTE: nothing new to commit or push for the masks" >&2
 echo "A_MASKS_DONE"
 
+# (c0) registration gate: the prereg, the protocol and the frozen advice prompts must be committed and unchanged
+for f in experiments/PREREGISTRATION_A.md "$PROTO" experiments/advice_prompts_frozen.json; do
+  git ls-files --error-unmatch "$f" >/dev/null 2>&1 || { echo "A_ABORT: $f is not committed" >&2; exit 1; }
+  git diff --quiet HEAD -- "$f" || { echo "A_ABORT: $f differs from the committed version" >&2; exit 1; }
+done
+echo "A_REGISTERED $(git log -1 --format=%h -- experiments/PREREGISTRATION_A.md)"
+
 # (c) campaign
 for i in $(seq 1 60); do awk '{exit !($1 < 6)}' /proc/loadavg && break; sleep 60; done   # quiet host
 echo "A_LOAD_AT_START $(cut -d' ' -f1-3 /proc/loadavg)"
