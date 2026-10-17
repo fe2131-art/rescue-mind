@@ -343,3 +343,13 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 * V・W・Q の後にすること：`i21-depot` を main にマージする → 全テスト → A（文言を固め、dev で調整して凍結、予備走行）→ XD → S → X。
 * 要約図は新しい筋（助言は締めるだけ）に作り直す必要がある。結果が出てから行う。
 
+**2026-10-17 23:00 連鎖の追加**
+* `after_q_chain.sh`（PID で実行中。通知は来ない。ログは scratchpad の `after_q.log`）：`Q_CHAIN_DONE` を待つ → `origin/i21-depot` を main にマージ → 全テスト → 倉庫の素材を取得 → `a_run.sh`。
+  * `a_run.sh`：予備走行 → マスク → 登録の確認（prereg・protocol・凍結したプロンプト）→ 226 run → 解析。
+* 助言を取り出すプロンプトは、推論の前に書いたまま凍結した（`advice_prompts_frozen.json`）。dev 側では調整していない。
+* 統合ブランチの追加分：
+  * I-22 配送インターロックと、ガード側の避難所ジオフェンス。
+  * Makefile（`make help`）。
+  * 一本の筋に沿った要約図と README。
+* 採点7回目（統合ブランチ）を Sonnet が実行中。
+
