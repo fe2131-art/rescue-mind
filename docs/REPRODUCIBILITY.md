@@ -3,6 +3,26 @@
 事前登録した各研究を再現し、論文・報告書・README の数値を再生成するための手順。パスは `<repo>`（リポジトリのルート）からの相対で書く。
 研究の内容・結論は `README.md`、`docs/paper/main.pdf`、`docs/HANDOFF.md` を参照。
 
+## 0. Makefile（成果物ごとに 1 コマンド）
+
+以下の手順の多くは、リポジトリ直下の `Makefile` が既存のスクリプトを包んでいる。`make help` が一覧、`make doctor` が docker・コンテナ（`rm-dev`、`rm-next`）・イメージ（`rescuemind:jazzy`、`rescuemind:jazzy-next`、`rescuemind:latex`）の有無を表示する。各ターゲットは前提を確認し、足りなければ起動・ビルドのコマンドを表示して止まる。
+
+| ターゲット | 内容（包んでいるもの） |
+|---|---|
+| `make test` | 単体テスト（`rm-dev` 内。無ければホストの `python3`） |
+| `make numbers` | `scripts/paper_numbers.py`（`docs/paper/numbers.tex`、`tab_*.tex`） |
+| `make figures` | `make_paper_figures.py`、`make_graphical_abstract.py`、`make_memory_diagram.py`、`make_advice_diagram.py`（`rm-dev`） |
+| `make paper` / `make paper FINAL=1` | `scripts/build_paper.sh`（`main.pdf`、`supplement.pdf`）。`FINAL=1` は先に `paper_numbers.py --final` を実行し、未了（`\TBD`）があれば中断 |
+| `make report` | `make_report.py --account $(ACCOUNT)`（`rm-dev`。`ACCOUNT` 既定 `tetsutetsu`） |
+| `make readme` / `make youtube` | `update_readme_results.py` / `make_youtube_description.py` |
+| `make all-docs` | numbers、figures、paper、report、readme、youtube の順 |
+| `make finalize` | `scripts/finalize_results.sh`（解析 → 論文 → 報告書 → README → テスト。何もコミットしない） |
+| `make assets` | `scripts/fetch_depot_assets.sh`（倉庫の世界 XD・X 用モデル、MIT-0） |
+| `make video-plan` / `make video` | `make_video_plan.py` / `make_demo_video.py`。run id は `VID_DELIVER`、`VID_RECOVER`、`VID_HIDDEN`、`VID_MEMORY`、`ADVICE`（助言注入の run。指定すると `--hidden-fire` の代わりに `--advice`）で上書き。映像は既存の run だけを使う（`rm-voicevox` が動いていれば `--narrate 2`） |
+| `make study-D`、`-E`、`-F`、`-G`、`-H`、`-J`、`-V`、`-L`、`-A`、`-X`、`-W`、`-S`、`-XD`、`-T1`、`-T2`, `-R`、`-P2`、`-K` | 登録したコマンド列の**表示のみ**（`scripts/*_run.sh`、`*_eval.sh`、`run_campaign.py`）。GPU と静かなホストが必要という警告付き。誤って実行を始めないための設計 |
+
+重い処理（キャンペーン）はこの Makefile から始まらない。`NICE='nice -n 19'` が既定で、ホスト側のスクリプトに付く。
+
 ## 1. 前提
 
 | 項目 | 内容 |
