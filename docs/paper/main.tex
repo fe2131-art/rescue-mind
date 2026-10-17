@@ -97,22 +97,22 @@ the other station, or refuse because of a wrong item or a hazard.
 \section{Related Work}
 \textbf{Failure detection and verification.}
 REFLECT~\cite{liu2023reflect}, AHA~\cite{duan2025aha} and success detectors~\cite{du2023successdetectors} explain or detect failures after the fact;
-Sentinel~\cite{agia2025sentinel}, FAIL-Detect~\cite{xu2025faildetect} and Code-as-Monitor~\cite{zhou2025codeasmonitor}
-monitor learned policies at run time (Supp.~Sec.~S3). Our check runs \emph{before} the robot acts and is closed-set, zero-shot and audited against ground truth.
-KnowNo~\cite{ren2023knowno} scores multiple-choice answers by next-token probability and asks a human for help with a conformal guarantee~\cite{angelopoulos2021conformal};
-SayCan~\cite{ichter2023saycan} likewise scores a fixed candidate set. We share the scoring but refuse or search under uncertainty, and add permuted-option agreement against letter bias~\cite{zheng2024mcselectors,pezeshkpour2024order,robinson2023mcqa}. Raw confidence needs validation~\cite{kadavath2022know,guo2017calibration,zhao2021calibrate}.
+Sentinel~\cite{agia2025sentinel} and FAIL-Detect~\cite{xu2025faildetect} monitor learned policies at run time, Code-as-Monitor~\cite{zhou2025codeasmonitor} checks constraints with VLM-generated programs, and an LLM anomaly monitor triggers a safe fallback~\cite{sinha2024realtime} (Supp.~Sec.~S3).
+The closest work we know is VAP-TAMP~\cite{oloo2026vaptamp}: before and after each action it asks a VLM paraphrased yes/no questions, takes a majority vote, and moves the camera if the view is insufficient; the vote updates the state used for replanning. To our knowledge, ours differs in closed-set next-token scores, a fail-closed conjunction (a failed check can only refuse or revoke), an independent velocity guard, memory limited to reordering and caution, and pre-registered closed-loop audits against ground truth.
+KnowNo~\cite{ren2023knowno} scores multiple-choice answers by next-token probability and asks a human for help with a conformal guarantee~\cite{angelopoulos2021conformal}; bounding a miss rate with high probability is risk control~\cite{angelopoulos2024conformalrisk,angelopoulos2025ltt};
+SayCan~\cite{ichter2023saycan} likewise scores a fixed candidate set. We share the scoring but refuse or search under uncertainty, and add permuted-option agreement against letter bias~\cite{zheng2024mcselectors,pezeshkpour2024order,robinson2023mcqa}. Language models are fairly calibrated on formatted multiple-choice questions~\cite{kadavath2022know}, but confidence still needs validation~\cite{guo2017calibration,zhao2021calibrate}, and embodied VLMs abstain poorly on their own~\cite{wu2025abstaineqa}.
 
 \textbf{Safety architectures.} Simplex~\cite{seto1998simplex,sha2001simplicity}, shields~\cite{alshiekh2018shielding}
 and control barrier functions~\cite{ames2019cbf} keep a simple verified layer between a complex decision maker and
-the actuators. LLM-controlled robots can be manipulated into harmful actions~\cite{robey2025jailbreaking}; RoboGuard~\cite{ravichandran2026guardrails} checks plans first. Unlike vision-language-action models~\cite{zitkovich2023rt2,kim2025openvla}, our VLM never commands motion.
+the actuators (see~\cite{hsu2024safetyfilter}). LLM-controlled robots can be manipulated into harmful actions~\cite{robey2025jailbreaking}; RoboGuard~\cite{ravichandran2026guardrails} checks plans first. Unlike vision-language-action models~\cite{zitkovich2023rt2,kim2025openvla}, our VLM never commands motion.
 
 \textbf{Memory and active perception.}
-Semantic memory~\cite{anwar2025remembr,wang2025karma} and 3D scene graphs~\cite{hughes2022hydra,gu2024conceptgraphs} \emph{answer} or \emph{plan}~\cite{rana2023sayplan}; mapping has long dealt with change~\cite{biber2005dynamic,krajnik2017fremen}. Unaudited stale memory can be worse than none~\cite{sun2026memorylies};
+Semantic memory~\cite{anwar2025remembr,wang2025karma} and 3D scene graphs~\cite{hughes2022hydra,gu2024conceptgraphs} \emph{answer} or \emph{plan}~\cite{rana2023sayplan}; mapping has long dealt with change~\cite{biber2005dynamic,krajnik2017fremen}. In a grid-world study, unaudited stale memory was worse than none~\cite{sun2026memorylies};
 GLOVE~\cite{yin2026glove} and VLM-DEWM~\cite{tang2026vlmdewm} check memory against fresh observations. We instead use memory to decide \emph{where and how carefully to verify}, never to reduce verification.
 Moving the sensor to resolve ambiguity is classic~\cite{bajcsy1988active,bajcsy2018revisiting}, and agents explore until a VLM is confident~\cite{ren2024exploreuntil}; ours is deliberately simple: two fixed side views, used only to \emph{revoke} an approval.
 
 \textbf{Robustness, redundancy and evaluation.} Classifiers, detectors and VLMs degrade under common
-corruptions~\cite{hendrycks2019benchmarking,michaelis2019benchmarking,chen2023benchmarking,schiappa2022robustness}; we measure one part of the sim-to-real gap~\cite{hofer2021sim2real}, sensor degradation, and care about the \emph{direction} of errors. Agreement between independent versions is a classic
+corruptions~\cite{hendrycks2019benchmarking,michaelis2019benchmarking,chen2023benchmarking,schiappa2022robustness}; we measure one part of the sim-to-real gap~\cite{hofer2021sim2real,li2024simpler}, sensor degradation, and care about the \emph{direction} of errors. Agreement between independent versions is a classic
 fault-tolerance technique~\cite{avizienis1985nversion} limited by correlated failures~\cite{knight1986experimental}. We follow recommendations to report conditions, metrics, uncertainty
 and failure modes~\cite{kressgazit2024empirical}, with Wilson intervals~\cite{wilson1927probable}, exact McNemar tests~\cite{mcnemar1947note} and domain randomisation~\cite{tobin2017domain} for the held-out \emph{test} set.
 

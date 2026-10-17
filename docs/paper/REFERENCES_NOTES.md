@@ -54,3 +54,26 @@ Raw author lists were checked against arXiv/proceedings. Lists >10 authors: Conc
 - Embodied-RAG, Sun&Zhang, GLOVE, VLM-DEWM, Sripada, Michaelis: arXiv-only (no venue listed anywhere found); kept as @misc preprints.
 - No entries were dropped for failing verification. Page numbers left out where not verified (RSS, KARMA, Chen/Schiappa NeurIPS).
 - Wrong guess corrected: arXiv 2107.00222 is not Hofer; Hofer is DOI 10.1109/TASE.2021.3064065.
+
+## 7. Related-work additions (checked 2026-10-17)
+Method: arXiv abstract pages via curl; DOI/pages via Crossref API; venue via proceedings pages. IEEE Xplore pages were not fetched. Where no venue could be confirmed the entry is an arXiv preprint.
+- oloo2026vaptamp (VAP-TAMP) — arXiv 2604.26988 v1, 2026-04-28, cs.RO, 12 authors, no venue. Full text read from the arXiv HTML version (not only the abstract): Alg. 2 and Sec. IV-B give paraphrased yes/no questions, majority vote, a view-sufficiency query and a VLM-suggested viewing direction with a viewpoint budget; failed verification corrects the scene graph and triggers PDDL replanning; 100 real trials plus OmniGibson with injected failures.
+- angelopoulos2024conformalrisk — Conformal Risk Control; arXiv 2208.02814; ICLR 2024 proceedings page.
+- angelopoulos2025ltt — Learn then Test; Crossref 10.1214/24-AOAS1998 (Ann. Appl. Stat. 19(2):1641-1662); arXiv 2110.01052.
+- lekeufack2024conformaldecision — Conformal Decision Theory; Crossref 10.1109/ICRA57147.2024.10610041 (pp. 11668-11675); arXiv 2310.05921.
+- romer2025fiper — FIPER; arXiv 2510.09459 and NeurIPS 2025 poster page; proceedings volume/pages not confirmed, so omitted.
+- hsu2024safetyfilter — The Safety Filter; Crossref 10.1146/annurev-control-071723-102940 (vol 7, pp. 47-72); arXiv 2309.05837.
+- santos2025updating — Crossref 10.1109/ICRA55743.2025.11127680 (pp. 7778-7785); arXiv 2409.14580.
+- wang2025robosafe — arXiv 2512.21220 (v2 2025-12-26); abstract page lists no venue (a search listing suggested ICLR 2026, not opened), so cited as preprint.
+- yadav2025findingdory — arXiv 2506.15635; abstract page lists no venue (v2 PDF may say ICLR 2026, unconfirmed), cited as preprint.
+- chen2024agentpoison — arXiv 2407.12784; NeurIPS 2024 poster page. An LLM-agent paper; the text does not claim robotics results.
+- wu2025abstaineqa — arXiv 2512.04597 (cs.CV, cs.RO cross-list), no venue. The 42.79% best abstention recall is quoted from the abstract.
+- wang2025fasdd — Crossref 10.1080/10095020.2024.2347922 (Geo-spatial Inf. Sci. 28(2):511-526). The published title differs from the ESSD preprint title. Dataset size is not quoted in the text because it was not checked against the paper.
+- seidel2025wildfirevlm — Crossref 10.3390/drones9050347 (Drones 9(5):347); abstract read via Crossref.
+- snyder2025policycomparison — arXiv 2503.10966 ("Accepted to RSS 2025"); RSS XXI proceedings page; DOI 10.15607/RSS.2025.XXI.077 taken from the proceedings page.
+- li2024simpler (SIMPLER) — arXiv 2405.05941; PMLR 270:3705-3728 (CoRL 2024).
+
+Fixes to existing entries (same date):
+- CoRL year convention: all CoRL entries now carry the conference year (agia2025sentinel and kim2025openvla 2025 -> 2024; huang2023innermonologue and ichter2023saycan 2023 -> 2022; the PMLR volume year is kept in the note field). Existing BibTeX keys were left unchanged to avoid touching the introduction.
+- liang2024introspective was uncited; it is now cited in the supplement (extended related work, KnowNo paragraph). Not independently re-verified beyond the earlier entry (arXiv 2402.06529, "NeurIPS 2024").
+- zhou2025codeasmonitor, kadavath2022know and sun2026memorylies are now described as in their abstracts (VLM-generated-program constraint monitor, not specific to learned policies; reasonably calibrated on formatted multiple-choice questions; FrozenLake-style grid-world study).
