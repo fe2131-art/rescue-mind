@@ -64,7 +64,8 @@ class PredictLogic(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             m = Path(d) / 'masks.json'
             m.write_text(json.dumps([{'key': 'V01m1', 'fire_pixels': 10}, {'key': 'V01m1L', 'fire_pixels': 20},
-                                     {'key': 'V01m2', 'fire_pixels': 0}, {'key': 'V01m2R', 'fire_pixels': 700}]))
+                                     {'key': 'V01m2', 'fire_pixels': 0}, {'key': 'V01m2L', 'fire_pixels': 0},
+                                     {'key': 'V01m2R', 'fire_pixels': 700}, {'key': 'V01m1R', 'fire_pixels': 0}]))
             st = perceivable_states(proto, m)['V01']
         self.assertEqual([s['fire'] for s in st], [False, True])
 
