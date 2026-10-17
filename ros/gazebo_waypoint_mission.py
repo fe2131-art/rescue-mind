@@ -409,6 +409,7 @@ def run_ros(route, args, record):
                     finished['result']=verify_station_local(f,expected,mode=args.local_mode,
                         primary_url=args.local_primary_url,secondary_url=args.local_secondary_url,
                         primary_model=getattr(args,'vlm_model','Qwen/Qwen2.5-VL-3B-Instruct'),
+                        hazard_threshold=getattr(args,'expected_hazard_threshold',0.05),
                         **({'jev_url':args.jev_url,'jev_hazard_threshold':args.jev_hazard_threshold,'jev_schema':args.jev_schema}
                            if getattr(args,'jev_url',None) else {}))
                 else:
@@ -847,6 +848,9 @@ def main():
     ap.add_argument('--inference-backend',choices=['local','cloud'],default='cloud',
                     help='local=on-device Transformers vision; cloud=legacy Jev/Qwen APIs')
     ap.add_argument('--local-mode',choices=['single','dual'],default='single')
+    ap.add_argument('--expected-hazard-threshold',type=float,default=0.05,
+                    help='the VLM server tau_h (--hazard-threshold) this run must have been started with; every model call is '
+                         'checked against it and the mission aborts otherwise (v3.6: 0.05; the server default 0.5 is refused)')
     ap.add_argument('--local-primary-url',default='http://127.0.0.1:8765/v1/classify')
     ap.add_argument('--local-secondary-url',default='http://127.0.0.1:8766/v1/classify')
     ap.add_argument('--qwen-model',default='qwen3.8-omni-flash')

@@ -144,5 +144,88 @@ class Client(unittest.TestCase):
                     verify_station_local(img, 'water', transport=transport(bad))
 
 
+class ThresholdVerification(t22.Base):
+    """#27: tau_h is the server's flag (default 0.5); the client must verify every call's recorded hazard_threshold."""
+
+    def setvals(self, fx, thr, *, where='front'):
+        calls = list(fx.cp['model_calls'].values()) if where == 'front' else \
+            list(fx.cp['look_around']['peeks'][0]['model_calls'].values())
+        for c in calls[:1]:
+            if thr == 'del':
+                del c['scores']['hazard_threshold']
+            else:
+                c['scores']['hazard_threshold'] = thr
+
+    def test_matching_threshold_is_permitted_and_reported(self):
+        fx = self.fx()
+        self.ok(fx, Policy(require_look_around=True))
+        res = audit_local_checkpoint(fx.cp, fx.cp['image_sha256'], expected='water')
+        self.assertTrue(res['hazard_threshold_verified'])
+        self.assertEqual(res['hazard_threshold'], 0.05)
+
+    def test_server_default_or_any_other_threshold_is_refused(self):
+        for where in ('front', 'side'):
+            for thr in (0.5, 0.3, 0.049, 0.051, float('nan'), True, 'x'):
+                fx = self.fx()
+                self.setvals(fx, thr, where=where)
+                with self.subTest(where=where, thr=thr):
+                    with self.assertRaises(LocalReceiptError):
+                        audit_local_checkpoint(fx.cp, fx.cp['image_sha256'], expected='water')
+                    self.assertFalse(decide(fx.raw(), Policy(require_look_around=True)).permit)
+
+    def test_missing_record_denied_by_interlock_and_unverified_in_run_audit(self):
+        for where in ('front', 'side'):
+            fx = self.fx()
+            self.setvals(fx, 'del', where=where)
+            d = decide(fx.raw(), Policy(require_look_around=True))
+            self.assertFalse(d.permit, where)
+            self.assertIn('threshold', d.reason)
+            res = audit_local_checkpoint(fx.cp, fx.cp['image_sha256'], expected='water')    # saved pre-fix runs
+            self.assertFalse(res['hazard_threshold_verified'])
+            with self.assertRaises(LocalReceiptError):
+                audit_local_checkpoint(fx.cp, fx.cp['image_sha256'], expected='water', require_threshold=True)
+
+    def test_policy_threshold_is_configurable_and_explicit(self):
+        fx = self.fx()
+        for c in fx.cp['model_calls'].values():
+            c['scores']['hazard_threshold'] = 0.3
+        for pk in fx.cp['look_around']['peeks']:
+            for c in pk['model_calls'].values():
+                c['scores']['hazard_threshold'] = 0.3
+        self.assertFalse(decide(fx.raw(), Policy(require_look_around=True)).permit)
+        self.assertTrue(decide(fx.raw(), Policy(require_look_around=True, hazard_threshold=0.3)).permit)
+
+    def test_live_client_refuses_other_thresholds(self):
+        import hashlib
+        from PIL import Image
+        from rescuemind.local_vision import verify_station_local, LocalInferenceError, PRIMARY_MODEL
+        with tempfile.TemporaryDirectory() as d:
+            img = Path(d) / 'c.jpg'
+            Image.new('RGB', (512, 384), (120, 150, 170)).save(img, 'JPEG')
+            sha = hashlib.sha256(img.read_bytes()).hexdigest()
+
+            def transport(thr):
+                def f(url, payload):
+                    sc = {'supply_probs': {'water': .9, 'medicine': .05, 'other': .05}, 'hazard_prob': .001}
+                    if thr is not None:
+                        sc['hazard_threshold'] = thr
+                    return {'backend': 'local_transformers', 'real_inference': True, 'model': PRIMARY_MODEL, 'image_sha256': sha,
+                            'pass_id': payload['pass_id'], 'result': {'supply': 'water', 'scene': 'clear'}, 'scores': sc}
+                return f
+            self.assertTrue(verify_station_local(img, 'water', transport=transport(.05))['decision']['allow'])
+            for thr in (0.5, None, 0.3):               # the server default, an unreported threshold, another value
+                with self.subTest(thr=thr), self.assertRaises(LocalInferenceError):
+                    verify_station_local(img, 'water', transport=transport(thr))
+            self.assertTrue(verify_station_local(img, 'water', transport=transport(.3), hazard_threshold=.3)['decision']['allow'])
+
+
+class WiredIn(unittest.TestCase):
+    def test_node_orchestrator_and_interlock_carry_the_threshold(self):
+        for rel, needle in (('ros/gazebo_waypoint_mission.py', 'expected_hazard_threshold'),
+                            ('ros/delivery_interlock.py', 'hazard_threshold=args.hazard_threshold'),
+                            ('scripts/v32_orchestrate.py', "'--expected-hazard-threshold'")):
+            self.assertIn(needle, (ROOT / rel).read_text(encoding='utf8'), rel)
+
+
 if __name__ == '__main__':
     unittest.main()

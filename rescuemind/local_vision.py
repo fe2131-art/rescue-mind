@@ -8,6 +8,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import math
 import re
 import urllib.request
 from pathlib import Path
@@ -61,6 +62,30 @@ def validate_result(data: dict, model_id: str, image_sha: str, pass_id: int) -> 
     if result['supply'] not in LABELS or result['scene'] not in SCENES:
         raise LocalInferenceError('invalid classification value')
     return result
+
+
+V36_HAZARD_THRESHOLD = 0.05    # the v3.6 rule's tau_h: the server flag --hazard-threshold must have been started with it
+THRESHOLD_TOL = 1e-9
+
+
+def check_hazard_threshold(call: dict, expected, *, require: bool = True) -> bool:
+    """I-19 fix (FINDINGS #27): the decision's tau_h is the SERVER's hazard threshold (default 0.5!), reported in
+    scores.hazard_threshold.  The client verifies that every model call was made under the configured threshold.
+    A different value always raises; a missing record raises if `require` (live calls always carry it; only
+    pre-I-19 saved runs lack the field, and the audit then reports `hazard_threshold_verified: False`).
+    `expected=None` disables the check explicitly.  Returns True iff the call carried a matching threshold."""
+    if expected is None:
+        return False
+    sc = (call or {}).get('scores') if isinstance(call, dict) else None
+    thr = sc.get('hazard_threshold') if isinstance(sc, dict) else None
+    if thr is None:
+        if require:
+            raise LocalInferenceError('model call does not record the server hazard threshold')
+        return False
+    if (isinstance(thr, bool) or not isinstance(thr, (int, float)) or not math.isfinite(thr)
+            or abs(float(thr) - float(expected)) > THRESHOLD_TOL):
+        raise LocalInferenceError(f'server hazard threshold {thr!r} != configured {expected!r}')
+    return True
 
 
 def require_valid_scores(call: dict) -> None:
@@ -186,7 +211,7 @@ def verify_station_local(image_path: str | Path, expected: str, *,
                          secondary_url: str=DEFAULT_SECONDARY_URL,
                          primary_model: str=PRIMARY_MODEL, secondary_model: str=SECONDARY_MODEL,
                          transport=None, jev_url: str | None = None, jev_hazard_threshold: float = .35,
-                         jev_schema: str = 'jev') -> dict:
+                         jev_schema: str = 'jev', hazard_threshold: float | None = V36_HAZARD_THRESHOLD) -> dict:
     """Use only real local HTTP inference in production; injection is unit-test only."""
     if mode not in ('single','dual'):
         raise LocalInferenceError('mode must be single or dual')
@@ -202,6 +227,7 @@ def verify_station_local(image_path: str | Path, expected: str, *,
                         secondary_model if mode=='dual' else primary_model,raw,2,transport=transport)
     for call in (first,second):
         require_valid_scores(call)
+        check_hazard_threshold(call,hazard_threshold)     # I-19 fix #27: never silently run under the server default 0.5
     decision=local_decision(expected,first,second,dual_model=mode=='dual')
     out={'checkpoint_type':'local_on_site_camera_supply_check',
          'image_sha256':hashlib.sha256(raw).hexdigest(),

@@ -27,7 +27,7 @@ def run(args):
     from rescuemind.ros_qos import control_qos
     key = dp.load_key(args.key_file) if args.key_file else None
     core = Interlock(Policy(require_look_around=args.require_look_around, require_adaptive=args.require_adaptive,
-                            image_root=args.image_root), key=key, ttl_s=args.ttl, max_life_s=args.max_life)
+                            image_root=args.image_root, hazard_threshold=args.hazard_threshold), key=key, ttl_s=args.ttl, max_life_s=args.max_life)
     log = Path(args.log) if args.log else None
 
     def write(row):
@@ -77,6 +77,8 @@ if __name__ == '__main__':
     p.add_argument('--max-life', type=float, default=240.0, help='longest time one record keeps being permitted (s)')
     p.add_argument('--log', default=None, help='JSONL of decisions (audited by the orchestrator)')
     p.add_argument('--image-root', default=None, help='the record images must lie under this directory')
+    p.add_argument('--hazard-threshold', type=float, default=0.05,
+                   help='the server tau_h every model call must record (v3.6: 0.05); a record under another value is denied')
     p.add_argument('--require-look-around', action='store_true', help='refuse unless side views L and R were taken')
     p.add_argument('--require-adaptive', action='store_true', help='refuse unless the adaptive-view block exists')
     run(p.parse_args())

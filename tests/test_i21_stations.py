@@ -232,7 +232,7 @@ class AdviceOverFourStations(unittest.TestCase):
 def resp(pass_id, supply, sha, probs):
     return {'backend': 'local_transformers', 'real_inference': True, 'model': PRIMARY_MODEL, 'image_sha256': sha,
             'pass_id': pass_id, 'result': {'supply': supply, 'scene': 'clear'},
-            'scores': {'method': 'closed_set_logprob', 'supply_probs': probs, 'hazard_prob': 0.01}}
+            'scores': {'method': 'closed_set_logprob', 'supply_probs': probs, 'hazard_prob': 0.01, 'hazard_threshold': 0.05}}
 
 
 class RecoveryChainAudit(unittest.TestCase):
