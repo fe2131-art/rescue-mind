@@ -209,8 +209,8 @@ According to its model card it is post-trained from Qwen3.5-9B, so the two model
 post-training, in model size (our on-robot pair uses Qwen3.5-4B) and in the question asked, and the correlated-failure
 caveat applies in full. The two-model rule approves only if Eq.~\eqref{eq:rule} holds for Qwen \emph{and}
 Clef-Flash agrees (thresholds: Supp.~Sec.~S1). A hazard seen by either model stops the robot, and a wrong supply seen by either
-allows the one-time search. The rule is deterministic, and the audit recomputes it. Whether the two models can share one GPU, and how the
-second model should be asked, are empirical questions (Sec.~\ref{sec:res-jev}).
+allows the one-time search. The rule is deterministic, and the audit recomputes it. Whether the two models fit one GPU is
+tested in Sec.~\ref{sec:res-jev}. The second model is a veto whose errors overlap with Qwen's. Qwen misses \JevOvQ{} of \JevOvN{} development fires, and Clef-Flash also misses \JevOvBoth{} of these (\JevOvCond, Wilson \JevOvCondCI; Supp.~Table~S9), as shared lineage suggests.
 
 \subsection{Safety-monotone mission memory}\label{sec:memory}
 After every mission the robot appends what \emph{it} observed to a memory file; ground truth is never written.
@@ -304,7 +304,7 @@ ground-truth trajectory (Gazebo odometry publisher) shows arrival at the shelter
 refusal; odometry agrees with ground truth; and the ROS bag is finalised. Only stack failures \emph{before} any VLM decision may be re-run once. All attempts stay in the ledger.
 
 \begin{table*}[t]\centering\caption{All pre-registered studies. Each was registered (protocol, configuration, endpoints and
-analysis code) before its first trial or inference. Amendments made before the first trial are published with the
+analysis code) before its first trial or inference; studies were designed sequentially, each after the previous results, so registration is confirmatory within a study (Supp.~Table~S7). Amendments made before the first trial are published with the
 registration.}\label{tab:studies}
 \footnotesize\renewcommand{\arraystretch}{0.92}\resizebox{\textwidth}{!}{\begin{tabular}{lllll}\toprule
 Study & Question & Data & Arms (systems) & Primary endpoint \\\midrule
@@ -431,11 +431,11 @@ Gazebo renders are noise-free and well exposed. To probe this part of the sim-to
 over-exposure, and JPEG compression, each at a moderate and a severe level (Fig.~\ref{fig:rex}). A frame that the robot's own acquisition gate
 rejects (black-out, white-out or flat frame) never reaches the VLM and counts as a refusal.
 Supp.~Table~S5 gives every condition. Pooled over all conditions, the check made \RPoolFA{} false approvals (world-cluster
-95\% CI \RPoolCI), so the registered fail-closed claim is \RPoolSupported. \RUnsafeConds{} conditions increased false
+95\% CI \RPoolCI), so the registered fail-closed claim is \RPoolSupported. Pooling repeats the same \RNdeny{} must-refuse images, so the image-level bound is per condition: at most \RCondFAMax{} false approvals, Wilson upper bound \RCondFAUpper. \RUnsafeConds{} conditions increased false
 approvals significantly. Correct approvals went from \RCleanCA{} on clean frames to \RWorstCA{} in the
 worst condition (\RWorstCond). The gate refused \RGateRej{} frames in total, and at most \RFireMissMax{} visible fires were missed in any
 condition. Under shift, refusal rather than unsafe approval is the intended failure direction of a selective classifier~\cite{geifman2017selective}.
-\begin{figure*}[t]\centering\fig[\textwidth]{fig_r_examples.pdf}
+\begin{figure*}[t]\centering\fig[0.78\textwidth]{fig_r_examples.pdf}
 \caption{Study R: one held-out frame with a visible fire under the six registered degradations (severe level; the moderate
 level is milder). Over-exposure washes out the flames in this example. Frames that the acquisition gate rejects count as refusals.}\label{fig:rex}\end{figure*}
 
