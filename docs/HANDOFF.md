@@ -209,6 +209,64 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 * L と I-18 のブランチは main に追従させ、同時にマージしても衝突しないことを確認済み（main を変更したら再度の追従が必要）。
 * 第三者採点の4回目は 31.5/40、模擬査読の3回目は borderline。
 
+## ★★★ 追記（2026-10-18 0:30）— 圧縮後はまずここを読む
+
+* Sonnet の修正（#26 fail-open、#27 τ_h 未検証、#28 caution 自己固定、証明の A1〜A4）は i21-depot にマージ済み（099f7a6）。
+* **I-24 助言の信用枠（advice credit）**：完了し、i21-depot に入った（e8e5be1）。
+  * 情報源ごとの信用で、何回出動しても助言の代償に上限が付く（命題3、補足に証明・性質テスト・図）。
+  * 安全は不変（助言を捨てるだけ）。既定はオフ（`--advice-credit PATH`）。
+  * 記述モデル（k=4）：嘘つき 1533→59 秒、実写相当の危険連打 33→5 回、正直な情報源の損 0。
+  * 閉ループは未実施。X の後に事前登録する予定。
+* **研究 IF（R6 P7：依頼文で依頼物資をすり替えられるか）**：事前登録済み（051e530）。`bash scripts/if_run.sh`（GPU 約2分）。A の後、S の前に実行する。
+* 実行中の Sonnet：
+  * **I-23 機械検証**：worktree `.claude/worktrees/formal`、ブランチ `i23-formal`。z3 で命題2を証明し、実コードとの差分テストと変異体で確かめる。
+  * **I-24 の文献調査**：`docs/paper/LITERATURE_I24.md` をブランチ `i24-credit` にコミットする。
+  * 終わったら内容を確認し、i21-depot にマージする。
+* **追加の連鎖（scratchpad、PID で実行、通知は来ない）**：
+  * `after_a_chain.sh`（ログは `after_a.log`）：A_CHAIN_DONE → `if_run.sh` → S（`sign_check_ok` があれば描画と評価。無ければ `S_WAITING_SIGN_CHECK`）→ `AFTER_A_DONE`。
+  * `after_s_chain.sh`（ログは `after_s.log`）：その後に研究B（`b_run.sh`、予備走行 6 run と本番 48 run、約1.5時間）を実行する。
+  * **V の後で、S の看板確認を済ませておく**（`s_render.sh` を別の区画で実行し、`signcheck_F.jpg` を目で見て `sign_check_ok` を作る）。
+* 研究B：事前登録済み（5984bbb、i21-depot）。i21-depot の全テストは discover で 1195 件 OK（00:00）。
+* 命題2の逆（必要性）、I-24 の関連研究・Sybil 対策・判定できない確認の課金を論文に追記した。**PDF の再ビルドと8頁の確認は V の後に行う。**
+* 模擬査読7回目（R7）を Sonnet が実行中（`docs/paper/REVIEW_NOTES_R7.md`）。
+* 注意：`tests/test_v07_fake_ros_direct` は単体で動かすと6件失敗する（パッチが効かない）。discover で全件を動かすと通る（L のマージ時は 650 件 OK）。after_q の検査は discover なので影響しない見込み。
+* A の後の手順：IF → S（`s_render.sh` → `s_eval.sh`）→ XD（`xd_render.sh` のスモーク画像は自分で目視し、`xd_smoke_ok` を作る）→ X（`x_run.sh`）。A・S・X・XD の事前登録は、main にコミットされた時点で成立する（a_run.sh が A を確認する）。
+
+## ★★ 圧縮後はここから再開（2026-10-17 23:30）
+
+**自動で動いているもの（止めない・触らない）**
+1. V の本番 160 run（`after_l_chain.sh`）：23:26 時点で 50/160。10月18日 6時ごろ `V_DONE`。V の実行中は重い処理をしない（所要時間が評価項目）。
+2. `after_v_chain.sh`：W のブランチをマージ → 描画 → 採点 → `W_DONE`（約5時間）。
+3. `after_w_chain.sh`：Q のブランチをマージ（これが事前登録）→ `q_run.sh` → `Q_CHAIN_DONE`（約40分）。
+4. `after_q_chain.sh`：PID で実行中で、通知は来ない。ログは scratchpad の `after_q.log`。
+   * `origin/i21-depot` を main にマージ → テスト → 倉庫の素材を取得 → `a_run.sh`（研究A：予備走行 → マスク → 登録の確認 → 226 run、約11.5時間）。
+* 状態の確認：`wc -l experiments/results/campaign_V_ledger.jsonl` と、各タスクの output の末尾を見る。
+
+**統合ブランチ `i21-depot`（worktree `.claude/worktrees/i21`）にすべて集約済み**
+* I-19：助言は締めるだけ（命題2：ε_any）。
+* I-20：疑わしいときの追加視点。
+* I-21：現実的な倉庫と k 拠点。
+* I-22：配送インターロックとジオフェンス。
+* 軟拒否と scrutiny。
+* 研究 A・S・X・XD・W・Q の事前登録（文言は凍結済み）。
+* 一本の筋に再構成した論文・説明資料・README・要約図。
+* check_consistency（不一致 0）、pending モード、Makefile、THIRD_PARTY。
+* 信頼基盤テスト（変異体 196 個）。
+* 実バグの修正：FINDINGS #24・#25。#26〜28 は Sonnet が作業中。
+
+**次にすること**
+1. Sonnet の作業（fail-closed 化、閾値の確認、慎重さの固定の修正、`PROOF_REVIEW.md` に沿った証明の修正）が終わったら、統合ブランチのテストを確認する。
+2. V_DONE の後：`v_analysis.py` → `make_v_figure.py` → V の結果を確認する（予測：M0−M2 の時間差 15.6 秒、95% 区間 11〜20 秒）。
+3. W・Q・A の結果が出たら、その都度 `bash scripts/finalize_results.sh`。最後に `check_consistency` と `make paper FINAL=1`。
+4. A の後：S → XD → X（それぞれ `s_eval.sh`・`xd_render.sh`/`xd_eval.sh`・`x_run.sh`。I-22 の Gazebo 確認も行う）。
+5. 動画 v5（`docs/design/video_v5_plan.md`）：助言の注入と倉庫の場面を撮影する。
+6. 第三者採点：7回目は 33.0（見込み 35.0）。模擬査読：6回目は、結果が出れば RA-L で weak accept 圏。
+
+**ユーザーの方針**
+* 論文発表に値する新規性・改善・検証・磨き上げを優先する。ライセンス確認などに時間をかけない。
+* Sonnet 5.5 は同時に2つまで。動いているものを止めない（止めた場合は SendMessage で続きから再開させる）。
+* 事前登録し、失敗も載せる。コミット名は I-xx。公開設定は絶対に変えない。日本語で簡潔に。
+
 ## ★ 圧縮後はここから再開（2026-10-17 17:25）
 
 **自動で動いているもの（止めない・触らない）**
