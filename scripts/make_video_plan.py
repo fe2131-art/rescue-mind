@@ -196,13 +196,19 @@ def evidence_card(seconds):
     h = jload(RES / 'h_summary.json')
     if h:
         p1, p2 = h['P1_efficiency_relocation_persist'], h['P2_safety_naive_vs_verified']
-        rows.append(['閉ループ H（出動をまたぐ記憶）', [f"速さ {p1['time_M0_median_s']:.0f}→{p1['time_M2_median_s']:.0f}秒・"
-                                                  f"危険な配達 素朴な記憶 {p2['unsafe_M1']} vs 本手法 {p2['unsafe_M2']}", G if h['headline_supported'] else W]])
-        say.append(f"記憶を使うと速くなり、危険な配達は素朴な記憶の{p2['unsafe_M1']}件に対して{p2['unsafe_M2']}件。")
+        t0, t2 = p1['time_M0_median_s'], p1['time_M2_median_s']
+        speed = f"所要時間 {t0:.0f}→{t2:.0f}秒・" if t0 is not None and t2 is not None else ''
+        rows.append(['閉ループ H（記憶）', [f"{speed}危険な配達 素朴 {p2['unsafe_M1']}／検証つき {p2['unsafe_M2']}",
+                                                  G if h['headline_supported'] else W]])
+        say.append((f"出動をまたぐ記憶の評価では、物資の入れ替わりが続く出動の所要時間の中央値が、記憶なしの{t0:.0f}秒に対して{t2:.0f}秒。"
+                    if t0 is not None and t2 is not None else '出動をまたぐ記憶の評価では、')
+                   + f"危険な配達は、素朴な記憶の{p2['unsafe_M1']}件に対して検証つき記憶は{p2['unsafe_M2']}件。")
     j = jload(RES / 'j_summary.json')
     if j:
         c = j['per_config']
-        rows.append(['閉ループ J（2つのAI：Jev役＋Qwen）', [f"期待どおり {c['J']['correct']}/{c['J']['n']}・危険な配達 {c['J']['unsafe_deliveries']}", G if c['J']['unsafe_deliveries'] == 0 else R]])
+        j_ok = j['P1_runs_on_one_v100']['supported'] and j['P2_no_extra_unsafe']['supported'] and c['J']['unsafe_deliveries'] == 0
+        rows.append(['閉ループ J（2つのAI）', [f"期待どおり {c['J']['correct']}/{c['J']['n']}（v3.6単独 {c['A']['correct']}/{c['A']['n']}）・危険な配達 {c['J']['unsafe_deliveries']}",
+                                                      G if j_ok else R if c['J']['unsafe_deliveries'] > c['A']['unsafe_deliveries'] else W]])
     z = jload(RES / 'z_summary.json')
     if z:
         sg = z['models']['siglip']['t2']['baseline']

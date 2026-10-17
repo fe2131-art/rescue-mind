@@ -199,7 +199,9 @@ def line_h(res):
     h = jload(Path(res) / 'h_summary.json')
     try:
         p1, p2 = h['P1_efficiency_relocation_persist'], h['P2_safety_naive_vs_verified']
-        return (f"・出動をまたぐ記憶の評価H：所要時間の中央値 {p1['time_M0_median_s']:.0f}秒 → {p1['time_M2_median_s']:.0f}秒、"
+        t = (f"物資の入れ替わりが続く出動の所要時間の中央値 記憶なし {p1['time_M0_median_s']:.0f}秒・検証つき記憶 {p1['time_M2_median_s']:.0f}秒、"
+             if p1['n_pairs'] else '')
+        return (f"・出動をまたぐ記憶の評価H：{t}"
                 f"危険な配達は 素朴な記憶 {p2['unsafe_M1']}件 対 検証つき記憶 {p2['unsafe_M2']}件")
     except (TypeError, KeyError, ValueError):
         return None
@@ -209,8 +211,8 @@ def line_j(res):
     j = jload(Path(res) / 'j_summary.json')
     try:
         c = j['per_config']
-        return (f"・2つのAI構成（Jev役＋Qwen）の閉ループ評価J：期待どおり {c['J']['correct']}/{c['J']['n']}、"
-                f"危険な配達 {c['J']['unsafe_deliveries']}件")
+        return (f"・2つのAI構成（Jev役＋Qwen）の閉ループ評価J：期待どおり {c['J']['correct']}/{c['J']['n']}"
+                f"（v3.6単独 {c['A']['correct']}/{c['A']['n']}）、危険な配達 {c['J']['unsafe_deliveries']}件（v3.6単独 {c['A']['unsafe_deliveries']}件）")
     except (TypeError, KeyError):
         return None
 

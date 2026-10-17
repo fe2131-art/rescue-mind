@@ -284,7 +284,9 @@ def h_text():
     h = jl('h_summary.json')
     try:
         p1, p2, p3 = h['P1_efficiency_relocation_persist'], h['P2_safety_naive_vs_verified'], h['P3_no_extra_risk_vs_v36']
-        return (f"評価H 結果：置き場所が変わったままの出動で所要時間の中央値差 {p1['median_diff_s']} 秒（{p1['n_pairs']}対、p={p1['wilcoxon_exact_p']}）、"
+        t1 = ((f"置き場所が変わったままの出動で、所要時間の中央値差（検証つき記憶 − 記憶なし）{p1['median_diff_s']} 秒（{p1['n_pairs']}対、p={p1['wilcoxon_exact_p']}）")
+              if p1['n_pairs'] else '置き場所が変わったままの出動で比べられる対はなし')
+        return (f"評価H 結果：{t1}、"
                 f"危険な配達は 素朴な記憶 {p2['unsafe_M1']} 対 検証つき記憶 {p2['unsafe_M2']}（p={p2['mcnemar_p']}）、記憶なし比で追加リスク"
                 f"{'なし' if p3['supported'] else 'あり'}（{p3['unsafe_M0']} 対 {p3['unsafe_M2']}）")
     except (TypeError, KeyError):
@@ -296,7 +298,7 @@ def j_text():
     try:
         c, p2 = j['per_config'], j['P2_no_extra_unsafe']
         return (f"評価J 結果：2つのAI構成 {c['J']['correct']}/{c['J']['n']} 期待どおり（v3.6単独 {c['A']['correct']}/{c['A']['n']}）、"
-                f"危険な配達 {p2['unsafe_J']} 対 {p2['unsafe_A']}、V100 1台での失敗 {c['J']['failed']}件")
+                f"危険な配達は 2つのAI構成 {p2['unsafe_J']}件・v3.6単独 {p2['unsafe_A']}件、2つのAI構成の実行失敗 {c['J']['failed']}件")
     except (TypeError, KeyError):
         return f'評価J（24世界の対比較）：{PENDING}'
 
@@ -435,13 +437,15 @@ def section_en(e, v):
     h, j = jl('h_summary.json'), jl('j_summary.json')
     try:
         p1h, p2h = h['P1_efficiency_relocation_persist'], h['P2_safety_naive_vs_verified']
-        L.append(f"| H: cross-mission memory | median time difference {p1h['median_diff_s']} s ({p1h['n_pairs']} pairs); unsafe deliveries naive {p2h['unsafe_M1']} vs. verified memory {p2h['unsafe_M2']} |")
+        t1h = (f"median time difference, verified memory minus no memory, {p1h['median_diff_s']} s ({p1h['n_pairs']} pairs with relocated supplies)"
+               if p1h['n_pairs'] else 'no paired missions with relocated supplies')
+        L.append(f"| H: cross-mission memory | {t1h}; unsafe deliveries naive {p2h['unsafe_M1']} vs. verified memory {p2h['unsafe_M2']} |")
         h_ok = True
     except (TypeError, KeyError):
         h_ok = False
     try:
         c, pj = j['per_config'], j['P2_no_extra_unsafe']
-        L.append(f"| J: two-model check | expected {c['J']['correct']}/{c['J']['n']} (single model {c['A']['correct']}/{c['A']['n']}); unsafe deliveries {pj['unsafe_J']} vs. {pj['unsafe_A']} |")
+        L.append(f"| J: two-model check | expected {c['J']['correct']}/{c['J']['n']} (single model {c['A']['correct']}/{c['A']['n']}); unsafe deliveries {pj['unsafe_J']} (single model {pj['unsafe_A']}); failed runs {c['J']['failed']} |")
         j_ok = True
     except (TypeError, KeyError):
         j_ok = False

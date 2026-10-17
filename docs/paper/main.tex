@@ -40,13 +40,13 @@ A robot that resupplies the same shelter repeatedly can also remember what it sa
 robot looks and add caution, never remove a check. We show that this bounds the per-mission probability of an unsafe
 delivery by the per-check false-approval rate, however stale the memory is. In a pre-registered campaign of \HPTwoN{}
 paired missions in worlds that change between missions, the registered claim (memory's speed-up without its safety cost) was
-\HHeadline. With relocated supplies, the median mission time went from \HTimeMzero\,s to \HTimeMtwo\,s. Unsafe deliveries
+\HHeadline. With relocated supplies, the median mission time was \HTimeMzero\,s without memory and \HTimeMtwo\,s with ours. Unsafe deliveries
 were \HUnsafeMone{} for a naive memory that trusts what it saw and \HUnsafeMtwo{} for ours. Contrastive zero-shot baselines
 were either unsafe (SigLIP: \ZSigTOneFA{} false approvals) or unusable (CLIP: \ZClipTOneCA{} correct approvals). Under
 \RNcond{} camera degradations the check made \RPoolFA{} false approvals. On real photographs it flagged \PRecall{} fire or
-smoke images, but also \PFalseAlarm{} fire-free ones, so a site-specific threshold is needed before deployment. The original
-two-model design runs on the simulated robot on one GPU (registered claim \JClaim), with Cloudflare's Clef-Flash, a
-post-trained Qwen model, as the second judge.
+smoke images, but also \PFalseAlarm{} fire-free ones, so a site-specific threshold is needed before deployment. We also ran the original
+two-model design on the simulated robot on one GPU, with Cloudflare's Clef-Flash, a post-trained Qwen model, as the second
+judge (registered claim \JClaim).
 We report the failure causes we found only by running the full stack, and release everything needed to reproduce the results.
 \end{abstract}
 
@@ -460,8 +460,8 @@ Campaign H has 16 sequences of three missions to the same shelter. Lighting and 
 and four scripted stories change the world between missions: the supplies are swapped and stay swapped (\emph{relocation persists}) or
 are swapped back (\emph{relocation changes}); a small fire appears and persists; a fire disappears and a new one appears.
 The first mission seeds all three arms; missions 2 and 3 run with no memory (M0, v3.6), naive memory (M1) and verified
-memory (M2). Table~\ref{tab:h} (per-mission outcomes and times: Supp.~Fig.~S4) summarises the \HPTwoN{} paired missions. On the \HPOneN{} missions whose supplies stayed relocated, M2 went
-straight to the right station, with a median mission time of \HTimeMtwo\,s against \HTimeMzero\,s for M0 (exact Wilcoxon
+memory (M2). Table~\ref{tab:h} (per-mission outcomes and times: Supp.~Fig.~S4) summarises the \HPTwoN{} paired missions. On the \HPOneN{} missions whose supplies stayed relocated, the median mission time was \HTimeMtwo\,s for M2
+against \HTimeMzero\,s for M0 (exact Wilcoxon
 $p=\HPOneP$). M1 made \HUnsafeMone{} unsafe deliveries, against
 \HUnsafeMtwo{} for M2 (exact McNemar $p=\HPTwoP$) and \HUnsafeMzero{} for M0. False refusals (stops at a station whose fire was already out) were \HFalseRefzero{} for M0, \HFalseRefone{} for M1
 and \HFalseReftwo{} for M2. The registered headline claim, verified memory keeping memory's speed-up without its safety cost, is \HHeadline. Every paired mission is listed in Supp.~Table~S8.
@@ -476,7 +476,7 @@ $q=\HModelQ$ per mission, it predicts \HModelUnsafeone{} unsafe deliveries per 1
 The second model is only as good as the question it is asked (Sec.~\ref{sec:fix}). On T2, Clef-Flash together with
 Qwen3.5-4B, the pair that fits on one 32\,GB V100, made \TTPairFA{} false approvals (\TTPairCA{} correct).
 Campaign J ran this pair on the robot, paired with v3.6 on 24 worlds with swapped, empty and small-fire stations;
-it behaved as expected in \JCorrectJ{} runs (v3.6: \JCorrectA, exact McNemar $p=\JMcNemarP$), with
+it behaved as expected in \JCorrectJ{} (v3.6: \JCorrectA, exact McNemar $p=\JMcNemarP$), with
 \JUnsafeJ{} unsafe deliveries (v3.6: \JUnsafeA) and \JFailedJ{} stack failures. Peak GPU memory was \JPeakVram\,GB, and
 the median check latency was \JLatJ\,s for the two-model system and \JLatA\,s for v3.6. The registered claim that the original two-model design runs on the
 simulated robot with no extra risk is \JClaim.
@@ -490,7 +490,7 @@ On the 60 held-out utterances the hybrid parser was correct for \IntCorrect{}/\I
 few minutes ago is what an efficiency-minded system would do, and its risk grows
 with how often the world changes, which the robot cannot observe without looking (campaign H and the change-rate model; registered headline claim:
 \HHeadline). Observation~1 and Corollary~1 make the question moot for safety: memory may decide the order and the
-strictness of the checks, never their existence, and then buys time in persistent worlds at the price
+strictness of the checks, never their existence, and can then buy time in persistent worlds at the price
 of a detour when the world changes back.
 
 \textbf{Moving beats thinking harder.} The largest single safety gain came from moving 0.4\,m (G), not from
