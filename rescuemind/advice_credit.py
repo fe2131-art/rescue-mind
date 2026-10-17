@@ -9,8 +9,8 @@ credit in two pools, and an item is ADMITTED to `advice.plan` only if its pool c
 
   * location pool: an applied reorder can waste at most one visit (the advised station does not hold the supply).
       settle: the robot's own check at the advised station found the requested supply -> the advice saved >= 1 visit
-      against the inventory order, refund REFUND_LOC (capped); found the wrong / no supply -> debit 1; the station was
-      never checked (mission ended earlier) -> nothing.  Scrutiny views forced by the reorder are charged SCRUTINY_COST.
+      against the inventory order, refund REFUND_LOC (capped); found the wrong / no supply, or could not decide -> debit 1
+      (the visit was spent); the station was never checked (mission ended earlier) -> nothing.  Scrutiny views forced by the reorder are charged SCRUTINY_COST.
   * hazard pool: a caution can cause a false refusal (a station refused only at the caution threshold).
       settle: refused at the caution threshold but not at the base threshold -> debit 1; otherwise nothing.  No refund
       for a "confirmed" hazard (the robot would have refused anyway, so it saved nothing and a refund could be farmed by
@@ -137,12 +137,12 @@ def settle(ledger: dict, plan: dict, visits: list[dict], *, mission_id: str | No
         acc['n_admitted'] += 1
         v = by_station.get(st)
         if eff == 'reorder':
-            if v is None or v.get('supply_match') is None:
+            if v is None:                         # never checked (the mission ended earlier): no visit was spent
                 ch = 0.0
-            elif v['supply_match'] is True:
+            elif v.get('supply_match') is True:
                 ch = -p['refund_loc']
                 acc['saved_visits'] += 1
-            else:
+            else:                                 # wrong supply, or undecided: the visit was spent without a delivery
                 ch = 1.0
             if v is not None and a.get('scrutiny'):
                 ch += p['scrutiny_cost'] * min(3, max(0, int(v.get('scrutiny_views') or 0))) / 3.0
