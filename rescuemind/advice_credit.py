@@ -9,8 +9,8 @@ credit in two pools, and an item is ADMITTED to `advice.plan` only if its pool c
 
   * location pool: an applied reorder can waste at most one visit (the advised station does not hold the supply).
       settle: the robot's own check at the advised station found the requested supply -> the advice saved >= 1 visit
-      against the inventory order, refund REFUND_LOC (capped); found the wrong / no supply -> debit 1; the station was
-      never checked (mission ended earlier) -> nothing.  Scrutiny views forced by the reorder are charged SCRUTINY_COST.
+      against the inventory order, refund REFUND_LOC (capped); found the wrong / no supply, or could not decide -> debit 1
+      (the visit was spent); the station was never checked (mission ended earlier) -> nothing.  Scrutiny views forced by the reorder are charged SCRUTINY_COST.
   * hazard pool: a caution can cause a false refusal (a station refused only at the caution threshold).
       settle: refused at the caution threshold but not at the base threshold -> debit 1; otherwise nothing.  No refund
       for a "confirmed" hazard (the robot would have refused anyway, so it saved nothing and a refund could be farmed by
@@ -55,21 +55,25 @@ class CreditError(ValueError):
 
 
 def new_ledger(*, c_loc: float = C_LOC, c_haz: float = C_HAZ, refund_loc: float = REFUND_LOC,
-               scrutiny_cost: float = SCRUTINY_COST, rho: float = RHO, rho_shadow: float = RHO_SHADOW) -> dict:
+               scrutiny_cost: float = SCRUTINY_COST, rho: float = RHO, rho_shadow: float = RHO_SHADOW,
+               certified_peers: tuple = ()) -> dict:
     for v in (c_loc, c_haz, refund_loc, scrutiny_cost, rho, rho_shadow):
         if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or v < 0:
             raise CreditError('credit parameters must be finite numbers >= 0')
     return {'version': VERSION, 'params': {'c_loc': float(c_loc), 'c_haz': float(c_haz), 'refund_loc': float(refund_loc),
                                            'scrutiny_cost': float(scrutiny_cost), 'rho': float(rho),
-                                           'rho_shadow': float(rho_shadow)},
+                                           'rho_shadow': float(rho_shadow),
+                                           'certified_peers': sorted(str(x) for x in certified_peers)},
             'missions': 0, 'sources': {}, 'history': []}
 
 
-def source_key(item: dict) -> str:
-    """The accounting identity.  A peer that signs its advice (item['peer_id']) gets its own account; otherwise the
-    channel is the account, so one unauthenticated channel cannot multiply its credit by inventing names (Sybil)."""
+def source_key(item: dict, ledger: dict | None = None) -> str:
+    """The accounting identity: the channel (memory, peer, inventory, operator).  A peer gets its own account only if its
+    id is listed in the ledger's params['certified_peers'] (identities issued by the operator); free identities would let
+    one attacker multiply its credit by inventing names (Sybil; Douceur 2002), so every uncertified peer shares 'peer'."""
     pid = item.get('peer_id') if item.get('source') == 'peer' else None
-    return f"peer:{pid}" if isinstance(pid, str) and pid else str(item.get('source'))
+    certified = ((ledger or {}).get('params') or {}).get('certified_peers') or ()
+    return f"peer:{pid}" if isinstance(pid, str) and pid in certified else str(item.get('source'))
 
 
 def _account(ledger: dict, key: str) -> dict:
@@ -94,7 +98,7 @@ def admit(ledger: dict, items: list[dict], *, scrutiny: bool = False) -> tuple[l
     reserved: dict[tuple, float] = {}
     for a in items or []:
         kind = a.get('kind')
-        key = source_key(a)
+        key = source_key(a, ledger)
         acc = _account(ledger, key)
         w = worst_cost(ledger, kind, scrutiny)
         if kind in ('safe', 'skip'):
@@ -128,17 +132,17 @@ def settle(ledger: dict, plan: dict, visits: list[dict], *, mission_id: str | No
             by_station[st] = v
     out = {'mission': mission_id, 'mode': rec.get('mode'), 'charges': []}
     for a in rec.get('applied') or []:
-        key, st, eff = source_key(a), a.get('station'), a.get('effect')
+        key, st, eff = source_key(a, ledger), a.get('station'), a.get('effect')
         acc = _account(ledger, key)
         acc['n_admitted'] += 1
         v = by_station.get(st)
         if eff == 'reorder':
-            if v is None or v.get('supply_match') is None:
+            if v is None:                         # never checked (the mission ended earlier): no visit was spent
                 ch = 0.0
-            elif v['supply_match'] is True:
+            elif v.get('supply_match') is True:
                 ch = -p['refund_loc']
                 acc['saved_visits'] += 1
-            else:
+            else:                                 # wrong supply, or undecided: the visit was spent without a delivery
                 ch = 1.0
             if v is not None and a.get('scrutiny'):
                 ch += p['scrutiny_cost'] * min(3, max(0, int(v.get('scrutiny_views') or 0))) / 3.0
@@ -150,10 +154,10 @@ def settle(ledger: dict, plan: dict, visits: list[dict], *, mission_id: str | No
             out['charges'].append({'source': key, 'pool': 'haz', 'station': st, 'charge': ch})
     for a in rec.get('rejected') or []:
         if a.get('kind') in ('safe', 'skip'):
-            _account(ledger, source_key(a))['relax_attempts'] += 1
+            _account(ledger, source_key(a, ledger))['relax_attempts'] += 1
     shadowed = set()
     for a in rec.get('throttled') or []:
-        key = source_key(a)
+        key = source_key(a, ledger)
         acc = _account(ledger, key)
         acc['n_throttled'] += 1
         v = by_station.get(a.get('station'))
