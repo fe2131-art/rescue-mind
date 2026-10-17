@@ -380,7 +380,7 @@ def sec_memory():
     rows.append([f"P1 速さ（M2 vs M0、入れ替わりが続く{p1['n_pairs']}出動）",
                  (f"所要時間の中央値 {p1['time_M0_median_s']:.0f} → {p1['time_M2_median_s']:.0f} 秒（差の中央値 {p1['median_diff_s']:+.0f} 秒）、"
                   f"Wilcoxon正確検定 {pexact(p1['wilcoxon_exact_p'])}") if p1['n_pairs'] else '対になる出動なし', ok(p1)])
-    rows.append([f"P2 安全（M2 vs M1、{p2['n_pairs']}出動）",
+    rows.append([f"P2 安全（M2 vs M1、{p2['n_pairs']}出動。M1は確認を省く設計）",
                  f"危険な配達 M1 {p2['unsafe_M1']}/{p2['n_pairs']} → M2 {p2['unsafe_M2']}/{p2['n_pairs']}（食い違い {p2['discordant_M1_only']}:{p2['discordant_M2_only']}）、"
                  f"McNemar正確検定 {pexact(p2['mcnemar_p'])}", ok(p2)])
     rows.append([f"P3 追加の危険なし（M2 vs M0、{p3['n_pairs']}出動）", f"危険な配達 M0 {p3['unsafe_M0']}/{p3['n_pairs']}、M2 {p3['unsafe_M2']}/{p3['n_pairs']}", ok(p3)])
@@ -398,7 +398,10 @@ def sec_memory():
             P(f"素朴な記憶（M1）の危険な配達 {h['per_arm']['M1']['unsafe_deliveries']} 件の内訳は、前回から入れ替わった物資 {h['per_arm']['M1']['wrong_supply']} 件と、"
               f"新たに出た火の中への配達 {h['per_arm']['M1']['into_fire']} 件で、いずれも確認を省いた結果である。M1 の中央値 {h['per_arm']['M1']['time_median_s']:.0f} 秒が最も短いのは、確認を省いたためで、速さは安全と引き換えだった"
               f"（誤った停止も {h['per_arm']['M1']['false_refusals']} 件）。検証つき記憶（M2）はどちらの誤りも誤った停止もなく、記憶なし（M0）の1件（下の事例）でも止まれた。"
-              '1件対0件から「M2 は M0 より安全」とは言えず、主張するのは「より危険ではない」までである。'), Spacer(1, 4)]
+              'M1 は確認を省く設計なので、20対0は確認を省く代償を示すもので意外な結果ではない。安全面で意味のある比較は M0 対 M2（1件対0件）で、1件対0件から「M2 は M0 より安全」とは言えず、主張するのは「より危険ではない」までである。'),
+            Spacer(1, 3),
+            P(f"速さの限定：114→85秒は、置き場所が変わったままの8出動での差。置き場所が元に戻った8出動では検証つき記憶の方がわずかに遅い（中央値 {h['per_arm']['M2']['by_transition']['relocation_change']['time_median_s']:.0f} 秒 対 記憶なし "
+              f"{h['per_arm']['M0']['by_transition']['relocation_change']['time_median_s']:.0f} 秒）。全体の中央値は {h['per_arm']['M0']['time_median_s']:.0f} → {h['per_arm']['M2']['time_median_s']:.0f} 秒。"), Spacer(1, 4)]
     out += fig('memory_case_ja.png', 135, '事例（評価H Q09）：記憶なし（M0）は隠れた火(p=0.0346、基準0.05未満)に配達したが、検証つき記憶（M2）は2出動前にそこで火を見たため閾値を0.01に厳しくし(p=0.0489)、止まった。'
                '記憶は確認を減らさず、慎重さだけを足す。その結果、記憶なしでは見逃した火で止まれた（1件の事例。統計的な主張ではない）。')
     return out
@@ -533,19 +536,20 @@ def sec_prereg(D, E):
     kk = jload('k_summary.json')
     reg = lambda n: (n if (ROOT / f'experiments/PREREGISTRATION_{n}.md').is_file() else '-')
     m9 = t1['models']['Qwen3.5-9B']['rules']['full'] if t1 else None
+    m35 = t1['models']['Qwen3.5-9B']['rules']['v35_tau_h_0.05']['false_approvals'] if t1 else None
     q = (t2 or {}).get('results', {}).get('Q9B[h36_tiles] tau_h=0.05')
     zs = ((z or {}).get('models') or {}).get('siglip')
     gp = g['primary'] if g else None
     rows = [['研究', '問い', '登録文書', '結果'],
             ['D（v3.4）', '閉ループ42試行で期待どおりに動くか', reg('v34'), f"{D['correct']}/{D['n']}、誤許可 {D['false_approvals']}" if D else PEND],
             ['E（v3.5）', 'ランダムな世界で回復探索は効くか', reg('E'), f"{E['ok']}/{E['n']}、誤配達 {E['fa']}" if E else PEND],
-            ['T1', '未使用の画像での誤許可', reg('T1'), f"誤許可 {m9['false_approvals']}/{m9['n_deny']}" if m9 else PEND],
+            ['T1', '未使用の画像での誤許可', reg('T1'), f"誤許可 {m9['false_approvals']}/{m9['n_deny']}（登録した規則 v3.4）、{m35}/{m9['n_deny']}（v3.5）" if m9 else PEND],
             ['F・G', '横から見直すと小さな火への配達が減るか', reg('G'),
              f"G：配達 {gp['wrong_deliveries_B']} → {gp['wrong_deliveries_C']}（{pexact(gp['mcnemar_p'])}）" if gp else PEND],
             ['T2', '未使用の画像で改良が悪化しないか', reg('T2'),
              f"誤許可 {q['false_approvals']}/{q['n_deny']}、正しい許可 {q['correct_approvals']}/{q['n_allow']}" if q else PEND],
             ['Z', 'CLIP系ゼロショットでも足りるか', reg('Z'),
-             f"T1誤許可：本システム {zs['t1']['ours']['FA']}、SigLIP {zs['t1']['baseline']['FA']}" if zs else PEND],
+             f"T1誤許可（v3.5の規則）：本システム {zs['t1']['ours']['FA']}、SigLIP {zs['t1']['baseline']['FA']}" if zs else PEND],
             ['P', '実写の火災画像で通用するか', reg('P'),
              f"検出 {p['recall']['k']}/{p['recall']['n']}、誤警報 {p['false_alarm']['k']}/{p['false_alarm']['n']}" if p else PEND],
             ['P2', '現場での較正で実写の誤警報が減るか', reg('P2'),
@@ -618,8 +622,10 @@ def headline(D, E, V, after_fig=()):
     if h:
         p2h = h['P2_safety_naive_vs_verified']
         p1h, p3h = h['P1_efficiency_relocation_persist'], h['P3_no_extra_risk_vs_v36']
-        h_res = (f"危険な配達 素朴な記憶 {p2h['unsafe_M1']}/{p2h['n_pairs']} → 本方式 {p2h['unsafe_M2']}/{p2h['n_pairs']}（記憶なし {p3h['unsafe_M0']}/{p3h['n_pairs']}）。"
-                 f"物資の入れ替わりが続く出動の時間（中央値）{p1h['time_M0_median_s']:.0f} → {p1h['time_M2_median_s']:.0f} 秒。"
+        pah = h['per_arm']
+        rch = {a_: pah[a_]['by_transition']['relocation_change']['time_median_s'] for a_ in ('M0', 'M2')}
+        h_res = (f"危険な配達：確認を省く素朴な記憶 {p2h['unsafe_M1']}/{p2h['n_pairs']} は省くことの代償を示し、実質の比較は記憶なし {p3h['unsafe_M0']}/{p3h['n_pairs']} 対 本方式 {p3h['unsafe_M2']}/{p3h['n_pairs']}（より危険ではない）。"
+                 f"時間（中央値）：物資の入れ替わりが続く{p1h['n_pairs']}出動で {p1h['time_M0_median_s']:.0f} → {p1h['time_M2_median_s']:.0f} 秒、置き場所が戻る出動では {rch['M0']:.0f} → {rch['M2']:.0f} 秒とわずかに遅い、全体 {pah['M0']['time_median_s']:.0f} → {pah['M2']['time_median_s']:.0f} 秒。"
                  f"速さ{ok_(p1h['supported'])}・安全{ok_(p2h['supported'])}・追加の危険なし{ok_(p3h['supported'])}で、全体の主張：<b>{ok_(h['headline_supported'])}</b>")
     else:
         h_res = PEND
@@ -663,7 +669,7 @@ def headline(D, E, V, after_fig=()):
         rows.append(['<b>R</b> カメラ劣化（12条件）', PEND, ''])
     if z:
         so, ba, cl = z['models']['siglip']['t1']['ours'], z['models']['siglip']['t1']['baseline'], z['models']['clip']['t1']['baseline']
-        rows.append(['<b>Z</b> CLIP系ゼロショットとの比較（T1、τ_h=0.05）',
+        rows.append(['<b>Z</b> CLIP系ゼロショットとの比較（T1、v3.5の規則 τ_h=0.05）',
                      f"誤許可：本システム {so['FA']}/{so['n_deny']}、SigLIP {ba['FA']}/{ba['n_deny']}、CLIP {cl['FA']}/{cl['n_deny']}",
                      f"CLIPは正しい許可 {cl['CA']}/{cl['n_allow']} で、ほぼ何も許可しない。SigLIPは誤許可が多い"])
     else:
@@ -757,9 +763,9 @@ def main_tail(account, SP, p_fa):
     s += bullets(['<b>在庫と現物のずれに強い</b>：物流倉庫・病院内搬送・避難所運営で、誤った物資を届けず、無ければ探し、それでも無ければ人に報告して止まる。',
                   '<b>オフライン・オンデバイス</b>：推論はすべて単一GPU上（APIキー不要、Apache-2.0のモデル）。',
                   '<b>説明と検証可能性</b>：判断画像のハッシュ・各質問の確率・日本語報告・真値軌跡・ROS bagを試行ごとに保存し、第三者が再計算できる。'])
-    s += [P('毎回の出動の後に、ロボットは自分の記録（依頼・判断・確認に使った画像と各質問の確率・次の作業・監査結果）から、現場の人が1枚で読める報告書を自動で作る（I-18）。'
+    s += [P('各出動の記録（依頼・判断・確認に使った画像と各質問の確率・次の作業・監査結果）から、現場の人が1枚で読める報告書を生成できる（I-18、scripts/make_operator_report.py）。全出動での自動生成は評価終了後に組み込む。'
             '人は結論と写真を見れば足り、「止まった」「別の拠点へ行った」理由は元のログまでさかのぼって確かめられる。次にしてほしいこと（火の確認、在庫表の訂正など）を迷わず決められ、実用の最後の一歩になる。')]
-    s += fig('operator_report_hidden_fire.png', 106, '図 毎回の出動後、ロボット自身の記録から自動で作る1枚の現場報告（写真・判断の理由・次にしてほしいこと）。例：物資の陰に隠れた火で停止した出動。')
+    s += fig('operator_report_hidden_fire.png', 106, '図 出動の記録から生成した1枚の現場報告（写真・判断の理由・次にしてほしいこと）。例：物資の陰に隠れた火で停止した出動。')
     s += [P('6. 限界・反省と今後の課題', 'h1')]
     lim = ['v3.6の横から見直す効果（評価G）は、拠点配置が固定の新しい世界での対比較で、試行数は少ない。完全に隠れた火は横からも見逃し得る。実機・実写では未検証。',
            '物資の把持・運搬は未実装。Nav2の動的経路計画ではなく既知配置のウェイポイント追従。',
