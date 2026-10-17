@@ -126,9 +126,11 @@ def _confidence(response: dict, expected: str):
     if not isinstance(scores, dict):
         return None
     probs = scores.get('supply_probs')
-    if not isinstance(probs, dict) or not isinstance(probs.get(expected), (int, float)):
+    v = probs.get(expected) if isinstance(probs, dict) else None
+    # I-23 findings F2/F3: a bool or a non-finite / out-of-range confidence is malformed (NaN passed `c < 0.5` as confident)
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or not 0.0 <= v <= 1.0:
         raise LocalInferenceError('malformed closed-set scores')
-    return float(probs[expected])
+    return float(v)
 
 
 def local_decision(expected: str, first: dict, second: dict, *, dual_model: bool=False,

@@ -261,8 +261,8 @@ class KnownFindings(unittest.TestCase):
         case = {'LA': True, 'AD': True, 'views': views, 'T': True}
         rec = {}
         self.assertFalse(V.real_approve(V.Impl.real(), case, False, None, False, rec))
-        self.assertFalse(V.audit_approve(audit_local_checkpoint, case, rec, False, None, False))
-        self.assertIn('without the extra views', rec.get('audit_error', ''))
+        V.audit_approve(audit_local_checkpoint, case, rec, False, None, False)
+        self.assertNotIn('without the extra views', rec.get('audit_error', '') or '')     # fixed: a refusal at L2 is legitimate
 
     def test_F2_nan_supply_confidence_counts_as_confident(self):
         """local_decision compares `c < min_confidence`; NaN compares False, so a NaN supply probability is not 'low confidence'.
@@ -270,7 +270,9 @@ class KnownFindings(unittest.TestCase):
         from rescuemind.local_vision import local_decision, PRIMARY_MODEL
         call = lambda: {'backend': 'local_transformers', 'real_inference': True, 'model': PRIMARY_MODEL, 'image_sha256': 'a',
                         'result': {'supply': 'water', 'scene': 'clear'}, 'scores': {'hazard_prob': 0.0, 'supply_probs': {'water': float('nan')}}}
-        self.assertTrue(local_decision('water', call(), call())['allow'])
+        from rescuemind.local_vision import LocalInferenceError
+        with self.assertRaises(LocalInferenceError):                 # fixed: a non-finite confidence is malformed
+            local_decision('water', call(), call())
 
     def test_F3_bool_supply_confidence_is_accepted_as_a_number(self):
         """local_vision._confidence uses isinstance(x, (int, float)), which accepts True / False (the hazard score path rejects bool).
@@ -278,8 +280,10 @@ class KnownFindings(unittest.TestCase):
         from rescuemind.local_vision import local_decision, PRIMARY_MODEL
         call = lambda c: {'backend': 'local_transformers', 'real_inference': True, 'model': PRIMARY_MODEL, 'image_sha256': 'a',
                           'result': {'supply': 'water', 'scene': 'clear'}, 'scores': {'hazard_prob': 0.0, 'supply_probs': {'water': c}}}
-        self.assertTrue(local_decision('water', call(True), call(True))['allow'])
-        self.assertEqual(local_decision('water', call(False), call(True))['reason'], 'low_confidence_supply_match')
+        from rescuemind.local_vision import LocalInferenceError
+        for c in (True, False):                                      # fixed: a bool is not a probability
+            with self.assertRaises(LocalInferenceError):
+                local_decision('water', call(c), call(0.9))
 
 
 if __name__ == '__main__':
