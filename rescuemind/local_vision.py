@@ -19,6 +19,24 @@ SECONDARY_MODEL = 'HuggingFaceTB/SmolVLM2-2.2B-Instruct'
 # I-08 candidates (Apache-2.0, newer generations); selection is evidence-based (IMPROVEMENT_LOG.md)
 CANDIDATE_MODELS = ('Qwen/Qwen3-VL-8B-Instruct', 'Qwen/Qwen3.5-9B', 'Qwen/Qwen3.5-4B')
 ALLOWED_MODELS = frozenset((PRIMARY_MODEL, SECONDARY_MODEL) + CANDIDATE_MODELS)
+# Trust base: the Hugging Face commit of the weights each server must have loaded (from the author's cache, 2026-10-18).
+# A response that reports another revision is refused; a response without the field (servers before this change, test
+# fakes) is accepted and audits report it as unverified.
+PINNED_REVISIONS = {'Qwen/Qwen3.5-9B': 'c202236235762e1c871ad0ccb60c8ee5ba337b9a',
+                    'Qwen/Qwen3.5-4B': '851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a',
+                    'Qwen/Qwen2.5-VL-3B-Instruct': '66285546d2b821cf421d4f5eb2576359d3770cd3',
+                    'Qwen/Qwen3-VL-8B-Instruct': '0c351dd01ed87e9c1b53cbc748cba10e6187ff3b'}
+
+
+def weights_verified(response: dict) -> bool | None:
+    """True: the response names the pinned revision; None: no revision reported; raises on a different revision."""
+    rev = (response or {}).get('weights_revision')
+    if rev is None:
+        return None
+    pinned = PINNED_REVISIONS.get((response or {}).get('model'))
+    if pinned is not None and rev != pinned:
+        raise LocalInferenceError('model weights are not the pinned revision')
+    return pinned is not None
 DEFAULT_PRIMARY_URL = 'http://127.0.0.1:8765/v1/classify'
 DEFAULT_SECONDARY_URL = 'http://127.0.0.1:8766/v1/classify'
 LABELS = ('water', 'medicine', 'other')
@@ -143,6 +161,7 @@ def local_decision(expected: str, first: dict, second: dict, *, dual_model: bool
             raise LocalInferenceError('unverified local model result')
         if response['result'].get('supply') not in LABELS or response['result'].get('scene') not in SCENES:
             raise LocalInferenceError('unsupported model label')
+        weights_verified(response)
     if dual_model and first['model'] == second['model']:
         raise LocalInferenceError('dual-model claim without distinct models')
     if first['image_sha256'] != second['image_sha256']:

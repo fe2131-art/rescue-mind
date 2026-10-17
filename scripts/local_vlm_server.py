@@ -152,6 +152,7 @@ class ModelWorker:
         import transformers
         key='dtype' if int(transformers.__version__.split('.')[0])>=5 else 'torch_dtype'  # renamed in v5
         self.model=cls.from_pretrained(model_id,**{key:self.dtype},**load).to(self.device).eval()
+        self.weights_revision=weights_revision(model_id)     # trust base: the Hugging Face snapshot (commit) actually loaded
         tok=self.processor.tokenizer
         def ids(word):
             out=set()
@@ -410,6 +411,19 @@ class ModelWorker:
         return {'model':'local-jev/'+self.model_id,'answers':answers,'usage':{'backend':'local_transformers'}}
 
 
+def weights_revision(model_id):
+    """The Hugging Face commit of the cached snapshot that from_pretrained(local_files_only=True) loads, or None."""
+    try:
+        from huggingface_hub import try_to_load_from_cache
+        path=try_to_load_from_cache(model_id,'config.json')
+    except Exception:
+        return None
+    if not isinstance(path,str):
+        return None
+    parts=Path(path).parts
+    return parts[parts.index('snapshots')+1] if 'snapshots' in parts else None
+
+
 def make_handler(worker):
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
@@ -417,7 +431,8 @@ def make_handler(worker):
                 self.send_error(404);return
             self.reply(200,{'status':'ready','model':worker.model_id,'backend':'local_transformers',
                             'method':getattr(worker,'method','json'),'prompt_set':getattr(worker,'prompt_set',None),
-                            'hazard_threshold':getattr(worker,'hazard_threshold',0.5)})
+                            'hazard_threshold':getattr(worker,'hazard_threshold',0.5),
+                            'weights_revision':getattr(worker,'weights_revision',None)})
         def do_POST(self):
             if self.path not in ('/v1/classify','/v1/describe','/v1/intent','/v1/advice','/v1/advice_filter','/v1/jev','/v1/hazard_set'):
                 self.send_error(404);return
@@ -478,6 +493,8 @@ def make_handler(worker):
                 body={'backend':'local_transformers','model':worker.model_id,
                       'real_inference':True,'image_sha256':digest,
                       'pass_id':pass_id,'result':result}
+                if getattr(worker,'weights_revision',None):
+                    body['weights_revision']=worker.weights_revision
                 if scores is not None:
                     body['scores']=scores
                 self.reply(200,body)

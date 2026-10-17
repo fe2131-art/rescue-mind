@@ -760,8 +760,9 @@ def view_env(w: str, v: dict, env: dict) -> None:
         env[f'val_{w}{i + 1}'] = z3.BoolVal(ok)
         env[f'p_{w}{i + 1}'] = rv(Fraction(raw)) if ok else rv(0)
         env[f'hz_{w}{i + 1}'] = z3.BoolVal(bool(v['hz'][i]))
-    # code (local_vision._confidence): `isinstance(x, (int, float))` -- a bool IS accepted here (FINDING F3), unlike the hazard score
-    conf_bad = any(not isinstance(c, (int, float)) for c in v['conf'])
+    # code (local_vision._confidence, after the F2/F3 fix): a bool, a non-number, a non-finite or out-of-range value aborts
+    conf_bad = any(isinstance(c, bool) or not isinstance(c, (int, float)) or not math.isfinite(c) or not 0.0 <= c <= 1.0
+                   for c in v['conf'])
     thr_bad = any(not alpha_thr_ok(t) for t in v['thr'])
     env[f'bad_{w}'] = z3.BoolVal(conf_bad or thr_bad)
 
@@ -774,8 +775,8 @@ def station_env(case: dict) -> dict:
     for i in (0, 1):
         env[f'sup{i + 1}'] = z3.BoolVal(f['supply'][i] == 'water')
         c = f['conf'][i]
-        isnum = isinstance(c, (int, float))
-        # code: `c < 0.5` (NaN compares False -> NOT low: finding F2); a non-number aborts the check (bad)
+        isnum = isinstance(c, (int, float)) and not isinstance(c, bool) and math.isfinite(c)
+        # code: `c < 0.5`; a malformed value (bool, NaN, inf, out of range) aborts the check (bad, F2/F3 fix)
         env[f'low{i + 1}'] = z3.BoolVal(bool(isnum and c < 0.5))
     env['LA'], env['AD'] = z3.BoolVal(case['LA']), z3.BoolVal(case['AD'])
     env['T'] = z3.BoolVal(case['T'])
