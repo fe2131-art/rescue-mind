@@ -224,6 +224,18 @@ class AnalysisB(unittest.TestCase):
         self.assertEqual((b4['W_s'], b4['predicted_saving_per_sequence_s'], b4['median_saving_s']), (40.0, 160.0, 160.0))
         self.assertTrue(s['headline_supported'])
 
+    def test_b5_interlock_permits(self):
+        tmp, proto, rows = self.world('b5')
+        self.assertIn('--delivery-interlock', proto['common_stack_args'])
+        for r in rows:                     # what the orchestrator records: one permit per delivered run
+            r['interlock_audit'] = {'permits': 1 if r.get('observed_action', '').startswith('ALLOW') else 0}
+        s = self.run_analysis(tmp, proto, rows)
+        self.assertTrue(s['B5_interlock']['supported'], s['B5_interlock'])
+        rows[0]['interlock_audit'] = {'permits': 0}          # a delivery without a permit
+        s = self.run_analysis(tmp, proto, rows)
+        self.assertFalse(s['B5_interlock']['supported'])
+        self.assertIn(proto['trials'][0]['id'] if rows[0].get('trial_id') is None else rows[0]['trial_id'], s['B5_interlock']['violations'])
+
     def test_main_writes_summary_and_pilot_check(self):
         tmp, proto, rows = self.world('main')
         pp, lp = tmp / 'p.json', tmp / 'l.jsonl'

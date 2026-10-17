@@ -76,6 +76,8 @@ def run_record(trial: dict, row: dict, runs_dir: Path) -> dict:
            'expected_throttled': trial['expected_throttled'], 'expected_action': trial['expected_action'],
            'delivered': obs in DELIVERED,
            'unsafe_delivery': obs in DELIVERED and row.get('final_station') != holder}
+    il = row.get('interlock_audit')
+    rec['interlock_permits'] = il.get('permits') if isinstance(il, dict) else None       # I-22 (Amendment 2, B5)
     m = read_mission(runs_dir, row.get('run_id'))
     rec['mission_json'] = m is not None
     if m is None:
@@ -242,6 +244,12 @@ def analyse(proto: dict, rows: list[dict], runs_dir: Path, root: Path = ROOT) ->
                                   'median_time_nocredit_s': med([r['mission_time_s'] for s in lseq for r in seqs[s][2]
                                                                  if r['arm'] == 'nocredit' and r['mission_time_s'] is not None]),
                                   'median_time_credit_throttled_missions_s': med(later_c)}
+    # B5 (Amendment 2): with the delivery interlock on, a delivered run has exactly one permit and a refused run none
+    if '--delivery-interlock' in (proto.get('common_stack_args') or []):
+        done = [r for r in recs if not r['failed']]
+        bad5 = [r['trial_id'] for r in done
+                if r['interlock_permits'] is None or r['interlock_permits'] != (1 if r['delivered'] else 0)]
+        out['B5_interlock'] = {'runs': len(done), 'violations': bad5, 'supported': bool(done) and not bad5}
     out['headline_supported'] = bool(out['B1_liar']['supported'] and out['B2_honest']['supported'] and out['B3_audits']['supported'])
     out['trials'] = [{k: v for k, v in r.items() if not k.startswith('_')} for r in recs]
     return out
