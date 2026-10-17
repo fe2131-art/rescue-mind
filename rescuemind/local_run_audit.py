@@ -67,7 +67,9 @@ def audit_local_checkpoint(checkpoint: dict, image_sha: str, *, expected: str,
             std=[pk for pk in checkpoint['look_around'].get('peeks',[]) if pk['side'] in ('L','R')]
             p_max=suspicion(checkpoint,std)
             extra=[pk for pk in checkpoint['look_around'].get('peeks',[]) if pk['side'] in ('L2','R2','N')]
-            hazard_std=any(q['hazard'] for q in peeks if q['side'] in ('L','R'))
+            # an extra view that flagged a hazard legitimately ends the extra views early (I-23 finding F1: L/R only was
+            # checked, so a run refused at the first or second extra view failed the audit)
+            hazard_std=any(q['hazard'] for q in peeks)
             if abs(p_max-float(ad.get('p_max',-1)))>1e-3:
                 raise LocalReceiptError('adaptive-view suspicion does not match the saved outputs')
             if (not hazard_std and computed.get('allow') is not False and (p_max>=float(ad['tau_sus']) or ad.get('scrutiny'))
