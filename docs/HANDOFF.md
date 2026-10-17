@@ -329,3 +329,17 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
   2. 注入文の dev 半分でプロンプトを調整し、凍結 → A を事前登録 → 予備走行 → 本番（226 run、約11.5時間）。
   3. S（約2.4時間）→ XD・X（Sonnet が設計中）。
 
+**2026-10-17 23:00 統合ブランチ `i21-depot`（worktree `.claude/worktrees/i21`）の状態**
+* 含むもの：
+  * I-19（助言は締めるだけ、study A は 226 run の草稿）
+  * I-20（疑わしいときの追加視点）
+  * I-21（倉庫、k=4、パレット、煙だけの火災）
+  * 軟拒否（`--caution-soft`）、scrutiny（`--advice-scrutiny`）
+  * 研究 S（看板・OCR マスク・文字を無視させる）、X・XD（倉庫）、L、I-18、W
+  * 信頼基盤テスト（独立した参照実装・変異体 196 個・fuzz。実バグ 6 件を修正、FINDINGS #24・#25）
+  * 論文（「Advice May Only Tighten」として一本の筋に再構成、本文 8 頁以内）
+  * 説明資料（本文 5 頁、付録 A〜N）
+* 模擬査読6回目（`REVIEW_NOTES_R6.md`）：結果が設計どおりなら RA-L で weak accept 圏。登録前に文言を固める作業（W Amendment 2・A/S/X/XD・命題2 の ε_any）を Sonnet が進めている。
+* V・W・Q の後にすること：`i21-depot` を main にマージする → 全テスト → A（文言を固め、dev で調整して凍結、予備走行）→ XD → S → X。
+* 要約図は新しい筋（助言は締めるだけ）に作り直す必要がある。結果が出てから行う。
+
