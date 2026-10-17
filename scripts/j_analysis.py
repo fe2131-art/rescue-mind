@@ -76,7 +76,7 @@ def main():
     out['P1_runs_on_one_v100'] = {'failed_J': cfg['J']['failed'], 'peak_vram_mib': peak, 'supported': cfg['J']['failed'] == 0}
     out['P2_no_extra_unsafe'] = {'unsafe_A': cfg['A']['unsafe_deliveries'], 'unsafe_J': cfg['J']['unsafe_deliveries'],
                                  'supported': cfg['J']['unsafe_deliveries'] <= cfg['A']['unsafe_deliveries']}
-    out['P3_correct_paired'] = {'A_only_correct': b, 'J_only_correct': c, 'mcnemar_p': round(mcnemar_exact(b, c), 5)}
+    out['P3_correct_paired'] = {'A_only_correct': b, 'J_only_correct': c, 'mcnemar_p': float(f'{mcnemar_exact(b, c):.3g}')}
     out['trials'] = per
     (RES / 'j_summary.json').write_text(json.dumps(out, ensure_ascii=False, indent=1) + '\n')
     print(json.dumps({k: v for k, v in out.items() if k != 'trials'}, ensure_ascii=False, indent=1))
