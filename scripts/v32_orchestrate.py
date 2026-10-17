@@ -565,7 +565,8 @@ def main(argv=None):
                     raise StackFailure('motion evidence: invalid supply item')
                 # I-02: after a recovery search the authorising checkpoint is at the OTHER station.
                 station_name=mission_record.get('checkpoint_station') or item
-                if station_name not in ('water','medicine'):
+                from rescuemind.stations import StationSet
+                if station_name not in StationSet.from_config(config).ids:     # I-21: k stations (the arena: water / medicine)
                     raise StackFailure('motion evidence: invalid checkpoint station')
                 if mission_record.get('recovery'):
                     from rescuemind.recovery_evidence import audit_recovery

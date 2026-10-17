@@ -118,24 +118,39 @@ class MissionMemory:
         obs = [r for r in self.records if r['station'] == station]
         return obs[-1] if obs else None
 
-    def plan(self, item: str, mode: str = 'verified', *, horizon: int = HORIZON, caution_tau_h: float = CAUTION_TAU_H) -> dict:
-        """Mission plan proposed by memory for the requested `item` (catalog station = the item's own station)."""
-        if item not in STATIONS or mode not in ('off', 'verified', 'naive'):
+    def plan(self, item: str, mode: str = 'verified', *, horizon: int = HORIZON, caution_tau_h: float = CAUTION_TAU_H,
+             stations=None) -> dict:
+        """Mission plan proposed by memory for the requested `item` (catalog station = the inventory's first station for
+        the item; in the two-station arena the item's own station).  `stations` (rescuemind.stations.StationSet,
+        default the arena) generalises to k stations: plan['order'] is the candidate order (a permutation of ALL
+        stations: memory may reorder, never skip) and plan['first_station'] is its head."""
+        from .stations import StationSet
+        ss = stations or StationSet.legacy()
+        if item not in ('water', 'medicine') or mode not in ('off', 'verified', 'naive'):
             raise ValueError('bad memory plan request')
-        out = {'mode': mode, 'catalog_station': item, 'first_station': item, 'n_records': len(self.records),
+        base_order = ss.default_order(item)
+        cat = base_order[0]
+        out = {'mode': mode, 'catalog_station': cat, 'first_station': cat, 'n_records': len(self.records),
                'caution': {}, 'skip_check': False, 'deny_without_visit': False, 'rationale': []}
+        if not ss.is_legacy():
+            out['order'] = list(base_order)
         if mode == 'off' or not self.records:
             return out
-        here = self.last(item)
+        here = self.last(cat)
         if here and here['supply'] not in (item, 'uncertain'):
-            for s in STATIONS:
-                o = self.last(s)
-                if s != item and o and o['supply'] == item:
-                    out['first_station'] = s
-                    out['rationale'].append(f'前回、{ITEM_JA[item]}は拠点「{s}」で確認（定位置には{ITEM_JA[here["supply"]]}）→ 先に「{s}」へ')
+            seen = {s: (self.last(s) or {}).get('supply') for s in base_order}
+            found = [s for s in base_order if s != cat and seen[s] == item]
+            if found:
+                # stations where the item was seen come first, then the unknown ones, then those seen holding something else
+                rank = lambda s: 0 if seen[s] == item else (2 if seen[s] not in (None, 'uncertain') else 1)
+                order = sorted(base_order, key=lambda s: (rank(s), base_order.index(s)))
+                out['first_station'] = order[0]
+                if 'order' in out:
+                    out['order'] = order
+                out['rationale'].append(f'前回、{ITEM_JA[item]}は拠点「{order[0]}」で確認（定位置には{ITEM_JA[here["supply"]]}）→ 先に「{order[0]}」へ')
         if mode == 'verified':
             recent = set(self.tags()[-horizon:])
-            for s in STATIONS:
+            for s in ss.ids:
                 hz = [r for r in self.records if r['station'] == s and r['tag'] in recent and r['hazard']]
                 if hz:
                     sides = [v for v in hz[-1]['hazard_views'] if v in ('L', 'R')]
