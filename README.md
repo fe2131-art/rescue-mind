@@ -27,6 +27,7 @@ Physical AI 応用1講座 最終課題 ｜ ROS 2 Jazzy × Gazebo Harmonic × ロ
 * 説明資料（PDF）：[`docs/report/説明資料_PAI最終課題_tetsutetsu.pdf`](docs/report/説明資料_PAI最終課題_tetsutetsu.pdf)
 * 論文（PDF）：[`docs/paper/main.pdf`](docs/paper/main.pdf)（補足：[`supplement.pdf`](docs/paper/supplement.pdf)）
 * コード：本リポジトリ（動かし方は[下](#動かし方)）
+* 実際の現場に持っていくには：[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)（必要な機材、半日の導入手順、現場写真での閾値較正、運用中に起こること）
 
 <!-- GA:START -->
 ![RescueMind 要約図（問題・3つの工夫・事前登録した主な結果）](docs/figures/graphical_abstract_ja.png)
