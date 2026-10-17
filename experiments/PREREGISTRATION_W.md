@@ -188,3 +188,33 @@ Stages 2, 4 and 5 share one server start (`h36 + tiles`); 5b needs a start with 
   * Hypothesis: adaptive misses fewer fires, with an extra-view trigger rate of about 10% on fire-free worlds.
   * If it holds, the rule is implemented in the robot (I-20) and tested in closed loop in a separate registered study.
 * *Time.* Rendering grows to six views per world (about 2.6 h instead of 1.8 h). Scoring of W-a doubles (about 1.0 h).
+
+**Amendment 2 (2026-10-17 22:40, before any W image is rendered or scored; wording and analysis only, from mock review R6 items 2, 3 and 5).**
+Nothing about the worlds, the protocol hash, the renders, the models, the thresholds or the scoring changes. Only which numbers are
+claim criteria, which are descriptive, and which secondary analyses are added. `scripts/w_analysis.py` and `tests/test_study_w.py`
+are updated to match.
+* *W-a1 is demoted to descriptive.* "Look-around has fewer misses than front-only" holds by construction (look-around misses are a
+  subset of front-only misses, so the McNemar test is a sign test on a subset relation and cannot fail). It is still printed
+  (`descriptive_P1_look_around_fewer_misses`) and the counts are reported, but it is no longer a condition of any claim.
+* *The upper-bound endpoint stays primary.* W-a2 (Wilson 95% upper bound of the look-around miss rate on the registered
+  F/L/R-perceivable fire worlds is at most 0.15) is now the only condition of the claim "ε is tightly bounded"
+  (`claim_eps_tight` = W-a2). W-a3 (extra false stops at most 0.10) is unchanged and is still the extra condition of the cost claim.
+  The expected-value remark above stands: with n about 130 and a true ε of 6% the expected upper bound is about 11%; a true ε of 10% fails.
+* *Six-view perceivability is the leading secondary label set.* A fire world is *six-view perceivable* if any of F, L, R, L2, R2, N
+  shows at least 614 fire pixels (the label `world_perceivable_any_view`, already rendered under Amendment 1). The checks are unchanged
+  (F, L, R); only the label changes. Reported with Wilson CIs: front-only and look-around miss rates on the six-view perceivable
+  worlds, the worlds missed, and the **share of fire worlds that no view shows** (`six_view.share_not_visible_from_any_view`) together
+  with what each arm does on them, and the share visible only from the extra views. Whether the upper bound on the six-view label
+  stays at or below 0.15 is reported next to the primary result; it is not a criterion, and if it exceeds 0.15 the paper says so in the
+  same sentence as the primary result. The main text reports the not-visible share, because a fire hidden from every view is excluded
+  from ε by the registered label and is the residual hazard.
+* *New secondary analysis: image-level oracle steering.* Proposition 2 is restated with ε_any = P[there exists a must-refuse station
+  whose check approves], which does not depend on k or on the visiting order and is attained by an attacker who can choose the order
+  and queries the check offline. From the W fire worlds taken as must-refuse stations (one per world) the script reports, for
+  k = 1..4, `eps_any(k)` = the probability that at least one of k distinct fire worlds drawn at random is approved (exact,
+  hypergeometric), the sum bound min(1, k·ε), and an interval obtained by mapping the Wilson interval of ε through 1−(1−x)^k, for
+  front-only and look-around, on both label sets. For k = 1 it equals the per-world miss rate. No criterion; it replaces the
+  16-world closed-loop A-steer cell as the steering estimate. Limits, stated now: the k stations come from different worlds, so
+  lighting and arrival-pose draws are independent (a depot shares them; XD adds that case), and the rendering distribution is the
+  generator's, not an adversary's choice of fire geometry.
+* *Unchanged:* W-a2 and W-a3 thresholds, all of W-b, the optional stage r, the Amendment 1 views and its adaptive analysis.
