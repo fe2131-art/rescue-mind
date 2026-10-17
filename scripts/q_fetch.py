@@ -28,7 +28,7 @@ CACHE = Path.home() / '.cache/rescuemind/q'
 SAMPLE = ROOT / 'experiments/q_sample.json'
 SEED = 'Q-2026'
 API = 'https://commons.wikimedia.org/w/api.php'
-UA = {'User-Agent': 'RescueMind-study-Q/1.0 (offline academic evaluation; https://github.com/tetsutetsu/rescue-mind)'}
+UA = {'User-Agent': 'RescueMind-study-Q/1.0 (offline academic evaluation; https://github.com/fe2131-art/rescue-mind)'}
 THUMB_WIDTH = 960            # a standard Commons thumbnail size
 
 # (class, type, Commons category [direct files only], cap).  Caps are applied after the filters, per category.
