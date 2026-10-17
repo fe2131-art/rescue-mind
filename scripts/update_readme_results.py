@@ -312,6 +312,17 @@ def j_text(short=False):
         return f'評価J（24世界の対比較）：{PENDING}' if short else PENDING
 
 
+def v_text():
+    v = jl('v_summary.json')
+    try:
+        d, a = v['V1_time_diff'], v['arms']
+        return (f"M0−M2の所要時間差 実測 {d['mean_M0_minus_M2_s']:.0f} 秒（事前登録した95%予測区間 {d['pred']['p2.5']:.0f}〜{d['pred']['p97.5']:.0f} 秒）、"
+                f"危険な配達は 記憶なし {a['M0']['unsafe']}・素朴な記憶 {a['M1']['unsafe']}・検証つき記憶 {a['M2']['unsafe']}件。"
+                f"主張は モデルの予測：{'成立' if v['claim_model_predicts'] else '不成立'}、ランダムな変化でも安全に速い：{'成立' if v['claim_memory_under_random_change'] else '不成立'}")
+    except (TypeError, KeyError):
+        return PENDING
+
+
 def audit_text():
     f = ROOT / 'docs/paper/tab_prereg.tex'
     if not f.is_file():
@@ -491,6 +502,12 @@ def section_en(e, v):
         j_ok = True
     except (TypeError, KeyError):
         j_ok = False
+    try:
+        v = jl('v_summary.json')
+        d1, av = v['V1_time_diff'], v['arms']
+        L.append(f"| V: model vs. closed loop (random change) | M0-M2 time saving observed {d1['mean_M0_minus_M2_s']:.0f} s (registered 95% interval {d1['pred']['p2.5']:.0f}-{d1['pred']['p97.5']:.0f} s); unsafe deliveries M0 {av['M0']['unsafe']}, M1 {av['M1']['unsafe']}, M2 {av['M2']['unsafe']}; model-predicts claim {'supported' if v['claim_model_predicts'] else 'not supported'}, memory-under-random-change claim {'supported' if v['claim_memory_under_random_change'] else 'not supported'} |")
+    except (TypeError, KeyError):
+        L.append('| V: model vs. closed loop (random change) | pre-registered, running |')
     if not (h_ok and j_ok):
         L += ['', 'Campaigns ' + ('J' if h_ok else 'H and J' if not j_ok else 'H') + ': pre-registered, running.']
     L += ['', '**Limitations.** Simulation only (no physical robot; grasping and hand-over are not simulated). '
@@ -545,6 +562,7 @@ def main():
         head.append(k_ja)
     head.append(f"| 評価H（出動をまたぐ記憶） | 前回の物資の場所を「先に行く拠点」の提案だけに使う。記憶なし・素朴な記憶・検証つき記憶を対比較 | {h_text()} |")
     head.append(f"| 評価J（2つのAI） | Jev役 Clef-Flash＋Qwen の2モデル確認を閉ループで、v3.6単独と対比較 | {j_text()} |")
+    head.append(f"| 評価V（ランダムな変化での予測検証） | 出動ごとに世界がランダムに変わる10系列×6出動で、事前登録した予測区間と実測を比較 | {v_text()} |")
     parts = ['<!-- RESULTS:START -->', '## 結果', '',
              '事前登録した評価の一覧（D・E・F・G・T1・T2・Z・P・R・K・H・J）。Qwen3.5-9B（ローカル・V100）。条件・閾値・解析は結果を見る前に `experiments/PREREGISTRATION_*.md` に固定し、台帳は全試行を記録。', '',
              '用語：**誤許可**＝届けてはいけない場面で「届けてよい」と判断してしまうこと（ロボットを実際に動かす評価では**誤配達**。火のある拠点から届けてしまうことは**危険な配達**）。**正しい許可**＝届けてよい場面で正しく「よい」と判断できること。**閉ループ**＝AIの判断でロボットが実際に動くところまで含めた評価。', '',

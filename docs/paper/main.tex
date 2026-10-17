@@ -293,6 +293,7 @@ G & Does looking from the side help? & 24 new worlds, paired & 2 (v3.6, v3.6 + l
 R & Is the check fail-closed under camera degradation? & 300 T2 images $\times$ 12 degradations & 1 (v3.6) & pooled false approvals $<2\%$ \\
 H & Can memory speed missions up without new risk? & 16 sequences $\times$ 3 missions, changing worlds & 3 (v3.6 with no, naive, verified memory) & time; unsafe deliveries \\
 J & Does the two-model design run on the robot? & 24 worlds, paired & 2 (v3.6; Qwen3.5-4B + Clef-Flash) & completes on one GPU; unsafe deliveries \\
+V & Does the repeated-mission model predict closed-loop behaviour? & 10 sequences $\times$ 6 missions, random change & 3 (v3.6 with no, naive, verified memory) & prediction intervals; unsafe deliveries \\
 Z & Is a generative VLM needed? & T1 + T2, contrastive zero-shot baselines & 3 & false and correct approvals \\
 K & Does a conformal $\tau_h$ keep a miss bound? & \KNcal{} dev fires $\to$ T2 (offline) & 2 ($\alpha=0.05,0.10$) vs frozen & held-out fire miss rate $\le\alpha$ \\
 P & Does the hazard question transfer to real photos? & 400 D-Fire test images (CC0) & 1 (v3.6 hazard question) & recall; false alarms (descriptive) \\
@@ -455,6 +456,8 @@ The saving is bounded by the arena: with two stations memory can only avoid one 
 stations and a supply that relocates uniformly with probability $q$, verified memory saves $\delta\,((k-1)-qk)/2$ per mission
 (\HKSaveTwo\,s at $k=2$ and \HKSaveEight\,s at $k=8$ for $q=0.2$; break-even at $q^\ast=(k-1)/k$; Supp.~Sec.~S7) while every
 delivering station is still checked, so the benefit grows with the site and the risk bound does not change.
+
+Study V tested the model in closed loop (10 sequences of 6 missions, supply location and fire toggling at random with $q=0.2$, predictions registered before the first trial). The registered 95\% interval for the paired saving M0$-$M2 was \VPredDiffPI\,s (median \VPredDiff\,s); we observed \VObsDiff\,s. Unsafe deliveries were \VUnsafeMzero{} (M0), \VUnsafeMone{} (M1) and \VUnsafeMtwo{} (M2), against registered intervals \VPredUnsafezero, \VPredUnsafeone{} and \VPredUnsafetwo. The claim that the model predicts the closed loop is \VClaimModel; that verified memory keeps its speed-up without a safety cost under random change, \VClaimMemory{} (M1 vs.\ M2 by sequence: exact McNemar $p=\VSeqP$).
 
 \subsection{Two models on one GPU (campaign J)}\label{sec:res-jev}
 On T2, Clef-Flash together with
