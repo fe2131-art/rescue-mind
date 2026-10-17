@@ -324,3 +324,16 @@
   * naive（比較対象）：前回その物資を見た拠点では確認と横からの見直しを省いて配達し、前回危険を見た拠点へは行かずに拒否する。
   * 監査：記憶で厳しくした判定を再計算する。記憶が閾値を緩めることは監査で拒否する。naive の配達は、動きと真値の軌跡だけを監査する（`COMPLETED_MEMORY_TRUSTED`）。
 * **計測**：事前登録した閉ループ評価H（16系列×3出動、M0/M1/M2、`experiments/PREREGISTRATION_H.md`）。結果は追記する。
+
+
+---
+
+## I-16 当初計画の2つのAI（Jev役 Clef-Flash＋Qwen）を実機の閉ループで動かす
+
+* **動機**：
+  * 当初計画は「Jev と Qwen の2つのAIで確認する」ことだった。I-13 でオフライン評価はしたが、実機の閉ループでは動かしていなかった。
+  * オフライン T2 では、課題向けの質問を使った Clef-Flash＋Qwen3.5-4B が **誤許可 0/407、正しい許可 185/193** だった（`experiments/results/t2_summary.json` の `J2(Clef-task,0.05)+Q4B`）。評価した2モデル構成のうち V100 1台（32 GB）に載るのはこの組だけ（19＋9 GB）。
+  * 実機の経路は常に当初の Jev 要求（通路の安全を問う）を使っていた。開発データでは正しい配達の約半分しか許可しない（182/360。課題向けの質問は 350/360）。
+* **変更**：新しいフラグ `--jev-schema {jev,task}`（`scripts/v32_orchestrate.py` → `ros/gazebo_waypoint_mission.py` → `rescuemind/local_vision.py` の `verify_station_local`）。`task` で課題向けの質問を使う。
+* **計測**：事前登録した閉ループ評価J（`experiments/PREREGISTRATION_J.md`、24世界の対比較、A＝v3.6 と J）。主要な基準は、P1：V100 1台で失敗なく走る、P2：危険な配達が J ≤ A。結果：実行待ち（`scripts/final_chain.sh`）。
+* **留意点（正直な書き方）**：Clef-Flash のモデルカードは Qwen/Qwen3.5-9B からの追加学習（`base_model: Qwen/Qwen3.5-9B`、`base_model_relation: finetune`）と記している。2つのモデルは系統を共有するので、多様性は追加学習・大きさ・質問の書き方に由来し、独立開発ではない。N バージョン・プログラミングでは独立に作った版でも誤りが相関すること（Knight & Leveson, 1986）が知られており、相関した失敗が残る可能性を結果の解釈で考慮する（D11, D14）。
