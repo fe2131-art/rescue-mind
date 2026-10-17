@@ -344,7 +344,7 @@ class ServerParaphrases(unittest.TestCase):
         self.assertEqual(qs[0], srv.PROMPT_SETS['v35']['hazard'])
         self.assertEqual(srv.PROMPT_SETS['v35']['hazard'], 'Look at the whole image, including behind and around the objects. '
                                                             'Do you see any fire, flames, or smoke? Answer Yes or No.')
-        self.assertEqual(sorted(srv.PROMPT_SETS), ['v33', 'v34', 'v35'])
+        self.assertTrue({'v33', 'v34', 'v35'} <= set(srv.PROMPT_SETS))   # other studies add sets (S: v35ign); these stay
         self.assertEqual(sorted(srv.ModelWorker.HAZARD_PROMPTS), ['h36'])
         for q in qs:
             self.assertTrue(q.endswith('Answer Yes or No.'))
