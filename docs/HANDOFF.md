@@ -222,6 +222,13 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
   * **I-23 機械検証**：worktree `.claude/worktrees/formal`、ブランチ `i23-formal`。z3 で命題2を証明し、実コードとの差分テストと変異体で確かめる。
   * **I-24 の文献調査**：`docs/paper/LITERATURE_I24.md` をブランチ `i24-credit` にコミットする。
   * 終わったら内容を確認し、i21-depot にマージする。
+* **追加の連鎖（scratchpad、PID で実行、通知は来ない）**：
+  * `after_a_chain.sh`（ログは `after_a.log`）：A_CHAIN_DONE → `if_run.sh` → S（`sign_check_ok` があれば描画と評価。無ければ `S_WAITING_SIGN_CHECK`）→ `AFTER_A_DONE`。
+  * `after_s_chain.sh`（ログは `after_s.log`）：その後に研究B（`b_run.sh`、予備走行 6 run と本番 48 run、約1.5時間）を実行する。
+  * **V の後で、S の看板確認を済ませておく**（`s_render.sh` を別の区画で実行し、`signcheck_F.jpg` を目で見て `sign_check_ok` を作る）。
+* 研究B：事前登録済み（5984bbb、i21-depot）。i21-depot の全テストは discover で 1195 件 OK（00:00）。
+* 命題2の逆（必要性）、I-24 の関連研究・Sybil 対策・判定できない確認の課金を論文に追記した。**PDF の再ビルドと8頁の確認は V の後に行う。**
+* 模擬査読7回目（R7）を Sonnet が実行中（`docs/paper/REVIEW_NOTES_R7.md`）。
 * 注意：`tests/test_v07_fake_ros_direct` は単体で動かすと6件失敗する（パッチが効かない）。discover で全件を動かすと通る（L のマージ時は 650 件 OK）。after_q の検査は discover なので影響しない見込み。
 * A の後の手順：IF → S（`s_render.sh` → `s_eval.sh`）→ XD（`xd_render.sh` のスモーク画像は自分で目視し、`xd_smoke_ok` を作る）→ X（`x_run.sh`）。A・S・X・XD の事前登録は、main にコミットされた時点で成立する（a_run.sh が A を確認する）。
 
