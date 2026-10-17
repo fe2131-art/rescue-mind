@@ -173,9 +173,28 @@ def fig_lookaround(run='9d73663832c94f16'):
     plt.close(fig)
 
 
+def fig_r_examples(image='images/t2_06_medicine_1.jpg'):
+    """Study R: one held-out T2 frame under the six registered degradations (severe level)."""
+    import sys
+    from PIL import Image
+    sys.path.insert(0, str(ROOT))
+    from rescuemind.corruptions import corrupt
+    src = Image.open(ROOT / 'experiments/vlm_testset_t2' / image).convert('RGB')
+    fams = [('clean', None), ('noise', 'gaussian_noise_S'), ('motion blur', 'motion_blur_S'), ('defocus', 'defocus_blur_S'),
+            ('under-exp.', 'underexposure_S'), ('over-exp.', 'overexposure_S'), ('JPEG q8', 'jpeg_S')]
+    fig, ax = plt.subplots(1, 7, figsize=(7.0, 0.95))
+    for a, (t, c) in zip(ax, fams):
+        im = src if c is None else corrupt(src, c, seed=1)
+        a.imshow(im.crop((80, 60, 560, 420))); a.set_title(t, fontsize=5.6, pad=1.5); a.axis('off')
+    fig.tight_layout(pad=0.1, w_pad=0.2)
+    fig.savefig(OUT / 'fig_r_examples.pdf', bbox_inches='tight', pad_inches=0.01, dpi=200)
+    plt.close(fig)
+
+
 if __name__ == '__main__':
     OUT.mkdir(parents=True, exist_ok=True)
     fig_lookaround()
+    fig_r_examples()
     fig_system()
     fig_risk_coverage()
     fig_t1_examples()
