@@ -27,6 +27,8 @@ from reportlab.platypus import (BaseDocTemplate, CondPageBreak, Frame, Image, Ke
 ROOT = Path(__file__).resolve().parents[1]
 RES = ROOT / 'experiments/results'
 FIG = ROOT / 'docs/figures'
+PAPER_FIG = ROOT / 'docs/paper'
+REPORT_FIG = ROOT / 'docs/report/figures'   # PNGs rasterised from the paper's vector PDFs (generated, not hand-made)
 sys.path.insert(0, str(ROOT / 'scripts'))
 import count_tests  # noqa: E402  (generated test / findings counts)
 from t1_analysis import wilson  # noqa: E402  (Wilson 95% CI, shared with the T1 analysis)
@@ -74,6 +76,41 @@ def fig(name, width_mm, caption):
         w, h = im.size
     wpt = width_mm * mm
     return [KeepTogether([Image(str(path), width=wpt, height=wpt * h / w), P(caption, 'cap')])]
+
+
+def pdf_to_png(src: Path, dst: Path, dpi: int = 300) -> bool:
+    """Rasterise page 1 of a vector PDF figure (pypdfium2 -> pdftoppm). If no rasteriser is installed, keep an
+    existing up-to-date-or-older PNG (rendered earlier by this same function) rather than failing the build."""
+    import shutil
+    import subprocess
+    if dst.is_file() and dst.stat().st_mtime >= src.stat().st_mtime:
+        return True
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        import pypdfium2 as pdfium
+        pdfium.PdfDocument(str(src))[0].render(scale=dpi / 72).to_pil().convert('RGB').save(dst, optimize=True)
+        return True
+    except ImportError:
+        pass
+    if shutil.which('pdftoppm'):
+        subprocess.run(['pdftoppm', '-png', '-singlefile', '-r', str(dpi), str(src), str(dst.with_suffix(''))], check=True)
+        return True
+    return dst.is_file()
+
+
+def paper_fig(stem, width_mm, caption):
+    """Insert docs/paper/<stem>.pdf as a PNG with a short caption; a missing PDF is skipped silently (empty list)."""
+    src = PAPER_FIG / f'{stem}.pdf'
+    if not src.is_file():
+        return []
+    dst = REPORT_FIG / f'{stem}.png'
+    if not pdf_to_png(src, dst):
+        return []
+    from PIL import Image as PI
+    with PI.open(dst) as im:
+        w, h = im.size
+    wpt = width_mm * mm
+    return [KeepTogether([Image(str(dst), width=wpt, height=wpt * h / w), P(caption, 'cap')])]
 
 
 def table(rows, widths, header=True):
@@ -330,6 +367,8 @@ def sec_memory():
             Spacer(1, 3), P('<b>事前登録した評価H</b>（<font name="IPAexG">experiments/PREREGISTRATION_H.md</font>）：16系列×3出動、世界は出動ごとに照明・小道具・火を引き直し、'
               'M0（記憶なし）/M1/M2（提案）を同じ世界で対にして比べる。基準は P1：物資の入れ替わりが続く出動で M2 が M0 より速い、P2：危険な配達が M2 は M1 より少ない、'
               f'P3：M2 の危険な配達が M0 以下。3つが揃って初めて「速さを保ち、危険を増やさない」と主張する。{sha}')]
+    out += paper_fig('fig_h_outcomes', 120, '評価Hの結果：M0・M1・M2 の出動ごとの結果（速さと危険な配達）。')
+    out += paper_fig('fig_h_change_rate', 120, '評価H：世界の入れ替わりの程度ごとに見た、記憶の効果の変わり方。')
     h = jload('h_summary.json')
     if not h:
         return out + [P('<b>評価H 実行中（事前登録済み）</b>。結果は <font name="IPAexG">experiments/results/h_summary.json</font> が生成され次第、本資料に反映する。'), Spacer(1, 4)]
@@ -460,6 +499,7 @@ def sec_camera():
            P('Gazeboの画像は雑音がなく鮮明で、露出も適正である。実機のカメラはそうではない。未使用のT2画像（30世界）に、6種類の劣化（センサー雑音、動きぶれ、ピンぼけ、露出不足、露出過多、JPEG劣化）を'
              '2段階ずつ（計12条件）加え、v3.6の確認が<b>フェイルクローズ</b>（誤りが停止になり、誤った許可にならない）のままかを調べる（'
              '<font name="IPAexG">experiments/PREREGISTRATION_R.md</font>。閾値・問いは変更しない）。')]
+    out += paper_fig('fig_r_examples', 170, '同じ火災画像に6種類の劣化を加えた例（左端が元画像）。雑音・ぶれ・ピンぼけ・暗すぎ・明るすぎ・JPEG劣化。')
     if not r:
         return out + [P('<b>実行中（事前登録済み）</b>（結果は <font name="IPAexG">experiments/results/r_summary.json</font> に出力される）。'), Spacer(1, 4)]
     pp, cond = r['P1_pooled'], r['conditions']
@@ -625,6 +665,7 @@ def sec_active(V):
              f"見逃した火は正面から{FPX}しか写らず、p(危険)が火の無い画像と重なるため、閾値の調整では分けられない。"
              '同じ火は左右0.4 mずらした視点では4,600〜22,000画素で見えた。そこで<b>VLMではなくロボットの視点を変える</b>：'
              '許可の直前に拠点の左右0.4 mへ移動して、照準・静止確認・撮り直し・判定をやり直し、どちらかで危険を見れば探索せずに止まる（横からの物資判定は使わない）。')]
+    out += paper_fig('fig_lookaround', 104, '同じ小さな火を、正面（左）と左へ0.4 m動いた位置（右）から見た画像。正面では物資の陰で危険と判定されず（p=0.002）、横からは火が見えて止まる（p=0.82）。')
     rows = [['', 'B：正面のみ', 'C：＋横から見直す（v3.6）']]
     rows.append([f"3視点（正面・左右0.4 m）のどれかで火が見えた{gp['n_world_pairs_fire_perceivable']}世界で、火があるのに配達した回数",
                  f"{gc['B']['wrong_deliveries']}/{gc['B']['visible_fire_trials']}", f"<b>{gc['C']['wrong_deliveries']}/{gc['C']['visible_fire_trials']}</b>"])
@@ -639,6 +680,7 @@ def sec_active(V):
             P(f"食い違いは B のみ {gp['discordant_B_only']}・C のみ {gp['discordant_C_only']}、McNemar の正確検定で <b>{pexact(gp['mcnemar_p'])}</b>。事前登録した主張が成立した。"
               f"ただしこの{gp['n_world_pairs_fire_perceivable']}世界の火の多くは設計上、正面からは見えにくい（または見えない）ため、これは「横から見る効果」の測定である。"
               '拠点配置が固定のシミュレーションで、試行数が少なく区間が広い。', 'small')]
+    out += paper_fig('fig_fire_size', 170, '左：見える火が小さいほど、VLMは危険と判定しにくい（横軸：火の画素数）。右：正面で見逃した火（青）は、横からだと大きく見える（縦軸）。')
     if V['miss']:
         m = V['miss'][0]
         out += [P(f"<b>唯一の見逃し</b>（{m['world']}）：火が正面から{m['fire_pixels_front']}画素（完全に隠れる）、横からも最大 {m['fire_pixels_best_side']:,} 画素と最小で、"

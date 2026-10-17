@@ -149,7 +149,7 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
   * 参考文献は 77件以上（検証メモは `docs/paper/REFERENCES_NOTES.md`）。
   * 注意：Clef-Flash は Qwen3.5-9B からの追加学習なので、Qwen とは系統が同じ。論文と D11 に明記済み。
   * 論文中の `% CHECK-AFTER-H` の文は、H の結果で必ず確認する。
-* サブエージェントは必ず Sonnet 5.5（`model: sonnet`）。同時に2つまで（ユーザー指示 2026-10-17）。常に稼働させる。
+* サブエージェントは必ず Sonnet 5.5（`model: sonnet`）。同時に1つまで（ユーザー指示 2026-10-17、2→1に変更）。常に1つ稼働させる。
 
 **2026-10-17 13:10 時点**
 * 完了：
