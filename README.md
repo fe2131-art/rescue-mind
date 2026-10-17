@@ -347,3 +347,6 @@ bash docker/run.sh python3 scripts/make_figures.py
 MIT（`LICENSE`）。使用モデル：[Qwen/Qwen3.5-9B](https://huggingface.co/Qwen/Qwen3.5-9B)（Apache-2.0、重みは同梱しない）。
 比較実験で [Qwen3-VL-8B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct)・[Qwen3.5-4B](https://huggingface.co/Qwen/Qwen3.5-4B)（Apache-2.0）、
 v3.3 の [Qwen2.5-VL-3B-Instruct](https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct)（Qwen Research License）、[SmolVLM2-2.2B-Instruct](https://huggingface.co/HuggingFaceTB/SmolVLM2-2.2B-Instruct)（Apache-2.0）。
+
+第三者の部品（モデル・データセット・フォント・音声・ワールド）の一覧、ライセンス、守るべき条件は [`docs/THIRD_PARTY.md`](docs/THIRD_PARTY.md)。モデルの重み・データセットの画像・フォント・音声は同梱していません。
+**Qwen2.5-VL-3B-Instruct は非商用（研究）限定**です。動画のナレーション：VOICEVOX:四国めたん
