@@ -221,6 +221,9 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 6. **（17:50 追加）`after_l_chain.sh`**（タスク `byvmbjuo9`）：L の終了（`L_DONE`/`L_ABORT`/`MERGE_CONFLICT`）を待つ → I-18 ブランチをマージ（テストが通らなければ revert）→ **study V**（`v_run.sh`：予備走行 → マスク → 予測を自動コミット → 160 run → `v_analysis.py`）→ `V_DONE`。
    * study V（`PREREGISTRATION_V.md`）：H のモデルの予測（M0−M2 の時間差、各群の危険な配達の 95% 予測区間）を、ランダムな変化（q=0.2、10系列×6出動）の閉ループで検証する。「台本が結果を決めている」という指摘への回答。
    * 予備走行が失敗したら `V_ABORT` で止まる → 原因を直し、Amendment に記録してから `bash scripts/v_run.sh` を再実行する。
+7. **（18:35 追加）`after_v_chain.sh`**（タスク `bn71t32h1`）：`V_DONE` を待つ → study W のブランチ `worktree-agent-a065158341fac6202` をマージ（これが事前登録。テストが通らなければ revert）→ `w_render.sh`（約2時間）→ `w_eval.sh`（約3時間）→ `W_DONE`。
+   * study W（`PREREGISTRATION_W.md`）：W-a は小さく隠れた火の新しい世界150と、火のない双子75。正面だけと横から見直す場合を画像単位で比べ、見逃し率の上限を絞る。W-b は先行手法との比較（VAP-TAMP風の言い換え5問の多数決、KnowNo風の適合予測集合）。主比較は同じ入力（全体画像のみ）の本方式。
+   * 模擬査読4回目（`REVIEW_NOTES_R4.md`）：borderline の上側。V の緊急指摘は Amendment 1 で対応済み。
 
 **評価中の厳守事項**：重い処理（ビルド・テスト・図の生成・動画）をしない。J では CPU 負荷とページキャッシュの取り合いで判断時間が延びた。逸脱は J の事前登録に記録済み。
 
