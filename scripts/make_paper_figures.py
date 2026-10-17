@@ -191,8 +191,64 @@ def fig_r_examples(image='images/t2_06_medicine_1.jpg'):
     plt.close(fig)
 
 
+def fig_fire_size():
+    """(a) Hazard detection vs visible fire pixels on the held-out sets; (b) campaign G: front vs best side-view pixels."""
+    import json, math
+    R = ROOT / 'experiments/results'
+
+    def hz(rec):
+        if 'clef' in rec:
+            return (rec['clef'] or {}).get('hazard_probability', 0.0)
+        return max(((rec['passes'][k].get('scores') or {}).get('hazard_prob') or 0.0) for k in '12' if 'error' not in rec['passes'][k])
+    series = [('held-out T1, Qwen3.5-9B, v3.5 wording', ['devset_t1_qwen35_9b.json'], GREY, 'o'),
+              ('dev DH+DH2, Qwen3.5-9B, v3.5 wording', ['devset_dh_i11_h35_full.json', 'devset_dh2_i11_h35_full.json'], '#7f8ea3', 's'),
+              ('dev DH+DH2, Qwen3.5-9B, v3.6 (h36 + crops)', ['devset_dh_i11_h36_tiles.json', 'devset_dh2_i11_h36_tiles.json'], BLUE, '^'),
+              ('dev DH+DH2, Clef-Flash, task wording', ['devset_dh_clef2.json', 'devset_dh2_clef2.json'], ORANGE, 'D')]
+    edges = [614, 2000, 5000, 10000, 20000, 1e9]
+    fig, ax = plt.subplots(1, 2, figsize=(7.0, 2.1), gridspec_kw={'width_ratios': [1.25, 1]})
+    for k, (lab, f, col, mk) in enumerate(series):
+        if not all((R / x).is_file() for x in f):
+            continue
+        recs = [r for x in f for r in json.loads((R / x).read_text())['records'] if r.get('truth_hazard_visible') and r.get('fire_pixels')]
+        xs, ys, lo, hi = [], [], [], []
+        for a, b in zip(edges, edges[1:]):
+            g = [r for r in recs if a <= r['fire_pixels'] < b]
+            if not g:
+                continue
+            n, d = len(g), sum(hz(r) >= 0.05 for r in g)
+            z = 1.959964; c = (d / n + z * z / (2 * n)) / (1 + z * z / n); h = z * math.sqrt(d / n * (1 - d / n) / n + z * z / (4 * n * n)) / (1 + z * z / n)
+            xs.append(k * 0.12 + edges.index(a)); ys.append(d / n); lo.append(max(0.0, d / n - (c - h))); hi.append(max(0.0, c + h - d / n))
+        ax[0].errorbar(xs, ys, yerr=[lo, hi], color=col, marker=mk, ms=3.2, lw=1.1, capsize=1.5, label=lab)
+    ax[0].set_xticks([i + 0.18 for i in range(5)]); ax[0].set_xticklabels(['0.6-2k', '2-5k', '5-10k', '10-20k', '>20k'], fontsize=6)
+    ax[0].set_xlabel('visible fire pixels (magenta mask)', fontsize=6.5); ax[0].set_ylabel('fires flagged ($p_h\\geq0.05$)', fontsize=6.5)
+    ax[0].set_ylim(0, 1.05); ax[0].legend(fontsize=5.0, frameon=False, loc='upper left'); ax[0].tick_params(labelsize=6)
+    ax[0].set_title('(a) detection depends on visible fire size', fontsize=6.6)
+    g = json.loads((R / 'g_summary.json').read_text())['trials']
+    pts = {}
+    for t in g:
+        if t['visibility'] == 'visible':
+            pts.setdefault(t['world'], {}).update({t['config']: t, 'front': t['fire_pixels_front'] or 0, 'side': t['fire_pixels_best_side']})
+    for w, v in pts.items():
+        fx, sy = max(v['front'], 30), max(v['side'], 30)
+        missed = v.get('C', {}).get('wrong_delivery')
+        ax[1].scatter(fx, sy, s=14, color=RED if missed else (BLUE if v.get('B', {}).get('wrong_delivery') else GREEN), zorder=3,
+                      edgecolor='white', lw=0.4)
+    ax[1].plot([30, 4e4], [30, 4e4], color=GREY, lw=0.6, ls='--'); ax[1].axhline(614, color=GREY, lw=0.5, ls=':'); ax[1].axvline(614, color=GREY, lw=0.5, ls=':')
+    ax[1].set_xscale('log'); ax[1].set_yscale('log'); ax[1].set_xlim(25, 5e4); ax[1].set_ylim(25, 5e4)
+    ax[1].set_xlabel('front-view fire pixels', fontsize=6.5); ax[1].set_ylabel('best side-view fire pixels', fontsize=6.5); ax[1].tick_params(labelsize=6)
+    ax[1].scatter([], [], color=BLUE, s=10, label='missed from the front, caught from the side')
+    ax[1].scatter([], [], color=GREEN, s=10, label='caught either way'); ax[1].scatter([], [], color=RED, s=10, label='missed both ways')
+    ax[1].legend(fontsize=5.0, frameon=False, loc='upper left'); ax[1].set_title('(b) campaign G: the side view enlarges the fire', fontsize=6.6)
+    for a in ax:
+        a.spines[['top', 'right']].set_visible(False)
+    fig.tight_layout(pad=0.3)
+    fig.savefig(OUT / 'fig_fire_size.pdf', bbox_inches='tight', pad_inches=0.01)
+    plt.close(fig)
+
+
 if __name__ == '__main__':
     OUT.mkdir(parents=True, exist_ok=True)
+    fig_fire_size()
     fig_lookaround()
     fig_r_examples()
     fig_system()
