@@ -1,8 +1,8 @@
 # Pre-registration — study B (I-24: does advice credit cap the price of a source that is wrong at every mission?), fixed before any B trial
 
-Status: REGISTERED 2026-10-18 (this commit; becomes binding on main with the integration merge, before the pilot and any B trial)
+Status: REGISTERED
 
-DRAFT for review. It becomes the registration when the line above reads `Status: REGISTERED` and this file is committed on
+Registered 2026-10-18 on the integration branch, before the pilot and any B trial; binding on main with the integration merge. It became the registration when the line above reads `Status: REGISTERED` and this file is committed on
 `main` together with the protocols, the advice files, `scripts/make_protocol_b.py` and `scripts/b_analysis.py`, before the
 mechanics pilot and before any B trial (`scripts/b_run.sh` refuses to start otherwise). Until then it may be changed freely.
 Design: `rescuemind/advice_credit.py` (docstring), supplement S10 (Proposition 3), `docs/IMPROVEMENT_LOG.md` (I-24).
