@@ -10,27 +10,21 @@
 
 ---
 
-## 1. 現在の到達点（v3.4、タグ `v3.3.0` 以降の改善 I-01〜I-09）
+## 1. 現在の到達点（v3.6、2026-10-17。詳細は §5 と「★ 圧縮後はここから再開」）
 
 | 項目 | 状態・数値 | 証拠 |
 |---|---|---|
-| 閉ループ評価D（事前登録42試行、v3.4） | **42/42 期待どおり、誤許可0**、判断遅延中央値3.06 s | `experiments/PREREGISTRATION_v34.md`, `experiments/results/campaign_D_ledger.jsonl`, `docs/figures/campaign_d_results.png` |
-| 評価C（v3.3、30試行、Qwen2.5-VL-3B、回復なし） | VLM判断30/30、監査合格28/30 | `experiments/results/campaign_ledger.jsonl` |
-| 評価A・B（中断、公開） | 起動競合・孤立スタック（FINDINGS #12,#13） | `campaign_A/B_aborted_ledger.jsonl` |
-| VLM（I-08） | **Qwen3.5-9B**（2026-02, Apache-2.0）。開発176枚 176/176・誤許可0、説明125/128 | `experiments/results/i08_model_selection.json` |
-| 指示理解（I-04） | 未知60文（held-out）55/60・危険な誤受理0（TF-IDF 31/60） | `experiments/results/intent_hybrid_selected_qwen35_9b_i35.json` |
-| ドリフト（I-01） | 0.16 m → 0.011 m（車輪の円柱接触→球） | `experiments/results/i01_drift/` |
-| 停止中の途絶（I-09） | 停止注入A/B：旧2/2失敗→新2/2完了 | `experiments/results/i09_*.jsonl` |
-| 動画 | 2:30、日本語ナレーション（VOICEVOX:四国めたん）、Git管理外 | `outputs/video/PAI最終課題_tetsutetsu.mp4`, `docs/video_plan.json`, `docs/video_chapters.json` |
-| レポートPDF | 6ページ | `docs/report/説明資料_PAI最終課題_tetsutetsu.pdf` |
-| ドキュメント | README, ARCHITECTURE, DESIGN_DECISIONS(D1–D8), FINDINGS(21件), IMPROVEMENT_LOG, REVIEW_AND_PLAN, SUBMISSION, YOUTUBE_DESCRIPTION | `docs/` |
-| テスト | 599件（`python3 -m unittest discover -s tests`）、GitHub Actions 緑 | `.github/workflows/test.yml` |
+| 閉ループ D / E | 42/42、60/60（誤配達 0） | `campaign_D/E_ledger.jsonl` |
+| 横から見直す（G、I-14） | 火が見えるのに配達 11/16 → 1/16（p=0.002）、誤停止 0/8 | `g_summary.json` |
+| 出動をまたぐ記憶（H、I-15） | 危険な配達 素朴 20/32・検証つき 0/32・記憶なし 1/32、入れ替わり継続 114→79 s | `h_summary.json` |
+| 未使用画像 T1 / T2 | v3.4 誤許可 5/408、v3.5 3/408、T2 0/407 | `t1_*.json`, `t2_*.json` |
+| R / Z / P / K | 劣化12条件 0/2304、SigLIP 44/408、実写 298/300・誤警報 64/100（AUROC 0.96）、適合閾値 | `*_summary.json` |
+| J / P2 / L | 実行中・待機中（§「★」参照） | — |
+| 動画 | 2:46（v3.6）。記憶デモ入りの再描画は撮影後に自動 | `outputs/video/`（Git管理外） |
+| 論文・説明資料 | 本文8頁＋補足、説明資料11頁、第三者採点 31.5/40 | `docs/paper/`, `docs/report/` |
+| テスト | 612件 | `python3 -m unittest discover -s tests` |
 
-**凍結構成（v3.4、評価Dと同じ）**：
-```
---model Qwen/Qwen3.5-9B --prompt-set v35 --intent-backend llm --intent-prompt i35 --recovery --explain [--capture-rosbag]
-閾値 τ_s=0.50（依頼物資の確率）, τ_h=0.50（危険Yes確率）。説明プロンプト e0。
-```
+**v3.6 = オーケストレータの既定構成**（`--model Qwen/Qwen3.5-9B --prompt-set v35 --intent-backend llm --intent-prompt i35`、τ_s=0.5、τ_h=0.05、h36＋tiles、横から見直す ±0.4 m、回復探索）。過去の評価の再現は各台帳の `stack_args` を使う。
 
 ## 2. 実行環境（ホスト：Ubuntu 22.04、Tesla V100 32GB、4コア、ROSはホストに無い）
 
