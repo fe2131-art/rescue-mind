@@ -247,3 +247,17 @@ class OperatorReport(unittest.TestCase):
         lines = advice_lines({'memory': p})
         self.assertEqual(len(lines), 1)
         self.assertIn('信用を使い切って', lines[0])
+
+
+class Sybil(unittest.TestCase):
+    def test_uncertified_peer_ids_share_one_account(self):
+        led = ac.new_ledger(c_haz=1.0)
+        items = [dict(haz('peer', 'water'), peer_id='p1'), dict(haz('peer', 'medicine'), peer_id='p2')]
+        kept, thr = ac.admit(led, items)
+        self.assertEqual((len(kept), len(thr)), (1, 1))
+
+    def test_certified_peers_get_their_own_account(self):
+        led = ac.new_ledger(c_haz=1.0, certified_peers=('p1', 'p2'))
+        items = [dict(haz('peer', 'water'), peer_id='p1'), dict(haz('peer', 'medicine'), peer_id='p2')]
+        kept, thr = ac.admit(led, items)
+        self.assertEqual((len(kept), len(thr)), (2, 0))
