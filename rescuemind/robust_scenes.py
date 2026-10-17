@@ -338,6 +338,12 @@ def build_variant(src: Path, *, lighting: str = 'default', distractor_at: str | 
         # optional third element = fire size scale (campaign F: small, early-stage fires); default full size
         world.append(fire_and_smoke(f'hazard_fire_{hazard_at}', *hazard_xy(hazard_at, *geom[:2], stations=stations),
                                     mask=hazard_mask, scale=geom[2] if len(geom) > 2 else 1.0))
+        if depot and depot.get('particle_smoke') and not hazard_mask:
+            # I-21: a moving smoke plume above the fire (visual only; the mask labels keep the static flame/smoke)
+            from .depot import particle_smoke, ensure_particle_plugin
+            ensure_particle_plugin(world)
+            fx, fy = hazard_xy(hazard_at, *geom[:2], stations=stations)
+            world.append(particle_smoke(f'hazard_smoke_{hazard_at}', fx, fy, z=0.9 * (geom[2] if len(geom) > 2 else 1.0)))
     ET.indent(tree, space='  ')
     return ET.tostring(tree.getroot(), encoding='utf-8', xml_declaration=True)
 

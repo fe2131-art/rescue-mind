@@ -101,3 +101,50 @@ def add_depot(world: ET.Element, seed=None, obstacle: bool = False) -> list[str]
             for v in link.findall('visual'):
                 link.remove(v)
     return names
+
+
+SMOKE_PNG = ROOT / 'worlds/assets/smoke_particle.png'
+
+
+def smoke_texture() -> Path:
+    """A soft grey puff (radial alpha falloff) used by the particle emitter; generated once."""
+    if not SMOKE_PNG.is_file():
+        from PIL import Image
+        n = 128
+        img = Image.new('RGBA', (n, n))
+        px = img.load()
+        for i in range(n):
+            for j in range(n):
+                r = math.hypot(i - n / 2, j - n / 2) / (n / 2)
+                a = max(0.0, 1.0 - r) ** 1.6
+                px[i, j] = (170, 170, 175, int(255 * a))
+        SMOKE_PNG.parent.mkdir(parents=True, exist_ok=True)
+        img.save(SMOKE_PNG)
+    return SMOKE_PNG
+
+
+def ensure_particle_plugin(world: ET.Element) -> None:
+    if not any(p.get('filename') == 'gz-sim-particle-emitter-system' for p in world.findall('plugin')):
+        world.insert(0, ET.Element('plugin', filename='gz-sim-particle-emitter-system',
+                                   name='gz::sim::systems::ParticleEmitter'))
+
+
+def particle_smoke(name: str, x: float, y: float, z: float = 0.9, rate: float = 12.0, scale: float = 1.0) -> ET.Element:
+    """A rising, drifting smoke plume (Gazebo particle emitter).  Visual only: no collision, not in the fire masks."""
+    m = ET.Element('model', name=name)
+    ET.SubElement(m, 'static').text = 'true'
+    ET.SubElement(m, 'pose').text = f'{x:g} {y:g} {z:g} 0 0 0'
+    link = ET.SubElement(m, 'link', name='emitter_link')
+    e = ET.SubElement(link, 'particle_emitter', name='smoke', type='box')
+    for tag, val in (('emitting', 'true'), ('size', f'{.25 * scale:g} {.25 * scale:g} .05'),
+                     ('particle_size', f'{.35 * scale:g} {.35 * scale:g} {.35 * scale:g}'), ('lifetime', '5'),
+                     ('rate', f'{rate:g}'), ('min_velocity', '0.08'), ('max_velocity', '0.25'), ('scale_rate', '0.6'),
+                     ('color_start', '0.35 0.35 0.37 0.75'), ('color_end', '0.55 0.55 0.57 0.0'),
+                     ('pose', '0 0 0 0 -1.5708 0')):          # emit along +z (the emitter's +x points up)
+        ET.SubElement(e, tag).text = val
+    mat = ET.SubElement(e, 'material')
+    ET.SubElement(mat, 'diffuse').text = '0.7 0.7 0.7 1'
+    ET.SubElement(mat, 'specular').text = '0 0 0 1'
+    metal = ET.SubElement(ET.SubElement(mat, 'pbr'), 'metal')
+    ET.SubElement(metal, 'albedo_map').text = str(smoke_texture())
+    return m
