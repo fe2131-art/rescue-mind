@@ -35,13 +35,14 @@ from rescuemind.image_acquisition import CheckpointAcquisitionGate
 from rescuemind.camera_clock_gate import CameraClockGate, CameraClockRejected
 
 
-def route_from_config(config_path, item):
+def route_from_config(config_path, item, station=None):
     d=json.loads(Path(config_path).read_text(encoding='utf-8'))
-    if item not in ('water','medicine'):
+    if item not in ('water','medicine') or (station or item) not in ('water','medicine'):
         raise ValueError('unknown supply')
     if d.get('physical_pickup') is not False:
         raise ValueError('expected physical_pickup=false for this prototype')
-    result=[('supply_station',item,d[item]),('shelter_approach','B',d['B'])]
+    station=station or item     # I-15: memory may propose visiting the other station first (still verified there)
+    result=[('supply_station',station,d[station]),('shelter_approach','B',d['B'])]
     for _,_,xy in result:
         if len(xy)!=2 or not all(isinstance(v,(int,float)) and math.isfinite(v) for v in xy):
             raise ValueError('invalid Gazebo waypoints')
@@ -383,6 +384,14 @@ def run_ros(route, args, record):
         if finished['error'] is not None:
             raise RuntimeError('on-site checkpoint inference failed') from finished['error']
         outcome=finished['result']
+        caution=((record.get('memory') or {}).get('caution') or {}).get(station)
+        if caution:
+            # I-15: a hazard was seen here on a recent mission -> stricter hazard threshold (approval -> refusal only)
+            from rescuemind.mission_memory import apply_memory_caution
+            outcome['memory_caution_tau_h']=float(caution['tau_h'])
+            if not peek:
+                calls=outcome['model_calls']
+                outcome['decision']=apply_memory_caution(outcome['decision'],calls['first'],calls['second'],float(caution['tau_h']))
         record['checkpoint']=outcome
         record['checkpoint_station']=station
         record['events'].append({'stage':'checkpoint_decision','t_wall_s':round(time.monotonic()-start,3),
@@ -444,6 +453,9 @@ def run_ros(route, args, record):
         vx,vy=-(cy-wy)/n,(cx-wx)/n
         d=float(args.look_around)
         pts=[('L',(round(wx-d*vx,3),round(wy-d*vy,3))),('R',(round(wx+d*vx,3),round(wy+d*vy,3)))]
+        caution=((record.get('memory') or {}).get('caution') or {}).get(station) or {}
+        if caution.get('first_side')=='R':
+            pts.reverse()     # I-15: look first from the side that revealed the remembered hazard
         la=record.setdefault('look_around',{'offset_m':d,'station':station,'points':[],'peeks':[]})
         la['points']=[{'side':sd,'xy':list(xy)} for sd,xy in pts]
         record['events'].append({'stage':'look_around_scheduled','station':station,'points':la['points'],
@@ -464,7 +476,9 @@ def run_ros(route, args, record):
             record['checkpoint'],record['checkpoint_station']=saved[0],saved[1]
         for e in record['events'][n0:]:
             e['stage']=f'peek_{side}_'+e['stage']
-        hazard=po['decision']['reason']=='visible_hazard_at_checkpoint'
+        from rescuemind.mission_memory import peek_hazard
+        hazard=peek_hazard(po['decision']['reason'],po['model_calls']['first'],po['model_calls']['second'],
+                           po.get('memory_caution_tau_h'))
         entry={'side':side,'xy':list(goal[:2]),'image':img.name,'image_sha256':po['image_sha256'],
                'model_calls':po['model_calls'],'hazard':hazard,'reason':po['decision']['reason']}
         if 'jev_call' in po:
@@ -535,6 +549,13 @@ def run_ros(route, args, record):
         check_guard(time.monotonic())
         if math.hypot(ctx['pose'].x,ctx['pose'].y)>1.0:
             raise RuntimeError('Unexpected start odometry: restart test world at origin and calibrate')
+        if (record.get('memory') or {}).get('deny_without_visit'):
+            # NAIVE-MEMORY BASELINE ONLY: refuse because of a remembered hazard, without going to look
+            record['events'].append({'stage':'memory_denial','station':record['memory']['first_station'],
+                                     't_wall_s':round(time.monotonic()-start,3)})
+            for _ in range(10):
+                publish(); spin(.1)
+            raise RuntimeError('on-site checkpoint DENIED: memory_hazard (naive memory baseline)')
         route=list(route)
         index=0
         while index < len(route):
@@ -575,6 +596,15 @@ def run_ros(route, args, record):
                                               'duration_wall_s':round(now-begun,3),'t_wall_s':round(now-start,3),'samples':len(samples),
                                               'last_pose':list(ctx['pose'].__dict__.values())})
                     record['trace'].extend(samples)
+                    mem=record.get('memory') or {}
+                    if (stage == 'supply_station' and mem.get('mode')=='naive' and mem.get('skip_check')
+                            and record.get('recovery') is None and target==mem.get('first_station')):
+                        # NAIVE-MEMORY BASELINE ONLY: trust the previous mission instead of looking (never in v3.6/verified)
+                        record['checkpoint']={'memory_trusted':True,'decision':{'allow':True,'reason':'memory_trusted'}}
+                        record['checkpoint_station']=target
+                        record['events'].append({'stage':'checkpoint_skipped_by_memory','station':target,
+                                                 't_wall_s':round(time.monotonic()-start,3)})
+                        break
                     if stage == 'supply_station' and record.get('run_type') in ('jev_qwen_mission', 'jev_qwen_live_mission','local_vlm_live_mission'):
                         requested=(record.get('intent') or {}).get('item') or target
                         outcome=onsite_check(target,requested)
@@ -662,6 +692,9 @@ def main():
                     help='I-14: after an approval, look again from this far (m) left and right of the station waypoint')
     ap.add_argument('--jev-url',default=None,help='I-13: local Jev-role model (Clef-Flash) URL; both models must approve')
     ap.add_argument('--jev-hazard-threshold',type=float,default=.35)
+    ap.add_argument('--memory-file',default=None,help='I-15: cross-mission memory (JSONL of what the robot saw before)')
+    ap.add_argument('--memory-mode',choices=['off','verified','naive'],default='off',
+                    help='I-15: verified = memory proposes, perception disposes; naive = trust memory (baseline only)')
     ap.add_argument('--control-qos',choices=['reliable','best_effort'],default='reliable',
                     help='I-12: QoS of /rescuemind/cmd_vel_request and /rescuemind/guard_ready')
     ap.add_argument('--inject-warmup-stall',type=float,default=0.0,help='I-09 fault injection (seconds); tests only')
@@ -717,14 +750,18 @@ def main():
         selection=IntentGate(bool(llm_intent['accept']),llm_intent['reason'],
                              Intent(item,'B',float(conf),'local_llm_closed_set'))
         intent=selection.intent
-    route=route_from_config(a.config,intent.item)
+    mem_plan=None
+    if a.memory_mode!='off' and a.memory_file:
+        from rescuemind.mission_memory import MissionMemory
+        mem_plan=MissionMemory(a.memory_file).plan(intent.item,a.memory_mode)
+    route=route_from_config(a.config,intent.item,station=(mem_plan or {}).get('first_station'))
     record={'version':'3.1','run_id':run_id,'camera_max_age_s':a.camera_max_age,'lane':'Gazebo direct-drive through independent velocity relay, NOT Nav2',
             'run_type':(('local_vlm_live_mission' if a.inference_backend=='local' else 'jev_qwen_live_mission') if a.run_live else ('jev_qwen_mission' if a.run else ('motion_check_non_ai' if a.motion_check else 'dry_run'))),
             'instruction':a.instruction,'intent':intent.__dict__,
             'intent_gate':{'allow':selection.allow,'reason':selection.reason,'threshold':a.intent_min_score,
                            'backend':a.intent_backend,'llm':llm_intent},'route':route,
             'preflight':None,'checkpoint':None,'success':False,'events':[],'trace':[],
-            'physical_pickup':False,
+            'physical_pickup':False,'memory':mem_plan,
             'robot_runtime_verified_in_author_environment':False}
     if a.inference_backend=='local':
         record['version']='3.2-local'
