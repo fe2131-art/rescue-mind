@@ -61,7 +61,8 @@ def plan(item: str, items: list[dict], mode: str, base: dict | None = None, *, c
     items = validate(items)
     out = json.loads(json.dumps(base)) if base else base_plan(item)
     out.setdefault('rationale', [])
-    rec = {'mode': mode, 'items': items, 'applied': [], 'rejected': []}
+    rec = {'mode': mode, 'items': items, 'applied': [], 'rejected': [], 'n_base_rationale': len(out['rationale']),
+           'base': _snapshot(out)}       # what the audit recomputes assert_monotone against
     out['advice'] = rec
     if mode == 'off' or not items:
         rec['rejected'] = [dict(a, why='advice off') for a in items] if mode == 'off' else []
@@ -100,10 +101,18 @@ def plan(item: str, items: list[dict], mode: str, base: dict | None = None, *, c
     return out
 
 
+def _snapshot(plan: dict) -> dict:
+    return {'first_station': plan.get('first_station'), 'skip_check': bool(plan.get('skip_check')),
+            'deny_without_visit': bool(plan.get('deny_without_visit')),
+            'caution': json.loads(json.dumps(plan.get('caution') or {}))}
+
+
 def assert_monotone(before: dict, after: dict) -> None:
     """The invariant, checked on every monotone plan and recomputed by the run audit: no skipped check, no refusal
-    without visiting, thresholds only tighter than before.  Reordering is allowed."""
-    if after.get('skip_check') or after.get('deny_without_visit'):
+    without visiting (relative to the plan before advice: a naive MEMORY baseline underneath stays what it was),
+    thresholds only tighter than before.  Reordering is allowed."""
+    if (after.get('skip_check') and not before.get('skip_check')) or (
+            after.get('deny_without_visit') and not before.get('deny_without_visit')):
         raise AdviceError('monotone plan relaxes a check')
     for st, c in (after.get('caution') or {}).items():
         b = (before.get('caution') or {}).get(st)
@@ -111,3 +120,45 @@ def assert_monotone(before: dict, after: dict) -> None:
             raise AdviceError('monotone plan loosens a caution threshold')
     if after.get('first_station') not in STATIONS:
         raise AdviceError('bad first station')
+
+
+def audit_plan(plan: dict) -> dict:
+    """Run audit for a mission.json plan: recompute the invariant from the logged plan alone.  Raises AdviceError.
+    Returns a small evidence record.  Only 'monotone' plans are required to hold the invariant; for 'naive' and 'off'
+    the record just says what the advice did."""
+    rec = (plan or {}).get('advice')
+    if not rec:
+        return {'mode': None, 'checked': False}
+    ev = {'mode': rec.get('mode'), 'checked': False, 'n_items': len(rec.get('items') or []),
+          'applied': [a.get('effect') for a in rec.get('applied') or []], 'rejected': len(rec.get('rejected') or [])}
+    if rec.get('mode') == 'monotone':
+        bad = [e for e in ev['applied'] if e not in ('reorder', 'caution')]
+        if bad:
+            raise AdviceError(f'monotone run applied non-monotone effects: {bad}')
+        assert_monotone(rec.get('base') or {}, plan)
+        ev['checked'] = True
+    return ev
+
+
+def skip_source(plan: dict | None) -> str | None:
+    """Who made the robot skip the on-site check?  'advice' (naive advice), 'memory' (naive memory) or None."""
+    plan = plan or {}
+    rec = plan.get('advice') or {}
+    if rec.get('mode') == 'naive' and plan.get('skip_check') and any(
+            a.get('effect') == 'skip_check' for a in rec.get('applied') or []):
+        return 'advice'
+    if plan.get('mode') == 'naive' and plan.get('skip_check'):
+        return 'memory'
+    return None
+
+
+def denial_source(plan: dict | None) -> str | None:
+    """Who made the robot refuse without visiting?  Same convention as skip_source."""
+    plan = plan or {}
+    rec = plan.get('advice') or {}
+    if rec.get('mode') == 'naive' and plan.get('deny_without_visit') and any(
+            a.get('effect') == 'deny_without_visit' for a in rec.get('applied') or []):
+        return 'advice'
+    if plan.get('mode') == 'naive' and plan.get('deny_without_visit'):
+        return 'memory'
+    return None

@@ -79,7 +79,8 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
                intent_prompt: str = 'i34', describe_prompt: str = 'e0', inject_stall: float = 0.0,
                hazard_threshold: float = 0.5, control_qos: str = 'reliable', hazard_views: str = 'full',
                hazard_prompt: str = 'h35', jev_local: str = 'off', jev_hazard_threshold: float = .35, jev_schema: str = 'jev',
-               look_around: float = 0.0, memory_file: str | None = None, memory_mode: str = 'off') -> dict:
+               look_around: float = 0.0, memory_file: str | None = None, memory_mode: str = 'off',
+               advice_file: str | None = None, advice_mode: str = 'off', advice_from_instruction: bool = False) -> dict:
     if scenario not in ('motion-check', 'live'):
         raise ValueError('invalid scenario')
     from rescuemind.scene_variants import SCENES
@@ -93,6 +94,12 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
         cmd += ['--look-around', str(look_around)]
     if memory_file:
         cmd += ['--memory-file', str(memory_file), '--memory-mode', memory_mode]
+    if advice_file or advice_from_instruction:      # I-19: advice from a file (peer/inventory/memory) and/or the instruction text
+        cmd += ['--advice-mode', advice_mode]
+        if advice_file:
+            cmd += ['--advice-file', str(advice_file)]
+        if advice_from_instruction:
+            cmd += ['--advice-from-instruction']
     if inject_stall:
         cmd += ['--inject-warmup-stall', str(inject_stall)]
     if scenario=='live':
@@ -213,8 +220,10 @@ def memory_trusted_audit(outcome: dict, log_dir: Path, run_id: str, mission: dic
     from rescuemind.runtime_guard_graph import audit_watch_jsonl
     from rescuemind.motion_evidence import audit_motion, MotionEvidenceError
     from rescuemind.ground_truth_evidence import audit_ground_truth
-    if (mission.get('memory') or {}).get('mode') != 'naive':
-        raise StackFailure('memory-trusted delivery outside the naive-memory baseline')
+    from rescuemind.advice import skip_source
+    source = skip_source(mission.get('memory'))
+    if source is None or (mission.get('checkpoint') or {}).get('trusted_by', 'memory') != source:
+        raise StackFailure('trusted delivery outside the naive memory / naive advice baselines')
     config = json.loads((ROOT/'configs/gazebo_waypoints.json').read_text())
     station = mission.get('checkpoint_station')
     outcome['runtime_guard_graph_evidence'] = audit_watch_jsonl(log_dir/'guard_graph_watch.jsonl')
@@ -230,7 +239,38 @@ def memory_trusted_audit(outcome: dict, log_dir: Path, run_id: str, mission: dic
             time.sleep(.15)
     outcome['ground_truth_evidence'] = audit_ground_truth(log_dir/'independent_ros_topics.jsonl', station=config[station],
                                                           shelter=config['B'], expect_arrival=True)
-    outcome['state'] = 'COMPLETED_MEMORY_TRUSTED'
+    outcome['state'] = 'COMPLETED_ADVICE_TRUSTED' if source == 'advice' else 'COMPLETED_MEMORY_TRUSTED'
+
+
+def denial_by(log_dir: Path) -> str:
+    """'advice' or 'memory': who made the naive robot refuse without visiting (from the logged event and plan)."""
+    from rescuemind.advice import denial_source
+    m = json.loads((log_dir/'mission.json').read_text(encoding='utf8'))
+    by = denial_source(m.get('memory'))
+    ev = [e.get('by', 'memory') for e in m.get('events', []) if e.get('stage') == 'memory_denial']
+    if by is None or not ev or ev[0] != by:
+        raise ValueError('refusal without a visit that no naive plan explains')
+    return by
+
+
+def advice_audit(log_dir: Path) -> dict | None:
+    """I-19: a monotone run must satisfy advice.assert_monotone(base, plan), recomputed from mission.json, and must
+    show no trusted checkpoint and no refusal without a visit.  Raises AdviceError / ValueError.  None if no advice."""
+    from rescuemind import advice as adv
+    try:
+        m = json.loads((log_dir/'mission.json').read_text(encoding='utf8'))
+    except (OSError, ValueError):
+        return None           # no record (stack failed before the mission wrote it): nothing to audit
+    plan = m.get('memory')
+    if not (plan or {}).get('advice'):
+        return None
+    ev = adv.audit_plan(plan)
+    if ev.get('mode') == 'monotone':
+        if (m.get('checkpoint') or {}).get('trusted_by') == 'advice' or any(
+                e.get('stage') in ('memory_denial', 'checkpoint_skipped_by_memory') and e.get('by') == 'advice'
+                for e in m.get('events', [])):
+            raise adv.AdviceError('monotone run skipped a check or refused without visiting because of advice')
+    return ev
 
 
 def memory_denial_audit(outcome: dict, log_dir: Path) -> None:
@@ -246,7 +286,7 @@ def memory_denial_audit(outcome: dict, log_dir: Path) -> None:
     if far > .5:
         raise ValueError(f'memory denial but the robot moved {far:.2f} m from the start')
     outcome['memory_denial_evidence'] = {'max_distance_from_start_m': round(far, 3), 'n_ground_truth': len(xs)}
-    outcome['state'] = 'DENIED_BY_MEMORY'
+    outcome['state'] = 'DENIED_BY_ADVICE' if denial_by(log_dir) == 'advice' else 'DENIED_BY_MEMORY'
     outcome['error'] = None
 
 
@@ -281,6 +321,11 @@ def main(argv=None):
     p.add_argument('--memory-file', default=None, help='I-15: cross-mission memory JSONL (read before, appended after)')
     p.add_argument('--memory-mode', choices=['off', 'verified', 'naive'], default='off',
                    help='I-15: verified = memory proposes, perception disposes; naive = trust memory (baseline only)')
+    p.add_argument('--advice-file', default=None, help='I-19: JSON list of advice items (peer / inventory / memory claims)')
+    p.add_argument('--advice-mode', choices=['off', 'monotone', 'naive'], default='off',
+                   help='I-19: monotone = advice may only reorder and tighten; naive = follow advice (baseline only)')
+    p.add_argument('--advice-from-instruction', action='store_true',
+                   help='I-19: extract operator advice from the instruction text (closed-set, fail-closed)')
     p.add_argument('--jev-local', choices=['off', 'clef'], default='off',
                    help='I-13: add the Jev-role model (Clef-Flash, local) - both models must approve')
     p.add_argument('--jev-hazard-threshold', type=float, default=.35)
@@ -337,6 +382,8 @@ def main(argv=None):
                  hazard_prompt=args.hazard_prompt, jev_local=args.jev_local, look_around=args.look_around,
                  jev_hazard_threshold=args.jev_hazard_threshold, jev_schema=args.jev_schema,
                  memory_file=args.memory_file, memory_mode=args.memory_mode,
+                 advice_file=args.advice_file, advice_mode=args.advice_mode,
+                 advice_from_instruction=args.advice_from_instruction,
                  control_qos='best_effort' if args.dds_mode == 'best_effort' else 'reliable')
     if args.dds_mode == 'async':
         os.environ['RMW_FASTRTPS_PUBLICATION_MODE'] = 'ASYNCHRONOUS'
@@ -379,6 +426,9 @@ def main(argv=None):
     summary['look_around'] = args.look_around
     summary['memory_file'] = args.memory_file
     summary['memory_mode'] = args.memory_mode
+    summary['advice_file'] = args.advice_file
+    summary['advice_mode'] = args.advice_mode
+    summary['advice_from_instruction'] = args.advice_from_instruction
     summary['jev_hazard_threshold'] = args.jev_hazard_threshold
     summary['jev_schema'] = args.jev_schema
     summary['hazard_views'] = args.hazard_views
@@ -401,6 +451,7 @@ def main(argv=None):
         # Turn SIGTERM into an exception so `with Supervisor` tears the stack down.
         raise StackFailure(f'orchestrator received signal {signum}; stack torn down')
     _signal.signal(_signal.SIGTERM, _graceful)
+    return_code = 2        # overwritten on every normal path; keeps the finally block (advice audit) well-defined
     try:
         check_prerequisites(args.scenario, capture_rosbag=args.capture_rosbag)
         quiet = subprocess.run(shell_exec(['python3', str(ROOT/'scripts/stack_quiescence.py'), '--wait', '45']),
@@ -590,6 +641,16 @@ def main(argv=None):
                 outcome['error'] = 'rosbag evidence missing/incomplete: ' + str(exc)
                 return_code = 2
     finally:
+        if args.advice_file or args.advice_from_instruction:
+            # I-19: recompute advice monotonicity from the logged plan; a violation fails the run
+            try:
+                outcome['advice_audit'] = advice_audit(log_dir)
+            except Exception as exc:          # AdviceError, ValueError, KeyError ...
+                outcome['advice_audit_failure'] = f'{type(exc).__name__}: {exc}'
+                outcome['state'] = 'FAILED'
+                outcome['error'] = 'advice monotonicity audit failed: ' + str(exc)
+                if return_code in (0, None):
+                    return_code = 2
         if args.memory_file:
             # I-15: remember what the robot itself saw (never ground truth), whatever the outcome
             try:

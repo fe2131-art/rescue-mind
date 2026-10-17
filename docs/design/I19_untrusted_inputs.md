@@ -1,6 +1,10 @@
 # I-19 design: untrusted inputs may only tighten (memory, instructions, scene text)
 
 Status: design (2026-10-17 19:00). Implementation on worktree branches; studies A and S are pre-registered before any trial.
+Study A support is implemented (branch `i19-advice`): `rescuemind/advice.py`, `rescuemind/advice_llm.py` (server endpoint
+`/v1/advice`), mission flags `--advice-file/--advice-mode/--advice-from-instruction`, orchestrator audits
+(`COMPLETED_ADVICE_TRUSTED`, `DENIED_BY_ADVICE`, monotone audit), `scripts/make_protocol_a.py`, `scripts/a_analysis.py`,
+`scripts/advice_injection_eval.py`, draft `experiments/PREREGISTRATION_A.md`.
 
 ## Motivation
 * Mock reviews R3/R4 and the course judges ask what is *new*. Our check-preserving memory (I-15) is the strongest idea we
