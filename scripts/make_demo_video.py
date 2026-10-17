@@ -186,6 +186,35 @@ ITEM_JA = {'water': '飲料水', 'medicine': '医療物資', 'other': 'なし/�
 SCENE_JA = {'nominal': '正常配置', 'swapped': '物資の取り違え', 'empty': '欠品（棚が空）'}
 
 
+def change_lines_ja(result):
+    """Operator-facing change report lines (mission_memory text_ja) with station keys shown as 拠点W / 拠点M."""
+    res = result or {}
+    mu = res.get('memory_update') or (res.get('outcome') or {}).get('memory_update') or {}
+    out = []
+    for c in mu.get('changes') or []:
+        s = (c or {}).get('text_ja')
+        if s:
+            for key, ja in STATION_JA.items():
+                s = s.replace(f'拠点「{key}」', ja).replace(f'「{key}」', ja)
+            out.append(s)
+    return out
+
+
+def draw_memory_changes(d, lines, box):
+    """Small box with the robot's memory change report (max 2 lines); same footprint as the memory banner."""
+    if not lines:
+        return False
+    x0, y0, x1, y1 = box
+    rounded(d, box, (40, 44, 92), 10)
+    text(d, (x0 + 10, y0 + 3), '前回からの変化（ロボットの報告）', 18, (190, 196, 255), True)
+    for k, ln in enumerate(lines[:2]):
+        fs = 18
+        while font(fs).getlength(ln) > (x1 - x0 - 20) and fs > 14:
+            fs -= 1
+        text(d, (x0 + 10, y0 + 25 + 20 * k), ln, fs, INK)
+    return True
+
+
 # ---------------------------------------------------------------- mission segment
 def checkpoint_episodes(run):
     """Every on-site check in time order (a recovery run has two)."""
@@ -284,6 +313,8 @@ def mission_segment(run_dir: Path, spec: dict, cam: FilmCamera, emit, narr=None,
     instr = mission['instruction']
     intent_gate = mission.get('intent_gate') or {}
     total = spec.get('total', 3)
+    chg_lines = change_lines_ja(run['result'])
+    chg_t = max([e['decision_t'] for e in eps if e['decision_t']], default=None)
 
     for (sa, sb, speed) in plan:
         if sb <= sa:
@@ -333,7 +364,12 @@ def mission_segment(run_dir: Path, spec: dict, cam: FilmCamera, emit, narr=None,
             text(d, (1362, 608), f'指示理解（{how}）→ {ITEM_JA[item]} を避難所Bへ', 21, INK)
             y = 640
             mem = mission.get('memory') or {}
-            if mem.get('mode') == 'verified' and mem.get('rationale'):
+            show_chg = bool(chg_lines) and chg_t is not None and t >= chg_t
+            if show_chg and mem.get('mode') == 'verified' and mem.get('rationale'):
+                # after the final decision the banner's slot shows the change report (no extra height -> no overlap)
+                draw_memory_changes(d, chg_lines, (1356, y - 4, 1866, y + 62))
+                y += 66
+            elif mem.get('mode') == 'verified' and mem.get('rationale'):
                 # I-15: what the memory proposed for this mission (it never skips a check)
                 rounded(d, (1356, y - 4, 1866, y + 58), (40, 44, 92), 10)
                 text(d, (1366, y), '記憶（前回の出動）→ 提案のみ・確認は省略しない', 18, (190, 196, 255), True)
@@ -388,6 +424,8 @@ def mission_segment(run_dir: Path, spec: dict, cam: FilmCamera, emit, narr=None,
                         verdict, colr = '判定：依頼物資なし → 別拠点を確認', (120, 80, 20)
                     else:
                         verdict, colr = '判定：拒否 → その場で停止', (110, 35, 40)
+                    if show_chg and not (mem.get('mode') == 'verified' and mem.get('rationale')) and y + 70 <= 976:
+                        draw_memory_changes(d, chg_lines, (1356, y + 4, 1866, y + 70))   # only if the free gap fits
                     rounded(d, (1362, 980, 1858, 1036), colr, 14)
                     text(d, (1610, 1008), verdict, 26, INK, True, anchor='mm')
                 else:
