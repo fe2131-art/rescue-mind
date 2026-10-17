@@ -209,6 +209,17 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 * L と I-18 のブランチは main に追従させ、同時にマージしても衝突しないことを確認済み（main を変更したら再度の追従が必要）。
 * 第三者採点の4回目は 31.5/40、模擬査読の3回目は borderline。
 
+## ★★★★★ 最新（2026-10-18 3:45）
+* **V 完了**：モデルの主張は成立した（時間差 14.9 秒、予測区間 11.3〜20.1 秒）。記憶の主張は不成立（余裕の条件は成立。系列単位の McNemar が 5:0、p=0.0625）。M2 の危険な配達1件は到着のぶれによる検査の誤りで、I-20 なら捉えていた（FINDINGS #29）。論文に反映済み。説明資料・README への反映は Sonnet が作業中。
+* **I-22 の Gazebo 確認は合格**（4件）。B ではインターロックを有効にした（Amendment 2）。A では無効のまま。
+* 動画セグメント4は撮影済み：run `076f3cb047064fae`（i21 の outputs/runs。隠れた火＋「確認不要」を却下し、左の視点で停止）。
+* S の看板確認は合格：main 側の `experiments/vlm_testset_s/sign_check_ok` を作成済み（未追跡）。
+* XD のスモーク確認は合格：`xd_smoke_ok` を i21 でコミット。**main 側に同じファイルを置くと統合マージが失敗するので、置かないこと**。
+* GPU の順番（すべて自動）：W の描画と評価 → Q → 統合マージ → A（after_q）→ IF・S（after_a）→ B（after_s）→ XD → X（`after_b_chain.sh`、ログは scratchpad の `after_b.log`）。
+* 次にすること：
+  * 動画 v5：撮影した run を使い、`make_video_plan.py --advice <run>` に倉庫の場面を加える（X の後）。
+  * W の結果で I-20 を v3.7 の既定にするか決める。
+
 ## ★★★★ 最新（2026-10-18 2:30）— 圧縮後はまずここ
 * **ユーザー指示（2:10）**：Sonnet 5.5 は**常にちょうど1つ**だけ起動しておく。メインの自分も改善作業をする。
 * **統合マージまでは、HANDOFF を i21-depot 側だけで編集する**。main 側でも編集すると、after_q のマージで衝突し、A が止まる（2:25 に main を i21 にマージ済み）。
@@ -396,7 +407,7 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 ## 7. 主要ファイルの地図
 
 `docs/ARCHITECTURE.md`（全体フロー図）、`docs/DESIGN_DECISIONS.md`（D1–D15）、`docs/IMPROVEMENT_LOG.md`（I-01–I-18）、
-`docs/FINDINGS.md`（実行で見つけた28件）、`docs/REVIEW_AND_PLAN.md`（審査基準別レビュー）、`experiments/`（事前登録・プロトコル・開発セット・台帳・証拠）。
+`docs/FINDINGS.md`（実行で見つけた29件）、`docs/REVIEW_AND_PLAN.md`（審査基準別レビュー）、`experiments/`（事前登録・プロトコル・開発セット・台帳・証拠）。
 
 **2026-10-17 22:00 実行中の連鎖（最新）**
 * `byvmbjuo9`：V の本番（予測は最初の試行より前にコミット済み：0118289）→ `V_DONE`（10月18日 6時ごろの見込み）。
