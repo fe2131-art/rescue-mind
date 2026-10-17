@@ -75,6 +75,11 @@ test: ## Unit tests (in rm-dev; falls back to the host python3 where ROS parts a
 check: ## Consistency check: README, YouTube text, paper macros and report agree with experiments/results (exit 1 on mismatch; needs docker only for the PDF text)
 	$(NICE) python3 scripts/check_consistency.py
 
+verify: ## Re-check Proposition 2 on the implementation (z3 proof + model-vs-code differential + mutants, host python3; pip install -r requirements-verify.txt); compares the verdicts with the committed record
+	$(NICE) python3 scripts/verify_advice_smt.py --out /tmp/rescuemind_smt_fresh.json
+	$(NICE) python3 scripts/verify_compare.py /tmp/rescuemind_smt_fresh.json
+	$(NICE) python3 -m pytest -q tests/test_i23_smt_refinement.py tests/test_advice_independent.py tests/test_i24_advice_credit.py
+
 numbers: ## Regenerate docs/paper/numbers.tex and tab_*.tex from experiments/results (host python3, no docker)
 	$(NICE) python3 scripts/paper_numbers.py
 
