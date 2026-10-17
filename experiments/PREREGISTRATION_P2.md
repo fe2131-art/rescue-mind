@@ -7,7 +7,8 @@ local fire-free images. P2 tests whether that procedure works **on images it was
 
 **Data** (D-Fire, CC0, the Hugging Face mirror used in P).
 * **Calibration set:** 200 fire-free and 200 fire/smoke images (smoke-only, fire-only and both, ~67 each) from the
-  **train** split, seed `P2-cal`.
+  **train** split, seed `P2-cal`. To limit the download, they are drawn from the first two of its nine parquet shards
+  (`train-00000`, `train-00001`). This was decided before any download.
 * **Test set:** 400 images from the **test** split, stratified like P (100 per category), seed `P2-test`. They are
   disjoint from P's sample.
 
