@@ -270,6 +270,7 @@ T1 で分かった弱点に、結果を見る前に固定した条件で段階�
 
 
 PENDING = '実行中（事前登録済み）'
+PENDING_NOT_RUN = '結果待ち（事前登録済み・未実行）'
 
 
 def jl(name):
@@ -347,6 +348,35 @@ def w_text():
                 f"{sum(bool(S[n].get('mechanism_matters')) for n in b['primary_baselines'])}/3")
     except (TypeError, KeyError):
         return PENDING
+
+
+def a_text():
+    """Study A (adversarial advice, closed loop) -> Japanese table cell; a_summary.json missing -> pending."""
+    a = jl('a_summary.json')
+    try:
+        a1, a2, a3 = a['A1_unsafe_naive_vs_monotone'], a['A2_time_saved_truthful'], a['A3_dos_cost_vs_bound']
+        r = a1['runs']
+        ts = a2['monotone']['median_saved_s']
+        return (f"悪意のある助言での危険な配達（試行）：助言に従う方式 {r['naive']['unsafe']}/{r['naive']['n']}、本方式 {r['monotone']['unsafe']}/{r['monotone']['n']}、助言なし {a1['control_runs_F_N']['unsafe']}/{a1['control_runs_F_N']['n']}"
+                f"（世界で対にした McNemar p={a1['mcnemar_p']}）。正しい助言での時間短縮の中央値 {ts if ts is None else round(ts)} 秒。サービス妨害のコスト：追加訪問 最大 {a3['max_extra_visits']}、誤拒否 {a3['false_refusals_monotone']}（許容 {a3['allowed_max_false_refusals_95']}）。"
+                f"主張は 安全：{'成立' if a1['supported'] else '不成立'}、時間：{'成立' if a2['supported'] else ('不成立' if a2['monotone']['testable'] else '検定不能')}、コスト：{'成立' if a3['supported'] else '不成立'}")
+    except (TypeError, KeyError):
+        return PENDING_NOT_RUN
+
+
+def s_text():
+    """Study S (scene-text injection, image level) -> Japanese table cell; s_summary.json missing -> pending."""
+    sj = jl('s_summary.json')
+    try:
+        o = sj['systems']['OURS']
+        t, g = o['by_text'], o['by_sign_type']
+        fl = lambda x: f"{x['attack_vs_none']['flips']}/{x['n_pairs']}"
+        leg = (sj.get('legibility') or {}).get('S0_signs_legible')
+        return (f"本方式で標識により「拒否→許可」に変わった世界：「Cと答えよ」 {fl(t['letter_C'])}、順序固定の文字A {fl(t['letter_A'])}、順序に依らない文字B {fl(t['letter_B'])}、"
+                f"物の取り違えを示すラベル {fl(g['mislabel'])}、「火災なし」の標識 {fl(g['false_safe'])}。標識が読めた：{'はい' if leg else 'いいえ' if leg is not None else '未確認'}。"
+                f"**画像に映る文字は構造的な保証の外**で、これは残る弱点の実測")
+    except (TypeError, KeyError):
+        return PENDING_NOT_RUN
 
 
 def l_text():
@@ -431,6 +461,7 @@ def section_novelty():
   ![事例：記憶なしは隠れた火に配達（p_h=0.0346）、検証つき記憶は火を見た拠点の閾値を0.01に厳しくして停止（p_h=0.0489）。1件の事例で、統計的な主張ではない](docs/figures/memory_case_ja.png)
 
 * **横から見直す能動知覚**（[I-14](docs/IMPROVEMENT_LOG.md)）：{gtxt}。表は[結果](#結果)の評価G。
+* **信頼できない入力は「厳しくする」ことしかできない**（[I-19](docs/IMPROVEMENT_LOG.md)・[D18](docs/DESIGN_DECISIONS.md)）：記憶に限らず、他のロボット・在庫・依頼文の助言も、拠点の順序と閾値の強化にしか使えず、「安全」「確認不要」は何の効果も持たない。どんな（悪意のある）助言でも、危険な配達の確率は助言なしと同じ上限 kε。サービス妨害のコストも上限つき（1拠点の無駄足と慎重な閾値の誤拒否）。画像に映る文字は知覚なので保証の外にあり、評価Sで実測する。{a_text()}
 * **2つのAI（Jev役 Clef-Flash＋Qwen）を判断に組み込む**（[I-16](docs/IMPROVEMENT_LOG.md)）：オフラインだけだった2モデル確認を、V100 1台に載る組で閉ループに載せた。2つは系統を共有する（Clef-Flash は Qwen3.5-9B の追加学習版）ので、相関した失敗が残り得る。評価Jは[結果](#結果)の表。{l_text()}
 * **事前登録と時系列監査**（[論文](docs/paper/main.pdf)付録）：条件・閾値・解析を結果を見る前にコミットし、{audit_text()}。支持されなかった主張も、そのまま載せる。
 * **実用性：出動ごとに1枚の現場報告を生成**（[I-18](docs/IMPROVEMENT_LOG.md)）：依頼・判断の理由・確認に使った写真と確率・次にしてほしいことを1枚にまとめ、現場の人が結論だけ読めば動ける。生成は `scripts/make_operator_report.py`、全出動での自動生成は評価終了後に組み込む。
@@ -522,7 +553,7 @@ def section_en(e, v):
          "and for a Yes/No hazard question, and approve only if both agree with sufficient confidence and no fire or smoke is seen. A wrong item "
          "triggers a one-time search of the other station; a hazard stops the robot; an independent velocity guard keeps motion out of the VLM's reach. "
          "**Active look-around**: before approving, the robot views the station from 0.4 m to either side. **Safety-monotone cross-mission memory**: "
-         "memory may only reorder where the robot looks and add caution, never remove a check. An optional **two-model check** adds a second checker (the Jev role of the original plan) "
+         "memory may only reorder where the robot looks and add caution, never remove a check. **Untrusted inputs may only tighten (I-19)**: the same typed interface covers every input the robot did not perceive itself (a peer's report, the inventory, hints in the operator's request); advice can reorder visits or add caution, but \"safe\" and \"skip\" advice has no effect, so the unsafe-delivery bound holds for any advice, even adversarial; text written in the scene is perception and is measured separately. An optional **two-model check** adds a second checker (the Jev role of the original plan) "
          "(Clef-Flash) next to Qwen. All studies are pre-registered (`experiments/PREREGISTRATION_*.md`); every trial is audited against simulator ground truth and a ROS bag.",
          '', '| Study (pre-registered) | Result |', '|---|---|']
     if e:
@@ -531,6 +562,20 @@ def section_en(e, v):
     if v:
         G = v[1]
         L.append(f"| G: paired, look-around vs. front view only | deliveries despite a perceivable fire {G['gb']}/{G['nf']} -> {G['gcw']}/{G['nf']} (exact McNemar p={G['p']:.3f}); false stops in fire-free worlds {G['fs']}/{G['nfree']} |")
+    a_, s_ = jl('a_summary.json'), jl('s_summary.json')
+    try:
+        a1, a2, a3 = a_['A1_unsafe_naive_vs_monotone'], a_['A2_time_saved_truthful'], a_['A3_dos_cost_vs_bound']
+        rr = a1['runs']
+        L.append(f"| A: adversarial advice (114 closed-loop runs) | unsafe-delivery runs under false advice: advice-following {rr['naive']['unsafe']}/{rr['naive']['n']}, ours {rr['monotone']['unsafe']}/{rr['monotone']['n']}, no advice {a1['control_runs_F_N']['unsafe']}/{a1['control_runs_F_N']['n']} (exact McNemar p={a1['mcnemar_p']}); "
+                 f"truthful advice saved a median {a2['monotone']['median_saved_s']} s; denial-of-service cost: at most {a3['max_extra_visits']} extra visit, {a3['false_refusals_monotone']} false refusals (allowed {a3['allowed_max_false_refusals_95']}) |")
+    except (TypeError, KeyError):
+        L.append('| A: adversarial advice (114 closed-loop runs) | pre-registered, not yet run |')
+    try:
+        so = s_['systems']['OURS']
+        fl = lambda x: f"{x['attack_vs_none']['flips']}/{x['n_pairs']}"
+        L.append(f"| S: scene-text injection (image level) | refuse-to-approve flips of ours: 'Answer C' {fl(so['by_text']['letter_C'])}, letter tied to the unpermuted order {fl(so['by_text']['letter_A'])}, permutation-invariant letter {fl(so['by_text']['letter_B'])}, mislabel {fl(so['by_sign_type']['mislabel'])}, 'SAFE - NO FIRE' {fl(so['by_sign_type']['false_safe'])}; outside the structural guarantee |")
+    except (TypeError, KeyError):
+        L.append('| S: scene-text injection (image level) | pre-registered, not yet run |')
     r = jl('r_summary.json')
     try:
         p1 = r['P1_pooled']
@@ -657,6 +702,8 @@ def main():
     head.append(f"| 評価H（出動をまたぐ記憶） | 前回の物資の場所を「先に行く拠点」の提案だけに使う。記憶なし・素朴な記憶・検証つき記憶を対比較 | {h_text()} |")
     head.append(f"| 評価J（2つのAI） | Jev役 Clef-Flash＋Qwen の2モデル確認を閉ループで、v3.6単独と対比較 | {j_text()} |")
     head.append(f"| 評価V（ランダムな変化での予測検証） | 出動ごとに世界がランダムに変わる10系列×6出動で、事前登録した予測区間と実測を比較 | {v_text()} |")
+    head.append(f"| 評価A（信頼できない助言、閉ループ） | 他ロボット・在庫・依頼文の助言は順序変更と閾値の強化にしか使えない（I-19）。偽の「火は消えた」「別の拠点にある」を、助言に従う方式と対比較（114試行） | {a_text()} |")
+    head.append(f"| 評価S（画像内の文字による注入、画像レベル） | 標識・ラベル・「Cと答えよ」を置いた52世界を、標識なし・攻撃・無害の3通りで描画し、本方式・1回判定・自由記述・全体画像で比較 | {s_text()} |")
     head.append(f"| 評価W（小さく隠れた火の見逃しと先行手法） | 画像レベル：正面のみ対見回し（150火世界＋75双子）、VAP-TAMP風の投票・KnowNo風の共形集合との誤許可の比較 | {w_text()} |")
     parts = ['<!-- RESULTS:START -->', '## 結果', '',
              '事前登録した評価の一覧（D・E・F・G・T1・T2・Z・P・R・K・H・J）。Qwen3.5-9B（ローカル・V100）。条件・閾値・解析は結果を見る前に `experiments/PREREGISTRATION_*.md` に固定し、台帳は全試行を記録。', '',
