@@ -65,7 +65,7 @@ so after an approval the robot re-checks from two side poses, and any hazard the
 \item \textbf{Safety-monotone mission memory} (Sec.~\ref{sec:memory}). Memory proposes, perception disposes: it may reorder the stations the robot
 visits and tighten its hazard threshold, but never skip a check. We state the invariant, enforce it in code and in the audit, and test it in a pre-registered
 multi-mission campaign against a naive memory.
-\item \textbf{The original two-model design on one GPU} (Sec.~\ref{sec:jev}). We fill the second checker's role (``Jev'') with Clef-Flash,
+\item \textbf{The original two-model design on one GPU} (Sec.~\ref{sec:jev}). We fill the second checker's role with Clef-Flash,
 which Cloudflare post-trained from Qwen3.5-9B~\cite{cloudflare2026clefcard}, require both to approve, and run the pair on the simulated robot.
 \item \textbf{Decision and motion separated, in the spirit of Simplex}~\cite{seto1998simplex,sha2001simplicity}: the mission node only
 \emph{requests} velocities, and an independent guard is the sole publisher of wheel commands.
@@ -177,9 +177,9 @@ over the same fire-free worlds, Sec.~\ref{sec:fix}).
 \caption{Why the robot looks again. The same small fire, from the front checkpoint and from 0.4\,m to the left (a v3.6 mission in
 a campaign-G world). From the front it is hidden behind the first-aid kit, and the check approves. From the side, the
 hazard question refuses.}\label{fig:lookaround}\end{figure}
-\subsection{Two models: the ``Jev'' role}\label{sec:jev}
-The original design of this robot asked two models, ``Jev'' and Qwen, and moved only when both agreed, following the
-idea of diverse redundancy~\cite{avizienis1985nversion}, although failures are known to be correlated in practice~\cite{knight1986experimental}. The Jev role is played by Clef-Flash, a decision model released by Cloudflare~\cite{cloudflare2026clefcard,chen2026clefblog} and served locally through the same Jev request/response API.
+\subsection{A second checker}\label{sec:jev}
+The original design of this robot asked two models (a second checker, called Jev in that design, and Qwen) and moved only when both agreed, following the
+idea of diverse redundancy~\cite{avizienis1985nversion}, although failures are known to be correlated in practice~\cite{knight1986experimental}. The second checker is Clef-Flash, a decision model released by Cloudflare~\cite{cloudflare2026clefcard,chen2026clefblog} and served locally through the original second-checker API.
 According to its model card it is post-trained from Qwen3.5-9B, so the two models share lineage. Their diversity lies in
 post-training, in model size (our on-robot pair uses Qwen3.5-4B) and in the question asked, and the correlated-failure
 caveat applies in full. The two-model rule approves only if Eq.~\eqref{eq:rule} holds for Qwen \emph{and}
@@ -232,7 +232,7 @@ model measure.
 \State $(\pi, \theta') \gets \mu(\mathcal{H}, s^\ast)$ \Comment{order of stations; $\tauh'\le\tauh$ at remembered hazards}
 \For{station $k$ in $\pi$ (at most two)}
   \State drive to $k$; aim; wait until stationary; capture new frames $o_k$
-  \State $d \gets$ \textsc{Check}$(o_k, s^\ast; \theta'_k)$ \Comment{Eq.~\eqref{eq:rule}; and the Jev-role model, if used}
+  \State $d \gets$ \textsc{Check}$(o_k, s^\ast; \theta'_k)$ \Comment{Eq.~\eqref{eq:rule}; and the second checker, if used}
   \If{$d=$ hazard} \State hold zero 2.5\,s; report; \textbf{stop} \EndIf
   \If{$d=$ approve}
     \For{side $v$ in order$(\theta'_k)$} \State move 0.4\,m to side $v$; capture $o_{k,v}$
@@ -364,7 +364,7 @@ crops for the hazard question, a hazard wording that names small, partly hidden 
 (Sec.~\ref{sec:jev}). The wording together with the crops is v3.6.
 Supp.~Table~S6 shows the results. The wording did most of the work: missed fires fell from \DevFAvThreeFive{} to
 \DevFAB{} of \DevFireN{} when combined with crops, and correct approvals did not change. Clef-Flash refused half of the
-correct deliveries when asked the original Jev questions, which concern the safety of a \emph{passage}; with
+correct deliveries when asked the original second-checker questions, which concern the safety of a \emph{passage}; with
 task-worded questions it reached 97\%, and agreement with Qwen gave the fewest false approvals, but the two models
 need 37\,GB together, which does not fit on one V100.
 
