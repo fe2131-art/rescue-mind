@@ -23,6 +23,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
 from run_paths import FULL as FULL_RUNS  # noqa: E402
+import advice_numbers  # noqa: E402
 RES = ROOT / 'experiments/results'
 OUT = ROOT / 'docs/paper'
 
@@ -790,7 +791,8 @@ def main():
                ('Z', 'PREREGISTRATION_Z.md', 'z_summary.json'), ('K', 'PREREGISTRATION_K.md', 'k_summary.json'), ('P', 'PREREGISTRATION_P.md', 'p_summary.json'), ('P2', 'PREREGISTRATION_P2.md', 'p2_summary.json'),
                ('A', 'PREREGISTRATION_A.md', 'a_summary.json'), ('S', 'PREREGISTRATION_S.md', 's_summary.json'),
                ('X', 'PREREGISTRATION_X.md', 'x_summary.json'), ('XD', 'PREREGISTRATION_XD.md', 'xd_summary.json'),
-               ('Q', 'PREREGISTRATION_Q.md', 'q_summary.json')]
+               ('Q', 'PREREGISTRATION_Q.md', 'q_summary.json'),
+               ('B', 'PREREGISTRATION_B.md', 'b_summary.json'), ('IF', 'PREREGISTRATION_IF.md', 'if_summary.json')]
     main_ref = 'main' if git('rev-parse', '--verify', '-q', 'main')[1] == 0 else 'HEAD'
 
     def first_commit(path):          # first commit that added the file (hash date)
@@ -832,6 +834,13 @@ def main():
         rows.append(f"{name} & {reg_cell} & \\texttt{{{sc or 'pending'}}} & {n_am} & {order} \\\\")
     rows += [r'\bottomrule', r'\end{tabular}']
     tables['tab_prereg.tex'] = '\n'.join(rows)
+    # the one definition of "number of studies" (README, report, paper and check_consistency read it back through advice_numbers.study_counts):
+    # every row of Table S9 except C, the initial evaluation (23 = the studies of Supp. Table S12); 'checked' = registration commit
+    # verified to precede the first results commit
+    cnt_ = advice_numbers.study_counts_from_rows([r_ for r_ in rows if r_.count('&') >= 4 and not r_.startswith('Study')])
+    m['NStudies'] = cnt_['n']
+    m['NStudiesChecked'] = cnt_['ok']
+    m['NStudiesPending'] = cnt_['pending']
     unrun = [d for d in drafts if not (RES / dict((n_, r_) for n_, _, r_ in studies)[d]).is_file()]
     m['PreregDrafts'] = ', '.join(unrun) if unrun else 'none'
     m['PreregOrderOK'] = 'holds' if ok_all else 'does NOT hold'

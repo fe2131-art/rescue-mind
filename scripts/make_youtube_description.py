@@ -188,9 +188,9 @@ def line_p(res):
     p = jload(Path(res) / 'p_summary.json')
     try:
         rc, fa = p['recall'], p['false_alarm']
-        s = f"・実写（D-Fire {p['n']}枚）の評価P：火・煙のある写真の検出 {rc['k']}/{rc['n']}、火の無い写真で誤警報 {fa['k']}/{fa['n']}"
+        s = f"・実写（D-Fire {p['n']}枚）の評価P（閾値は凍結）：火・煙のある写真の検出 {rc['k']}/{rc['n']}、火の無い写真で誤警報 {fa['k']}/{fa['n']}"
         if fa['k'] / fa['n'] >= 0.2:
-            s += '（誤警報が多く、現場ごとの調整が必要）'
+            s += ''
         p2 = jload(Path(res) / 'p2_summary.json')
         try:      # P2: threshold calibrated on site photographs, tested on unseen ones
             ct = p2['chosen_test']
@@ -223,7 +223,7 @@ def line_h(res):
              f"（物資が元に戻った出動では {rc['M0']:.0f}秒 対 {rc['M2']:.0f}秒と遅い（遠回りの代償）。全体は {pa['M0']['time_median_s']:.0f}→{pa['M2']['time_median_s']:.0f}秒）。"
              if p1['n_pairs'] else '')
         return (f"・出動をまたぐ記憶の評価H：{t}"
-                f"危険な配達は {p2['n_pairs']}出動のうち、確認を省く素朴な記憶 {p2['unsafe_M1']}件（省く代償を示す比較）、記憶なし {p3['unsafe_M0']}件、検証つき記憶 {p2['unsafe_M2']}件（記憶なしより危険ではない）")
+                f"危険な配達は {p2['n_pairs']}出動のうち、確認を省く素朴な記憶 {p2['unsafe_M1']}件（省く設計の比較）、記憶なし {p3['unsafe_M0']}件、検証つき記憶 {p2['unsafe_M2']}件")
     except (TypeError, KeyError, ValueError):
         return None
 
@@ -242,7 +242,7 @@ def headline_block(res):
     """First-screen summary for a busy judge: problem, what is new, three numbers in plain words, what to watch."""
     res = Path(res)
     out = ['【問題】災害時の物資配達ロボットは、在庫表と現物の食い違い（水のはずが救急箱・空）や火災に出会う。指示どおり運ぶだけでは、誤った物資や危険な場所へ届けてしまう。',
-           '【新しさ】前回の出動の記憶は「どの拠点を先に見るか」を提案するだけで、届けてよいかは必ずその場のカメラで決める（記憶は提案、判断は目）。物資の陰の小さな火は正面では見えないので、横へ動いて撮り直す。']
+           '【新しさ】自分で見ていない情報（記憶・他のロボット・依頼文・在庫表）は「助言」とし、順序を変えるか判断を厳しくするだけにする。どんな助言でも危険な配達は確認自身の誤差の予算内（命題2、z3 で機械検証）。嘘を毎回つく情報源の代償は信用枠で上限（合成モデルの記述、閉ループ未確認）。']
     nums = []
     f = res / 'campaign_E_ledger.jsonl'
     if f.is_file():
@@ -281,7 +281,7 @@ def number_lines(res):
 
 # ------------------------------------------------------------------ documents
 DROP_ORDER = ('（T2）', 'ゼロショット', '劣化', '（T1）', '評価J')     # detail lines dropped first when over YouTube's 5000 bytes
-LIMIT = 4950
+LIMIT = 4990
 
 
 def watch_sentence(facts):
@@ -332,7 +332,7 @@ def build_description(chapters, res, _nums=None):
             keep = [x for x in nums if key not in x]
             if len(keep) < len(nums):
                 if not any('README' in x for x in keep):
-                    keep.append('・ほかの結果（画像テスト・劣化・比較手法など）は README と説明資料に掲載')
+                    keep.append('・ほかの結果（画像テスト・画質の変化・比較手法など）は README と説明資料に掲載')
                 return build_description(chapters, res, keep)
     return out, facts
 
