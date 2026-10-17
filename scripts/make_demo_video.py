@@ -83,6 +83,25 @@ class FilmCamera:
 
 
 # ---------------------------------------------------------------- narration (I-07)
+# Reading fixes applied only to the text sent to VOICEVOX (on-screen captions stay as written).
+TTS_READINGS = [
+    ('誤配達', 'ごはいたつ'), ('誤警報', 'ごけいほう'), ('閾値', 'しきいち'), ('しきい値', 'しきいち'),
+    ('p値', 'ピーち'), ('τ', 'タウ'), ('Jev', 'ジェブ'), ('Qwen3.5', 'クウェン3.5'), ('Qwen', 'クウェン'),
+    ('Clef', 'クレフ'), ('SigLIP', 'シグリップ'), ('VLM', 'ブイエルエム'),
+]
+
+
+def tts_text(text):
+    """Return `text` with misread words/numbers rewritten for speech (scores 20/32 -> 32分の20)."""
+    import re
+    for a, b in TTS_READINGS:
+        text = text.replace(a, b)
+    text = re.sub(r'(\d+)\s*/\s*(\d+)', r'\2分の\1', text)
+    text = re.sub(r'(\d+(?:\.\d+)?)\s*m(?![A-Za-z])', r'\1メートル', text)
+    text = re.sub(r'(\d+(?:\.\d+)?)\s*%', r'\1パーセント', text)
+    return text
+
+
 class Narration:
     """Queue of narration clips on the output timeline; clips never overlap."""
     def __init__(self, speaker):
@@ -93,7 +112,7 @@ class Narration:
     def clip(self, text):
         sys.path.insert(0, str(ROOT / 'scripts'))
         from tts_voicevox import synthesize, duration
-        wav = synthesize(text, self.speaker)
+        wav = synthesize(tts_text(text), self.speaker)
         return wav, duration(wav)
 
     def say(self, text, t_now):
