@@ -284,11 +284,11 @@ def h_text():
     h = jl('h_summary.json')
     try:
         p1, p2, p3 = h['P1_efficiency_relocation_persist'], h['P2_safety_naive_vs_verified'], h['P3_no_extra_risk_vs_v36']
-        t1 = ((f"置き場所が変わったままの出動で、所要時間の中央値差（検証つき記憶 − 記憶なし）{p1['median_diff_s']} 秒（{p1['n_pairs']}対、p={p1['wilcoxon_exact_p']}）")
+        t1 = ((f"置き場所が変わったままの出動で、所要時間の中央値 記憶なし {p1['time_M0_median_s']:.0f} 秒 → 検証つき記憶 {p1['time_M2_median_s']:.0f} 秒（対ごとの差の中央値 {p1['median_diff_s']} 秒、{p1['n_pairs']}対、Wilcoxon正確検定 p={p1['wilcoxon_exact_p']}）")
               if p1['n_pairs'] else '置き場所が変わったままの出動で比べられる対はなし')
         return (f"評価H 結果：{t1}、"
-                f"危険な配達は 素朴な記憶 {p2['unsafe_M1']} 対 検証つき記憶 {p2['unsafe_M2']}（p={p2['mcnemar_p']}）、記憶なし比で追加リスク"
-                f"{'なし' if p3['supported'] else 'あり'}（{p3['unsafe_M0']} 対 {p3['unsafe_M2']}）")
+                f"危険な配達は 素朴な記憶 {p2['unsafe_M1']}/{p2['n_pairs']} 対 検証つき記憶 {p2['unsafe_M2']}/{p2['n_pairs']}（McNemar正確検定 {'p<0.001' if p2['mcnemar_p'] < 0.001 else 'p=' + str(p2['mcnemar_p'])}）、記憶なし比で追加リスク"
+                f"{'なし' if p3['supported'] else 'あり'}（危険な配達 記憶なし {p3['unsafe_M0']}/{p3['n_pairs']}、検証つき記憶 {p3['unsafe_M2']}/{p3['n_pairs']}）")
     except (TypeError, KeyError):
         return f'評価H（16系列×3出動）：{PENDING}'
 
@@ -467,9 +467,9 @@ def section_en(e, v):
     h, j = jl('h_summary.json'), jl('j_summary.json')
     try:
         p1h, p2h = h['P1_efficiency_relocation_persist'], h['P2_safety_naive_vs_verified']
-        t1h = (f"median time difference, verified memory minus no memory, {p1h['median_diff_s']} s ({p1h['n_pairs']} pairs with relocated supplies)"
+        t1h = (f"median mission time, no memory vs. verified memory, {p1h['time_M0_median_s']:.0f} s vs. {p1h['time_M2_median_s']:.0f} s (paired difference {p1h['median_diff_s']} s; {p1h['n_pairs']} pairs with relocated supplies)"
                if p1h['n_pairs'] else 'no paired missions with relocated supplies')
-        L.append(f"| H: cross-mission memory | {t1h}; unsafe deliveries naive {p2h['unsafe_M1']} vs. verified memory {p2h['unsafe_M2']} |")
+        L.append(f"| H: cross-mission memory | {t1h}; unsafe deliveries naive memory {p2h['unsafe_M1']}/{p2h['n_pairs']} vs. verified memory {p2h['unsafe_M2']}/{p2h['n_pairs']} |")
         h_ok = True
     except (TypeError, KeyError):
         h_ok = False

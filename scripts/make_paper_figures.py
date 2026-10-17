@@ -301,7 +301,7 @@ def fig_h_outcomes(path=None, out=None):
     ax.set_xlim(-0.25, 6.5); ax.axis('off')
     ax.set_ylim(y + 0.1, -1.9)
     ax.legend(handles=[Patch(fc=col[n], ec=INK if n == 'failed' else col[n], lw=0.4, hatch='////' if n == 'failed' else None, label=n) for n in col],
-              loc='upper center', bbox_to_anchor=(0.5, -0.01), ncol=5, fontsize=5.0, frameon=False, handlelength=1.0, columnspacing=0.9,
+              loc='upper center', bbox_to_anchor=(0.5, -0.01), ncol=5, fontsize=5.6, frameon=False, handlelength=1.0, columnspacing=0.9,
               handletextpad=0.4)
     ax.set_title('(a) outcome per mission, 16 sequences', fontsize=6.6, pad=6)
 

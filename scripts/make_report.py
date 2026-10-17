@@ -381,9 +381,9 @@ def sec_memory():
                  (f"所要時間の中央値 {p1['time_M0_median_s']:.0f} → {p1['time_M2_median_s']:.0f} 秒（差の中央値 {p1['median_diff_s']:+.0f} 秒）、"
                   f"Wilcoxon正確検定 {pexact(p1['wilcoxon_exact_p'])}") if p1['n_pairs'] else '対になる出動なし', ok(p1)])
     rows.append([f"P2 安全（M2 vs M1、{p2['n_pairs']}出動）",
-                 f"危険な配達 M1 {p2['unsafe_M1']} → M2 {p2['unsafe_M2']}（食い違い {p2['discordant_M1_only']}:{p2['discordant_M2_only']}）、"
+                 f"危険な配達 M1 {p2['unsafe_M1']}/{p2['n_pairs']} → M2 {p2['unsafe_M2']}/{p2['n_pairs']}（食い違い {p2['discordant_M1_only']}:{p2['discordant_M2_only']}）、"
                  f"McNemar正確検定 {pexact(p2['mcnemar_p'])}", ok(p2)])
-    rows.append([f"P3 追加の危険なし（M2 vs M0、{p3['n_pairs']}出動）", f"危険な配達 M0 {p3['unsafe_M0']}、M2 {p3['unsafe_M2']}", ok(p3)])
+    rows.append([f"P3 追加の危険なし（M2 vs M0、{p3['n_pairs']}出動）", f"危険な配達 M0 {p3['unsafe_M0']}/{p3['n_pairs']}、M2 {p3['unsafe_M2']}/{p3['n_pairs']}", ok(p3)])
     out += [table(rows, [56, 98, 20]), Spacer(1, 3),
             P(f"全体の主張（P1・P2・P3 がすべて成立）：<b>{'成立' if h['headline_supported'] else '不成立（成り立たなかった部分は上表のとおり）'}</b>。")]
     arows = [['方式', '出動', '危険な配達（95%区間）', '誤った停止', '安全な配達', '時間の中央値', '失敗']]
@@ -393,7 +393,12 @@ def sec_memory():
                       f"{m['time_median_s']:.0f} 秒" if m['time_median_s'] is not None else '-', m['failed']])
     out += [Spacer(1, 3), table(arows, [44, 12, 36, 20, 22, 24, 16]),
             P(f"出動2・3回目のみ。「安全な配達」は、安全な選択肢がある出動のうち安全に配達できた数。1回目の出動（記憶なし、{h['first_missions']['n']}出動）の危険な配達は "
-              f"{h['first_missions']['unsafe']} 件。火は設計上、見えにくいものを含む。", 'small'), Spacer(1, 4)]
+              f"{h['first_missions']['unsafe']} 件。火は設計上、見えにくいものを含む。", 'small'),
+            Spacer(1, 3),
+            P(f"素朴な記憶（M1）の危険な配達 {h['per_arm']['M1']['unsafe_deliveries']} 件の内訳は、前回から入れ替わった物資 {h['per_arm']['M1']['wrong_supply']} 件と、"
+              f"新たに出た火の中への配達 {h['per_arm']['M1']['into_fire']} 件で、いずれも確認を省いた結果である。M1 の中央値 {h['per_arm']['M1']['time_median_s']:.0f} 秒が最も短いのは、確認を省いたためで、速さは安全と引き換えだった"
+              f"（誤った停止も {h['per_arm']['M1']['false_refusals']} 件）。検証つき記憶（M2）はどちらの誤りも誤った停止もなく、記憶なし（M0）の1件（下の事例）でも止まれた。"
+              '1件対0件から「M2 は M0 より安全」とは言えず、主張するのは「より危険ではない」までである。'), Spacer(1, 4)]
     out += fig('memory_case_ja.png', 135, '事例（評価H Q09）：記憶なし（M0）は隠れた火(p=0.0346、基準0.05未満)に配達したが、検証つき記憶（M2）は2出動前にそこで火を見たため閾値を0.01に厳しくし(p=0.0489)、止まった。'
                '記憶は確認を減らさず、慎重さだけを足す。その結果、記憶なしでは見逃した火で止まれた（1件の事例。統計的な主張ではない）。')
     return out
@@ -612,8 +617,10 @@ def headline(D, E, V, after_fig=()):
     # --- evaluation H / J result strings (graceful fallbacks)
     if h:
         p2h = h['P2_safety_naive_vs_verified']
-        h_res = (f"危険な配達 M1 {p2h['unsafe_M1']} → M2 {p2h['unsafe_M2']}、速さ {ok_(h['P1_efficiency_relocation_persist']['supported'])}・"
-                 f"安全 {ok_(p2h['supported'])}・追加の危険なし {ok_(h['P3_no_extra_risk_vs_v36']['supported'])}。全体の主張：<b>{ok_(h['headline_supported'])}</b>")
+        p1h, p3h = h['P1_efficiency_relocation_persist'], h['P3_no_extra_risk_vs_v36']
+        h_res = (f"危険な配達 素朴な記憶 {p2h['unsafe_M1']}/{p2h['n_pairs']} → 本方式 {p2h['unsafe_M2']}/{p2h['n_pairs']}（記憶なし {p3h['unsafe_M0']}/{p3h['n_pairs']}）。"
+                 f"物資の入れ替わりが続く出動の時間（中央値）{p1h['time_M0_median_s']:.0f} → {p1h['time_M2_median_s']:.0f} 秒。"
+                 f"速さ{ok_(p1h['supported'])}・安全{ok_(p2h['supported'])}・追加の危険なし{ok_(p3h['supported'])}で、全体の主張：<b>{ok_(h['headline_supported'])}</b>")
     else:
         h_res = PEND
     if j:
@@ -670,7 +677,7 @@ def headline(D, E, V, after_fig=()):
         rows.append(['<b>P</b> 実写の火災画像', res, lim])
     else:
         rows.append(['<b>P</b> 実写の火災画像', PEND, ''])
-    rows.append(['<b>H</b> 出動をまたぐ記憶', h_res, '' if h else '結果が出たら資料に反映する'])
+    rows.append(['<b>H</b> 出動をまたぐ記憶', h_res, '素朴な記憶は比較用。世界の変化は台本どおりで、火は設計上見えにくい。記憶なしの1件は本方式なら止まった（1件の事例）' if h else '結果が出たら資料に反映する'])
     rows.append(['<b>J</b> 2つのAIの閉ループ', j_res, '' if j else 'スモーク試験では V100 1台に載り、閉ループが完走した'])
     out += [Spacer(1, 4), table(rows, [42, 74, 58]), Spacer(1, 3),
             P('すべてシミュレーション上の評価で、実写で検証したのは火災判定（P）だけ。ロボットを動かす評価（E・G・H・J）は、実機でも実写でも未検証。'
@@ -812,7 +819,7 @@ def build(account: str, video_url: str | None, repo_url: str):
     s += gloss
     crit = [['審査基準', '本作品での取り組み', '根拠（本資料の節）'],
             ['創造性', '「運ぶAI」ではなく「間違えたら動かないAI」。新規性3つ：横から見直す能動知覚、確認を減らさない出動をまたぐ記憶、当初計画の2つのAI', '要旨, 4.1–4.3章'],
-            ['技術力', '選択肢の確率によるVLM判定、独立速度ガード、Gazebo真値による独立監査、事前登録した閉ループ評価（結果あり：D・E・F・G、実行中：H・J）と未使用画像の評価（T1・T2・Z・P・R）、対比較の検定つきで弱点を段階的に改善', '2–4章, 付録'],
+            ['技術力', '選択肢の確率によるVLM判定、独立速度ガード、Gazebo真値による独立監査、事前登録した閉ループ評価（結果あり：D・E・F・G・H'+('・J' if jload('j_summary.json') else '、実行中：J')+'）と未使用画像の評価（T1・T2・Z・P・R）、対比較の検定つきで弱点を段階的に改善', '2–4章, 付録'],
             ['実用性', 'オフライン・単一GPU・Apache-2.0、在庫と現物のずれへの対応、人への報告と判断の委譲、実写画像での限界の公開（誤警報）、Dockerで再現可能', '5–7章, 4.6章'],
             ['表現力', '実レンダリング映像にAR軌跡・確率バー・ロボットの報告を重ねた日本語ナレーション付き動画、全体フロー図、結果の表（区間推定・検定つき）', '7章, 付録J']]
     s += [P('審査基準との対応', 'h2'), table(crit, [18, 108, 48]), Spacer(1, 4)]

@@ -181,10 +181,11 @@ study R (main paper, Sec.~\ref{M-sec:res-r}) for every degradation and severity.
 \label{tab:i13dev}\resizebox{\linewidth}{!}{\input{tab_i13_dev.tex}}\end{table}
 
 \textbf{Campaign H, per-mission outcomes.} Fig.~\ref{fig:hout} shows every mission of campaign H (main paper, Sec.~\ref{M-sec:res-h}).
-\begin{figure}[t]\centering\fig{fig_h_outcomes.pdf}
+\begin{figure*}[t]\centering\fig{fig_h_outcomes.pdf}
 \caption{Campaign H, missions 2 and 3 of the 16 sequences. (a) Outcome of each mission under no memory (M0), naive memory (M1)
-and verified memory (M2); rows are sequences, grouped by scripted story (S1--S4). A failed mission is hatched. (b) Mission time of
-the missions whose relocation persisted, for each arm; lines join the M0 and M2 times of the same mission, bars mark medians.}\label{fig:hout}\end{figure}
+and verified memory (M2); rows are sequences, grouped by scripted story (S1--S4; definitions in the caption of Table~S8). No mission failed
+(the hatched ``failed'' category is empty). (b) Mission time of the eight missions whose relocation persisted, for each arm; grey lines join the
+M0 and M2 times of the same mission, bars mark medians. M1 times are short because M1 skips the checks.}\label{fig:hout}\end{figure*}
 
 \textbf{Campaign H, case study.} Fig.~\ref{fig:hcase} shows the one mission in which M0 delivered into a fire (sequence Q09, mission 3).
 \begin{figure}[t]\centering\fig{fig_h_case.pdf}
@@ -200,12 +201,17 @@ mission time under M0, M1 and M2.
 {\renewcommand{\thetable}{S8}% numbered after the registration table so that existing references stay valid
 \begin{table*}[t]\centering\caption{Campaign H, all paired missions (Seq = sequence.mission). Outcome and mission time:
 $\checkmark$ delivered, no unsafe delivery; $\times$ unsafe delivery; $\circ$ refused where no safe option existed; $\triangle$ refused
-although a safe option existed (false refusal); F mission failed. M2 source: first station taken from memory and/or
-caution applied to a station.}\label{tab:hseq}\scriptsize\resizebox{\linewidth}{!}{\input{tab_h_sequences.tex}}\end{table*}}
+although a safe option existed (false refusal); no mission failed. Transition: what changed since the previous mission. Stories
+(missions 1$\to$2$\to$3): S1 nominal, swapped, swapped; S2 swapped, swapped, nominal; S3 no fire, fire behind the requested station, fire;
+S4 fire, no fire, fire. M2 source: first station taken from memory and/or caution applied to a station.}\label{tab:hseq}\scriptsize\resizebox{\linewidth}{!}{\input{tab_h_sequences.tex}}\end{table*}}
 \addtocounter{table}{-1}
 
 \textbf{Repeated-mission model.} The model of repeated missions, with the per-check rates measured in G and H ($p_{\mathrm{det}}=\HModelPdet$,
 $n=\HModelPdetN$), is shown in Fig.~\ref{M-fig:hrate} of the main paper (Sec.~\ref{M-sec:res-h}); its curves are computed from measured rates, so their order is a model prediction, not an observation.
+The figure also shows a fourth policy, M1age, a naive memory that is trusted only while its entry is recent (recency-gated, without verification); it lies between M1 and M2 in unsafe deliveries. Over the whole range of change probabilities $q\in[0,0.5]$ the model finds no break-even point: M1 and M1age stay faster than M0,
+and M2 is faster than M0 at small $q$ and converges to it as $q$ grows, because M2 re-checks and so approaches the no-memory behaviour. At $q=\HModelQ$ per mission the unsafe deliveries per 100 missions are
+\HModelUnsafeone{} for M1, \HModelUnsafetwo{} for M2 and \HModelUnsafezero{} for M0, with mean mission times \HModelTimeone, \HModelTimetwo{} and \HModelTimezero\,s.
+Neither the single missed-fire delivery nor the 32 paired missions measure how often a real world changes; $q$ is a free parameter of the model.
 
 \section{Failure Analysis and Lessons}\label{sec:findings}
 Running the full stack on a GPU revealed problems that \NTests{} offline unit tests and mocked ROS runs had not.
