@@ -64,7 +64,7 @@ docker exec rm-dev rescuemind-entrypoint python3 scripts/make_demo_video.py --pl
 scripts/robust_devset_build.py, scripts/vlm_devset_eval.py, scripts/robust_devset_report.py, scripts/model_comparison_v35.sh, scripts/model_selection_table.py
 scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34   # held-out はチューニングに使わない
 ```
-デモ収録 run（`--film` 付き、動画で使用）：deliver `a93d6a9cc8704e6c`、recover `8b54abfb36454b27`、fire `a213a61bc53e4787`（`outputs/runs/` 内、Git管理外）。
+デモ収録 run（`--film` 付き。**旧版の動画の run。現行の動画の run は §5 を参照**）：deliver `a93d6a9cc8704e6c`、recover `8b54abfb36454b27`、fire `a213a61bc53e4787`（`outputs/runs/` 内、Git管理外）。
 
 ## 4. 落とし穴（実際に踏んだもの）
 
