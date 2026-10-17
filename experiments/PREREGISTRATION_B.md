@@ -1,6 +1,6 @@
 # Pre-registration — study B (I-24: does advice credit cap the price of a source that is wrong at every mission?), fixed before any B trial
 
-Status: DRAFT
+Status: REGISTERED 2026-10-18 (this commit; becomes binding on main with the integration merge, before the pilot and any B trial)
 
 DRAFT for review. It becomes the registration when the line above reads `Status: REGISTERED` and this file is committed on
 `main` together with the protocols, the advice files, `scripts/make_protocol_b.py` and `scripts/b_analysis.py`, before the
