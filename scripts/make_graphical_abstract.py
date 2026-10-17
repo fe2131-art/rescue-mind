@@ -93,7 +93,7 @@ T = {
   chips=[('在庫表 ≠ 現場', RED), ('危険は見えにくい', ORANGE), ('助言も当てにならない', PURPLE)],
   imgcap='Gazebo実レンダリング（俯瞰＋搭載カメラ）', solve='だから、確かめ、迷えば止まる',
   new_h='新：保証の機械検証と期間の上限',
-  new='命題2を実装で機械検証：z3 {u}件、{c}件で不一致{d}、バグ{k}/{m}検出。締めるだけが必要十分。嘘つきの代償 +{ln}→+{ly}秒（信用枠）{pend}',
+  new='命題2を実装で機械検証：z3 {u}件、{c}件で不一致{d}、バグ{k}/{m}検出。締めるだけが必要十分。嘘つきの代償 +{ln}→+{ly}秒（信用枠の合成モデル（記述）。閉ループ未確認）{pend}',
   mid_h='3つの工夫（上から順に積み上げる）',
   i1='その場で確かめ、迷えば止まる', i1d='選択式の質問と火の質問の確率を読み、全部そろったときだけ許可。迷えば拒否。',
   i2='横から見直す', i2d='正面で見落とす小さな火を、0.4 m 横へ動いて撮り直して見つける。',
@@ -103,7 +103,7 @@ T = {
   q1='質問1', q2='質問2（並べ替え）', qh='火・煙', concept='概念図', thr='閾値',
   ins=['記憶', '他のロボット', '依頼文の言葉', '在庫表'], adv='助言', adv2='提案だけ',
   ok_='順序を変える・判断を厳しくする', bad='確認を省く（禁止）',
-  naive='素朴に従う：危険な配達 {a}/{n}', ours='本方式：危険な配達 {b}/{n}',
+  naive='評価H の記憶（確認を省く設計）\n危険な配達 {a}/{n}', ours='評価H の検証つき記憶\n危険な配達 {b}/{n}（記憶なし {m0}/{n}）',
   res_h='主な結果（事前登録・実測）', pend='結果待ち',
   L=('L  未知の配置24通り', '{ok}/{n}', '期待どおり・危険な配達 {u}'),
   G=('G  横から見直し', '{b}/{n} → {c}/{n}', '火があるのに配達した数（p={p:.3f}）'),
@@ -128,7 +128,7 @@ T = {
   q1='Q1', q2='Q2 (permuted)', qh='fire / smoke', concept='schematic', thr='threshold',
   ins=['memory', 'other robots', 'operator words', 'inventory'], adv='advice', adv2='proposal only',
   ok_='reorder visits, tighten thresholds', bad='skip a check (forbidden)',
-  naive='naive follower: unsafe {a}/{n}', ours='ours: unsafe {b}/{n}',
+  naive='Study H, naive memory (skips checks)\nunsafe {a}/{n}', ours='Study H, verified memory\nunsafe {b}/{n} (no memory {m0}/{n})',
   res_h='Key results (pre-registered)', pend='pending',
   L=('L  24 unseen layouts', '{ok}/{n}', 'as expected; unsafe deliveries {u}'),
   G=('G  look again', '{b}/{n} → {c}/{n}', 'deliveries despite a fire (p={p:.3f})'),
@@ -243,7 +243,7 @@ def build(lang):
     iw_ = lx1 - lx0 - 56
     y = paras(d, (lx0 + 28, top + 74), t['prob'], font(38, True), iw_, tag='prob', lh=1.3)
     hero = Image.open(FIG / 'hero_gazebo.png').convert('RGB')
-    hw_ = int(iw_ * (0.66 if 'new' in t else 1.0))      # smaller picture: the bottom of the panel carries the new I-23 / I-24 results
+    hw_ = int(iw_ * (0.56 if 'new' in t else 1.0))      # smaller picture: the bottom of the panel carries the new I-23 / I-24 results
     hh = int(hw_ * hero.height / hero.width)
     y += 14 if 'new' in t else 18
     im.paste(hero.resize((hw_, hh), Image.LANCZOS), (lx0 + 28, y))
@@ -368,15 +368,16 @@ def build(lang):
     paras(d, (ox + 14, y0 + 94), t['bad'], font(21, True), ow - 70, RED, 1.25, tag='bad')
     cross(d, ox + ow - 34, y0 + 124)
     # contrast row: naive follower vs ours (study H, unsafe deliveries; the naive memory skips checks by design)
-    yc = ys[2] + hs[2] - 62
+    yc = ys[2] + hs[2] - 66
     if n['H']:
         hn = n['H']
         half = (cx1 - cx0 - 52 - 16) // 2
         for k, (key, col, val) in enumerate((('naive', RED, hn['naive']), ('ours', GREEN, hn['ours']))):
             xx = cx0 + 26 + k * (half + 16)
-            s = t[key].format(a=val, b=val, n=hn['n'])
-            card(d, (xx, yc, xx + half, yc + 46), fill=PALE[col], outline=col, r=14, w=3)
-            d.text((xx + half / 2, yc + 23), s, font=fit(d, s, 23, half - 24), fill=col, anchor='mm')
+            s = t[key].format(a=val, b=val, n=hn['n'], m0=hn['m0'])
+            card(d, (xx, yc, xx + half, yc + 54), fill=PALE[col], outline=col, r=14, w=3)
+            for li, ln_ in enumerate(s.split('\n')):
+                d.text((xx + half / 2, yc + 14 + 25 * li), ln_, font=fit(d, ln_, 20, half - 16), fill=col, anchor='mm')
     # ---- right: results
     rx0, rx1 = 1365, 1960
     d.text((rx0, top - 4), t['res_h'], font=fit(d, t['res_h'], 34, rx1 - rx0), fill=INK)

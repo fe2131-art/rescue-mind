@@ -163,16 +163,12 @@ def facts():
     # run counts and study counts
     a_n = len(json.loads((ROOT / 'experiments/campaign_a_protocol.json').read_text())['trials'])
     add('A closed-loop runs (protocol file)', str(a_n), [f'({a_n} closed-loop runs)', f'（{a_n}試行）'], [], [f'閉ループ{a_n}試行'], {})
-    n_stud = None
-    tab = read('docs/paper/tab_prereg.tex')
-    rows = [x for x in tab.splitlines() if x.count('&') >= 4 and not x.startswith('Study')]
-    if rows:
-        n_stud = sum(not x.startswith('C (v3.3)') for x in rows)
-        main_tex = read('docs/paper/main.tex')
-        m_ = re.search(r'\\newcommand\{\\NStudies\}\{(\d+)\}', main_tex)
-        add('registered studies (Table S9 rows, without C)', str(n_stud), [f'論文の{n_stud}研究'], [], [],
-            {})
-        F[-1]['extra'] = ('main.tex \\NStudies', m_.group(1) if m_ else None, str(n_stud))
+    sc = advice_numbers.study_counts()
+    if sc:
+        n_stud = sc['n']
+        add('studies (Table S9 rows, without C; same definition everywhere)', str(n_stud),
+            [f'論文の{n_stud}研究'], [], [f'研究 {n_stud} 本'],
+            {'NStudies': str(n_stud), 'NStudiesChecked': str(sc['ok']), 'NStudiesPending': str(sc['pending'])})
     # test functions: fresh static count against the generated file and every document
     import count_tests
     n_fresh = count_tests.static_count()
@@ -188,7 +184,7 @@ def forbidden():
     """Stale statements that must not survive in a document: (doc, regex, why)."""
     return [('readme', r'114 closed-loop|114試行|\(114 runs', 'study A has 226 runs'),
             ('report', r'114試行', 'study A has 226 runs'),
-            ('readme', r'全19研究', 'the audit covers the 21 studies of the paper'),
+            ('readme', r'全19研究|論文の21研究', 'the audit covers the 23 studies of the paper (B and IF included)'),
             ('readme', r'612件', 'test count is generated (test functions)'),
             ('report', r'単体テストも現在は', 'say "test functions" (static count)')]
 

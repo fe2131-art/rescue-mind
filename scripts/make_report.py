@@ -739,15 +739,18 @@ def sec_prereg(D, E):
              if jload('l_summary.json') else PEND],
             ['XD・X', '倉庫（4拠点）の画像と閉ループでも成り立つか', 'XD・X（草稿）', PEND_NOT_RUN],
             ['Q', '実物の写真（Commons 405枚）で物資の確認は通用するか', reg('Q'), PEND_NOT_RUN],
+            ['B', '助言の信用枠は、毎回嘘をつく情報源の代償を閉ループで抑えるか（機構の確認）', reg('B'), PEND if jload('b_summary.json') else PEND_NOT_RUN],
+            ['IF', '依頼文で、頼まれた物資をすり替えられるか（査読 R6 の P7）', reg('IF'), PEND if jload('if_summary.json') else PEND_NOT_RUN],
             ['K', '保証付きの閾値は既定の閾値より良いか', reg('K'),
              (f"T2の見逃し：既定 {kk['frozen']['heldout_miss']['k']}/{kk['frozen']['heldout_miss']['n']}、保証付き(α=0.05) "
               f"{kk['alphas']['0.05']['K_PAC']['heldout_miss']['k']}/{kk['frozen']['heldout_miss']['n']}、誤警報 "
               f"{kk['alphas']['0.05']['K_PAC']['heldout_false_alarm']['k']}/{kk['n_free']}") if kk else PEND]]
     return [KeepTogether([P('K. 事前登録した研究の一覧', 'h2'),
-            P('どの研究も、結果を見る前に条件・基準・解析を <font name="IPAexG">experiments/PREREGISTRATION_<記号>.md</font> に固定した。'
+            P(advice_numbers.study_phrase() + 'を、結果を見る前に条件・基準・解析を <font name="IPAexG">experiments/PREREGISTRATION_<記号>.md</font> に固定して進めた（初期の評価Cは別に数える）。'
               '失敗した試行も台帳に残している。'
-              + (' 「草稿」の研究（' + '・'.join(x for x in ('A', 'S', 'X', 'XD', 'Q') if reg_label(x) != x) + '）は、統合ブランチを main に統合するときに登録され、それまで試行は一つも走らせない。'
-                 if any(reg_label(x) != x for x in ('A', 'S', 'X', 'XD', 'Q')) else '')),
+              + (' 「草稿」の研究（' + '・'.join(x for x in ('A', 'S', 'X', 'XD', 'Q', 'B', 'IF') if reg_label(x) != x) + '）は、統合ブランチを main に統合するときに登録され、それまで試行は一つも走らせない'
+                 '（結果のある研究と同列の時系列監査はまだできない）。'
+                 if any(reg_label(x) != x for x in ('A', 'S', 'X', 'XD', 'Q', 'B', 'IF')) else '')),
             table(rows, [20, 66, 24, 64])]), Spacer(1, 4)]
 
 
@@ -1017,7 +1020,9 @@ def findings_mutants():
 
 
 def n_prereg():
-    return len(list((ROOT / 'experiments').glob('PREREGISTRATION_*.md')))
+    """Number of studies (the one definition: advice_numbers.study_counts; falls back to the registration files without C)."""
+    c = advice_numbers.study_counts()
+    return c['n'] if c else len(list((ROOT / 'experiments').glob('PREREGISTRATION_*.md'))) - 1
 
 
 def smt_line():
@@ -1114,7 +1119,7 @@ def story_criteria(E, V):
             ['創造性', '<b>「助言は締めるだけ」</b>：記憶・他のロボット・依頼文・在庫表を「助言」とし、確認の順番と慎重さしか変えられない設計。どんな助言でも危険な配達は確認自身の誤り以下。'
                        'もう一つは、見逃しを<b>賢くするのでなく動いて減らす</b>「横から見直す」。'
                        '助言の窓口が締めるだけであることは、安全の予算を守るための<b>必要十分条件</b>で、素朴な方式・フィルタ方式には上限が無い。', '3・4章'],
-            ['技術力', f'上の原理の<b>証明</b>（付録C）と、その<b>機械検証</b>（' + (smt_line() or 'z3') + '）、事前登録（{n_prereg()}件、失敗した主張も公開）、真値による独立監査、' + x_tech + f'。実際に動かして見つけた問題 {count_tests.n_findings()}件。', '2–4章、付録C・M'],
+            ['技術力', f'上の原理の<b>証明</b>（付録C）と、その<b>機械検証</b>（' + (smt_line() or 'z3') + '）、事前登録した' + advice_numbers.study_phrase() + '（失敗した主張も公開）、真値による独立監査、' + x_tech + f'。実際に動かして見つけた問題 {count_tests.n_findings()}件。', '2–4章、付録C・M'],
             ['実用性', '現場導入の手順書（半日、docs/DEPLOYMENT.md）、' + p2txt + '、運用者向けの<b>報告書の自動生成</b>（統合済み）、'
                        '実写に近い倉庫への改善（評価は実行予定）。オフライン・単一GPU。', '5章'],
             ['表現力', '日本語ナレーション付きの実レンダリング動画（倍速は画面に常時表示）、1ページ目の要約図、各アイデアに1枚の図。数値は結果ファイルから自動生成。', '1ページ目、7章']]

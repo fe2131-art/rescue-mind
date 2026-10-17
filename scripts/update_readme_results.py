@@ -439,17 +439,12 @@ def l_text():
 
 
 def audit_text():
-    f = ROOT / 'docs/paper/tab_prereg.tex'
-    if not f.is_file():
+    c = advice_numbers.study_counts()
+    if not c:
         return '登録コミットが結果コミットより前にあることを付録で監査'
-    rows = [x for x in f.read_text().splitlines() if x.count('&') >= 4 and not x.startswith('Study')]
-    n_studies = sum(not x.startswith('C (v3.3)') for x in rows)
-    ok = sum('checkmark' in x for x in rows)
-    same = sum('same commit' in x for x in rows)
-    pend = sum('pending' in x.split('&')[2] or 'pending' in x.split('&')[-1] for x in rows)
-    return (f'論文の{n_studies}研究（と初期の評価C）の登録時刻と最初の結果の時刻を、git の履歴から機械的に監査（`git merge-base --is-ancestor`）。'
-            f'結果のある研究のうち **{ok}件で登録コミットが結果コミットより前**（{same}件は同じコミットで順序を確認できない）、{pend}件は結果待ち'
-            f'（登録は統合ブランチの main への統合時。Q の設計は別ブランチで、統合まで「登録済み」とは書かない）')
+    return (f"論文の{c['n']}研究（と初期の評価C）の登録時刻と最初の結果の時刻を、git の履歴から機械的に監査（`git merge-base --is-ancestor`）。"
+            f"結果のある研究のうち **{c['ok']}件で登録コミットが結果コミットより前**{'（' + str(c['same']) + '件は同じコミットで順序を確認できない）' if c['same'] else ''}、{c['pending']}件は結果待ち"
+            f"（登録は統合ブランチの main への統合時。B・IF・Q など、統合ブランチにしか無い登録は、結果のある研究と同列には監査できていない。統合まで「登録済み」とは書かない）")
 
 
 def i23_text():
@@ -710,7 +705,7 @@ def section_en(e, v):
          "Memory (H) is the measured example; adversarial advice (A) is pending. "
          + en_new() + I22_EN + " The rule itself was tested against an independent reference implementation, mutation tests and fuzzing, which found real bugs (FINDINGS #24, #25). "
          "(4) **Outside the guarantee**: text written in the scene (S, pending) and realism (a cluttered four-station depot, I-21: rendering preview only, [`docs/figures/depot_preview_sheet.jpg`](docs/figures/depot_preview_sheet.jpg); XD/X pending) are measured, not claimed. "
-         "(5) **Honest limits** are listed below. All studies are pre-registered (`experiments/PREREGISTRATION_*.md`); every trial is audited against simulator ground truth and a ROS bag.",
+         "(5) **Honest limits** are listed below. " + advice_numbers.study_phrase_en() + " (`experiments/PREREGISTRATION_*.md`); every trial is audited against simulator ground truth and a ROS bag.",
          '', 'Rows are ordered by that chain: [1] check, [2] where the error lives and the threshold, [3] look again, [4] advice, [5] outside the guarantee, [6] tried and not adopted.',
          '', '| Study (pre-registered) | Result |', '|---|---|']
     if e:
