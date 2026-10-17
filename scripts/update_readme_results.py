@@ -373,8 +373,14 @@ def section_judge(e):
                      f"危険な配達は記憶なし {p3['unsafe_M0']}/{p3['n_pairs']}・記憶つき {p3['unsafe_M2']}/{p3['n_pairs']}（記憶つきの方が危険、とはならなかった）。物資が元に戻った出動では遠回りで遅くなる")
     except (TypeError, KeyError):
         lines.append(f'3. 出動をまたぐ記憶（評価H）：{PENDING}')
+    try:
+        mem_in_video = any('記憶' in c.get('title', '') for c in json.loads((ROOT / 'docs/video_chapters.json').read_text(encoding='utf8')))
+    except (OSError, ValueError):
+        mem_in_video = False
+    mem_txt = ('記憶のデモ（前回見た拠点へ直行し、着いたら必ず確かめる）も動画に入っている。数値は[結果](#結果)と説明資料で確認できる。' if mem_in_video
+               else '記憶の効果（上の3）は動画ではなく、このREADMEの[結果](#結果)と説明資料で確認できる。')
     lines += ['',
-              '**動画で見てほしい点**：「隠れた小さな火」のデモ（正面では見えない火を、横へ動いて撮り直して見つけて止まる）と、「取り違え」「欠品」のデモ（違えば別の拠点を探し、無ければ止まって日本語で報告する）。記憶の効果（上の3）は動画ではなく、このREADMEの[結果](#結果)と説明資料で確認できる。',
+              '**動画で見てほしい点**：「隠れた小さな火」のデモ（正面では見えない火を、横へ動いて撮り直して見つけて止まる）と、「取り違え」「欠品」のデモ（違えば別の拠点を探し、無ければ止まって日本語で報告する）。' + mem_txt,
               '',
               '用語は[結果](#結果)の冒頭に説明がある。版名（v3.4〜v3.6）は本システムの改良段階で、v3.6が提出版。']
     return '\n'.join(lines)
