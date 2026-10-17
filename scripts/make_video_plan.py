@@ -221,22 +221,22 @@ def evidence_card(seconds):
     v = jload(RES / 'v_summary.json')
     if v and v.get('complete'):
         a = v['arms']; d = v['V1_time_diff']
-        rows.append(['閉ループ V（ランダムな変化）', [f"予測 {d['pred']['p2.5']:.0f}〜{d['pred']['p97.5']:.0f}秒短縮 → 実測 {d['mean_M0_minus_M2_s']:.0f}秒・"
-                                                      f"危険 本方式{a['M2']['unsafe']}・記憶なし{a['M0']['unsafe']}（記憶の安全の主張は不成立）",
+        rows.append(['閉ループ V（ランダムな変化）', [f"{d['mean_M0_minus_M2_s']:.0f}秒短縮（予測{d['pred']['p2.5']:.0f}〜{d['pred']['p97.5']:.0f}）・"
+                                                      f"安全の主張は不成立（危険 {a['M2']['unsafe']}対{a['M0']['unsafe']}）",
                                                       G if v.get('claim_memory_under_random_change') else W]])
         say.append('ランダムな変化でも予測どおり速くなりましたが、安全の主張は示せず、そのまま報告します。')
     smt = jload(RES / 'smt_advice_proof.json')
     if smt:
         n_unsat = sum(1 for q in smt['proofs'] if q.get('result') == 'unsat')
         mut = smt.get('code_mutants') or []
-        rows.append(['機械検証（z3）', [f"「助言は締めるだけ」を実装で証明（{n_unsat}問）・注入したバグ {len(mut)}/{len(mut)} を検出", G]])
+        rows.append(['機械検証（z3）', [f"締めるだけを実装で証明・注入バグ {len(mut)}/{len(mut)} 検出", G]])
         say.append('助言は締めるだけ、を実装で機械的に証明。')
     pp = jload(RES / 'p_summary.json')
     if pp:
         p2 = jload(RES / 'p2_summary.json')
         if p2 and p2.get('chosen_test'):
             ct = p2['chosen_test']
-            rows.append(['実写 P・P2（D-Fire）', [f"較正なし 誤警報 {pp['false_alarm']['k']}/{pp['false_alarm']['n']} → 現場写真で較正後 検出 {ct['recall']['k']}/{ct['recall']['n']}・誤警報 {ct['false_alarm']['k']}/{ct['false_alarm']['n']}",
+            rows.append(['実写 P・P2（D-Fire）', [f"誤警報 {pp['false_alarm']['k']}→{ct['false_alarm']['k']}/{ct['false_alarm']['n']}（較正後・検出 {ct['recall']['k']}/{ct['recall']['n']}）",
                                                 G if p2.get('claim_supported') else W]])
             say.append('実写は較正で誤警報が減りました。')
         else:
