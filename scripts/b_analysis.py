@@ -143,7 +143,7 @@ def replay_credit(recs: list[dict], ledger_path: Path | None) -> dict:
                     got = (kept['sources'].get(key) or {})
                     if abs(got.get('loc', -1) - acc['loc']) > 1e-6 or abs(got.get('haz', -1) - acc['haz']) > 1e-6:
                         problems.append(f"final credit of {key}: file {got.get('loc')}/{got.get('haz')} != offline {acc['loc']}/{acc['haz']}")
-            elif kept['sources'].get('peer') and abs(kept['sources']['peer']['loc'] - led['sources'].get('peer', {}).get('loc', -1)) > 1e-6:
+            elif kept['sources'].get('file') and abs(kept['sources']['file']['loc'] - led['sources'].get('file', {}).get('loc', -1)) > 1e-6:
                 problems.append('final location credit of peer differs although the extra settlements carry no charge')
     out['problems'] = problems
     out['ok'] = not problems

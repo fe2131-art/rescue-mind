@@ -7,7 +7,7 @@ Drives the REAL rule (rescuemind.advice.plan through rescuemind.advice_credit.pl
 synthetic station outcomes.  Per-check behaviour and times come from campaigns G/H (h_change_rate.json) and study K
 (per-view false-alarm rate delta at the caution threshold).
 World per mission: k stations, one holds the requested supply (uniform); fire at that station with prob p_fire.
-Sources (one per run, channel 'peer'):
+Sources (one per run, the advice file, account 'file'):
   honest    : location advice always right (names the supply station)
   noisy     : right with prob 0.7, else a uniformly wrong station
   liar      : always names a wrong station
@@ -62,7 +62,7 @@ def run(source, k, credit, rates, delta, m=100, p_fire=0.2, seed=3, **params):
         elif source == 'liar':
             items = [{'source': 'peer', 'kind': 'location', 'station': rng.choice(wrong), 'text': ''}]
         elif source == 'farmer':
-            acc = led['sources'].get('peer') or {'loc': led['params']['c_loc']}
+            acc = led['sources'].get('file') or {'loc': led['params']['c_loc']}
             lie = acc['loc'] >= 1.0 if credit else True
             w = rng.choice(wrong)                      # drawn either way: keeps the world stream identical across arms
             items = [{'source': 'peer', 'kind': 'location', 'station': w if lie else true, 'text': ''}]

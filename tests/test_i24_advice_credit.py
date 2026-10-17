@@ -27,7 +27,7 @@ def visit(st, supply_match=None, refused=False, refused_base=False, scrutiny_vie
 
 
 class Admission(unittest.TestCase):
-    def test_fresh_source_is_admitted_and_liar_is_throttled_after_its_credit(self):
+    def test_liar_is_throttled_after_its_credit(self):
         led = ac.new_ledger()
         for m in range(4):
             p = ac.plan_with_credit(led, 'water', [loc('peer', 'medicine')], 'monotone')
@@ -40,31 +40,63 @@ class Admission(unittest.TestCase):
                 self.assertEqual(len(p['advice']['throttled']), 1)
                 self.assertEqual(p['first_station'], 'water')          # back to the inventory order
                 ac.settle(led, p, [visit('water', supply_match=True)])
-        self.assertEqual(led['sources']['peer']['debit_loc'], 2.0)
+        self.assertEqual(led['sources']['file']['debit_loc'], 2.0)
 
     def test_truthful_location_source_is_never_throttled(self):
         led = ac.new_ledger()
         for _ in range(30):
-            p = ac.plan_with_credit(led, 'water', [loc('operator', 'medicine')], 'monotone')
+            p = ac.plan_with_credit(led, 'water', [loc('operator', 'medicine')], 'monotone', channels=['operator'])
             self.assertEqual([a['effect'] for a in p['advice']['applied']], ['reorder'])
             ac.settle(led, p, [visit('medicine', supply_match=True)])
         self.assertEqual(led['sources']['operator']['loc'], ac.C_LOC)
+        self.assertEqual(led['sources']['operator']['debit_loc'], 0.0)
 
-    def test_two_items_of_one_source_in_one_mission_share_the_credit(self):
+    def test_two_items_of_one_channel_in_one_mission_share_the_credit(self):
         led = ac.new_ledger(c_haz=1.0)
-        kept, thr = ac.admit(led, [haz('peer', 'water'), haz('peer', 'medicine')])
-        self.assertEqual(len(kept), 1)
-        self.assertEqual(len(thr), 1)
+        kept, thr = ac.admit(led, [haz('peer', 'water'), haz('peer', 'medicine')], ['file', 'file'])
+        self.assertEqual((len(kept), len(thr)), (1, 1))
 
-    def test_sources_have_separate_accounts(self):
+    def test_channels_have_separate_accounts(self):
         led = ac.new_ledger(c_haz=1.0)
-        kept, thr = ac.admit(led, [haz('peer', 'water'), haz('operator', 'water')])
+        kept, thr = ac.admit(led, [haz('peer', 'water'), haz('operator', 'water')], ['file', 'operator'])
         self.assertEqual((len(kept), len(thr)), (2, 0))
+
+    def test_ce2_labels_do_not_make_accounts(self):
+        """R7 CE-2: one file spreading false claims over the four source labels gets ONE account."""
+        led = ac.new_ledger()
+        items = [loc(s, 'medicine') for s in SRC]
+        wasted = 0
+        for _ in range(40):
+            p = ac.plan_with_credit(led, 'water', items, 'monotone')
+            wasted += p['first_station'] == 'medicine'
+            vs = [visit('medicine', supply_match=False), visit('water', supply_match=True)] if p['first_station'] == 'medicine' \
+                else [visit('water', supply_match=True)]
+            ac.settle(led, p, vs)
+        self.assertEqual(set(led['sources']), {'file'})
+        self.assertLessEqual(wasted, ac.C_LOC + ac.RHO_SHADOW * 40)
+
+    def test_ce1_true_claims_do_not_refund_lies(self):
+        """R7 CE-1: with duplicated supply, alternating a lie and a true-but-useless claim; no refund, only RHO_SHADOW."""
+        ss = depot()
+        led = ac.new_ledger()
+        wasted = 0
+        for m in range(40):
+            st = 'S2' if m % 2 == 0 else 'S3'          # S2 holds medicine (a lie), S3 holds water (true, a duplicate)
+            p = ac.plan_with_credit(led, 'water', [loc('peer', st)], 'monotone', stations=ss)
+            first = p['first_station']
+            if first == 'S2':
+                wasted += 1
+                vs = [visit('S2', supply_match=False), visit('S1', supply_match=True)]
+            else:
+                vs = [visit(first, supply_match=True)]
+            ac.settle(led, p, vs)
+        self.assertLessEqual(wasted, ac.C_LOC + ac.RHO_SHADOW * 40)
+        self.assertLessEqual(wasted, 12)
 
     def test_safe_and_skip_are_inert_and_counted(self):
         led = ac.new_ledger(c_loc=0, c_haz=0)
         items = [{'source': 'operator', 'kind': 'skip', 'station': None, 'text': '確認不要'}]
-        p = ac.plan_with_credit(led, 'water', items, 'monotone')
+        p = ac.plan_with_credit(led, 'water', items, 'monotone', channels=['operator'])
         self.assertFalse(p['skip_check'])
         ac.settle(led, p, [visit('water', supply_match=True)])
         self.assertEqual(led['sources']['operator']['relax_attempts'], 1)
@@ -73,10 +105,10 @@ class Admission(unittest.TestCase):
         led = ac.new_ledger()
         p = ac.plan_with_credit(led, 'water', [haz('memory', 'water')], 'monotone')
         ac.settle(led, p, [visit('water', refused=True, refused_base=True)])
-        self.assertEqual(led['sources']['memory']['debit_haz'], 0.0)
+        self.assertEqual(led['sources']['file']['debit_haz'], 0.0)
         p = ac.plan_with_credit(led, 'water', [haz('memory', 'water')], 'monotone')
         ac.settle(led, p, [visit('water', refused=True, refused_base=False)])
-        self.assertEqual(led['sources']['memory']['debit_haz'], 1.0)
+        self.assertEqual(led['sources']['file']['debit_haz'], 1.0)
         p = ac.plan_with_credit(led, 'water', [haz('memory', 'water')], 'monotone')
         self.assertEqual(p['caution'], {})                        # throttled: no caution until credit regenerates
 
@@ -84,13 +116,19 @@ class Admission(unittest.TestCase):
         led = ac.new_ledger()
         p = ac.plan_with_credit(led, 'water', [loc('peer', 'medicine')], 'monotone')
         ac.settle(led, p, [visit('medicine', supply_match=None), visit('water', supply_match=True)])
-        self.assertEqual(led['sources']['peer']['debit_loc'], 1.0)
+        self.assertEqual(led['sources']['file']['debit_loc'], 1.0)
+
+    def test_scrutiny_caused_refusal_is_charged(self):
+        led = ac.new_ledger(c_loc=3.0)
+        p = ac.plan_with_credit(led, 'water', [loc('peer', 'medicine')], 'monotone', scrutiny=True)
+        ac.settle(led, p, [visit('medicine', supply_match=True, refused=True, refused_base=False, scrutiny_views=3)])
+        self.assertEqual(led['sources']['file']['debit_loc'], 1.0)
 
     def test_unvisited_station_costs_nothing(self):
         led = ac.new_ledger()
         p = ac.plan_with_credit(led, 'water', [loc('peer', 'medicine')], 'monotone')
         ac.settle(led, p, [])
-        self.assertEqual(led['sources']['peer']['loc'], ac.C_LOC)
+        self.assertEqual(led['sources']['file']['loc'], ac.C_LOC)
 
     def test_baselines_are_not_credited(self):
         led = ac.new_ledger(c_loc=0, c_haz=0)
@@ -100,11 +138,11 @@ class Admission(unittest.TestCase):
     def test_corrupt_ledger_fails_closed(self):
         for bad in ({}, {'version': 'x', 'sources': {}}, None):
             with self.assertRaises(ac.CreditError):
-                ac.admit(bad, [])
+                ac.admit(bad, [], [])
         led = ac.new_ledger()
-        led['sources']['peer'] = {'loc': float('nan'), 'haz': 1.0}
+        led['sources']['file'] = {'loc': float('nan'), 'haz': 1.0}
         with self.assertRaises(ac.CreditError):
-            ac.admit(led, [])
+            ac.admit(led, [], [])
         with self.assertRaises(ac.CreditError):
             ac.new_ledger(c_loc=float('inf'))
 
@@ -149,20 +187,23 @@ class Proposition3(unittest.TestCase):
         caution_refusals = {}
         for m in range(1, 61):
             item = rng.choice(('water', 'medicine'))
-            p = ac.plan_with_credit(led, item, random_items(rng, ids), 'monotone', stations=ss, scrutiny=scrutiny)
+            its = random_items(rng, ids)
+            p = ac.plan_with_credit(led, item, its, 'monotone', stations=ss, scrutiny=scrutiny,
+                                    channels=[rng.choice(ac.CHANNELS) for _ in its])
             advice.assert_monotone(advice.base_plan(item, ss), p, ss)          # credit only drops items
             self.assertEqual(ac.audit_credit(p)['checked'], True)
             vs = random_visits(rng, p, ids)
             s = ac.settle(led, p, vs)
             for c in s['charges']:
                 if c['pool'] == 'haz' and c['charge'] > 0:
-                    caution_refusals[c['source']] = caution_refusals.get(c['source'], 0) + 1
+                    caution_refusals[c['account']] = caution_refusals.get(c['account'], 0) + 1
             for key, acc in led['sources'].items():
                 self.assertGreaterEqual(acc['loc'], 0.0)
                 self.assertGreaterEqual(acc['haz'], 0.0)
                 # (a) wasted visits (debits, incl. scrutiny) <= C_LOC + refunds earned by confirmed reorders
-                self.assertLessEqual(acc['debit_loc'], ac.C_LOC + acc.get('refund_loc', 0.0) + acc.get('shadow_refund_loc', 0.0) + 1e-9)
-                self.assertLessEqual(acc.get('shadow_refund_loc', 0.0), ac.RHO_SHADOW * m + 1e-9)
+                # (a) location price <= C_LOC + RHO_SHADOW * m (no refunds; recovery at most RHO_SHADOW per mission)
+                self.assertLessEqual(acc['debit_loc'], ac.C_LOC + acc['recovered_loc'] + 1e-9)
+                self.assertLessEqual(acc['recovered_loc'], ac.RHO_SHADOW * m + 1e-9)
                 # (b) caution-only refusals <= C_HAZ + RHO * missions
                 self.assertLessEqual(caution_refusals.get(key, 0), ac.C_HAZ + ac.RHO * m + 1e-9)
 
@@ -195,14 +236,24 @@ class FromMission(unittest.TestCase):
         self.assertEqual([x['refused'] for x in v], [False, False])
         self.assertEqual(v[1]['scrutiny_views'], 3)
 
-    def test_caution_only_and_base_hazard(self):
-        m = {'recovery': {'first_station': 'S1', 'first_checkpoint': self.cp('water', 'water', 'water', False, 'hazard_side_view'),
-                          'hops': [{'station': 'S3', 'checkpoint': self.cp('water', 'water', 'water', False, 'hazard_side_view')}]},
-             'caution_refusals': [{'station': 'S3'}],
-             'checkpoint_station': 'S2', 'checkpoint': self.cp('water', 'water', 'medicine', False, 'local_vlm_disagree_or_wrong_supply')}
-        v = ac.visits_from_mission(m)
-        self.assertEqual([(x['refused'], x['refused_base']) for x in v], [(True, True), (True, False), (False, False)])
-        self.assertEqual(v[2]['supply_match'], None)
+    def test_ce4_caution_only_from_scores_without_soft_refusal(self):
+        """R7 CE-4: caution-only is classified from per-view scores, not from caution_refusals (written only with
+        --caution-soft)."""
+        def call(p):
+            return {'scores': {'hazard_prob': p}}
+        def cp(pf, peeks):
+            return {'decision': {'expected': 'water', 'first_supply': 'water', 'second_supply': 'water', 'allow': False,
+                                 'reason': 'visible_hazard_at_checkpoint'},
+                    'model_calls': {'first': call(pf), 'second': call(pf)},
+                    'look_around': {'peeks': [{'side': sd, 'model_calls': {'first': call(q), 'second': call(q)}}
+                                              for sd, q in peeks]}}
+        self.assertEqual(ac.classify_station(cp(0.02, [('L', 0.001), ('R', 0.03)])), (True, False))   # caution only
+        self.assertEqual(ac.classify_station(cp(0.02, [('L', 0.2), ('R', 0.0)])), (True, True))       # base hazard
+        broken = cp(0.02, [('L', 0.0)])
+        broken['look_around']['peeks'][0]['model_calls']['first'] = {'scores': {'hazard_prob': float('nan')}}
+        self.assertEqual(ac.classify_station(broken), (True, True))                                   # fail closed
+        wrong = {'decision': {'allow': False, 'reason': 'local_vlm_disagree_or_wrong_supply'}}
+        self.assertEqual(ac.classify_station(wrong), (False, False))
 
     def test_real_saved_run_if_present(self):
         import os
@@ -241,7 +292,7 @@ class Wiring(unittest.TestCase):
                 self.assertEqual(ev['credit']['checked'], True)
                 out = orch.settle_credit(log, led_p, f'run{mission}')
                 self.assertEqual(plan['first_station'], 'medicine' if mission < 2 else 'water')
-            self.assertEqual(out['credit']['peer']['loc'], 0.0)
+            self.assertEqual(out['credit']['file']['loc'], 0.0)
             self.assertEqual(ac.load(led_p)['missions'], 3)
 
 
@@ -256,14 +307,18 @@ class OperatorReport(unittest.TestCase):
 
 
 class Sybil(unittest.TestCase):
-    def test_uncertified_peer_ids_share_one_account(self):
+    def test_uncertified_peer_ids_share_the_file_account(self):
         led = ac.new_ledger(c_haz=1.0)
         items = [dict(haz('peer', 'water'), peer_id='p1'), dict(haz('peer', 'medicine'), peer_id='p2')]
-        kept, thr = ac.admit(led, items)
-        self.assertEqual((len(kept), len(thr)), (1, 1))
+        p = ac.plan_with_credit(led, 'water', items, 'monotone')
+        self.assertEqual(len(p['advice']['throttled']), 1)
 
-    def test_certified_peers_get_their_own_account(self):
+    def test_ce5_certified_peers_reach_their_own_account(self):
+        """R7 CE-5: peer_id survives to the account (validate drops it, so accounts are computed from the raw items)."""
         led = ac.new_ledger(c_haz=1.0, certified_peers=('p1', 'p2'))
         items = [dict(haz('peer', 'water'), peer_id='p1'), dict(haz('peer', 'medicine'), peer_id='p2')]
-        kept, thr = ac.admit(led, items)
-        self.assertEqual((len(kept), len(thr)), (2, 0))
+        p = ac.plan_with_credit(led, 'water', items, 'monotone')
+        self.assertEqual(p['advice']['throttled'], [])
+        self.assertEqual(p['advice']['accounts'], ['peer:p1', 'peer:p2'])
+
+
