@@ -76,10 +76,9 @@ Physical AI 応用1講座 最終課題 ｜ ROS 2 Jazzy × Gazebo Harmonic × ロ
 | P: real photos (D-Fire, 400) | fire/smoke detected 298/300; false alarms on fire-free photos 64/100 |
 | K: conformal threshold (stored scores, offline) | on unseen T2 (76 fires, 193 fire-free must-approve): frozen tau=0.05 misses 0/76, false alarms 0/193; calibrated alpha=0.05 (tau=0.005) misses 0/76, false alarms 26/193; alpha=0.10 (tau=0.0113) 0/76, 4/193. No threshold misses a T2 fire (a ceiling, so no difference is shown); the calibrated ones only add false alarms (T2 fires are easier: small fires 6.6% vs. 27% in calibration). K was registered after the T2 scores existed (scores were not re-tuned) |
 | H: cross-mission memory | median mission time, no memory vs. verified memory: 114 s vs. 79 s on the 8 pairs whose supplies stayed relocated (paired difference -34.68 s); when supplies were moved back, verified memory was slower, paying for a detour (113 s vs. 97 s); overall median 83 s vs. 73 s. Unsafe deliveries: naive memory (skips checks by design) 20/32 vs. verified memory 0/32 shows what skipping costs; the comparison that matters is no memory 1/32 vs. verified memory 0/32 (not less safe). Memory caution (tau_h=0.01) applied in 12 of 32 verified-memory missions, only 4 of them at a fire-free station (false refusals 0/4, Wilson upper bound 49%), so its cost is not established |
+| J: two-model check | expected 23/24 (single model 24/24); unsafe deliveries 1 (single model 0); failed runs 0 |
 | V: model vs. closed loop (random change) | pre-registered, running |
 | W: small hidden fires and prior-art baselines | pre-registered, not yet run |
-
-Campaigns J: pre-registered, running.
 
 **Limitations.** Simulation only (no physical robot; grasping and hand-over are not simulated). On real photos the hazard question raises false alarms on 64/100 fire-free images, so a per-site calibration is needed (false alarms only stop the robot; they never cause a delivery). The two models of the two-model check share a lineage (Clef-Flash is a fine-tune of Qwen3.5-9B), so their failures can be correlated.
 
@@ -106,7 +105,7 @@ Campaigns J: pre-registered, running.
 | 評価R（カメラの劣化） | 未使用T2の30世界に、ノイズ・ぼけ・露出・JPEG の12条件を加えて再評価 | 全条件をまとめた誤許可 **0/2304**（Wilson 95%CI 0.0%〜0.2%、「劣化に対して安全側」を支持）、最悪条件（overexposure_S）でも誤許可は増えず、代償は可用性：正しい許可 59/108（54.6%、うち品質ゲート棄却 24）、清浄画像では 107/108 |
 | 評価K（保証付きの閾値） | 火の見逃し率の上限αを保証するように、閾値を開発データ（火211枚）から決める方法（適合予測）。保存済みスコアの再解析 | 未使用T2（火76枚・火の無い必須許可193枚）：既定の0.05は見逃し 0/76・誤警報 0/193。保証付き α=0.05（τ=0.005）は見逃し 0/76・誤警報 26/193、α=0.10（τ=0.0113）は 0/76・4/193で、誤警報が増えるだけ（T2の小さな火は6.6%、開発データは27%で分布が違う）。開発データでの既定の見逃しは 23/211。**注意：Kは T2 のスコアが既にある状態で登録した（スコアは調整し直していない）** |
 | 評価H（出動をまたぐ記憶） | 前回の物資の場所を「先に行く拠点」の提案だけに使う。記憶なし・素朴な記憶・検証つき記憶を対比較 | 所要時間の中央値は、置き場所が変わったままの出動（8対）で 記憶なし 114 秒 → 検証つき記憶 79 秒（対ごとの差の中央値 -34.68 秒、Wilcoxon正確検定 p=0.00781）。置き場所が元に戻った出動では、記憶の提案先に寄ってから探すため検証つき記憶の方が遅い（113 秒 対 記憶なし 97 秒）。全体の中央値は 83 → 73 秒。比較対象の素朴な記憶は確認を省く方式なので、危険な配達 20/32 対 検証つき記憶 0/32は、確認を省く代償を示すもの（設計上の帰結）。安全面で意味のある比較は 記憶なし 1/32 対 検証つき記憶 0/32 で、検証つき記憶は記憶なしより危険ではない（追加リスクなし。1件対0件のため「より安全」とは言わない）。記憶による慎重さ（τ_h=0.01）が使われたのは検証つき記憶の32出動中 12 出動で、火のない拠点はそのうち 4 出動だけ（誤拒否 0/4、Wilson上限 49%）なので、慎重さの費用はまだ確立していない |
-| 評価J（2つのAI） | Jev役 Clef-Flash＋Qwen の2モデル確認を閉ループで、v3.6単独と対比較 | 実行中（事前登録済み） |
+| 評価J（2つのAI） | Jev役 Clef-Flash＋Qwen の2モデル確認を閉ループで、v3.6単独と対比較 | 2つのAI構成 23/24 期待どおり（v3.6単独 24/24）、危険な配達は 2つのAI構成 1件・v3.6単独 0件、2つのAI構成の実行失敗 0件 |
 | 評価V（ランダムな変化での予測検証） | 出動ごとに世界がランダムに変わる10系列×6出動で、事前登録した予測区間と実測を比較 | 実行中（事前登録済み） |
 | 評価W（小さく隠れた火の見逃しと先行手法） | 画像レベル：正面のみ対見回し（150火世界＋75双子）、VAP-TAMP風の投票・KnowNo風の共形集合との誤許可の比較 | 実行中（事前登録済み） |
 

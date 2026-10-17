@@ -263,7 +263,11 @@ def number_lines(res):
 
 
 # ------------------------------------------------------------------ documents
-def build_description(chapters, res):
+DROP_ORDER = ('（T2）', 'ゼロショット', '劣化', '（T1）')     # detail lines dropped first when over YouTube's 5000 bytes
+LIMIT = 4950
+
+
+def build_description(chapters, res, _nums=None):
     facts = video_facts(chapters)
     head = (f"**ファイル**：`{VIDEO_FILE}`（1920×1080, 30fps, 約{facts['length_ja']}"
             f"（`docs/video_chapters.json` の終端 {facts['total_s']:g} 秒）、日本語ナレーション付き）")
@@ -277,7 +281,7 @@ def build_description(chapters, res):
         '※ 「届ける」は、現物確認して避難所Bへ向かう（接近する）ところまで。物資の把持・荷降ろしはシミュレーションしていません。']
     paras[-1] = paras[-1].replace('\n\n自然な言い回し', '\n\n' + '\n'.join(headline_block(res)) + '\n\n【動画で見てほしい点】「隠れた小さな火」のデモ（正面では見えない火を、横へ動いて撮り直して見つけて止まる）と、「取り違え」「欠品」のデモ（違えば別の拠点を探し、無ければ止まって日本語で報告する）。\n\n自然な言い回し', 1)
     blocks = [x for x in (demo_sentence(facts), speed_sentence(facts)) if x]
-    nums = number_lines(res)
+    nums = number_lines(res) if _nums is None else _nums
     if nums:
         blocks.append('詳しい結果（事前登録＝結果を見る前に条件を固定。v3.4〜v3.6＝システムの版名（v3.6が提出版）。誤許可＝届けてはいけない場面で「よい」と判断すること）：\n' + '\n'.join(nums))
     blocks.append('コード：https://github.com/fe2131-art/rescue-mind\nナレーション：VOICEVOX:四国めたん')
@@ -289,7 +293,16 @@ def build_description(chapters, res):
                  '- 「インスタントプレミアム公開」→ チェックしない\n'
                  '- 予約公開の場合は締切（2026-11-02 10:00）までの日時を設定\n'
                  '- 採点完了まで削除・非公開にしない')
-    return '\n\n'.join(paras) + '\n', facts
+    out = '\n\n'.join(paras) + '\n'
+    body = out.split('## 概要欄\n', 1)[1].split('\n\n## 公開設定', 1)[0]
+    if len(body.encode('utf8')) > LIMIT and nums:
+        for key in DROP_ORDER:
+            keep = [x for x in nums if key not in x]
+            if len(keep) < len(nums):
+                if not any('README' in x for x in keep):
+                    keep.append('・ほかの結果（画像テスト・劣化・比較手法など）は README と説明資料に掲載')
+                return build_description(chapters, res, keep)
+    return out, facts
 
 
 def build_submission_block(facts):
