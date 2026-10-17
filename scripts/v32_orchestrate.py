@@ -209,25 +209,25 @@ def main(argv=None):
                    help='single=Qwen2.5-VL-3B twice; dual=Qwen2.5-VL-3B + SmolVLM2-2.2B')
     p.add_argument('--gz-mode', choices=['auto', 'headless', 'gui'], default='auto',
                    help='auto=GUI when DISPLAY is set, otherwise server-only headless EGL rendering')
-    p.add_argument('--recovery', action='store_true', help='I-02: search the other station if the supply is wrong/missing')
-    p.add_argument('--explain', action='store_true', help='I-03: Japanese one-sentence report after each checkpoint')
-    p.add_argument('--prompt-set', choices=['v33', 'v34', 'v35'], default='v33', help='VLM checkpoint prompts (v34 = I-05)')
-    p.add_argument('--model', default=None, help='local VLM model id (I-08); default Qwen2.5-VL-3B')
-    p.add_argument('--intent-backend', choices=['tfidf', 'llm'], default='tfidf', help='I-04 instruction parser')
-    p.add_argument('--intent-prompt', choices=['i34', 'i35', 'i36', 'i37'], default='i34')
-    p.add_argument('--hazard-threshold', type=float, default=0.5,
+    p.add_argument('--recovery', action=argparse.BooleanOptionalAction, default=True, help='I-02: search the other station if the supply is wrong/missing (v3.6 default on)')
+    p.add_argument('--explain', action=argparse.BooleanOptionalAction, default=True, help='I-03: Japanese one-sentence report after each checkpoint (v3.6 default on)')
+    p.add_argument('--prompt-set', choices=['v33', 'v34', 'v35'], default='v35', help='VLM checkpoint prompts (v34 = I-05)')
+    p.add_argument('--model', default='Qwen/Qwen3.5-9B', help='local VLM model id (I-08)')
+    p.add_argument('--intent-backend', choices=['tfidf', 'llm'], default='llm', help='I-04 instruction parser')
+    p.add_argument('--intent-prompt', choices=['i34', 'i35', 'i36', 'i37'], default='i35')
+    p.add_argument('--hazard-threshold', type=float, default=0.05,
                    help='I-10: VLM p(fire/smoke) at or above which the checkpoint refuses (v3.5: 0.05)')
     p.add_argument('--dds-mode', choices=['default', 'async', 'best_effort'], default='async',
                    help='I-12 (v3.5 default: async): default = reliable control topics, synchronous Fast DDS publication; '
                         'async = RMW_FASTRTPS_PUBLICATION_MODE=ASYNCHRONOUS for the whole stack; '
                         'best_effort = best-effort request/heartbeat topics')
-    p.add_argument('--look-around', type=float, default=0.0,
+    p.add_argument('--look-around', type=float, default=0.4,
                    help='I-14: after an approval, look again from this far (m) left and right of the station')
     p.add_argument('--jev-local', choices=['off', 'clef'], default='off',
                    help='I-13: add the Jev-role model (Clef-Flash, local) - both models must approve')
     p.add_argument('--jev-hazard-threshold', type=float, default=.35)
-    p.add_argument('--hazard-views', choices=['full', 'tiles'], default='full', help='I-11: hazard question on crops too')
-    p.add_argument('--hazard-prompt', choices=['h35', 'h36'], default='h35', help='I-11: hazard question wording')
+    p.add_argument('--hazard-views', choices=['full', 'tiles'], default='tiles', help='I-11: hazard question on crops too')
+    p.add_argument('--hazard-prompt', choices=['h35', 'h36'], default='h36', help='I-11: hazard question wording')
     p.add_argument('--inject-warmup-stall', type=float, default=0.0, help='I-09 fault injection (A/B tests only)')
     p.add_argument('--describe-prompt', choices=['e0', 'e1', 'e2'], default='e0')
     p.add_argument('--lighting', choices=['default', 'dim_evening', 'harsh_noon'], default='default')
