@@ -848,7 +848,7 @@ def section_en(e, v):
           'The two-model check (J) was not adopted: it was not safer than one model, and its models share a lineage (Clef-Flash is a fine-tune of Qwen3.5-9B), so their failures can be correlated. '
           'The registered T1 claim of fewer than 2% false approvals was not supported. 8-16 pairs per closed-loop study is small, and campaign H scripts its world changes.',
           '', '**Read more.** Paper: [`docs/paper/main.pdf`](docs/paper/main.pdf) / supplement: [`docs/paper/supplement.pdf`](docs/paper/supplement.pdf) / '
-          '[`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md) / pre-registrations: [`experiments/PREREGISTRATION_*.md`](experiments/) '
+          '[`docs/REPRODUCE.md`](docs/REPRODUCE.md) (reproduce in three tiers: no GPU / GPU images / closed loop; `make reproduce-help`) / [`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md) / pre-registrations: [`experiments/PREREGISTRATION_*.md`](experiments/) '
           '(e.g. [E](experiments/PREREGISTRATION_E.md), [G](experiments/PREREGISTRATION_G.md), [H](experiments/PREREGISTRATION_H.md), [J](experiments/PREREGISTRATION_J.md)).']
     return '\n'.join(L)
 
