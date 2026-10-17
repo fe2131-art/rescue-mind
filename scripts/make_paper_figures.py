@@ -40,8 +40,12 @@ def fig_system():
     sim, ai, safe, ev = ('#f4f1ea', GREY), ('#fdf1e6', ORANGE), ('#eaf5ee', GREEN), ('#f2f2f2', GREY)
     box(ax, 0.0, 0.55, 0.14, 0.42, 'Gazebo Harmonic', 'differential-drive robot,\n2D lidar, mast camera', *sim, fs=5.8, sfs=4.7)
     box(ax, 0.18, 0.55, 0.14, 0.42, 'ros_gz_bridge', '/odom /scan /camera\n/clock /ground_truth/odom', *sim, fs=5.8, sfs=4.7)
-    box(ax, 0.37, 0.55, 0.19, 0.42, 'Mission node', 'parse request, drive, stop,\ncheck, then deliver /\nsearch other station / stop', fs=5.8, sfs=4.7)
-    box(ax, 0.655, 0.55, 0.16, 0.42, 'Local VLM server', 'Qwen3.5-9B, FP16, V100\nloopback HTTP only\nanswer-letter scoring', *ai, fs=5.8, sfs=4.7)
+    box(ax, 0.37, 0.55, 0.19, 0.42, 'Mission node', 'parse request, drive, stop,\ncheck + look from both sides,\nthen deliver / search / stop', fs=5.8, sfs=4.7)
+    box(ax, 0.0, 0.03, 0.14, 0.38, 'Mission memory', 'what the robot saw before;\nmay reorder stations and\ntighten tau_h, never skip', '#eef0fb', '#5b5fc7', fs=5.8, sfs=4.4)
+    ax.plot([0.07, 0.07, 0.40], [0.41, 0.48, 0.48], lw=0.7, color='#5b5fc7')
+    arrow(ax, (0.40, 0.48), (0.40, 0.55), '', color='#5b5fc7')
+    ax.text(0.15, 0.495, 'plan / observations', fontsize=4.8, color='#5b5fc7', ha='left', va='bottom')
+    box(ax, 0.655, 0.55, 0.16, 0.42, 'Local VLM server(s)', 'Qwen3.5-9B (FP16, V100);\nopt. Qwen3.5-4B + Clef-Flash\nin the Jev role (both approve)\nloopback HTTP only', *ai, fs=5.8, sfs=4.4)
     box(ax, 0.37, 0.03, 0.19, 0.38, 'Velocity guard', 'sole /cmd_vel publisher; zero\non stale sensors, obstacle,\nstale request', *safe, fs=5.8, sfs=4.7)
     box(ax, 0.18, 0.03, 0.14, 0.38, 'Graph watcher', 'e-stop if another\n/cmd_vel publisher\nappears', *safe, fs=5.8, sfs=4.7)
     box(ax, 0.655, 0.03, 0.16, 0.38, 'Recorder, ROS bag', 'ground-truth odometry,\n/cmd_vel, sensors (MCAP)', *ev, fs=5.8, sfs=4.7)
@@ -149,8 +153,29 @@ def fig_e_trajectories():
     plt.close(fig)
 
 
+def fig_lookaround(run='9d73663832c94f16'):
+    """Front vs left side view of one v3.6 demo mission (campaign G world W03): the front check approved, the side view refused."""
+    import json
+    from PIL import Image
+    d = ROOT / 'outputs/runs' / run
+    if not (d / 'peek_L_checkpoint.jpg').is_file():
+        print('fig_lookaround: run not available, keeping the existing figure'); return
+    m = json.loads((d / 'mission.json').read_text())
+    ph_front = m['checkpoint']['model_calls']['first']['scores']['hazard_prob']
+    pk = m['look_around']['peeks'][0]
+    ph_side = pk['model_calls']['first']['scores']['hazard_prob']
+    fig, ax = plt.subplots(1, 2, figsize=(3.45, 1.32))
+    for a, f, t in ((ax[0], 'checkpoint.jpg', f'front: $p_h$={ph_front:.3f} < 0.05 (approve)'),
+                    (ax[1], 'peek_L_checkpoint.jpg', f'0.4 m left: $p_h$={ph_side:.2f} (refuse)')):
+        a.imshow(Image.open(d / f)); a.set_title(t, fontsize=5.6, pad=2); a.axis('off')
+    fig.tight_layout(pad=0.2, w_pad=0.4)
+    fig.savefig(OUT / 'fig_lookaround.pdf', bbox_inches='tight', pad_inches=0.01, dpi=220)
+    plt.close(fig)
+
+
 if __name__ == '__main__':
     OUT.mkdir(parents=True, exist_ok=True)
+    fig_lookaround()
     fig_system()
     fig_risk_coverage()
     fig_t1_examples()
