@@ -475,7 +475,7 @@ class FakeGuardNode:
         return P()
     def create_subscription(self, cls, topic, fn, qos): self.subs[topic] = fn
     def create_timer(self, period, fn): self.timers.append(fn)
-    def get_logger(self): return NS(info=lambda *a: None, error=lambda *a: None)
+    def get_logger(self): return NS(info=lambda *a: None, error=lambda *a: None, warning=lambda *a: None)
     def destroy_node(self): pass
 
 
@@ -487,6 +487,7 @@ class StubRelay:
     """Replaces the sensor-checking VelocityRelay: always ready, forwards the last request."""
     def __init__(self, **kw): self.last = (0., 0.); self.latched = None
     def request(self, lin, ang, now): self.last = (lin, ang)
+    def odometry(self, now, msg=None): pass
     def decide(self, now): return NS(ready=True, linear=self.last[0], angular=self.last[1], reason='command_fresh', )
 
 
@@ -664,6 +665,240 @@ class Flags(unittest.TestCase):
         src = (ROOT / 'scripts/run_campaign.py').read_text()
         self.assertIn("trial.get('delivery_interlock')", src)
         self.assertIn("'--delivery-interlock'", src)
+
+
+# --- the guard-side shelter geofence (the claimed phase is no longer trusted) ---------------------------------------------
+
+import math  # noqa: E402
+
+WP_FILE = ROOT / 'configs/gazebo_waypoints.json'
+B_WP = (2.15, -1.12)
+
+
+def odom(x, y, yaw=0.):
+    return NS(pose=NS(pose=NS(position=NS(x=x, y=y, z=0.),
+                              orientation=NS(x=0., y=0., z=math.sin(yaw / 2), w=math.cos(yaw / 2)))))
+
+
+class GeofenceGate(unittest.TestCase):
+    RAW = 'record-text'
+
+    def gate(self, **kw):
+        return dp.PermitGate(key=KEY, fence=dp.ShelterGeofence.from_waypoints_file(WP_FILE, **kw))
+
+    def permit(self, g, now):
+        g.on_record(self.RAW)
+        g.on_permit(dp.make_permit(dp.record_hash(self.RAW), RUN, 'water', now, 4., KEY))
+
+    def test_centre_comes_from_the_waypoints_file(self):
+        self.assertEqual(dp.load_geofence_centre(WP_FILE), B_WP)
+
+    def test_spoofed_search_phase_driving_into_the_fence_is_stopped(self):
+        g = self.gate(); g.on_record(self.RAW)
+        g.on_phase('search', 10.); g.on_odom(1.3, -1.12, 0., 10.)          # 0.85 m short of B, heading at it
+        self.assertEqual(g.filter(.19, 0., 10.2), (0.19, 0., None))         # horizon still short of the disc: passes
+        g.on_odom(1.55, -1.12, 0., 10.3)                                    # 0.6 m away, 0.19 m/s x 1 s reaches 0.41 m
+        g.on_phase('search', 10.3)
+        self.assertEqual(g.filter(.19, 0., 10.3), (0., 0., 'delivery_interlock_geofence_malformed_permit'))
+
+    def test_without_a_record_the_reason_is_no_record(self):
+        g = self.gate(); g.on_phase('search', 10.); g.on_odom(2.0, -1.12, 0., 10.)
+        self.assertEqual(g.filter(.19, 0., 10.1)[2], 'delivery_interlock_geofence_no_record')
+
+    def test_valid_permit_forwards_inside_the_fence(self):
+        g = self.gate(); self.permit(g, 10.)
+        g.on_phase('search', 10.); g.on_odom(2.1, -1.12, 0., 10.)           # inside the disc
+        self.assertEqual(g.filter(.19, .1, 10.2), (0.19, .1, None))
+
+    def test_permit_for_another_record_does_not_open_the_fence(self):
+        g = self.gate(); g.on_record(self.RAW)
+        g.on_permit(dp.make_permit(dp.record_hash('other'), RUN, 'water', 10., 4., KEY))
+        g.on_phase('search', 10.); g.on_odom(2.1, -1.12, 0., 10.)
+        self.assertEqual(g.filter(.19, 0., 10.1)[2], 'delivery_interlock_geofence_record_mismatch')
+
+    def test_zero_is_always_forwarded_inside_the_fence(self):
+        g = self.gate(); g.on_phase('search', 10.); g.on_odom(2.1, -1.12, 0., 10.)
+        self.assertEqual(g.filter(0., 0., 10.1), (0., 0., None))
+
+    def test_approach_from_outside_without_permit_stops_at_the_boundary(self):
+        g = self.gate(); g.on_record(self.RAW)
+        x, y, th, t = 0.2, -1.12, 0., 10.
+        for _ in range(400):                                # 0.1 s ticks, the robot executes what the guard passes
+            g.on_phase('search', t); g.on_odom(x, y, th, t)
+            lin, ang, _why = g.filter(.19, 0., t)
+            x += lin * math.cos(th) * .1; th += ang * .1
+            t += .1
+        d = math.dist((x, y), B_WP)
+        self.assertGreater(d, dp.GEOFENCE_RADIUS_M)                            # never entered
+        self.assertLess(d, dp.GEOFENCE_RADIUS_M + dp.GEOFENCE_HORIZON_S * .19 + .02)   # and stopped at the boundary
+
+    def test_approach_with_a_permit_reaches_the_shelter_waypoint(self):
+        g = self.gate()
+        x, y, th, t = 0.2, -1.12, 0., 10.
+        for _ in range(300):
+            self.permit(g, t)
+            g.on_phase('search', t); g.on_odom(x, y, th, t)
+            lin, ang, _ = g.filter(.19 if math.dist((x, y), B_WP) > .23 else 0., 0., t)    # the controller stops at its tolerance
+            x += lin * math.cos(th) * .1; t += .1
+        self.assertLess(math.dist((x, y), B_WP), .24)
+
+    def test_driving_elsewhere_with_search_phase_is_untouched(self):
+        g = self.gate(); g.on_phase('search', 10.)
+        for pose in ((0., 0., 0.), (1.18, 1.13, 1.), (-1.16, 1.1, 3.), (1.6, -1.12, math.pi)):   # last: heading away
+            g.on_odom(*pose, 10.)
+            self.assertEqual(g.filter(.19, .2, 10.1)[2], None, pose)
+
+    def test_deliver_phase_needs_a_permit_anywhere(self):
+        g = self.gate(); g.on_record(self.RAW); g.on_phase('deliver', 10.); g.on_odom(0., 0., 0., 10.)
+        self.assertEqual(g.filter(.19, 0., 10.1), (0., 0., 'delivery_interlock_malformed_permit'))
+        self.permit(g, 10.)
+        self.assertEqual(g.filter(.19, 0., 10.1)[2], None)
+
+    def test_missing_stale_or_garbage_odometry_fails_closed(self):
+        g = self.gate(); g.on_record(self.RAW); g.on_phase('search', 10.)
+        self.assertEqual(g.filter(.19, 0., 10.)[:2], (0., 0.))                     # no odometry yet
+        g.on_odom(0., 0., 0., 10.); g.on_phase('search', 11.5)
+        self.assertEqual(g.filter(.19, 0., 11.6)[:2], (0., 0.))                    # odometry 1.6 s old
+        g.on_odom(float('nan'), 0., 0., 11.6); g.on_phase('search', 11.6)
+        self.assertEqual(g.filter(.19, 0., 11.7)[:2], (0., 0.))                    # NaN never replaces a pose
+        g.on_odom(0., 0., 0., 11.65)
+        self.assertEqual(g.filter(float('nan'), 0., 11.7)[:2], (0., 0.))           # garbage command
+        self.assertEqual(g.filter(.19, 0., 11.7)[2], None)                         # healthy again
+
+    def test_default_off_is_unchanged(self):
+        g = dp.PermitGate(key=KEY)                                                 # no fence: phase rule only
+        g.on_phase('search', 10.); g.on_odom(2.1, -1.12, 0., 10.)
+        self.assertEqual(g.filter(.19, 0., 10.1), (0.19, 0., None))
+
+    def test_bad_geometry_is_refused(self):
+        with tempfile.TemporaryDirectory() as d:
+            for name, body in (('nob.json', '{"water": [1, 1]}'), ('nan.json', '{"B": [NaN, 0]}'), ('str.json', '{"B": "x"}'),
+                               ('list.json', '[1,2]'), ('start.json', '{"B": [0.1, 0.0], "initial": [0.0, 0.0]}')):
+                (Path(d) / name).write_text(body)
+                with self.assertRaises(ValueError, msg=name):
+                    dp.ShelterGeofence.from_waypoints_file(Path(d) / name)
+            with self.assertRaises(FileNotFoundError):
+                dp.ShelterGeofence.from_waypoints_file(Path(d) / 'missing.json')
+        for r in (0., -1., float('nan'), 5.):
+            with self.assertRaises(ValueError):
+                dp.ShelterGeofence(B_WP, r)
+
+    def test_radius_is_configurable(self):
+        g = self.gate(radius=1.0); g.on_record(self.RAW); g.on_phase('search', 10.); g.on_odom(1.3, -1.12, 0., 10.)
+        self.assertEqual(g.filter(.19, 0., 10.1)[:2], (0., 0.))                    # 0.85 m from B: inside a 1 m disc
+
+
+class GeofenceGuardNode(unittest.TestCase):
+    def args(self, **kw):
+        return NS(control_qos='reliable', legacy_latch_zero=False, delivery_interlock=True, geofence_config=str(WP_FILE), **kw)
+
+    def run_sc(self, sc, **kw):
+        with tempfile.TemporaryDirectory() as d:
+            kf = Path(d) / 'k'; kf.write_text(KEY.hex())
+            return run_guard(self.args(permit_key_file=str(kf), **kw), sc)
+
+    def test_spoofed_search_phase_into_the_geofence_publishes_zero_then_a_permit_forwards(self):
+        raw = 'rec'
+        def sc(node):
+            import time
+            node.subs[dp.TOPIC_RECORD](Msg(raw))
+            node.subs[dp.TOPIC_PHASE](Msg('search'))
+            node.subs['/odom'](odom(0., 0.))
+            node.subs['/rescuemind/cmd_vel_request'](twist(.19))
+            for f in node.timers: f()                                              # far away: forwarded
+            node.subs['/odom'](odom(1.7, -1.12))
+            node.subs[dp.TOPIC_PHASE](Msg('search'))
+            for f in node.timers: f()                                              # liar says search, robot at the fence: zero
+            node.subs[dp.TOPIC_PERMIT](Msg(dp.make_permit(dp.record_hash(raw), RUN, 'water', time.time(), 4., KEY)))
+            node.subs[dp.TOPIC_PHASE](Msg('search'))
+            for f in node.timers: f()                                              # permit: forwarded
+        node = self.run_sc(sc)
+        self.assertEqual([m.linear.x for m in node.pubs['/cmd_vel']][:3], [.19, 0., .19])
+
+    def test_no_odometry_publishes_zero(self):
+        def sc(node):
+            node.subs[dp.TOPIC_PHASE](Msg('search'))
+            node.subs['/rescuemind/cmd_vel_request'](twist(.19))
+            for f in node.timers: f()
+        self.assertEqual(self.run_sc(sc).pubs['/cmd_vel'][0].linear.x, 0.)
+
+    def test_unreadable_geometry_stops_the_guard_from_starting(self):
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / 'w.json').write_text('{}')
+            for bad in (str(Path(d) / 'w.json'), str(Path(d) / 'nope.json')):
+                with self.assertRaises((ValueError, FileNotFoundError)):
+                    run_guard(NS(control_qos='reliable', legacy_latch_zero=False, delivery_interlock=True,
+                                     geofence_config=bad), lambda node: None)
+
+    def test_mode_off_ignores_a_geofence_config(self):
+        def sc(node):
+            node.subs['/rescuemind/cmd_vel_request'](twist(.19))
+            for f in node.timers: f()
+        node = run_guard(NS(control_qos='reliable', legacy_latch_zero=False, delivery_interlock=False,
+                            geofence_config=str(WP_FILE)), sc)
+        self.assertEqual(node.pubs['/cmd_vel'][0].linear.x, .19)
+
+
+class GeofenceGeometry(unittest.TestCase):
+    """The default disc keeps every waypoint, look-around pose and every other leg clear of the shelter fence, for the
+    arena, the registered Study L layouts (seed L-2026), the development layouts and the k=4 depot."""
+    R = dp.GEOFENCE_RADIUS_M
+    REACH = dp.GEOFENCE_HORIZON_S * .19         # look-ahead at waypoint speed
+
+    def check(self, pts, legs, b):
+        for name, xy in pts.items():
+            self.assertGreaterEqual(math.dist(xy, b), self.R + self.REACH + .3, name)       # well outside, not just outside
+        for name, a, c in legs:
+            from rescuemind.layout import _dist_seg_point
+            self.assertGreaterEqual(_dist_seg_point(a, c, b), self.R + self.REACH, name)    # no non-delivery leg grazes it
+
+    def arena(self, lay):
+        from rescuemind import layout as L
+        b = lay.waypoint('B')
+        pts = {'start': (0., 0.)}
+        for s in ('water', 'medicine'):
+            pts['wp:' + s] = lay.waypoint(s)
+            for side, xy in L.look_around_points(lay, s, .4).items():
+                pts[f'{side}:{s}'] = xy
+        legs = [(n, a, c) for n, a, c, _o in L.executed_legs(lay, .4) if 'wp:B' not in n]
+        self.check(pts, legs, b)
+
+    def test_default_arena(self):
+        from rescuemind.layout import default_layout
+        self.arena(default_layout())
+        self.assertEqual(dp.load_geofence_centre(WP_FILE), default_layout().waypoint('B'))
+
+    def test_registered_and_smoke_study_l_layouts(self):
+        from rescuemind.layout import Layout
+        from scripts.make_protocol_l import build, build_smoke
+        n = 0
+        for proto in (build(), build_smoke()):
+            for t in proto['trials']:
+                self.arena(Layout.from_dict(t['world_spec']['layout'])); n += 1
+        self.assertEqual(n, 24 + 3)
+
+    def test_written_layout_config_gives_the_same_centre(self):
+        from rescuemind.layout import Layout
+        from scripts.make_protocol_l import build
+        lay = Layout.from_dict(build()['trials'][0]['world_spec']['layout'])
+        with tempfile.TemporaryDirectory() as d:
+            wp, _c = lay.write_configs(Path(d))
+            self.assertEqual(dp.load_geofence_centre(wp), tuple(lay.waypoint('B')))
+            dp.ShelterGeofence.from_waypoints_file(wp)                              # the start is outside the disc
+
+    def test_k4_depot(self):
+        from rescuemind import depot
+        pts = {k: v for k, v in depot.k4_points().items() if k != 'wp:B'}
+        legs = [(n, a, c) for n, a, c, _o in depot.k4_legs() if 'wp:B' not in n]
+        self.check(pts, legs, depot.k4_points()['wp:B'])
+        with tempfile.TemporaryDirectory() as d:
+            wp, _c = depot.write_k4_configs(d)
+            self.assertEqual(dp.load_geofence_centre(wp), tuple(depot.K4_WAYPOINTS['B']))
+
+    def test_orchestrator_hands_the_per_run_waypoints_to_the_guard(self):
+        src = (ROOT / 'scripts/v32_orchestrate.py').read_text()
+        self.assertIn("--geofence-config", src)
+        self.assertIn("waypoint_config_path(log_dir)", src)
 
 
 if __name__ == '__main__':
