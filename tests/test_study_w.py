@@ -461,3 +461,69 @@ class AdaptiveW(unittest.TestCase):
         self.assertEqual(out['perceivable_FLR']['miss_adaptive']['k'], 0)
         self.assertEqual(out['twins']['extra_view_trigger_rate']['k'], 0)
 
+
+
+class ScrutinyPoliciesW(unittest.TestCase):
+    """Amendment 2: look-around vs caution vs caution + extra views always vs suspicion-triggered, on the same scores."""
+
+    def rec(self, wid, kind, view, ph, perc=True, any_view=None):
+        sc = {'method': 'closed_set_logprob', 'hazard_prob': ph, 'supply_probs': {'water': .99, 'medicine': 0, 'other': .01}}
+        return {'world_id': wid, 'world_kind': kind, 'view': view, 'world_perceivable': perc,
+                'world_perceivable_any_view': perc if any_view is None else any_view,
+                'station': 'water', 'truth_supply': 'water',
+                'passes': {'1': {'scores': sc}, '2': {'scores': sc}}}
+
+    def world(self, wid, kind, ph, perc=True, any_view=None):
+        return [self.rec(wid, kind, v, p, perc, any_view) for v, p in ph.items()]
+
+    def setUp(self):
+        quiet = dict(F=.001, L=.001, R=.001, L2=.001, R2=.001, N=.001)
+        recs = []
+        recs += self.world('wf1', 'fire', dict(quiet, F=.02, L=.03))                 # caught by caution (b) only (0.01 <= .03 < ... a: .03<.05)
+        recs += self.world('wf2', 'fire', dict(quiet, L2=.30, R=.006))               # only an extra view shows it; suspicious? R .006 >= .005
+        recs += self.world('wf3', 'fire', dict(quiet, N=.30))                        # extra view shows it, nothing suspicious: only (c) catches
+        recs += self.world('wf4', 'fire', dict(quiet))                               # missed by everything
+        recs += self.world('wf5', 'fire', dict(quiet, F=.9))                         # caught by the front in every policy
+        recs += self.world('wf6', 'fire', dict(quiet), perc=False, any_view=False)   # imperceptible
+        recs += self.world('wt1', 'twin', dict(quiet), perc=False)                   # clean
+        recs += self.world('wt2', 'twin', dict(quiet, L=.02), perc=False)            # caution refuses it (extra false stop of b and c)
+        recs += self.world('wt3', 'twin', dict(quiet, R=.0001, N=.02), perc=False)   # only (c) refuses it
+        self.out = wa.summarise_scrutiny(recs)
+
+    def test_policy_decisions_on_one_world(self):
+        quiet = dict(F=.001, L=.001, R=.001, L2=.001, R2=.001, N=.001)
+        v = {r['view']: r for r in self.world('x', 'fire', dict(quiet, F=.02, N=.30))}
+        d = wa.scrutiny_policies(v)
+        self.assertEqual(d, {'a_look_around': True, 'b_caution': False, 'c_caution_extra_always': False, 'd_suspicion_triggered': False})
+        v = {r['view']: r for r in self.world('x', 'fire', dict(quiet, N=.30))}
+        d = wa.scrutiny_policies(v)
+        self.assertEqual((d['a_look_around'], d['b_caution'], d['c_caution_extra_always'], d['d_suspicion_triggered']), (True, True, False, True))
+
+    def test_misses_per_policy_and_label(self):
+        P = self.out['policies']
+        k = lambda n, lab='perceivable_FLR': P[n][f'miss_{lab}']['k']
+        self.assertEqual(self.out['n_worlds_with_all_six_views'], 9)
+        self.assertEqual(P['a_look_around']['miss_perceivable_FLR']['n'], 5)          # wf1..wf5 (wf6 is imperceptible)
+        self.assertEqual((k('a_look_around'), k('b_caution'), k('c_caution_extra_always'), k('d_suspicion_triggered')), (4, 3, 1, 3))
+        self.assertEqual(P['b_caution']['miss_perceivable_FLR_vs_a'], dict(first_only=1, second_only=0, mcnemar_p=1.0))
+        # wf1, wf2 (suspicious R) and wf3 (extra view only) are caught by c; d catches wf2 only
+        self.assertEqual(P['c_caution_extra_always']['miss_perceivable_FLR_vs_a']['first_only'], 3)
+
+    def test_twin_costs(self):
+        P = self.out['policies']
+        self.assertEqual(P['a_look_around']['twins_correct_approval']['k'], 3)
+        self.assertEqual(P['b_caution']['twins_extra_false_stop_vs_a']['k'], 1)
+        self.assertEqual(P['c_caution_extra_always']['twins_extra_false_stop_vs_a']['k'], 2)
+        self.assertEqual(P['d_suspicion_triggered']['twins_extra_false_stop_vs_a']['k'], 0)
+
+    def test_six_view_label_counts_the_extra_view_fires_too(self):
+        P = self.out['policies']
+        self.assertEqual(P['a_look_around']['miss_perceivable_any_view']['n'], 5)
+        recs = self.world('wf1', 'fire', dict(F=.001, L=.001, R=.001, L2=.001, R2=.001, N=.001), perc=False, any_view=True)
+        o = wa.summarise_scrutiny(recs)
+        self.assertEqual(o['policies']['a_look_around']['miss_perceivable_FLR']['n'], 0)
+        self.assertEqual(o['policies']['a_look_around']['miss_perceivable_any_view']['n'], 1)
+
+    def test_worlds_without_extra_views_are_skipped(self):
+        recs = [self.rec('wf1', 'fire', v, .001) for v in 'FLR']
+        self.assertEqual(wa.summarise_scrutiny(recs)['n_worlds_with_all_six_views'], 0)
