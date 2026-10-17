@@ -23,7 +23,7 @@ document; unprefixed references are to the main paper. All numbers are generated
 It is organised as follows. \emph{Methods and background:} S1 development data, T1 construction and the two-model rule; S2 model selection
 on development data; S3 the extended related work. \emph{Results:} S4 additional T1 analyses (decision-rule ablations, risk--coverage,
 weaker models); S5 campaign E details; S6 wall-clock timing; S7 further result details (studies Z, P, R, campaigns F, G and H, hazard fixes).
-\emph{Failure analysis:} S8 lessons from running the real stack. \emph{Audit:} S9 the registration audit.
+\emph{Failure analysis:} S8 lessons from running the real stack. \emph{Audit:} S9 the registration audit and threats to validity.
 
 \section{Development Data, T1 Construction and the Two-Model Rule}\label{app:dev}
 \textbf{Development data.} Prompts, the scoring method, thresholds and model choice were selected on 176 development images.
@@ -260,6 +260,30 @@ Registrations are also mirrored in the public repository history.}\label{tab:pre
 \resizebox{\linewidth}{!}{\input{tab_prereg.tex}}\end{table}
 For every study with results, the registration commit precedes the results commit (\PreregOrderOK). Campaign C's
 registration and ledger entered the repository together, so their order cannot be verified from the history.
+
+\subsection{Threats to validity}\label{sec:threats}
+\textbf{Internal.} The studies were designed sequentially, each registered after the results of the previous ones were known, so
+registration is confirmatory within a study but not across the programme (Table~\ref{tab:prereg}); study K was registered after the T2 scores it
+reuses had been computed (\texttt{PREREGISTRATION\_K.md}, offline, no new inference). The H stories are scripted so that a naive memory
+fails by construction; the M1--M2 contrast is therefore large by design, and the M2--M0 comparison is the one that bounds risk
+(\texttt{PREREGISTRATION\_H.md}). The analysis scripts computed the median of an even-length list as the upper-middle element; this was fixed
+and all summaries regenerated, and errata with no change to protocols, endpoints or claims are in \texttt{PREREGISTRATION\_\{F,G,H\}.md}
+(for H, a relocation-persist median of 79\,s had been reported as 85\,s). Campaign J deviated during the run (\texttt{PREREGISTRATION\_J.md}): from trial J007
+documentation builds shared the 4-core host, and alternating about 46\,GB of weights through a 54\,GB page cache made every check
+re-read its weights, so measured latency includes model I/O and is inflated in both arms; two first attempts failed before any VLM decision
+and were re-run under the registered retry rule.
+
+\textbf{Construct.} Fire labels come from rendered mask pixels (a fire is perceivable at 614 pixels or more), not from human judgement, and the fire is
+stylised. ``Delivery'' means that the robot reached the shelter after approving; there is no handover, so grasping and placing are not tested.
+
+\textbf{External.} All results use one arena geometry, two stations and simulation only. The real-photograph study (P) is descriptive and
+reports false alarms on D-Fire images; it does not test a robot. The two checkers in J share lineage (Clef-Flash is post-trained from
+Qwen3.5-9B), so errors may be correlated.
+
+\textbf{Statistical.} Samples are small: P1 has 8 relocation-persist pairs, and P3 compares 1 unsafe delivery (M2) with 0 (M0), which shows only that M2 is not less safe.
+Images of one world, and missions of one sequence, are not independent; we therefore add world-cluster bootstrap intervals and a
+sequence-level McNemar test, which are wider or less powerful than the pooled ones. Several studies are reported without family-wise correction,
+because each has its own registered endpoint and the claims are not pooled.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
