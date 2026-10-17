@@ -621,7 +621,30 @@ def main():
         e10 = kk['alphas']['0.1']['K_PAC']['heldout_false_alarm']
         m['KFAMissionTen'] = f"{100 * (1 - (1 - e10['k'] / e10['n']) ** 3):.0f}\\%"       # three fire-free views per approval, independence assumed (descriptive)
         m['KFAViewTen'] = f"{100 * e10['k'] / e10['n']:.1f}\\%"
+        c_ = kk.get('caution')    # per-view false-alarm rate at the caution threshold 0.01 and the cost-bound figures built from its Wilson upper limit
+        if c_:
+            fa_ = c_['heldout_false_alarm']; up_ = fa_['ci95'][1]
+            m['KCautTau'] = f"{c_['tau']:g}"
+            m['KCautFA'] = f"{fa_['k']}/{fa_['n']}"
+            m['KCautFAUp'] = f"{100 * up_:.1f}\\%"
+            pt_ = fa_['k'] / fa_['n']
+            for v_, nm_ in ((3, 'Three'), (6, 'Six')):
+                m[f'KCaut{nm_}Pt'] = f"{100 * (1 - (1 - pt_) ** v_):.1f}\\%"
+                m[f'KCaut{nm_}Up'] = f"{100 * (1 - (1 - up_) ** v_):.1f}\\%"
+                m[f'KCaut{nm_}Boole'] = f"{100 * min(1.0, v_ * up_):.1f}\\%"
         m['KSmallCal'] = f"{100 * kk['small_fire_frac']['cal']:.0f}\\%"; m['KSmallHeld'] = f"{100 * kk['small_fire_frac']['heldout']:.0f}\\%"
+    cr = json.loads((RES / 'advice_credit_horizon.json').read_text()) if (RES / 'advice_credit_horizon.json').is_file() else None
+    if cr:      # I-24 descriptive 100-mission model of advice credit (k = 4); not a registered claim
+        last = lambda key: cr['runs'][key]['series'][-1]
+        m['CrLiarNo'] = f"{last('k4/liar/monotone')['extra_s']:.0f}"
+        m['CrLiarYes'] = f"{last('k4/liar/credit')['extra_s']:.0f}"
+        m['CrFarmYes'] = f"{last('k4/farmer/credit')['extra_s']:.0f}"
+        m['CrHonest'] = f"{-last('k4/honest/credit')['extra_s']:.0f}"
+        m['CrFloodNo'] = str(last('k4/flooder_real/monotone')['false_refusals'])
+        m['CrFloodYes'] = str(last('k4/flooder_real/credit')['false_refusals'])
+        m['CrFloodDelta'] = f"{cr['delta_real']:.2f}"
+        m['CrNoisyKeep'] = f"{100 * last('k4/noisy/credit')['extra_s'] / last('k4/noisy/monotone')['extra_s']:.0f}\\%"
+        m['CrMissions'] = str(len(cr['runs']['k4/liar/credit']['series']))
     # ---- registered-claim status per study (Table of all studies): supported / not supported / pending / descriptive (no claim registered)
     def _load(n):
         f = RES / n

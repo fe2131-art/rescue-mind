@@ -227,5 +227,79 @@ class WiredIn(unittest.TestCase):
             self.assertIn(needle, (ROOT / rel).read_text(encoding='utf8'), rel)
 
 
+class CautionSelfFixation(unittest.TestCase):
+    """#28: a caution-level alert (tau_mem <= p < tau_h) must not be recorded as a hazard (it would renew the caution)."""
+
+    @staticmethod
+    def front_mission(station, p, *, scene='clear', tau=mm.CAUTION_TAU_H, peeks=()):
+        import test_i15_memory as t15
+        m = t15.mission(station, 'water', 'water', hz=p, scene=scene, peeks=())
+        cp = m['checkpoint']
+        if tau is not None:
+            cp['memory_caution_tau_h'] = tau
+            if p >= tau and scene != 'hazard':      # what apply_memory_caution does at the front
+                cp['decision'] = {**cp['decision'], 'allow': False, 'reason': HZ, 'pre_caution_reason': 'on_site_supply_confirmed',
+                                  'memory_caution_tau_h': tau}
+        if peeks:
+            m['look_around'] = {'peeks': list(peeks)}
+        return m
+
+    @staticmethod
+    def peek(side, p, *, real, tau=mm.CAUTION_TAU_H):
+        import test_i15_memory as t15
+        return {'side': side, 'hazard': True, 'reason': HZ if real else 'on_site_supply_confirmed',
+                'model_calls': {'first': t15.call('water', p, 'hazard' if real else 'clear'),
+                                'second': t15.call('water', p, 'hazard' if real else 'clear', pass_id=2)}}
+
+    def test_caution_alert_is_not_a_hazard_observation(self):
+        obs = mm.observations(self.front_mission('water', .03), 'a')[0]
+        self.assertFalse(obs['hazard'])
+        self.assertEqual(obs['hazard_views'], [])
+        self.assertTrue(obs['caution_alert'])
+        self.assertEqual(obs['caution_views'], ['front'])
+
+    def test_real_hazard_front_and_side(self):
+        o = mm.observations(self.front_mission('water', .6, scene='hazard'), 'a')[0]
+        self.assertTrue(o['hazard']); self.assertEqual(o['hazard_views'], ['front']); self.assertFalse(o['caution_alert'])
+        o = mm.observations(self.front_mission('water', .001, peeks=[self.peek('L', .8, real=True)]), 'a')[0]
+        self.assertEqual(o['hazard_views'], ['L']); self.assertFalse(o['caution_alert'])
+        o = mm.observations(self.front_mission('water', .001, peeks=[self.peek('R', .03, real=False)]), 'a')[0]
+        self.assertFalse(o['hazard']); self.assertEqual(o['caution_views'], ['R'])
+
+    def test_a_false_alarm_cannot_pin_a_station_in_caution(self):
+        """One real hazard, then fire-free missions whose views sit at p = 0.03 (caution alert every time): the caution
+        expires after HORIZON missions.  (Before the fix every alert renewed it forever.)"""
+        with tempfile.TemporaryDirectory() as d:
+            memo = mm.MissionMemory(Path(d) / 'm.jsonl')
+            memo.append_mission(self.front_mission('water', .6, scene='hazard', tau=None), 'm0')
+            self.assertIn('water', memo.plan('water')['caution'])
+            states = []
+            for i in range(1, 7):
+                memo.append_mission(self.front_mission('water', .03), f'm{i}')
+                states.append('water' in memo.plan('water')['caution'])
+            self.assertEqual(states, [True, True, False, False, False, False])
+            self.assertTrue(any(r['caution_alert'] for r in memo.records))
+
+    def test_caution_alerts_alone_never_create_caution(self):
+        with tempfile.TemporaryDirectory() as d:
+            memo = mm.MissionMemory(Path(d) / 'm.jsonl')
+            for i in range(4):
+                memo.append_mission(self.front_mission('water', .03), f'm{i}')
+                self.assertEqual(memo.plan('water')['caution'], {})
+
+    def test_tighten_only_invariant_still_holds(self):
+        """Whatever memory records, the plan only adds caution / reorders: the audit of the plan stays monotone."""
+        from rescuemind.advice import assert_monotone
+        with tempfile.TemporaryDirectory() as d:
+            memo = mm.MissionMemory(Path(d) / 'm.jsonl')
+            base = memo.plan('water', 'off')
+            for i, (p, sc) in enumerate([(.03, 'clear'), (.6, 'hazard'), (.03, 'clear')]):
+                memo.append_mission(self.front_mission('water', p, scene=sc), f'm{i}')
+                plan = memo.plan('water')
+                self.assertFalse(plan['skip_check'] or plan['deny_without_visit'])
+                for s, c in plan['caution'].items():
+                    self.assertTrue(0 < c['tau_h'] < .05)
+
+
 if __name__ == '__main__':
     unittest.main()
