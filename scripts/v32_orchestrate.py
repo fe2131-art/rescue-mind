@@ -86,7 +86,7 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
                intent_prompt: str = 'i34', describe_prompt: str = 'e0', inject_stall: float = 0.0,
                hazard_threshold: float = 0.5, control_qos: str = 'reliable', hazard_views: str = 'full',
                hazard_prompt: str = 'h35', jev_local: str = 'off', jev_hazard_threshold: float = .35, jev_schema: str = 'jev',
-               look_around: float = 0.0, memory_file: str | None = None, memory_mode: str = 'off',
+               look_around: float = 0.0, memory_file: str | None = None, memory_mode: str = 'off', adaptive_views: float = 0.0,
                advice_file: str | None = None, advice_mode: str = 'off', advice_from_instruction: bool = False,
                config_path: Path | None = None, centers_path: Path | None = None) -> dict:
     if scenario not in ('motion-check', 'live'):
@@ -104,6 +104,8 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
         cmd += ['--centers', str(centers_path)]     # Study L: per-run station centres
     if look_around:
         cmd += ['--look-around', str(look_around)]
+    if adaptive_views:
+        cmd += ['--adaptive-views', str(adaptive_views)]     # I-20 (tau_sus and near keep their defaults)
     if memory_file:
         cmd += ['--memory-file', str(memory_file), '--memory-mode', memory_mode]
     if advice_file or advice_from_instruction:      # I-19: advice from a file (peer/inventory/memory) and/or the instruction text
@@ -328,6 +330,8 @@ def main(argv=None):
                    help='I-12 (v3.5 default: async): default = reliable control topics, synchronous Fast DDS publication; '
                         'async = RMW_FASTRTPS_PUBLICATION_MODE=ASYNCHRONOUS for the whole stack; '
                         'best_effort = best-effort request/heartbeat topics')
+    p.add_argument('--adaptive-views', type=float, default=0.0,
+                   help='I-20: suspicion-triggered extra views at this side offset (m); 0 = off (v3.6)')
     p.add_argument('--look-around', type=float, default=0.4,
                    help='I-14: after an approval, look again from this far (m) left and right of the station')
     p.add_argument('--memory-file', default=None, help='I-15: cross-mission memory JSONL (read before, appended after)')
@@ -404,7 +408,7 @@ def main(argv=None):
                  intent_backend=args.intent_backend, intent_prompt=args.intent_prompt,
                  describe_prompt=args.describe_prompt, inject_stall=args.inject_warmup_stall,
                  hazard_threshold=args.hazard_threshold, hazard_views=args.hazard_views,
-                 hazard_prompt=args.hazard_prompt, jev_local=args.jev_local, look_around=args.look_around,
+                 hazard_prompt=args.hazard_prompt, jev_local=args.jev_local, look_around=args.look_around, adaptive_views=args.adaptive_views,
                  jev_hazard_threshold=args.jev_hazard_threshold, jev_schema=args.jev_schema,
                  memory_file=args.memory_file, memory_mode=args.memory_mode,
                  advice_file=args.advice_file, advice_mode=args.advice_mode,
@@ -452,6 +456,7 @@ def main(argv=None):
     summary['dds_mode'] = args.dds_mode
     summary['jev_local'] = args.jev_local
     summary['look_around'] = args.look_around
+    summary['adaptive_views'] = args.adaptive_views
     summary['memory_file'] = args.memory_file
     summary['memory_mode'] = args.memory_mode
     summary['advice_file'] = args.advice_file
@@ -643,7 +648,8 @@ def main(argv=None):
                 from rescuemind.ground_truth_evidence import audit_ground_truth
                 outcome['ground_truth_evidence']=audit_ground_truth(
                     log_dir/'independent_ros_topics.jsonl',station=config[final_station],shelter=config['B'],
-                    expect_arrival=False, look_around_m=float((denied.get('look_around') or {}).get('offset_m', 0.0)))
+                    expect_arrival=False, look_around_m=max(float((denied.get('look_around') or {}).get('offset_m', 0.0)),
+                                     float(((denied.get('look_around') or {}).get('adaptive') or {}).get('offset_m', 0.0)) if ((denied.get('look_around') or {}).get('adaptive') or {}).get('triggered') else 0.0))
                 # If a rosbag was specifically requested, it is evidence
                 # required even for a deliberately denied mission.
                 if args.capture_rosbag:
