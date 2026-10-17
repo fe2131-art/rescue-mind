@@ -249,6 +249,54 @@ def summarise_adaptive(records: list, tau_h: float = TAU_H, tau_sus: float = TAU
     return out
 
 
+TAU_CAUTION = 0.01     # the caution threshold of advice-promoted stations (rescuemind advice: hazard threshold 0.01 on every view)
+
+
+def scrutiny_policies(v: dict, tau_h: float = TAU_H, tau_c: float = TAU_CAUTION, tau_sus: float = TAU_SUS) -> dict:
+    """The four policies of Amendment 2 for one world with views v = {view: record}.  True = the check approves.
+    a  v3.6 look-around at tau_h (F, L, R);                       b  the same at the caution threshold tau_c;
+    c  b, plus the extra views L2, R2, N always taken (the --advice-scrutiny rule), each at tau_c;
+    d  I-20: a, plus the extra views at tau_h only if some of F, L, R is suspicious (p >= tau_sus)."""
+    def la(th):
+        return front_allows(v['F'], TAU_S, th) and not peek_hazard(v['L'], th) and not peek_hazard(v['R'], th)
+    a, b = la(tau_h), la(tau_c)
+    sus = max(max_hazard(v[k]) for k in 'FLR') >= tau_sus
+    return {'a_look_around': a, 'b_caution': b,
+            'c_caution_extra_always': b and not any(peek_hazard(v[k], tau_c) for k in EXTRA),
+            'd_suspicion_triggered': a and not (sus and any(peek_hazard(v[k], tau_h) for k in EXTRA))}
+
+
+def summarise_scrutiny(records: list, tau_h: float = TAU_H, tau_c: float = TAU_CAUTION) -> dict:
+    """Secondary (Amendment 2, 2026-10-17): how much does scrutiny reduce eps at a steered station?  Same W scores, no new rendering.
+    Per policy: misses on the perceivable fire worlds (F/L/R label and six-view label), extra false stops on the fire-free twins
+    (approved by a, refused by the policy) and correct approvals, each paired against (a) with the exact McNemar test (descriptive:
+    b and c can only refuse more than a, d likewise, so the second discordant count is 0 and the p-value is a sign test)."""
+    by: dict = {}
+    for r in records:
+        by.setdefault(r['world_id'], {})[r['view']] = r
+    rows = []
+    for wid, v in sorted(by.items()):
+        if not ({'F', 'L', 'R'} <= set(v) and set(EXTRA) <= set(v)):
+            continue
+        f = v['F']
+        rows.append({'id': wid, 'kind': f['world_kind'], 'perceivable': f['world_perceivable'],
+                     'perceivable_any': f.get('world_perceivable_any_view', f['world_perceivable']), **scrutiny_policies(v, tau_h, tau_c)})
+    fire = [r for r in rows if r['kind'] == 'fire']
+    twin = [r for r in rows if r['kind'] == 'twin']
+    names = ('a_look_around', 'b_caution', 'c_caution_extra_always', 'd_suspicion_triggered')
+    out = {'tau_h': tau_h, 'tau_caution': tau_c, 'n_worlds_with_all_six_views': len(rows), 'policies': {}}
+    for n in names:
+        pol = {}
+        for lab, S in (('perceivable_FLR', [r for r in fire if r['perceivable']]), ('perceivable_any_view', [r for r in fire if r['perceivable_any']])):
+            pol[f'miss_{lab}'] = rate(sum(r[n] for r in S), len(S))
+            if n != names[0]:
+                pol[f'miss_{lab}_vs_a'] = paired_counts([r[names[0]] for r in S], [r[n] for r in S])
+        pol['twins_correct_approval'] = rate(sum(r[n] for r in twin), len(twin))
+        pol['twins_extra_false_stop_vs_a'] = rate(sum(r[names[0]] and not r[n] for r in twin), len(twin))
+        out['policies'][n] = pol
+    return out
+
+
 def summarise_degraded(conds: dict, clean_records: list) -> dict:
     """Secondary: look-around miss per degradation on the registered subset (clean scores of the same worlds for reference)."""
     sub_ids = {r['world_id'] for recs in conds.values() for r in recs}
@@ -454,6 +502,7 @@ def run_part_a(out: dict):
         out['W-a'] = 'not run'; return
     out['W-a'] = summarise_a(recs)
     out['W-a_adaptive'] = summarise_adaptive(recs)
+    out['W-a_scrutiny_policies'] = summarise_scrutiny(recs)
     ref = _load('w_h35_full')
     if ref:
         out['W-a_v35_reference'] = summarise_a(ref)

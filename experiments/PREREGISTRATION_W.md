@@ -218,3 +218,15 @@ are updated to match.
   lighting and arrival-pose draws are independent (a depot shares them; XD adds that case), and the rendering distribution is the
   generator's, not an adversary's choice of fire geometry.
 * *Unchanged:* W-a2 and W-a3 thresholds, all of W-b, the optional stage r, the Amendment 1 views and its adaptive analysis.
+* *Addendum to Amendment 2 (same day, still before any W image is rendered or scored): secondary image-level scrutiny-policy analysis.* The
+  closed-loop A-steer cell cannot measure how much scrutiny lowers ε at a steered station (exact McNemar power at n = 16 is about 0.00 for
+  ε = 0.06, 0.01 for ε = 0.15 and 0.17 even for ε = 0.5). W's scores answer it at image level, on the same worlds and views and with no new
+  rendering. For every fire world and twin with all six views, the decision under four policies (`summarise_scrutiny`):
+  (a) the v3.6 look-around at τ_h = 0.05; (b) the same with the caution threshold τ = 0.01 on F, L and R (the threshold of an
+  advice-promoted station); (c) (b) plus the extra views L2, R2 and N always taken, each at τ = 0.01 (the `--advice-scrutiny` rule);
+  (d) the I-20 suspicion-triggered extra views (Amendment 1; τ_sus = 0.005, extra views at τ_h = 0.05). Reported for each policy: misses on the
+  perceivable fire worlds under both the F/L/R label and the six-view label, with Wilson CIs; the correct approvals and the **extra false
+  stops** on the fire-free twins (approved by (a), refused by the policy); and the exact paired McNemar test of (b), (c), (d) against (a).
+  The tests are descriptive: each of (b) to (d) can only refuse more than (a) on the same frames, so the second discordant count is 0. No
+  criterion and no tuning: τ = 0.01 and τ_sus come from the advice rule and from Amendment 1. The quantity read is the share of (a)'s misses that
+  each policy removes and what it costs on twins; it is the estimate of scrutiny's effect on ε, which the closed loop cannot give.
