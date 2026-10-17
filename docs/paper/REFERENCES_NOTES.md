@@ -77,3 +77,16 @@ Fixes to existing entries (same date):
 - CoRL year convention: all CoRL entries now carry the conference year (agia2025sentinel and kim2025openvla 2025 -> 2024; huang2023innermonologue and ichter2023saycan 2023 -> 2022; the PMLR volume year is kept in the note field). Existing BibTeX keys were left unchanged to avoid touching the introduction.
 - liang2024introspective was uncited; it is now cited in the supplement (extended related work, KnowNo paragraph). Not independently re-verified beyond the earlier entry (arXiv 2402.06529, "NeurIPS 2024").
 - zhou2025codeasmonitor, kadavath2022know and sun2026memorylies are now described as in their abstracts (VLM-generated-program constraint monitor, not specific to learned policies; reasonably calibrated on formatted multiple-choice questions; FrozenLake-style grid-world study).
+
+## 8. Object search with priors / semi-static maps (checked 2026-10-17)
+Method: titles, authors, venue, pages and DOIs from the Crossref API; abstracts from arXiv or Semantic Scholar where available (no abstract was available for Aydemir 2013 and Mason & Marthi 2012, so the text describes them only at the level of their titles). IEEE Xplore pages were not fetched. Positioning claims are hedged ("to our knowledge"); the full texts of these works were not read.
+- aydemir2013active — Crossref 10.1109/TRO.2013.2256686 (T-RO 29(4):986-1002).
+- wandzel2019mos — Crossref 10.1109/ICRA.2019.8793888 (pp. 7194-7200); abstract (Semantic Scholar): OO-POMDP, belief factorised into independent object distributions, Multi-Object Search.
+- zeng2020slim — Crossref 10.1109/ICRA40945.2020.9196830 (pp. 1984-1990); arXiv 2006.10807 abstract: belief over target and landmark locations with inter-object spatial relations.
+- mason2012objectworld — Crossref 10.1109/IROS.2012.6385729 (pp. 3851-3858).
+- rosen2016lifelong — Crossref 10.1109/ICRA.2016.7487237 (pp. 1063-1070); abstract: feature persistence model for semi-static environments.
+- zhou2023esc — ICML 2023, PMLR 202:42829-42842 (proceedings page); arXiv 2301.13166; abstract: pre-trained commonsense/vision-language models as soft constraints for zero-shot object navigation.
+- yokoyama2024vlfm — Crossref 10.1109/ICRA57147.2024.10610712 (pp. 42-48); arXiv 2312.03275 abstract: VLM-based value map to choose frontiers.
+- yan2025dovsg (DovSG) — Crossref 10.1109/LRA.2025.3547643 (RA-L 10(5):4252-4259); arXiv 2410.11989 ("Accepted by RA-L 2025"); abstract: local updates of a dynamic open-vocabulary 3D scene graph.
+- Considered but dropped: Kunze et al., ICRA 2012 (10.1109/ICRA.2012.6224965; exists, but its content was not verified); Wong et al., ICRA 2013 (10.1109/ICRA.2013.6630966; occluded-object search by manipulation, less related).
+- Not claimed anywhere: that these works lack safety analysis in general; the text only says that, to our knowledge, they do not bound stale-memory risk at a pre-action gate.
