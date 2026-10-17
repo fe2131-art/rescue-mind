@@ -298,6 +298,8 @@ def main(argv=None):
                         'its hazard_at / distractor_at also drive the audits')
     p.add_argument('--film', action='store_true',
                    help='also record a Gazebo-rendered overview camera for the demo video')
+    p.add_argument('--no-operator-report', action='store_true',
+                   help='I-18: skip the operator_report.png/pdf normally generated after every run')
     p.add_argument('--startup-timeout', type=int, default=480)
     p.add_argument('--mission-timeout', type=int, default=900)
     args = p.parse_args(argv)
@@ -599,6 +601,13 @@ def main(argv=None):
                 outcome['memory_plan']=m.get('memory')
             except (OSError,ValueError,KeyError,TypeError) as exc:
                 outcome['memory_update_error']=f'{type(exc).__name__}: {exc}'
+        if not args.no_operator_report:
+            # I-18: non-fatal; rendered from the final in-memory outcome (state + memory_update), before it is written
+            try:
+                from rescuemind.operator_report_render import generate_for_run
+                generate_for_run(log_dir, outcome)
+            except Exception as exc:      # e.g. Pillow not installed
+                outcome['operator_report_error'] = f'{type(exc).__name__}: {exc}'
         (log_dir/'stack_result.json').write_text(json.dumps(outcome, ensure_ascii=False, indent=2)+'\n')
         print('Stack execution records:', log_dir)
     return return_code
