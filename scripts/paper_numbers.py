@@ -385,6 +385,37 @@ def main():
         m['JPeakVram'] = f"{j['P1_runs_on_one_v100']['peak_vram_mib'] / 1024:.1f}" if j['P1_runs_on_one_v100']['peak_vram_mib'] else r'\TBD'
         m['JMcNemarP'] = f"{j['P3_correct_paired']['mcnemar_p']:.4f}"
         m['JClaim'] = 'supported' if (j['P1_runs_on_one_v100']['supported'] and j['P2_no_extra_unsafe']['supported']) else 'not supported'
+    # ---- registration audit: each registration commit must precede the first commit of its results
+    import subprocess
+
+    def git(*a):
+        r = subprocess.run(['git', *a], cwd=ROOT, capture_output=True, text=True)
+        return r.stdout.strip(), r.returncode
+    studies = [('C (v3.3)', 'PREREGISTRATION_v33.md', 'campaign_ledger.jsonl'), ('D (v3.4)', 'PREREGISTRATION_v34.md', 'campaign_D_ledger.jsonl'),
+               ('T1', 'PREREGISTRATION_T1.md', 'devset_t1_qwen35_9b.json'), ('E', 'PREREGISTRATION_E.md', 'campaign_E_ledger.jsonl'),
+               ('T2', 'PREREGISTRATION_T2.md', 'devset_t2_i11_h36_tiles.json'), ('F', 'PREREGISTRATION_F.md', 'campaign_F_ledger.jsonl'),
+               ('G', 'PREREGISTRATION_G.md', 'campaign_G_ledger.jsonl'), ('R', 'PREREGISTRATION_R.md', 'devset_r_gaussian_noise_M.json'),
+               ('H', 'PREREGISTRATION_H.md', 'campaign_H_ledger.jsonl'), ('J', 'PREREGISTRATION_J.md', 'campaign_J_ledger.jsonl'),
+               ('Z', 'PREREGISTRATION_Z.md', 'z_summary.json')]
+    rows = [r'\begin{tabular}{llllc}', r'\toprule', r'Study & Registered (commit, date) & First results (commit, date) & Amendments & Order \\', r'\midrule']
+    ok_all = True
+    for name, reg, res in studies:
+        rc, _ = git('log', '--diff-filter=A', '--format=%h %ad', '--date=short', '--', f'experiments/{reg}')
+        sc, _ = git('log', '--diff-filter=A', '--format=%h %ad', '--date=short', '--', f'experiments/results/{res}')
+        rc, sc = (rc.splitlines()[-1] if rc else ''), (sc.splitlines()[-1] if sc else '')
+        n_am = (ROOT / 'experiments' / reg).read_text().count('**Amendment') if (ROOT / 'experiments' / reg).is_file() else 0
+        if rc and sc and rc.split()[0] == sc.split()[0]:
+            order = 'same commit'          # cannot be verified from history (recorded before this audit existed)
+        elif rc and sc:
+            _, code = git('merge-base', '--is-ancestor', rc.split()[0], sc.split()[0])
+            order = r'$\checkmark$' if code == 0 else 'NO'
+            ok_all &= code == 0
+        else:
+            order = 'pending'
+        rows.append(f"{name} & \\texttt{{{rc or '--'}}} & \\texttt{{{sc or 'pending'}}} & {n_am} & {order} \\\\")
+    rows += [r'\bottomrule', r'\end{tabular}']
+    tables['tab_prereg.tex'] = '\n'.join(rows)
+    m['PreregOrderOK'] = 'holds' if ok_all else 'does NOT hold'
     # ---- development-data model selection (appendix table)
     sel = json.loads((RES / 'i08_model_selection.json').read_text())
     lines = [r'\begin{tabular}{llrrrr}', r'\toprule',
