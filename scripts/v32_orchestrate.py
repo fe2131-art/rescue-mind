@@ -37,7 +37,7 @@ def shell_exec(args: list[str]) -> tuple[str, ...]:
 
 
 WORLD_SPEC_KEYS = {'lighting_params', 'prop_offsets', 'hazard_at', 'hazard_geom', 'distractor_at',
-                   'distractor_kind', 'distractor_side', 'distractor_layout', 'layout'}
+                   'distractor_kind', 'distractor_side', 'distractor_layout', 'layout', 'depot'}
 
 
 def waypoint_config_path(log_dir: Path) -> Path:

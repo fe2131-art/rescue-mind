@@ -269,7 +269,7 @@ def build_variant(src: Path, *, lighting: str = 'default', distractor_at: str | 
                   hazard_at: str | None = None, lighting_params: dict | None = None,
                   prop_offsets: dict | None = None, hazard_geom: tuple[float, float] | None = None,
                   distractor_kind: str = 'box', distractor_side: float = 1.0,
-                  distractor_layout: str = 'world', hazard_mask: bool = False, layout=None) -> bytes:
+                  distractor_layout: str = 'world', hazard_mask: bool = False, layout=None, depot=None) -> bytes:
     """Controlled variants (dev sets, campaigns) and, with the extra keyword arguments,
     the continuously randomised held-out test worlds (T1).
 
@@ -279,6 +279,10 @@ def build_variant(src: Path, *, lighting: str = 'default', distractor_at: str | 
     prop_offsets stay world-frame offsets added to the (moved) prop pose."""
     tree = ET.parse(src)
     world = tree.getroot().find('world')
+    if depot:
+        # I-21: realistic relief-depot surroundings (AWS small warehouse, MIT-0) around the unchanged operating area
+        from .depot import add_depot
+        add_depot(world, seed=depot.get('seed'), obstacle=bool(depot.get('obstacle')))
     preset = lighting_params or LIGHTING[lighting]
     if preset:
         world.find('scene/ambient').text = preset['ambient']
