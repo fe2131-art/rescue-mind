@@ -158,11 +158,19 @@ is a larger alternative with ground-level, UAV and satellite subsets and a possi
 descriptively and without refusal semantics or a closed-loop audit.
 
 \section{Additional T1 analyses}\label{sec:t1extra}
+\begin{table}[t]\centering\caption{T1 held-out test, registered v3.4 rule (Eq.~\ref{eq:rule}) unless marked free JSON; 408 must-refuse and 191 must-approve images.}
+\label{tab:t1models}\resizebox{\linewidth}{!}{\input{tab_t1_models.tex}}\end{table}
+
+\emph{Free-form generation.} Free JSON (A5) gave no parse errors with Qwen3.5-9B and the
+same \TJsonNineFA{} false approvals, but only \TJsonNineCA{} correct approvals against \TCA{} with scoring.
+All models missed largely the same small fires (hazard recall \THazMin{} to \THazMax{} of the \TNfireVis{} visible fires); Supp.~Fig.~S2 shows descriptive risk--coverage curves
+over $\taus$.
+
 \subsection{Decision-rule ablations}
 \begin{table}[t]\centering\caption{Decision-rule ablations on T1: false approvals / false denials.
 $^{*}$: exact McNemar $p<0.05$ versus the full rule of the same model.}
 \label{tab:t1ablation}\resizebox{\linewidth}{!}{\input{tab_t1_ablation.tex}}\end{table}
-Table~\ref{tab:t1ablation} isolates the parts of the rule on T1 (Table~\ref{M-tab:t1models}, Eq.~\ref{M-eq:rule}). For the 9B model neither the
+Table~\ref{tab:t1ablation} isolates the parts of the rule on T1 (Table~\ref{tab:t1models}, Eq.~\ref{M-eq:rule} of the main paper). For the 9B model neither the
 permuted second question nor the confidence threshold changed the number of false approvals. With Qwen2.5-VL-3B, requiring the two
 multiple-choice questions to agree reduced false approvals, which is the option-letter bias reported in~\cite{zheng2024mcselectors}.
 \subsection{Risk--coverage}
@@ -194,6 +202,24 @@ compared with driving. The situation report adds about 5\,s but could run in par
 \resizebox{0.92\linewidth}{!}{\input{tab_timing.tex}}\end{table}
 
 \section{Further Result Details}\label{app:resdetails}
+\textbf{Real photographs (studies P and P2; full text moved from the main paper).} We also asked the frozen v3.6 hazard question about 400
+real photographs from the test split of D-Fire~\cite{venancio2022dfire}, a CC0 fire and smoke dataset
+(100 each with no fire, smoke only, fire only, and both). It flagged \PRecall{} of the photographs with fire or smoke (95\% CI
+\PRecallCI) and \PFalseAlarm{} of the fire-free ones (\PFalseAlarmCI); the false alarms concentrate on hard negatives such as hazy
+hillsides and sunset clouds (Supp.~Sec.~S7). The probabilities still rank the photographs well (AUROC \PAuroc, not registered), so the problem is the threshold, not the question. The question thus errs strongly toward stopping on real images, which is
+the safe direction but would cost availability outdoors, so a site-specific threshold calibration is a deployment prerequisite.
+Study P2 tested this: it chose wording and $\tau_h$ on 400 separate calibration photographs
+(recall $\ge 0.95$ first, then the lower false-alarm rate), with wording \PTwoWording{} and $\tau_h=\PTwoTau$, and applied it to 400 test photographs.
+It flagged \PTwoRecall{} of
+those with fire or smoke (\PTwoRecallCI) and \PTwoFA{} of the fire-free ones (\PTwoFACI), against \PTwoFrozenRecall{} and
+\PTwoFrozenFA{} for the frozen $\tau_h=0.05$. The registered claim (test recall $\ge 0.90$ and false-alarm rate $\le 0.20$) was \PTwoClaim{}.
+
+
+\textbf{Conformal $\tau_h$ (study K, moved from the main paper).} Split-conformal calibration of $\tau_h$ on \KNcal{} development fires (miss rate $\le\alpha$ with probability 0.9) gave $\tau_h=\KTauFive$ ($\alpha=0.05$) and \KTauTen{} ($\alpha=0.10$).
+On the \KNfire{} visible T2 fires the bound \KHoldsFive{} at $\alpha=0.05$ and \KHoldsTen{} at $0.10$ (\KMissFive{} and \KMissTen{} missed), with \KFAFive{} and \KFATen{} false alarms on \KNfree{} fire-free must-approve images, against \KFrozenMiss{} and \KFrozenFA{} for the frozen $\tau_h=0.05$.
+Exchangeability is broken by design (small fires: \KSmallCal{} of calibration, \KSmallHeld{} of T2 fires); the frozen threshold was not changed.
+
+
 \begin{table}[t]\centering\caption{Study Z: zero-shot contrastive baselines versus our check on the held-out sets (false approvals / correct approvals).}
 \label{tab:z}\resizebox{\linewidth}{!}{\input{tab_z.tex}}\end{table}
 \begin{figure*}[t]\centering\fig[0.68\textwidth]{fig_r_examples.pdf}
@@ -306,8 +332,8 @@ body slid sideways by 0.75\,m. An audit based on \texttt{/odom} would have passe
 Audits now use Gazebo's ground-truth odometry. Changing the wheel collision from a cylinder to a sphere reduced
 dead-reckoning drift on the medicine route from 0.16 to 0.011\,m (worst of two repeats; \texttt{scripts/i14\_pilot\_p\_range.py}).
 \item \textbf{Free-form JSON from the first VLM was unusable} on our renders. With Qwen2.5-VL-3B, 21 of 96 responses (48 images, two questions each; all 21 for the first question) could not be parsed and the model hallucinated water on empty shelves.
-A newer model parses reliably, but it still approves fewer correct deliveries than scoring does (Table~\ref{M-tab:t1models}).
-This motivated closed-set scoring. T1 measured the free-JSON method again (Table~\ref{M-tab:t1models}).
+A newer model parses reliably, but it still approves fewer correct deliveries than scoring does (Table~\ref{tab:t1models}).
+This motivated closed-set scoring. T1 measured the free-JSON method again (Table~\ref{tab:t1models}).
 \item \textbf{Middleware effects.} Best-effort QoS silently dropped 92 of 102 0.9\,MB camera frames under load. The GPU lidar
 detected the robot's own camera mast. Slow DDS discovery on a 4-core host failed 4 of 12 starts in an aborted campaign.
 An interrupted supervisor left an orphaned stack that made every trial of the next campaign stop with two
@@ -372,7 +398,7 @@ $\mathrm{plan}(\theta,A)=(\pi,\theta')$ implemented in \texttt{rescuemind/advice
 \item $\theta'_j=(\taus,\;\min(\tauh,\tau_h^{\mathrm{caut}}\text{ if some hazard item names }j),\;V)$ at station $j$, with $\tau_h^{\mathrm{caut}}=0.01$.
 \item \emph{safe} and \emph{skip} items are rejected and logged; no item can create a refusal without a visit, a delivery without a check, or a change of $\taus$ or $V$.
 \end{itemize}
-\textbf{Lemma 1 (every plan is verification-preserving).} For every $\mathbf{a}$, $\taus'_j=\taus$, $\tauh'_j\le\tauh$ and $V'_j=V$ at every station $j$ in $\pi$.
+\textbf{Lemma 1 (every plan is verification-preserving).} For every $\mathbf{a}$, $\tau'_{s,j}=\taus$, $\tau'_{h,j}\le\tauh$ and $V'_j=V$ at every station $j$ in $\pi$.
 \emph{Proof.} Immediate from the definition of $\mathrm{plan}$: the second component is a minimum with $\tauh$, the first and third are copied. The run audit recomputes
 $\mathrm{plan}(\theta,\mathbf{a})$ from the logged items and rejects the run if the logged $\theta'$ differs or is not of this form (\texttt{advice.assert\_monotone}). $\square$
 
