@@ -332,6 +332,14 @@ def mission_segment(run_dir: Path, spec: dict, cam: FilmCamera, emit, narr=None,
             how = 'ローカルLLM' if intent_gate.get('backend') == 'llm' else 'TF-IDF'
             text(d, (1362, 608), f'指示理解（{how}）→ {ITEM_JA[item]} を避難所Bへ', 21, INK)
             y = 640
+            mem = mission.get('memory') or {}
+            if mem.get('mode') == 'verified' and mem.get('rationale'):
+                # I-15: what the memory proposed for this mission (it never skips a check)
+                rounded(d, (1356, y - 4, 1866, y + 58), (40, 44, 92), 10)
+                text(d, (1366, y), '記憶（前回の出動）→ 提案のみ・確認は省略しない', 18, (190, 196, 255), True)
+                for k, ln in enumerate(wrap_lines(mem['rationale'][0], 18, 490)[:1]):
+                    text(d, (1366, y + 26 + 22 * k), ln, 18, INK)
+                y += 66
             active = None
             for k, e in enumerate(eps):
                 if e['frame'] and t >= e['frame']:
