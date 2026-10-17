@@ -88,6 +88,7 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
                hazard_prompt: str = 'h35', jev_local: str = 'off', jev_hazard_threshold: float = .35, jev_schema: str = 'jev',
                look_around: float = 0.0, memory_file: str | None = None, memory_mode: str = 'off', adaptive_views: float = 0.0,
                advice_file: str | None = None, advice_mode: str = 'off', advice_from_instruction: bool = False,
+               caution_soft: bool = False, advice_scrutiny: bool = False,
                config_path: Path | None = None, centers_path: Path | None = None) -> dict:
     if scenario not in ('motion-check', 'live'):
         raise ValueError('invalid scenario')
@@ -114,6 +115,10 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
             cmd += ['--advice-file', str(advice_file)]
         if advice_from_instruction:
             cmd += ['--advice-from-instruction']
+    if caution_soft:
+        cmd += ['--caution-soft']                            # R5 #5: caution-only refusals continue the search
+    if advice_scrutiny:
+        cmd += ['--advice-scrutiny']                         # I-19: advice-promoted station gets caution + extra views
     if inject_stall:
         cmd += ['--inject-warmup-stall', str(inject_stall)]
     if scenario=='live':
@@ -228,6 +233,15 @@ def memory_denied(log_dir: Path) -> bool:
         e.get('stage') == 'memory_denial' for e in m.get('events', []))
 
 
+def caution_refused(log_dir: Path) -> bool:
+    """R5 #5: the run contains a recorded caution-only refusal (soft refusal, --caution-soft): its end is an expected denial."""
+    try:
+        m = json.loads((log_dir/'mission.json').read_text(encoding='utf8'))
+    except (OSError, ValueError):
+        return False
+    return bool(m.get('caution_soft')) and bool(m.get('caution_refusals'))
+
+
 def memory_trusted_audit(outcome: dict, log_dir: Path, run_id: str, mission: dict, sup) -> None:
     """I-15 naive-memory baseline: the robot skipped the on-site check because memory said the supply was there.
     Only the physical delivery is audited (guard graph, independent odometry, Gazebo ground truth)."""
@@ -279,6 +293,8 @@ def advice_audit(log_dir: Path) -> dict | None:
     if not (plan or {}).get('advice'):
         return None
     ev = adv.audit_plan(plan)
+    from rescuemind.caution_soft import audit_caution_refusals
+    ev['caution'] = audit_caution_refusals(m)
     if ev.get('mode') == 'monotone':
         if (m.get('checkpoint') or {}).get('trusted_by') == 'advice' or any(
                 e.get('stage') in ('memory_denial', 'checkpoint_skipped_by_memory') and e.get('by') == 'advice'
@@ -341,6 +357,12 @@ def main(argv=None):
     p.add_argument('--advice-mode', choices=['off', 'monotone', 'naive', 'filtered'], default='off',
                    help='I-19: monotone = advice may only reorder and tighten; naive = follow advice; '
                         'filtered = follow advice that an LLM injection filter does not flag (baselines only)')
+    p.add_argument('--caution-soft', action='store_true',
+                   help='R5 #5: a refusal caused ONLY by memory / advice caution (tau_mem <= p(hazard) < tau_h) does not stop the '
+                        'mission: no delivery from that station, search the next candidate (default off: v3.6)')
+    p.add_argument('--advice-scrutiny', action='store_true',
+                   help='I-19: the station that advice moved to the front gets caution (tau_h = caution threshold) and the I-20 '
+                        'extra views regardless of suspicion (monotone mode only; can only tighten)')
     p.add_argument('--advice-from-instruction', action='store_true',
                    help='I-19: extract operator advice from the instruction text (closed-set, fail-closed)')
     p.add_argument('--jev-local', choices=['off', 'clef'], default='off',
@@ -416,6 +438,7 @@ def main(argv=None):
                  memory_file=args.memory_file, memory_mode=args.memory_mode,
                  advice_file=args.advice_file, advice_mode=args.advice_mode,
                  advice_from_instruction=args.advice_from_instruction,
+                 caution_soft=args.caution_soft, advice_scrutiny=args.advice_scrutiny,
                  control_qos='best_effort' if args.dds_mode == 'best_effort' else 'reliable')
     if args.dds_mode == 'async':
         os.environ['RMW_FASTRTPS_PUBLICATION_MODE'] = 'ASYNCHRONOUS'
@@ -467,6 +490,8 @@ def main(argv=None):
     summary['memory_mode'] = args.memory_mode
     summary['advice_file'] = args.advice_file
     summary['advice_mode'] = args.advice_mode
+    summary['caution_soft'] = args.caution_soft
+    summary['advice_scrutiny'] = args.advice_scrutiny
     summary['advice_from_instruction'] = args.advice_from_instruction
     summary['jev_hazard_threshold'] = args.jev_hazard_threshold
     summary['jev_schema'] = args.jev_schema
@@ -530,7 +555,7 @@ def main(argv=None):
             try:
                 sup.run_mission(plan['mission'], plan['mission_timeout'])
             except StackFailure as mission_error:
-                if (args.scenario == 'live' and (args.scene in ('swapped', 'empty') or args.hazard_at or memory_denied(log_dir))
+                if (args.scenario == 'live' and (args.scene in ('swapped', 'empty') or args.hazard_at or memory_denied(log_dir) or caution_refused(log_dir))
                         and str(mission_error).startswith('mission failed (exit=')):
                     deferred_denial = mission_error
                 else:
@@ -628,7 +653,7 @@ def main(argv=None):
                 return_code=0
             except (ValueError,OSError,KeyError,TypeError,RuntimeError) as denial_error:
                 outcome['negative_evidence_failure']=str(denial_error)
-        elif (args.scenario=='live' and (args.scene in ('swapped','empty') or args.hazard_at)
+        elif (args.scenario=='live' and (args.scene in ('swapped','empty') or args.hazard_at or caution_refused(log_dir))
                 and isinstance(e,StackFailure)
                 and str(e).startswith('mission failed (exit=')):
             try:
@@ -646,7 +671,7 @@ def main(argv=None):
                 denied_item=denied['intent']['item']
                 final_station=denied.get('checkpoint_station') or denied_item
                 waypoints=dict(config); waypoints[denied_item]=config[final_station]
-                negative=classify_negative_run(log_dir,scene='hazard' if args.hazard_at else args.scene,
+                negative=classify_negative_run(log_dir,scene='hazard' if args.hazard_at else ('caution' if args.scene=='nominal' else args.scene),
                                                run_id=run_id,waypoints=waypoints)
                 outcome['expected_denial']=negative
                 if denied.get('recovery'):

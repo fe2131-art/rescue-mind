@@ -90,13 +90,20 @@ def outcome(mission: dict, result: dict) -> dict:
             'stopped_not_found' if dec.get('reason') == 'local_vlm_disagree_or_wrong_supply' else 'stopped_uncertain')
     else:
         kind = 'failed'
-    return {'kind': kind, 'item': item, 'station': st, 'state': state, 'by': by}
+    out = {'kind': kind, 'item': item, 'station': st, 'state': state, 'by': by}
+    soft = [c.get('station') for c in mission.get('caution_refusals') or [] if c.get('continued')]
+    if soft:       # R5 #5 (--caution-soft): stations skipped only because of the tightened (memory / advice) threshold
+        out['caution_skipped'] = soft
+    return out
 
 
 def headline(o: dict) -> tuple[str, str]:
     """(short verdict, colour key) for the badge."""
     it = ITEM_JA.get(o['item'], o['item'])
     st = STATION_JA.get(o['station'], o['station'])
+    skipped = '、'.join(STATION_JA.get(x, x) for x in o.get('caution_skipped') or [])
+    if skipped and o['kind'] == 'delivered_after_search':
+        return (f'{skipped}は警戒のため見送り、{st}で{it}を確認して避難所Bへ向かいました', 'good')
     return {
         'delivered': (f'{it}を確認し、避難所Bへ向かいました', 'good'),
         'delivered_after_search': (f'定位置に無かった{it}を{st}で見つけ、避難所Bへ向かいました', 'good'),

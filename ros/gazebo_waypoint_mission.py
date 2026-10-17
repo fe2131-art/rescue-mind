@@ -21,6 +21,7 @@ from threading import Thread
 import sys
 import time
 ROOT=Path(__file__).resolve().parents[1]
+SCRUTINY_OFFSET_M=0.8      # side offset of the extra views at a scrutinised station (I-20 default offset)
 sys.path.insert(0,str(ROOT))
 from rescuemind.mission_policy import decide_intent
 from rescuemind.ros_qos import image_qos
@@ -112,6 +113,8 @@ def run_ros(route, args, record):
     clock_gate=CameraClockGate()
     clock_failure={"reason":None}
     live = record.get('run_type') in ('jev_qwen_live_mission','local_vlm_live_mission')
+    soft=bool(getattr(args,'caution_soft',False))      # R5 #5: a caution-only refusal continues the search (default off)
+    record['caution_soft']=soft
     sensor_grace=max(5.,float(getattr(args,'sensor_wait',5.)))
     camera_watch=CameraWatch(started_at=time.monotonic(), max_age_s=getattr(args,'camera_max_age',3.0),
                              startup_grace_s=sensor_grace) if live else None
@@ -478,20 +481,85 @@ def run_ros(route, args, record):
     def schedule_adaptive_views(station, cp, la):
         """I-20: after the standard views all passed, if any of them was suspicious (p(hazard) >= tau_sus), look again
         from wider side poses and closer to the station.  Can only add refusals (an extra view with a hazard revokes)."""
-        off=float(getattr(args,'adaptive_views',0) or 0)
+        # I-19 scrutiny (--advice-scrutiny): the station that advice moved to the front of the order gets the extra views
+        # whether or not a view was suspicious (it can only add views)
+        scr=bool(getattr(args,'advice_scrutiny',False)) and station in ((record.get('memory') or {}).get('scrutiny') or [])
+        off=float(getattr(args,'adaptive_views',0) or 0) or (SCRUTINY_OFFSET_M if scr else 0.)
         if off <= 0 or la.get('adaptive') is not None or len(la['peeks']) < len(la['points']):
             return None
         from rescuemind.adaptive_views import suspicion, extra_points
         p_max=suspicion(cp, la['peeks'])
-        tau=float(args.adaptive_tau_sus)
-        la['adaptive']={'p_max':p_max,'tau_sus':tau,'triggered':p_max>=tau,'offset_m':off,'near_m':float(args.adaptive_near)}
-        if p_max < tau:
+        tau=float(getattr(args,'adaptive_tau_sus',0.005))
+        la['adaptive']={'p_max':p_max,'tau_sus':tau,'triggered':p_max>=tau or scr,'offset_m':off,
+                        'near_m':float(getattr(args,'adaptive_near',0.3))}
+        if scr:
+            la['adaptive']['scrutiny']=True
+        if p_max < tau and not scr:
             return None
-        pts=extra_points(la['waypoint'],la['center'],off,float(args.adaptive_near))
+        pts=extra_points(la['waypoint'],la['center'],off,float(getattr(args,'adaptive_near',0.3)))
         la['points']+= [{'side':sd,'xy':list(xy)} for sd,xy in pts]
         record['events'].append({'stage':'adaptive_views_scheduled','station':station,'p_max':p_max,'points':[sd for sd,_ in pts],
                                  't_wall_s':round(time.monotonic()-start,3)})
         return [('peek',f'{station}:{sd}',xy) for sd,xy in pts]
+
+    SOFT_PEEK=object()
+
+    def search_context(target):
+        """(prior recovery block, stations denied before this one, candidate order, next candidate or None)."""
+        prior=record.get('recovery')
+        denied_before=([prior['first_station']]+[h['station'] for h in prior.get('hops',[])]) if prior else []
+        head=denied_before[0] if denied_before else target
+        order=record.get('station_order') or [head,'medicine' if head=='water' else 'water']   # the arena: the other one
+        return prior,denied_before,order,next_candidate(order,denied_before+[target])
+
+    def note_caution_refusal(station, where, source, tau_mem, base_reason, nxt):
+        """Record a caution-only refusal (R5 #5).  `source`: the checkpoint outcome (front) or the side-view entry."""
+        from rescuemind.caution_soft import refusal_record
+        from rescuemind.mission_memory import hazard_prob
+        calls=source.get('model_calls') or {}
+        p_max=max(hazard_prob(calls.get('first')),hazard_prob(calls.get('second')))
+        rec=refusal_record(station,where,p_max,float(tau_mem),base_reason or '',nxt is not None,nxt)
+        record.setdefault('caution_refusals',[]).append(rec)
+        record['events'].append({'stage':'caution_refusal','t_wall_s':round(time.monotonic()-start,3),**rec})
+
+    def begin_search(target, outcome, reason, ctx, index, kind=None):
+        """Keep the refused station's evidence under a 'recovery_' prefix and send the robot to the next candidate."""
+        prior,denied_before,order,nxt=ctx
+        first=len(record['events'])-1
+        while first>=0 and record['events'][first].get('stage')!='supply_station':
+            first-=1
+        for e in record['events'][first:]:
+            e['stage']='recovery_'+e['stage']
+        first_image=Path(args.checkpoint_image)
+        n_hop=len(denied_before)       # 0: first denial, 1: second, ...
+        pre='recovery_' if n_hop==0 else f'recovery{n_hop+1}_'
+        kept=first_image.with_name(pre+first_image.name)
+        first_image.replace(kept)
+        la_=outcome.get('look_around')
+        if la_:        # side views of the refused station keep their own file names (the next station takes the old ones)
+            for pk in la_.get('peeks',[]):
+                old_img=first_image.with_name(pk['image'])
+                if old_img.is_file():
+                    old_img.replace(first_image.with_name(pre+pk['image']))
+                    pk['image']=pre+pk['image']
+            record.pop('look_around',None)
+        if prior is None:
+            record['recovery']={'first_station':target,'first_checkpoint':outcome,
+                                'first_checkpoint_image':kept.name,'searched_station':nxt,
+                                'reason':reason,'candidates':list(order)}
+            if kind:
+                record['recovery']['first_kind']=kind
+        else:
+            hop={'station':target,'checkpoint':outcome,'checkpoint_image':kept.name,'reason':reason}
+            if kind:
+                hop['kind']=kind
+            prior.setdefault('hops',[]).append(hop)
+            prior['searched_station']=nxt
+        record['checkpoint']=None
+        record['events'].append({'stage':'recovery_search_started','from':target,'to':nxt,
+                                 't_wall_s':round(time.monotonic()-start,3)})
+        waypoints=json.loads(Path(getattr(args,'config',ROOT/'configs/gazebo_waypoints.json')).read_text(encoding='utf-8'))
+        route.insert(index,('supply_station',nxt,tuple(waypoints[nxt])))
 
     def look_around_peek(target, goal):
         station,side=target.split(':')
@@ -518,6 +586,10 @@ def run_ros(route, args, record):
         cp=record['checkpoint']; cp['look_around']=la
         if not hazard:
             return schedule_adaptive_views(station, cp, la)
+        from rescuemind.caution_soft import classify_view
+        # R5 #5: a side view the standard (v3.6) rule would have passed, refused only by the tightened threshold
+        soft_peek=soft and classify_view(po['decision']['reason'],po['model_calls']['first'],po['model_calls']['second'],
+                                         po.get('memory_caution_tau_h'))=='caution_only'
         # a hazard seen from the side: the approval becomes a hazard refusal, exactly as at the front
         from rescuemind.local_vision import combine_with_look_around
         cp['decision']=combine_with_look_around(cp['decision'],[{'side':q['side'],'hazard':q['hazard']} for q in la['peeks']])
@@ -541,6 +613,12 @@ def run_ros(route, args, record):
             enforce_stationary_ref[0]()
         record['events'].append({'stage':'checkpoint_denial_dwell_finished','t_wall_s':round(time.monotonic()-start,3),
                                  'commanded_linear':0.,'commanded_angular':0.})
+        if soft_peek:
+            ctx_=search_context(station)
+            note_caution_refusal(station,'side_'+side,entry,po.get('memory_caution_tau_h'),
+                                 cp['decision'].get('front_reason'),ctx_[3])
+            if ctx_[3] is not None and (ctx_[0] is None or station==ctx_[0].get('searched_station')):
+                return SOFT_PEEK
         raise RuntimeError('on-site checkpoint DENIED: visible_hazard_at_checkpoint (look-around '+side+')')
 
     try:
@@ -626,7 +704,14 @@ def run_ros(route, args, record):
                                                  'last_pose':list(ctx['pose'].__dict__.values())})
                         record['trace'].extend(samples)
                         extra=look_around_peek(target, goal)
-                        if extra:
+                        if extra is SOFT_PEEK:
+                            # R5 #5: caution-only side view -> no delivery from this station, drop its remaining
+                            # views and continue with the next candidate (full check there)
+                            st_=target.split(':')[0]
+                            route[index:]=[r for r in route[index:] if not (r[0]=='peek' and str(r[1]).startswith(st_+':'))]
+                            begin_search(st_,record['checkpoint'],'visible_hazard_at_checkpoint',search_context(st_),index,
+                                         kind='caution_only')
+                        elif extra:
                             route[index:index]=extra      # I-20: suspicion-triggered extra views, before leaving
                         break
                     record['events'].append({'stage':stage,'target':target,'arrived':True,
@@ -658,36 +743,17 @@ def run_ros(route, args, record):
                             # candidate station (the arena: the other one, once; the depot: up to k-1 more, in the
                             # inventory / memory order, never skipping one).  Hazards and low-confidence matches stop
                             # immediately (no search into a possible danger), as does an exhausted candidate list.
-                            prior=record.get('recovery')
-                            denied_before=([prior['first_station']]+[h['station'] for h in prior.get('hops',[])]) if prior else []
-                            head=denied_before[0] if denied_before else target
-                            order=record.get('station_order') or [head,'medicine' if head=='water' else 'water']   # the arena: the other one
-                            nxt=next_candidate(order,denied_before+[target])
-                            if (getattr(args,'recovery',False) and nxt is not None
-                                    and reason=='local_vlm_disagree_or_wrong_supply'
-                                    and (prior is None or target==prior.get('searched_station'))):
-                                first=len(record['events'])-1
-                                while first>=0 and record['events'][first].get('stage')!='supply_station':
-                                    first-=1
-                                for e in record['events'][first:]:
-                                    e['stage']='recovery_'+e['stage']
-                                first_image=Path(args.checkpoint_image)
-                                n_hop=len(denied_before)       # 0: first denial, 1: second, ...
-                                kept=first_image.with_name(('recovery_' if n_hop==0 else f'recovery{n_hop+1}_')+first_image.name)
-                                first_image.replace(kept)
-                                if prior is None:
-                                    record['recovery']={'first_station':target,'first_checkpoint':outcome,
-                                                        'first_checkpoint_image':kept.name,'searched_station':nxt,
-                                                        'reason':reason,'candidates':list(order)}
-                                else:
-                                    prior.setdefault('hops',[]).append({'station':target,'checkpoint':outcome,
-                                                                       'checkpoint_image':kept.name,'reason':reason})
-                                    prior['searched_station']=nxt
-                                record['checkpoint']=None
-                                record['events'].append({'stage':'recovery_search_started','from':target,'to':nxt,
-                                                         't_wall_s':round(time.monotonic()-start,3)})
-                                waypoints=json.loads(Path(getattr(args,'config',ROOT/'configs/gazebo_waypoints.json')).read_text(encoding='utf-8'))
-                                route.insert(index,('supply_station',nxt,tuple(waypoints[nxt])))
+                            sctx=search_context(target)
+                            prior,denied_before,order,nxt=sctx
+                            from rescuemind.caution_soft import front_caution_only
+                            soft_front=soft and front_caution_only(outcome['decision'])
+                            if soft_front:      # R5 #5: record it whether or not a next candidate is left
+                                note_caution_refusal(target,'front',outcome,outcome['decision']['memory_caution_tau_h'],
+                                                     outcome['decision'].get('pre_caution_reason'),nxt)
+                            if (nxt is not None and (prior is None or target==prior.get('searched_station'))
+                                    and ((getattr(args,'recovery',False) and reason=='local_vlm_disagree_or_wrong_supply')
+                                         or soft_front)):
+                                begin_search(target,outcome,reason,sctx,index,kind='caution_only' if soft_front else None)
                             else:
                                 raise RuntimeError('on-site checkpoint DENIED: '+reason)
                     break
@@ -755,6 +821,11 @@ def main():
                          'side offset (m) and from --adaptive-near closer; 0 = off')
     ap.add_argument('--adaptive-tau-sus',type=float,default=0.005)
     ap.add_argument('--adaptive-near',type=float,default=0.3)
+    ap.add_argument('--caution-soft',action='store_true',
+                    help='R5 #5: a refusal caused only by memory / advice caution (tau_mem <= p(hazard) < tau_h) does not stop the '
+                         'mission: no delivery from that station, continue with the next candidate station (default off: v3.6)')
+    ap.add_argument('--advice-scrutiny',action='store_true',
+                    help='I-19: the station that advice moved to the front gets caution and the I-20 extra views regardless of suspicion')
     ap.add_argument('--advice-file',default=None,
                     help='I-19: JSON list of advice items (peer robot / inventory / memory claims), see rescuemind.advice.validate')
     ap.add_argument('--advice-mode',choices=['off','monotone','naive','filtered'],default='off',
