@@ -80,9 +80,18 @@ def traffic_cone(name, x, y, z=0.0):
 PLATFORM_SIDE_M = 0.28
 
 
-def platform_side_offset(station: str, side: float, dist: float = PLATFORM_SIDE_M) -> tuple[float, float]:
+def layout_stations(layout) -> dict:
+    """Station centres of a Study L layout (Layout, dict or None -> the fixed STATIONS)."""
+    if layout is None:
+        return STATIONS
+    from .layout import Layout
+    return Layout.from_dict(layout).centers()
+
+
+def platform_side_offset(station: str, side: float, dist: float = PLATFORM_SIDE_M,
+                         stations: dict | None = None) -> tuple[float, float]:
     """Offset across the approach direction (left/right in the checkpoint image) on a platform."""
-    x, y = STATIONS[station]
+    x, y = (stations or STATIONS)[station]
     n = (x * x + y * y) ** .5
     return -y / n * side * dist, x / n * side * dist
 
@@ -179,8 +188,9 @@ def fire_and_smoke(name, x, y, style: str | None = None, mask: bool = False, sca
     return m
 
 
-def hazard_xy(station: str, back: float = 0.75, lateral: float = 0.5) -> tuple[float, float]:
-    x, y = STATIONS[station]
+def hazard_xy(station: str, back: float = 0.75, lateral: float = 0.5,
+              stations: dict | None = None) -> tuple[float, float]:
+    x, y = (stations or STATIONS)[station]
     # approach comes from the arena origin side; put the fire on the opposite side
     ux, uy = x / (x * x + y * y) ** .5, y / (x * x + y * y) ** .5
     vx, vy = -uy, ux   # lateral offset: beside the supplies in the image, not hidden behind them
@@ -192,13 +202,13 @@ CAMERA_HALF_HFOV = 0.525      # horizontal_fov 1.05 rad in the robot SDF
 
 
 def hazard_visibility(station: str, hazard_at: str | None, pose_xy: tuple[float, float], yaw: float,
-                      hazard_pos: tuple[float, float] | None = None) -> str:
+                      hazard_pos: tuple[float, float] | None = None, stations: dict | None = None) -> str:
     """Three-way label for the paper test set: 'visible' (whole fire inside the image),
     'hidden' (whole fire outside), 'ambiguous' (partly in view; excluded from primary metrics)."""
     import math
     if hazard_at != station:
         return 'hidden'
-    fx, fy = hazard_pos or hazard_xy(hazard_at)
+    fx, fy = hazard_pos or hazard_xy(hazard_at, stations=stations)
     dx, dy = fx - pose_xy[0], fy - pose_xy[1]
     bearing = abs(math.atan2(math.sin(math.atan2(dy, dx) - yaw), math.cos(math.atan2(dy, dx) - yaw)))
     extent = math.atan2(FIRE_HALF_WIDTH_M, math.hypot(dx, dy))
@@ -210,12 +220,12 @@ def hazard_visibility(station: str, hazard_at: str | None, pose_xy: tuple[float,
 
 
 def hazard_visible(station: str, hazard_at: str | None, pose_xy: tuple[float, float], yaw: float,
-                   half_fov: float = 0.50) -> bool:
+                   half_fov: float = 0.50, stations: dict | None = None) -> bool:
     """Geometric visibility of the fire from a camera pose (bearing inside the horizontal FOV)."""
     import math
     if hazard_at != station:
         return False
-    fx, fy = hazard_xy(hazard_at)
+    fx, fy = hazard_xy(hazard_at, stations=stations)
     bearing = math.atan2(fy - pose_xy[1], fx - pose_xy[0]) - yaw
     return abs(math.atan2(math.sin(bearing), math.cos(bearing))) < half_fov
 
@@ -229,13 +239,44 @@ def _platform_empty(world, x, y) -> bool:
     return True
 
 
+_LAYOUT_MODELS = {'water': 'aid_station_water', 'medicine': 'aid_station_medicine', 'B': 'shelter_B'}
+_PROP_MODELS = ('sealed_water_bottles', 'first_aid_case')
+
+
+def _apply_layout(world, lay) -> None:
+    """Move station platforms, shelter B and the supply props (matched to their station by xy) in place.
+    Model yaw is the pose yaw, and a prop sits at its station centre, so rotating the pose rotates it with the platform."""
+    props = {}
+    for m in world.findall('model'):
+        if m.get('name') in _PROP_MODELS:
+            px, py = [float(v) for v in m.findtext('pose').split()[:2]]
+            for st, (sx, sy) in STATIONS.items():
+                if abs(px - sx) < 0.01 and abs(py - sy) < 0.01:
+                    props[m.get('name')] = st
+    for key, name in _LAYOUT_MODELS.items():
+        x, y, yaw = lay.pose(key)
+        m = next(mm for mm in world.findall('model') if mm.get('name') == name)
+        v = [float(t) for t in m.findtext('pose').split()]
+        m.find('pose').text = f'{x:g} {y:g} {v[2]:g} {v[3]:g} {v[4]:g} {v[5] + yaw:g}'
+    for name, st in props.items():
+        x, y, yaw = lay.pose(st)
+        m = next(mm for mm in world.findall('model') if mm.get('name') == name)
+        v = [float(t) for t in m.findtext('pose').split()]
+        m.find('pose').text = f'{x:g} {y:g} {v[2]:g} {v[3]:g} {v[4]:g} {v[5] + yaw:g}'
+
+
 def build_variant(src: Path, *, lighting: str = 'default', distractor_at: str | None = None,
                   hazard_at: str | None = None, lighting_params: dict | None = None,
                   prop_offsets: dict | None = None, hazard_geom: tuple[float, float] | None = None,
                   distractor_kind: str = 'box', distractor_side: float = 1.0,
-                  distractor_layout: str = 'world', hazard_mask: bool = False) -> bytes:
+                  distractor_layout: str = 'world', hazard_mask: bool = False, layout=None) -> bytes:
     """Controlled variants (dev sets, campaigns) and, with the extra keyword arguments,
-    the continuously randomised held-out test worlds (T1)."""
+    the continuously randomised held-out test worlds (T1).
+
+    layout (Study L): optional rescuemind.layout.Layout (or its dict) that moves the two supply
+    platforms, their props and shelter B; distractor / hazard / platform-side placement then follow the
+    moved stations.  None, or the default layout, leaves the output byte-identical to the fixed arena.
+    prop_offsets stay world-frame offsets added to the (moved) prop pose."""
     tree = ET.parse(src)
     world = tree.getroot().find('world')
     preset = lighting_params or LIGHTING[lighting]
@@ -248,6 +289,13 @@ def build_variant(src: Path, *, lighting: str = 'default', distractor_at: str | 
     # which platforms are empty is decided from the scene definition, BEFORE any prop is moved
     # (T1 amendment 1: checking after the move made every platform with a moved supply look empty)
     empty_at = {st: _platform_empty(world, *xy) for st, xy in STATIONS.items()}
+    stations = STATIONS
+    if layout is not None:
+        from .layout import Layout
+        lay = Layout.from_dict(layout)
+        if not lay.is_default():
+            stations = lay.centers()
+            _apply_layout(world, lay)
     if prop_offsets:
         # held-out: move/rotate each supply prop on its platform (dx, dy, yaw)
         for m in world.findall('model'):
@@ -256,13 +304,13 @@ def build_variant(src: Path, *, lighting: str = 'default', distractor_at: str | 
                 v = [float(t) for t in m.findtext('pose').split()]
                 m.find('pose').text = f'{v[0] + dx:g} {v[1] + dy:g} {v[2]:g} {v[3]:g} {v[4]:g} {v[5] + dyaw:g}'
     if distractor_at:
-        x, y = STATIONS[distractor_at]
+        x, y = stations[distractor_at]
         empty_platform = empty_at[distractor_at]
         if distractor_layout == 'platform':
             # campaign E: the distractor stands ON the supply platform (beside the supply when one is
             # there, centred when the platform is empty) so it is always in the checkpoint view and
             # never in the robot's corridor; the generator keeps the supply on the other half.
-            ox, oy = (0.0, 0.0) if empty_platform else platform_side_offset(distractor_at, distractor_side)
+            ox, oy = (0.0, 0.0) if empty_platform else platform_side_offset(distractor_at, distractor_side, stations=stations)
             fx, fy = x + ox, y + oy
             obj = {'cone': lambda: traffic_cone(f'distractor_cone_{distractor_at}', fx, fy, 0.5),
                    'crate': lambda: plastic_crate(f'distractor_crate_{distractor_at}', fx, fy, 0.5, 0.4),
@@ -284,7 +332,7 @@ def build_variant(src: Path, *, lighting: str = 'default', distractor_at: str | 
         # platform into the checkpoint view, off the path and outside the lidar front zone
         geom = tuple(hazard_geom or (0.75, 0.5))
         # optional third element = fire size scale (campaign F: small, early-stage fires); default full size
-        world.append(fire_and_smoke(f'hazard_fire_{hazard_at}', *hazard_xy(hazard_at, *geom[:2]),
+        world.append(fire_and_smoke(f'hazard_fire_{hazard_at}', *hazard_xy(hazard_at, *geom[:2], stations=stations),
                                     mask=hazard_mask, scale=geom[2] if len(geom) > 2 else 1.0))
     ET.indent(tree, space='  ')
     return ET.tostring(tree.getroot(), encoding='utf-8', xml_declaration=True)

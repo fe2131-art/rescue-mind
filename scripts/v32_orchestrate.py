@@ -37,7 +37,14 @@ def shell_exec(args: list[str]) -> tuple[str, ...]:
 
 
 WORLD_SPEC_KEYS = {'lighting_params', 'prop_offsets', 'hazard_at', 'hazard_geom', 'distractor_at',
-                   'distractor_kind', 'distractor_side', 'distractor_layout'}
+                   'distractor_kind', 'distractor_side', 'distractor_layout', 'layout'}
+
+
+def waypoint_config_path(log_dir: Path) -> Path:
+    """Study L: a run with a per-trial layout audits against ITS OWN waypoints.json in the run folder;
+    every other run keeps the fixed configs/gazebo_waypoints.json."""
+    own = Path(log_dir)/'waypoints.json'
+    return own if own.is_file() else ROOT/'configs/gazebo_waypoints.json'
 
 
 def can_raise_priority() -> bool:
@@ -79,7 +86,8 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
                intent_prompt: str = 'i34', describe_prompt: str = 'e0', inject_stall: float = 0.0,
                hazard_threshold: float = 0.5, control_qos: str = 'reliable', hazard_views: str = 'full',
                hazard_prompt: str = 'h35', jev_local: str = 'off', jev_hazard_threshold: float = .35, jev_schema: str = 'jev',
-               look_around: float = 0.0, memory_file: str | None = None, memory_mode: str = 'off') -> dict:
+               look_around: float = 0.0, memory_file: str | None = None, memory_mode: str = 'off',
+               config_path: Path | None = None, centers_path: Path | None = None) -> dict:
     if scenario not in ('motion-check', 'live'):
         raise ValueError('invalid scenario')
     from rescuemind.scene_variants import SCENES
@@ -89,6 +97,10 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
     cmd = ['python3', script, '--motion-check'] if scenario == 'motion-check' else \
           ['python3', script, '--run-live', '--instruction', instruction]
     cmd += ['--stage-timeout', '120', '--control-qos', control_qos]
+    if config_path is not None:
+        cmd += ['--config', str(config_path)]       # Study L: per-run waypoints
+    if centers_path is not None:
+        cmd += ['--centers', str(centers_path)]     # Study L: per-run station centres
     if look_around:
         cmd += ['--look-around', str(look_around)]
     if memory_file:
@@ -215,7 +227,7 @@ def memory_trusted_audit(outcome: dict, log_dir: Path, run_id: str, mission: dic
     from rescuemind.ground_truth_evidence import audit_ground_truth
     if (mission.get('memory') or {}).get('mode') != 'naive':
         raise StackFailure('memory-trusted delivery outside the naive-memory baseline')
-    config = json.loads((ROOT/'configs/gazebo_waypoints.json').read_text())
+    config = json.loads(waypoint_config_path(log_dir).read_text())
     station = mission.get('checkpoint_station')
     outcome['runtime_guard_graph_evidence'] = audit_watch_jsonl(log_dir/'guard_graph_watch.jsonl')
     for attempt in range(11):
@@ -308,6 +320,7 @@ def main(argv=None):
     audit_scenarios(ROOT/'worlds/scenarios')
     validate_static(ROOT/'worlds/scenarios'/('rescuemind_'+args.scene+'.sdf'), ROOT/'configs/ros_gz_bridge_v20.yaml')
     world_spec = json.loads(args.world_spec) if args.world_spec else None
+    layout = None
     if world_spec is not None:
         if not isinstance(world_spec, dict) or set(world_spec) - WORLD_SPEC_KEYS:
             p.error(f'--world-spec keys must be within {sorted(WORLD_SPEC_KEYS)}')
@@ -315,6 +328,12 @@ def main(argv=None):
             p.error('--world-spec replaces --lighting/--hazard-at/--distractor-at')
         args.hazard_at = world_spec.get('hazard_at')
         args.distractor_at = world_spec.get('distractor_at')
+        if world_spec.get('layout') is not None:
+            from rescuemind.layout import Layout
+            try:
+                layout = Layout.from_dict(world_spec['layout'])
+            except ValueError as e:
+                p.error(f'--world-spec layout invalid: {e}')
     robust = args.lighting != 'default' or args.hazard_at or args.distractor_at or world_spec is not None
     def make_world(dest_dir):
         if not robust:
@@ -322,6 +341,9 @@ def main(argv=None):
         from rescuemind.robust_scenes import write_variant
         if world_spec is not None:
             kw = dict(world_spec)
+            if 'layout' in kw:
+                from rescuemind.layout import Layout
+                kw['layout'] = Layout.from_dict(kw['layout'])
             if 'hazard_geom' in kw:
                 kw['hazard_geom'] = tuple(kw['hazard_geom'])
             w = write_variant(ROOT/'worlds/scenarios', dest_dir, args.scene, **kw)
@@ -345,7 +367,9 @@ def main(argv=None):
     placeholder=ROOT/'outputs'/'runs'/'<run_id>'
     plan = build_plan(args.scenario, args.instruction, mission_timeout=args.mission_timeout, scene=args.scene,
                       evidence_dir=placeholder, capture_rosbag=args.capture_rosbag,local_mode=args.local_mode,
-                      gz_mode=args.gz_mode, film=args.film, **extra)
+                      gz_mode=args.gz_mode, film=args.film, **extra,
+                      **(dict(config_path=placeholder/'waypoints.json', centers_path=placeholder/'station_centers.json')
+                         if layout is not None else {}))
     import hashlib
     scene_path = ROOT/'worlds/scenarios'/('rescuemind_'+args.scene+'.sdf')
     scene_sha256=hashlib.sha256(scene_path.read_bytes()).hexdigest()
@@ -360,8 +384,9 @@ def main(argv=None):
     log_dir = ROOT/'outputs'/'runs'/run_id
     log_dir.mkdir(parents=True, exist_ok=False)
     run_world = make_world(log_dir)
+    layout_files = layout.write_configs(log_dir) if layout is not None else (None, None)
     plan = build_plan(args.scenario, args.instruction, mission_timeout=args.mission_timeout, scene=args.scene, evidence_dir=log_dir,
-                      world=run_world, **extra,
+                      world=run_world, config_path=layout_files[0], centers_path=layout_files[1], **extra,
                       capture_rosbag=args.capture_rosbag,local_mode=args.local_mode,gz_mode=args.gz_mode,
                       film=args.film)
     summary['world_variant'] = {'lighting': args.lighting, 'hazard_at': args.hazard_at,
@@ -476,7 +501,7 @@ def main(argv=None):
                 from rescuemind.motion_evidence import audit_motion, MotionEvidenceError
                 mission_record=json.loads((log_dir/'mission.json').read_text(encoding='utf8'))
                 item=mission_record.get('intent',{}).get('item')
-                config=json.loads((ROOT/'configs/gazebo_waypoints.json').read_text())
+                config=json.loads(waypoint_config_path(log_dir).read_text())
                 if item not in ('water','medicine'):
                     raise StackFailure('motion evidence: invalid supply item')
                 # I-02: after a recovery search the authorising checkpoint is at the OTHER station.
@@ -544,7 +569,7 @@ def main(argv=None):
                 from rescuemind.runtime_guard_graph import audit_watch_jsonl
                 outcome['runtime_guard_graph_evidence']=audit_watch_jsonl(log_dir/'guard_graph_watch.jsonl')
                 from rescuemind.v24_trial_outcome import classify_negative_run
-                config=json.loads((ROOT/'configs/gazebo_waypoints.json').read_text())
+                config=json.loads(waypoint_config_path(log_dir).read_text())
                 from rescuemind.v26_stationary_evidence import audit_stationarity
                 outcome['stationary_camera_evidence']=audit_stationarity(log_dir/'mission.json')
                 from rescuemind.v27_image_evidence import audit_capture
