@@ -51,7 +51,8 @@ def checks(mission: dict) -> list[dict]:
         out.append({'kind': 'side', 'station': st, 'side': pk.get('side'), 'image': pk.get('image'),
                     'decision': 'visible_hazard_at_checkpoint' if pk.get('hazard') else 'clear',
                     'allow': not pk.get('hazard'), 'seen': None, 'p_supply': {},
-                    'p_hazard': _p((pk.get('model_calls') or {}).get('first'), 'hazard_prob')})
+                    'p_hazard': _p((pk.get('model_calls') or {}).get('first'), 'hazard_prob'),
+                    'tau_mem': cp.get('memory_caution_tau_h')})
     return out
 
 
@@ -99,8 +100,10 @@ def reasons(chk: list[dict], o: dict) -> list[str]:
         where = STATION_JA.get(c['station'], c['station'])
         if c['kind'] == 'side':
             ph = c['p_hazard']
+            tau = c.get('tau_mem')
+            extra = f'。記憶による厳しい閾値 {tau} を超えたため' if (not c['allow'] and tau is not None and ph is not None and ph < 0.05) else ''
             lines.append(f"{where}を{SIDE_JA.get(c['side'], c['side'])}0.4 mから見直し："
-                         + (f'火・煙あり（確率 危険 {ph:.2f}）' if not c['allow'] else f'火・煙なし（確率 危険 {ph:.3f}）' if ph is not None else '火・煙なし'))
+                         + (f'火・煙あり（確率 危険 {ph:.3f}{extra}）' if not c['allow'] else f'火・煙なし（確率 危険 {ph:.3f}）' if ph is not None else '火・煙なし'))
         else:
             ps = c['p_supply'].get(o['item'])
             nums = '・'.join(x for x in ((f'依頼物資 {ps:.2f}' if ps is not None else ''),
@@ -127,16 +130,19 @@ def next_actions(o: dict, mission: dict, result: dict) -> list[str]:
     return acts
 
 
+def _names(t: str) -> str:
+    for k, v in STATION_JA.items():
+        t = t.replace(f'拠点「{k}」', v).replace(f'「{k}」', v)
+    return t
+
+
 def memory_lines(mission: dict, result: dict) -> list[str]:
     out = []
     plan = mission.get('memory') or {}
     if plan.get('mode') == 'verified':
-        out += [f'記憶の提案：{r}' for r in plan.get('rationale') or []]
+        out += [f'記憶の提案：{_names(r)}' for r in plan.get('rationale') or []]
     for c in ((result or {}).get('memory_update') or {}).get('changes') or []:
-        t = c.get('text_ja', '')
-        for k, v in STATION_JA.items():
-            t = t.replace(f'「{k}」', v)
-        out.append(f'前回からの変化：{t}')
+        out.append(f"前回からの変化：{_names(c.get('text_ja', ''))}")
     return out
 
 
