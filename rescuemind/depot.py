@@ -94,6 +94,11 @@ def _model(name: str, inst: str, x: float, y: float, yaw: float, z: float = 0.0)
     if st is None:
         st = ET.SubElement(m, 'static')
     st.text = 'true'
+    for link in m.iter('link'):            # static props: drop the (partly invalid) inertia of the original models
+        for inertial in link.findall('inertial'):
+            link.remove(inertial)
+    for el in m.iter():
+        el.attrib.pop('frame', None)       # SDF 1.7+: the empty frame attribute is not defined
     for uri in m.iter('uri'):
         t = (uri.text or '').strip()
         if t.startswith('file://models/'):
