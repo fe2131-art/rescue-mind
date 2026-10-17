@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from t1_analysis import decide, wilson  # noqa: E402
 import count_tests  # noqa: E402  (generated test / findings counts)
+import advice_numbers  # noqa: E402  (I-23 z3 numbers, I-24 advice-credit model numbers)
 
 RES = ROOT / 'experiments/results'
 GROUP = {'nominal': ('正常配置', '配達'), 'swapped': ('水と救急箱の取り違え', '別拠点を探索して配達'),
@@ -291,7 +292,7 @@ A_RUNS = n_runs('campaign_a_protocol.json') or 226
 def waiting_studies():
     """Registered studies whose summary file does not exist yet (README says 'awaiting results' for these)."""
     files = (('V', 'v_summary.json'), ('W', 'w_summary.json'), ('A', 'a_summary.json'), ('S', 's_summary.json'),
-             ('XD', 'xd_summary.json'), ('X', 'x_summary.json'), ('Q', 'q_summary.json'))
+             ('XD', 'xd_summary.json'), ('X', 'x_summary.json'), ('Q', 'q_summary.json'), ('IF', 'if_summary.json'), ('B', 'b_summary.json'))
     return [k for k, f in files if not (RES / f).is_file()]
 
 
@@ -451,12 +452,67 @@ def audit_text():
             f'（登録は統合ブランチの main への統合時。Q の設計は別ブランチで、統合まで「登録済み」とは書かない）')
 
 
+def i23_text():
+    """I-23: Proposition 2 machine-checked on the implementation (z3 + differential test + injected bugs), numbers from smt_advice_proof.json."""
+    f = advice_numbers.smt_facts()
+    if not f:
+        return None
+    return (f"命題2を、実装そのものに対して機械検証した（z3：{f['queries']}件のうち{f['unsat']}件の問いが「反例なし（unsat）」、残りは緩める側の必要性の反例などを返す問い。"
+            f"モデルと実コードの突き合わせ {f['cases']:,}件で不一致 {f['disagreements']}、わざと入れたバグ {f['mutants']}個のうち {f['caught']}個を検出）")
+
+
+def necessity_text():
+    f = advice_numbers.smt_facts()
+    ex = (f"（z3 が返した反例では、緩める窓口の危険な配達の率が {f['unsafe_rate']} で、予算 {f['eps_any']} を超えた）" if f and f.get('unsafe_rate') is not None else '')
+    return ('命題2は特徴づけにもなった。どの確認も「安全だと証明できるフレームは無い」前提のもとで、**助言の窓口が締めるだけであること**と、'
+            '**どんな助言者に対しても誤許可の予算が守られること**は同値である。確認を省く・緩める窓口には、予算を超える世界と千里眼の助言者が必ずある' + ex
+            + '。したがって、助言に従う素朴な方式と、フィルタをかける方式には、この上限が成り立たない。')
+
+
+def i24_text():
+    """I-24: per-channel advice credit; descriptive 100-mission model (synthetic outcomes, not registered), numbers from advice_credit_horizon.json."""
+    c = advice_numbers.credit_facts()
+    if not c:
+        return None
+    return (f"助言の信用枠（[I-24](docs/IMPROVEMENT_LOG.md)）：情報源（入力の経路）ごとに、助言を**捨てるだけ**の信用を持たせる。命題2は助言の部分集合でも成り立つので、安全は変わらず、"
+            f"毎回嘘をつく・危険を連打する情報源が払わせる代償は、何回出動しても上限（命題3：場所の助言の無駄な訪問 ≤ {c['c_loc']:g} + {c['rho_shadow']:g}×出動数、"
+            f"誤った停止 ≤ {c['c_haz']:g} + {c['rho']:g}×出動数）に収まる。{c['missions']}出動の記述モデル（合成した結果。事前登録なし、閉ループ未検証）：嘘つきの無駄な遠回り +{c['liar_no']:.0f}秒 → +{c['liar_yes']:.0f}秒、"
+            f"実写の誤警報率での危険の連打による誤停止 {c['flood_no']}回 → {c['flood_yes']}回、正直な情報源は何も失わない（{c['honest_no']:.0f}秒の短縮のまま）。"
+            f"運用者向けの報告書は、助言を採用しなかったことと理由を書く。図は下")
+
+
+def pending_ifb_text():
+    p = advice_numbers.pending_studies()
+    ja = []
+    for k, what in (('B', '研究B（信用枠の閉ループ確認：毎回嘘をつく情報源の系列。予測は決定的）'), ('IF', '研究IF（依頼文で依頼物資を書き換えられるか、72文）')):
+        ja.append(f"{what}：" + ('結果ファイルあり（論文を参照）' if p[k] else PENDING_NOT_RUN.replace('・未実行', '')))
+    return '。'.join(ja)
+
+
 def x_text():
     """Depot studies XD (image level) and X (closed loop) -> Japanese text; no summary file -> pending."""
     have = [n for n in ('xd_summary.json', 'x_summary.json') if (RES / n).is_file()]
     if not have:
         return PENDING_NOT_RUN
     return '結果ファイルあり（' + '・'.join(f'`experiments/results/{n}`' for n in have) + '）。このREADMEの集計は未対応のため、論文と結果ファイルを参照'
+
+
+def judge_new_lines():
+    """Sub-bullets under item 4 of the first screen: I-23 (machine check), necessity, I-24 (credit); IF and B pending."""
+    f, c = advice_numbers.smt_facts(), advice_numbers.credit_facts()
+    out = []
+    if f:
+        out.append(f"   * **機械検証**：命題2を実装そのものに対して検証した。z3 の{f['unsat']}件の問いがすべて「反例なし」、モデルと実コードの突き合わせ {f['cases']:,}件で不一致 {f['disagreements']}、"
+                   f"わざと入れたバグ {f['mutants']}個を {f['caught']}個とも検出。")
+    out.append('   * **必要十分**：「安全だと証明できるフレームは無い」前提のもとで、助言の窓口が締めるだけであることと、どんな助言者に対しても誤許可の予算が守られることは同値。'
+               '確認を省く・緩める素朴な方式やフィルタ方式には、この上限が無い。')
+    if c:
+        out.append(f"   * **信用枠**（情報源ごとに、助言を捨てるだけの信用）：毎回嘘をつく・危険を連打する情報源の代償に、何回出動しても上限がつく（命題3）。{c['missions']}出動の記述モデルで、"
+                   f"嘘つきの無駄な遠回り +{c['liar_no']:.0f}秒 → +{c['liar_yes']:.0f}秒、危険の連打による誤停止 {c['flood_no']}回 → {c['flood_yes']}回、正直な情報源は何も失わない。")
+    pend = [k for k, v in advice_numbers.pending_studies().items() if not v]
+    out.append('   * 閉ループでの確認（研究B）と、依頼文で依頼物資を書き換えられるか（研究IF）は事前登録済み。'
+               + ('どちらも結果あり' if not pend else '・'.join(pend) + 'は結果待ち（未実行）') + '。')
+    return out
 
 
 def section_judge(e):
@@ -471,8 +527,10 @@ def section_judge(e):
              '2. **誤りの大半は「物資の陰に隠れた火」**。だから**横へ動いて撮り直す**（見回し）。疑わしいときだけ視点を足す案（I-20）は結果待ち。',
              '3. **ロボットが自分で見ていないもの（記憶・他のロボット・依頼文の言葉・在庫表）は「助言」**。助言は、拠点を見る順序を変えることと、判断を厳しくすることしかできず、**確認を省くことはできない**。'
              'だから助言が悪意のあるものでも、危険な配達の確率は「確認そのものの誤許可の上限」の内側に収まる（命題2。実測：記憶は評価H、悪意のある助言は評価A）。',
-             '4. **保証の外**：画像の中に書かれた文字（評価S）と、現実との差（倉庫の世界：評価XD・X）。どちらも測るだけで、保証とは言わない。',
-             '5. **限界**：すべてシミュレーション。2つ目のAIを足す案（評価J）は採用せず、T1の「誤許可2%未満」は成立しなかった。',
+             '4. **新しい成果：この保証を、機械で確かめ、必要十分にし、何回出動しても代償が膨らまないようにした**（下の3点）。',
+             *judge_new_lines(),
+             '5. **保証の外**：画像の中に書かれた文字（評価S）と、現実との差（倉庫の世界：評価XD・X）。どちらも測るだけで、保証とは言わない。',
+             '6. **限界**：すべてシミュレーション。2つ目のAIを足す案（評価J）は採用せず、T1の「誤許可2%未満」は成立しなかった。',
              '',
              '**3つの数字**（すべてシミュレーション上。条件は結果を見る前に固定して測定）',
              '']
@@ -525,9 +583,16 @@ def section_novelty():
 
     ![事例：記憶なしは隠れた火に配達（p_h=0.0346）、検証つき記憶は火を見た拠点の閾値を0.01に厳しくして停止（p_h=0.0489）。1件の事例で、統計的な主張ではない](docs/figures/memory_case_ja.png)
 
+  * **機械検証**（[I-23](docs/IMPROVEMENT_LOG.md)）：{i23_text() or '結果ファイルなし'}。証明が対象にするのは、確認の判定・助言の畳み込み・訪問ループという小さな純関数で、助言の長さも画像も任意。
+  * **必要十分**（補足 S10「必要性」）：{necessity_text()}
+  * **信用枠**：{i24_text() or '結果ファイルなし'}。
+
+    ![助言の信用枠：嘘つき・危険の連打の代償は上限で止まり、正直な情報源は何も失わない（記述モデル、I-24）](docs/figures/advice_credit.png)
+
+  * 信用枠の閉ループ確認と、依頼文の書き換え：{pending_ifb_text()}。
   * 悪意のある助言の閉ループ評価（評価A）：{a_text()}
   * {I22_JA}
-* **この安全の規則そのものを、どう試したか**（[FINDINGS](docs/FINDINGS.md) #24・#25）：規則の実装の単体テストは、実装と同じ考え方で書くので同じ見落としをする。そこで、規則を仕様から**独立に書き直した参照実装**と突き合わせ、わざと壊した実装（**変異テスト**）とでたらめな入力（ファズ）で確かめた。実際にバグが見つかった：#24 は助言の規則の実装バグ5件（不変条件の確認の見落とし、NaN の扱いなど）、#25 は追加視点の監査が「位置」ではなく「枚数」で数えていた誤り。すべて修正し、回帰テストを追加した。
+* **この安全の規則そのものを、どう試したか**（[FINDINGS](docs/FINDINGS.md) #24・#25）：規則の実装の単体テストは、実装と同じ考え方で書くので同じ見落としをする。そこで、規則を仕様から**独立に書き直した参照実装**と突き合わせ、わざと壊した実装（**変異テスト**）とでたらめな入力（ファズ）で確かめた。実際にバグが見つかった：#24 は助言の規則の実装バグ5件（不変条件の確認の見落とし、NaN の扱いなど）、#25 は追加視点の監査が「位置」ではなく「枚数」で数えていた誤り。すべて修正し、回帰テストを追加した。その後、命題2は z3 で機械検証した（上の機械検証）。
 * **保証の外：画像に映る文字と、現実との差**：画像に映る文字は知覚なので構造的な保証の外にあり、評価Sで実測する。{s_text()}。現実との差は、散らかった倉庫の世界（4拠点、[I-21](docs/IMPROVEMENT_LOG.md)）で測る（評価XD・X）：{x_text()}。下の図は描画の確認用で、ロボットの結果ではない。
 
   ![倉庫の世界の描画プレビュー（I-21）。上から 通常・煙・暗い照明と障害物、列は別のカメラ位置。描画の確認であり結果ではない](docs/figures/depot_preview_sheet.jpg)
@@ -613,6 +678,24 @@ def section_k():
         return None, None
 
 
+def en_new():
+    """English sentences for I-23 / necessity / I-24 (numbers from the result files; pending studies stay pending)."""
+    f, c, pend = advice_numbers.smt_facts(), advice_numbers.credit_facts(), advice_numbers.pending_studies()
+    t = ''
+    if f:
+        t += (f"Proposition 2 is machine-checked on the implementation (I-23, z3 {f['z3']}): {f['unsat']} of {f['queries']} queries are unsat (the rest return the counterexamples of the necessity argument and of the injected bugs), "
+              f"the model and the real functions agree on {f['cases']:,} adversarial inputs with {f['disagreements']} disagreements, and {f['caught']} of {f['mutants']} injected relaxing bugs are caught. ")
+    t += ("It is also a characterisation (supplement S10, Necessity): under the premise that no frame certifies safety, an interface preserves the error budget against any advisor "
+          "if and only if it is tighten-only, so the naive and filtered baselines have no such bound. ")
+    if c:
+        t += (f"A per-channel advice credit that can only drop advice (I-24, Proposition 3) bounds the price of a channel that lies or floods at every mission over any number of missions "
+              f"(wasted visits <= {c['c_loc']:g} + {c['rho_shadow']:g} m, false refusals <= {c['c_haz']:g} + {c['rho']:g} m); in a descriptive {c['missions']}-mission model with synthetic outcomes "
+              f"(not registered, not closed-loop) a liar's extra time falls from {c['liar_no']:.0f} s to {c['liar_yes']:.0f} s, flooding from {c['flood_no']} to {c['flood_yes']} false refusals, and an honest channel loses nothing. ")
+    pend_l = [k for k, v in pend.items() if not v]
+    t += ('Closed-loop study B (credit) and study IF (can the request text switch the requested supply?) are pre-registered; ' + ('results exist.' if not pend_l else '/'.join(pend_l) + ' not yet run.') + ' ')
+    return t
+
+
 def section_en(e, v):
     """English summary for international readers; every number comes from the result files (same helpers as above)."""
     L = ['## English summary', '',
@@ -625,7 +708,7 @@ def section_en(e, v):
          "(3) **Everything the robot did not perceive itself may only reorder or tighten, never remove a check**: memory from earlier missions, a peer's report, the inventory, hints in the operator's request are typed as *advice*; "
          "'safe' and 'skip' advice has no effect. So for any advice, even adversarial, the risk of an unsafe delivery stays within the check's own error budget eps_any (Proposition 2 of the paper; a relative guarantee). "
          "Memory (H) is the measured example; adversarial advice (A) is pending. "
-         + I22_EN + " The rule itself was tested against an independent reference implementation, mutation tests and fuzzing, which found real bugs (FINDINGS #24, #25). "
+         + en_new() + I22_EN + " The rule itself was tested against an independent reference implementation, mutation tests and fuzzing, which found real bugs (FINDINGS #24, #25). "
          "(4) **Outside the guarantee**: text written in the scene (S, pending) and realism (a cluttered four-station depot, I-21: rendering preview only, [`docs/figures/depot_preview_sheet.jpg`](docs/figures/depot_preview_sheet.jpg); XD/X pending) are measured, not claimed. "
          "(5) **Honest limits** are listed below. All studies are pre-registered (`experiments/PREREGISTRATION_*.md`); every trial is audited against simulator ground truth and a ROS bag.",
          '', 'Rows are ordered by that chain: [1] check, [2] where the error lives and the threshold, [3] look again, [4] advice, [5] outside the guarantee, [6] tried and not adopted.',
@@ -726,9 +809,16 @@ def section_en(e, v):
         f1 = t1p[2]
         L.append(f"| T1: 600 held-out images, registered rule v3.4 | false approvals {f1['false_approvals']}/{f1['n_deny']} (Wilson 95% CI {pct(f1['fa_ci95'][0])}-{pct(f1['fa_ci95'][1])}); correct approvals {f1['correct_approvals']}/{f1['n_allow']}; "
                  f"registered claim of fewer than 2% false approvals {'supported' if f1['fa_ci95'][1] < 0.02 else 'not supported'}; the false approvals all came from partly hidden fires behind the correct supply |")
+    sf, cf_ = advice_numbers.smt_facts(), advice_numbers.credit_facts()
+    if sf:
+        L.append(f"| I-23: machine-checked Proposition 2 (z3; not a closed-loop study) | {sf['unsat']}/{sf['queries']} queries unsat; model vs. real code {sf['cases']:,} inputs, {sf['disagreements']} disagreements; injected bugs caught {sf['caught']}/{sf['mutants']}; relaxing interfaces get a counterexample (unsafe rate {sf['unsafe_rate']} > eps_any {sf['eps_any']}), the tighten-only code does not |")
+    if cf_:
+        L.append(f"| I-24: advice credit (descriptive model, {cf_['missions']} missions, synthetic outcomes; not registered) | liar's extra time {cf_['liar_no']:.0f} s -> {cf_['liar_yes']:.0f} s; flooding at the photo false-alarm rate {cf_['flood_no']} -> {cf_['flood_yes']} false refusals; honest channel unchanged; unsafe deliveries equal with and without credit |")
+    for k_, what_ in (('B', 'B: advice credit in the closed loop (48 runs)'), ('IF', 'IF: request text switching the supply (72 texts)')):
+        L.append(f"| {what_} | " + ('result file exists; see the paper' if advice_numbers.pending_studies()[k_] else 'pre-registered, not yet run') + ' |')
     xj = x_text()
     L.append('| X, XD: cluttered four-station depot (I-21) | ' + ('pre-registered, not yet run (a rendering preview exists, not a result)' if xj == PENDING_NOT_RUN else 'result files exist; see the paper') + ' |')
-    stage = {'E': 1, 'L': 1, 'Z': 1, 'T1': 2, 'K': 2, 'G': 3, 'W': 3, 'H': 4, 'V': 4, 'A': 4, 'S': 5, 'P': 5, 'R': 5, 'X, XD': 5, 'J': 6}
+    stage = {'E': 1, 'L': 1, 'Z': 1, 'T1': 2, 'K': 2, 'G': 3, 'W': 3, 'H': 4, 'V': 4, 'A': 4, 'S': 5, 'P': 5, 'R': 5, 'X, XD': 5, 'J': 6, 'I-23': 4, 'I-24': 4, 'B': 4, 'IF': 4}
     i0 = L.index('|---|---|') + 1
     rows = L[i0:]
     key = lambda r_: r_[2:].split(':')[0]

@@ -12,6 +12,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import advice_numbers  # noqa: E402  (I-23 z3 numbers, I-24 credit-model numbers)
 
 ROOT = Path(__file__).resolve().parents[1]
 RES = ROOT / 'experiments/results'
@@ -89,6 +92,8 @@ T = {
   prob_h='問題', prob='災害時、\n在庫表と現場は違い、\n危険は隠れる',
   chips=[('在庫表 ≠ 現場', RED), ('危険は見えにくい', ORANGE), ('助言も当てにならない', PURPLE)],
   imgcap='Gazebo実レンダリング（俯瞰＋搭載カメラ）', solve='だから、確かめ、迷えば止まる',
+  new_h='新：保証の機械検証と期間の上限',
+  new='命題2を実装で機械検証：z3 {u}件、{c}件で不一致{d}、バグ{k}/{m}検出。締めるだけが必要十分。嘘つきの代償 +{ln}→+{ly}秒（信用枠）{pend}',
   mid_h='3つの工夫（上から順に積み上げる）',
   i1='その場で確かめ、迷えば止まる', i1d='選択式の質問と火の質問の確率を読み、全部そろったときだけ許可。迷えば拒否。',
   i2='横から見直す', i2d='正面で見落とす小さな火を、0.4 m 横へ動いて撮り直して見つける。',
@@ -238,10 +243,11 @@ def build(lang):
     iw_ = lx1 - lx0 - 56
     y = paras(d, (lx0 + 28, top + 74), t['prob'], font(38, True), iw_, tag='prob', lh=1.3)
     hero = Image.open(FIG / 'hero_gazebo.png').convert('RGB')
-    hh = int(iw_ * hero.height / hero.width)
-    y += 18
-    im.paste(hero.resize((iw_, hh), Image.LANCZOS), (lx0 + 28, y))
-    d.rectangle((lx0 + 28, y, lx0 + 28 + iw_, y + hh), outline=(180, 185, 190), width=2)
+    hw_ = int(iw_ * (0.66 if 'new' in t else 1.0))      # smaller picture: the bottom of the panel carries the new I-23 / I-24 results
+    hh = int(hw_ * hero.height / hero.width)
+    y += 14 if 'new' in t else 18
+    im.paste(hero.resize((hw_, hh), Image.LANCZOS), (lx0 + 28, y))
+    d.rectangle((lx0 + 28, y, lx0 + 28 + hw_, y + hh), outline=(180, 185, 190), width=2)
     y += hh + 10
     y = paras(d, (lx0 + 28, y), t['imgcap'], font(21), iw_, MUTED, 1.3, tag='imgcap') + 16
     f = font(30, True)
@@ -251,11 +257,22 @@ def build(lang):
         if x + w > lx1 - 28 and x > lx0 + 28:
             x, y = lx0 + 28, y + 68
         x = chip(d, (x, y), text, f, col, PALE[col], limit=lx1 - 28) + 12
-    y += 82
+    y += 70 if 'new' in t else 82
     arrow(d, lx0 + 28, lx0 + 74, y + 18, GREEN)
     d.text((lx0 + 90, y), t['solve'], font=fit(d, t['solve'], 28, lx1 - 28 - (lx0 + 90)), fill=GREEN)
     if y + 40 > bot:
         WARN.append(f'left column overflows: {y + 40} > {bot}')
+    sf, cf_ = advice_numbers.smt_facts(), advice_numbers.credit_facts()    # new in I-23 / I-24 (machine check, advice credit)
+    if sf and 'new' in t:     # Japanese version only (the English card has no room)
+        by0 = y + 46
+        card(d, (lx0 + 20, by0, lx1 - 20, bot - 14), fill=PALE[PURPLE], outline=PURPLE, r=16, w=3)
+        d.text((lx0 + 36, by0 + 8), t['new_h'], font=font(24, True), fill=PURPLE)
+        body = t['new'].format(u=sf['unsat'], c=f"{sf['cases']:,}", d=sf['disagreements'], k=sf['caught'], m=sf['mutants'],
+                               ln=round(cf_['liar_no']) if cf_ else '-', ly=round(cf_['liar_yes']) if cf_ else '-',
+                               pend=('。' + '・'.join(k for k, v in advice_numbers.pending_studies().items() if not v) + '：結果待ち') if not all(advice_numbers.pending_studies().values()) else '')
+        yy = paras(d, (lx0 + 36, by0 + 40), body, font(21), lx1 - lx0 - 72, INK, 1.2, tag='new')
+        if yy > bot - 14:
+            WARN.append(f'new-results card overflows: {yy} > {bot - 14}')
     # ---- centre: three ideas as a chain
     cx0, cx1 = 525, 1340
     d.text((cx0, top - 4), t['mid_h'], font=fit(d, t['mid_h'], 34, cx1 - cx0), fill=INK)
