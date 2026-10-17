@@ -144,7 +144,8 @@ def extract(text: str, **kw) -> dict:
 
 def plan_for_mission(item: str, base: dict | None, *, mode: str, advice_file: str | None = None,
                      from_instruction: bool = False, instruction: str = '', extract_fn=extract,
-                     filter_fn=None, filter_url: str = DEFAULT_FILTER_URL, stations=None, scrutiny: bool = False, **kw) -> dict | None:
+                     filter_fn=None, filter_url: str = DEFAULT_FILTER_URL, stations=None, scrutiny: bool = False,
+                     credit_path: str | None = None, **kw) -> dict | None:
     """Combine the advice file and the operator text with the memory plan `base`.  Returns the new plan
     (with plan['advice']) or None when no advice source is configured.  The file is loaded strictly (a malformed
     file is an error, not silently ignored: the experimenter must know)."""
@@ -160,7 +161,11 @@ def plan_for_mission(item: str, base: dict | None, *, mode: str, advice_file: st
     ffn = None
     if mode == 'filtered':      # baseline: the guardrail reads the operator text / each item's own text first
         ffn = filter_fn or make_filter_fn(instruction, url=filter_url, model=kw.get('model', PRIMARY_MODEL))
-    plan = adv.plan(item, items, mode, base=base, filter_fn=ffn, stations=stations, scrutiny=scrutiny)
+    if credit_path and mode == 'monotone':          # I-24: drop what the source's credit cannot pay for (never loosens)
+        from . import advice_credit as ac
+        plan = ac.plan_with_credit(ac.load(credit_path), item, items, mode, base, stations=stations, scrutiny=scrutiny)
+    else:
+        plan = adv.plan(item, items, mode, base=base, filter_fn=ffn, stations=stations, scrutiny=scrutiny)
     if ffn is not None and hasattr(ffn, 'log'):
         plan['advice']['filter']['verdicts'] = ffn.log
     plan['advice']['channels'] = {'file': bool(advice_file), 'instruction': bool(from_instruction)}

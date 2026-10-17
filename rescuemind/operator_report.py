@@ -180,6 +180,10 @@ def advice_lines(mission: dict, result: dict | None = None) -> list[str]:
             what = ADVICE_WHAT[a['kind']](a.get('station'))
             how = (ADVICE_EFFECT[a['effect']](a.get('station')) if kind == 'applied' else ADVICE_WHY.get(a.get('why'), '不採用'))
             out.append(f"助言（{SOURCE_JA.get(a['source'], a['source'])}）：{what} → {how}")
+    for a in rec.get('throttled') or []:        # I-24: the source's credit could not pay for this item's worst cost
+        what = ADVICE_WHAT[a['kind']](a.get('station'))
+        out.append(f"助言（{SOURCE_JA.get(a['source'], a['source'])}）：{what} → 不採用：この情報源は過去の誤りで信用を"
+                   f"使い切っています（確認はいつもどおり）")
     ex = rec.get('extraction') or {}
     if ex.get('error'):
         out.append('助言（依頼文）：読み取りに失敗したため助言なしとして扱いました')

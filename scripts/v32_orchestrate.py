@@ -88,7 +88,7 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
                hazard_prompt: str = 'h35', jev_local: str = 'off', jev_hazard_threshold: float = .35, jev_schema: str = 'jev',
                look_around: float = 0.0, memory_file: str | None = None, memory_mode: str = 'off', adaptive_views: float = 0.0,
                advice_file: str | None = None, advice_mode: str = 'off', advice_from_instruction: bool = False,
-               caution_soft: bool = False, advice_scrutiny: bool = False,
+               caution_soft: bool = False, advice_scrutiny: bool = False, advice_credit: str | None = None,
                delivery_interlock: bool = False, interlock_key: str | None = None,
                config_path: Path | None = None, centers_path: Path | None = None) -> dict:
     if scenario not in ('motion-check', 'live'):
@@ -121,6 +121,8 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
         cmd += ['--caution-soft']                            # R5 #5: caution-only refusals continue the search
     if advice_scrutiny:
         cmd += ['--advice-scrutiny']                         # I-19: advice-promoted station gets caution + extra views
+    if advice_credit:
+        cmd += ['--advice-credit', str(advice_credit)]       # I-24: per-source credit ledger (read here, settled after)
     if delivery_interlock:
         cmd += ['--delivery-interlock']                      # I-22: ask the independent interlock before the delivery leg
     if inject_stall:
@@ -300,6 +302,16 @@ def denial_by(log_dir: Path) -> str:
     return by
 
 
+def settle_credit(log_dir: Path, ledger_path: str, run_id: str) -> dict:
+    """I-24: charge / refund each advice source after the mission, from mission.json alone (the robot's own checks)."""
+    from rescuemind import advice_credit as ac
+    m = json.loads((log_dir/'mission.json').read_text(encoding='utf8'))
+    led = ac.load(ledger_path)
+    rec = ac.settle(led, m.get('memory') or {}, ac.visits_from_mission(m), mission_id=run_id)
+    ac.save(led, ledger_path)
+    return {'settlement': rec, 'credit': {k: {'loc': v['loc'], 'haz': v['haz']} for k, v in led['sources'].items()}}
+
+
 def advice_audit(log_dir: Path) -> dict | None:
     """I-19: a monotone run must satisfy advice.assert_monotone(base, plan), recomputed from mission.json, and must
     show no trusted checkpoint and no refusal without a visit.  Raises AdviceError / ValueError.  None if no advice."""
@@ -313,6 +325,9 @@ def advice_audit(log_dir: Path) -> dict | None:
         return None
     ev = adv.audit_plan(plan)
     ev['scrutiny_run'] = adv.audit_scrutiny(m)
+    if 'throttled' in plan['advice']:
+        from rescuemind.advice_credit import audit_credit
+        ev['credit'] = audit_credit(plan)          # I-24: every item received was acted on or throttled, once
     from rescuemind.caution_soft import audit_caution_refusals
     ev['caution'] = audit_caution_refusals(m)
     if ev.get('mode') == 'monotone':
@@ -383,6 +398,10 @@ def main(argv=None):
     p.add_argument('--advice-scrutiny', action='store_true',
                    help='I-19: the station that advice moved to the front gets caution (tau_h = caution threshold) and the I-20 '
                         'extra views regardless of suspicion (monotone mode only; can only tighten)')
+    p.add_argument('--advice-credit', default=None,
+                   help='I-24: per-source advice-credit ledger (JSON, kept across missions): advice whose worst cost the '
+                        'source can no longer pay is dropped (monotone mode only; dropping advice never loosens a check); '
+                        'settled after the mission from the robot\'s own checks')
     p.add_argument('--delivery-interlock', action='store_true',
                    help='I-22 (default off; v3.6 unchanged): an independent node recomputes the decision from the saved model outputs '
                         'and the velocity guard forwards motion in the delivery leg only with its permit')
@@ -464,6 +483,7 @@ def main(argv=None):
                  advice_file=args.advice_file, advice_mode=args.advice_mode,
                  advice_from_instruction=args.advice_from_instruction,
                  caution_soft=args.caution_soft, advice_scrutiny=args.advice_scrutiny,
+                 advice_credit=args.advice_credit,
                  control_qos='best_effort' if args.dds_mode == 'best_effort' else 'reliable')
     if args.dds_mode == 'async':
         os.environ['RMW_FASTRTPS_PUBLICATION_MODE'] = 'ASYNCHRONOUS'
@@ -774,6 +794,16 @@ def main(argv=None):
                 outcome['error'] = 'advice monotonicity audit failed: ' + str(exc)
                 if return_code in (0, None):
                     return_code = 2
+            if args.advice_credit and outcome.get('advice_audit') is not None and not outcome.get('advice_audit_failure'):
+                # I-24: settle the credit of every source from what the robot itself saw at each station
+                try:
+                    outcome['advice_credit'] = settle_credit(log_dir, args.advice_credit, run_id)
+                except Exception as exc:
+                    outcome['advice_credit_failure'] = f'{type(exc).__name__}: {exc}'
+                    outcome['state'] = 'FAILED'
+                    outcome['error'] = 'advice credit settlement failed: ' + str(exc)
+                    if return_code in (0, None):
+                        return_code = 2
         if args.memory_file:
             # I-15: remember what the robot itself saw (never ground truth), whatever the outcome
             try:
