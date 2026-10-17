@@ -104,6 +104,7 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
         cmd += ['--config', str(config_path)]       # Study L: per-run waypoints
     if centers_path is not None:
         cmd += ['--centers', str(centers_path)]     # Study L: per-run station centres
+    cmd += ['--expected-hazard-threshold', str(hazard_threshold)]     # I-19 #27: the mission checks the server's tau_h
     if look_around:
         cmd += ['--look-around', str(look_around)]
     if adaptive_views:
@@ -152,6 +153,7 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
             il += ['--key-file', interlock_key]
         if evidence_dir is not None:
             il += ['--log', str(evidence_dir/'delivery_interlock.jsonl'), '--image-root', str(evidence_dir)]
+        il += ['--hazard-threshold', str(hazard_threshold)]
         if look_around:
             il += ['--require-look-around']
         if adaptive_views:

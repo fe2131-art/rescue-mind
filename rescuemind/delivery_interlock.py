@@ -26,6 +26,7 @@ from pathlib import Path
 from . import delivery_permit as dp
 from .advice import AdviceError, audit_plan, assert_monotone, audit_scrutiny, _tau
 from .local_run_audit import LocalReceiptError, audit_local_checkpoint
+from .local_vision import V36_HAZARD_THRESHOLD
 from .mission_memory import STATIONS
 
 RULE_VERSION = 'v3.6'
@@ -37,6 +38,7 @@ class Policy:
     require_look_around: bool = False
     require_adaptive: bool = False
     image_root: str | None = None        # if set, the record's image directory must lie inside it
+    hazard_threshold: float = V36_HAZARD_THRESHOLD   # I-19 fix #27: every model call must record exactly this server tau_h
 
 
 @dataclass
@@ -131,7 +133,8 @@ def decide(raw, policy: Policy = Policy(), file_sha=sha256_file) -> Decision:
             _need(sha == pk.get('image_sha256'), 'side_image_hash_mismatch')
         out.checks.append('image_hashes')
         try:
-            audit = audit_local_checkpoint(cp, front_sha, expected=expected)
+            audit = audit_local_checkpoint(cp, front_sha, expected=expected, hazard_threshold=policy.hazard_threshold,
+                                           require_threshold=True)
         except (LocalReceiptError, KeyError, TypeError, ValueError, AttributeError) as e:
             raise _Deny('recompute: ' + str(e))
         _need(audit.get('allow') is True, 'recomputed_decision_is_' + str(audit.get('reason')))

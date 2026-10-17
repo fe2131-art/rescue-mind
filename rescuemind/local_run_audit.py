@@ -1,11 +1,14 @@
 """Recalculate local checkpoint decisions; never claim Jev/cloud provenance."""
 from __future__ import annotations
-from .local_vision import validate_result, local_decision, combine_with_jev, combine_with_look_around, ALLOWED_MODELS, SECONDARY_MODEL
+from .local_vision import V36_HAZARD_THRESHOLD, check_hazard_threshold, LocalInferenceError, validate_result, local_decision, combine_with_jev, combine_with_look_around, ALLOWED_MODELS, SECONDARY_MODEL
 
 class LocalReceiptError(ValueError):
     pass
 
-def audit_local_checkpoint(checkpoint: dict, image_sha: str, *, expected: str) -> dict:
+def audit_local_checkpoint(checkpoint: dict, image_sha: str, *, expected: str,
+                           hazard_threshold: float | None = V36_HAZARD_THRESHOLD, require_threshold: bool = False) -> dict:
+    """`hazard_threshold`: the tau_h the server must have used (I-19 fix #27); a recorded value that differs is always
+    rejected, a missing record only if `require_threshold` (the interlock; saved runs from before the fix lack it)."""
     if not isinstance(checkpoint, dict) or checkpoint.get('backend')!='LOCAL_ONLY_NO_CLOUD_API':
         raise LocalReceiptError('not a local-only checkpoint')
     calls=checkpoint.get('model_calls')
@@ -20,6 +23,11 @@ def audit_local_checkpoint(checkpoint: dict, image_sha: str, *, expected: str) -
         raise LocalReceiptError('primary model not on the local allow-list')
     for call,idx in ((a,1),(b,2)):
         validate_result(call,primary if idx==1 or mode=='single' else SECONDARY_MODEL,image_sha,idx)
+    thr_ok=[]
+    try:
+        thr_ok+=[check_hazard_threshold(c,hazard_threshold,require=require_threshold) for c in (a,b)]
+    except LocalInferenceError as e:
+        raise LocalReceiptError('hazard threshold: '+str(e)) from e
     computed=local_decision(expected,a,b,dual_model=(mode=='dual'))
     if 'jev_call' in checkpoint:   # I-13: recompute the two-model rule from the saved Jev-role answer
         computed=combine_with_jev(computed,checkpoint['jev_call'],expected,
@@ -39,6 +47,10 @@ def audit_local_checkpoint(checkpoint: dict, image_sha: str, *, expected: str) -
             pa,pb=pk['model_calls']['first'],pk['model_calls']['second']
             for call,idx in ((pa,1),(pb,2)):
                 validate_result(call,primary,pk['image_sha256'],idx)
+            try:
+                thr_ok+=[check_hazard_threshold(c,hazard_threshold,require=require_threshold) for c in (pa,pb)]
+            except LocalInferenceError as e:
+                raise LocalReceiptError('hazard threshold (side view): '+str(e)) from e
             if 'jev_call' in pk:
                 hz=combine_with_jev(local_decision(expected,pa,pb),pk['jev_call'],expected,
                                     hazard_threshold=checkpoint.get('jev_hazard_threshold',.35))['reason']
@@ -67,4 +79,5 @@ def audit_local_checkpoint(checkpoint: dict, image_sha: str, *, expected: str) -
     # R5 #5: a refusal with no real hazard behind it, only the tightened threshold (memory / advice caution)
     caution_only=(computed['allow'] is False and computed['reason']=='visible_hazard_at_checkpoint' and not hard_hazard)
     return {'pass':True,'mode':mode,'reason':computed['reason'],'allow':computed['allow'],'caution_only':caution_only,
+            'hazard_threshold':hazard_threshold,'hazard_threshold_verified':bool(thr_ok) and all(thr_ok),
             'model_diversity':mode=='dual','scope':'SELF_REPORTED_LOCAL_TRANSFORMERS_NOT_GPU_ATTESTATION'}

@@ -87,7 +87,7 @@ def run(order, verdicts, *, stations=None, recovery=True, first=None, config=Non
                 'rosgraph_msgs.msg': NS(Clock=object)}
     calls = []
 
-    def fake_local(f, expected, *, mode, primary_url, secondary_url, primary_model=None):
+    def fake_local(f, expected, *, mode, primary_url, secondary_url, primary_model=None, **_kw):
         reason, allow, *more = verdicts[len(calls)]
         calls.append(expected)
         return {'decision': {'allow': allow, 'reason': reason, 'expected': expected}, 'backend': 'OFFLINE_MOCK_ONLY',
