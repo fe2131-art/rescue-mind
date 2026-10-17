@@ -58,14 +58,31 @@ The main paper condenses this section; the full text follows.
 REFLECT~\cite{liu2023reflect} and AHA~\cite{duan2025aha} explain manipulation failures in natural language
 after the fact. Inner Monologue~\cite{huang2023innermonologue} feeds success detection back into a planner.
 Du et al.\ \cite{du2023successdetectors} fine-tune a VLM as a success detector.
-Sentinel~\cite{agia2025sentinel}, FAIL-Detect~\cite{xu2025faildetect} and Code-as-Monitor~\cite{zhou2025codeasmonitor}
-monitor learned policies at run time; an LLM-based anomaly monitor triggers reactive fallbacks~\cite{sinha2024realtime};
+Sentinel~\cite{agia2025sentinel}, FAIL-Detect~\cite{xu2025faildetect} and FIPER~\cite{romer2025fiper} monitor learned policies at run time
+(FIPER calibrates its out-of-distribution and uncertainty scores conformally on successful rollouts and requires both signals to alarm);
+Code-as-Monitor~\cite{zhou2025codeasmonitor} checks task constraints with VLM-generated programs, both reactively and proactively, without a calibrated threshold or a ground-truth audit;
+an LLM-based anomaly monitor triggers reactive fallbacks~\cite{sinha2024realtime};
 and uncertainty-aware policy steering decides when to act, ask or learn~\cite{yuan2026whentoact}.
+\emph{Closest prior art.} VAP-TAMP~\cite{oloo2026vaptamp} (arXiv preprint, April 2026; we read the full text) verifies the preconditions and effects of each PDDL action with a VLM.
+For each predicate it generates several semantically equivalent yes/no questions, takes a majority vote and, if the answers agree, asks the VLM whether the view is sufficient;
+otherwise the VLM proposes a viewing direction and the robot moves there, up to a viewpoint budget. A failed verification corrects the scene graph and triggers PDDL replanning.
+It was evaluated by task success on 100 real mobile-manipulation trials and on injected failures in OmniGibson. The overlap with our design is real: paraphrase agreement
+is the counterpart of our permuted-question agreement, and VLM-chosen views are the counterpart of our look-around. To our knowledge, the differences are
+(i) our scores are next-token probabilities over a closed answer set with a threshold calibrated on development data, whereas VAP-TAMP uses textual yes/no answers and a vote;
+(ii) in our design every check is combined in a fail-closed conjunction, so a failed check or an extra view can only refuse or revoke, whereas in VAP-TAMP a verification result corrects the symbolic state in either direction;
+(iii) an independent velocity guard that the VLM cannot command;
+(iv) memory that may only reorder checks and add caution; and
+(v) pre-registered closed-loop audits of the error direction against simulator ground truth, which report the unsafe-delivery rate and not task success.
+VAP-TAMP covers things we do not: PDDL task and motion planning, manipulation, and real-robot trials.
 Semantic anomaly detection with LLMs~\cite{elhafsi2023semantic} and visual question answering that abstains rather than
 answers wrongly~\cite{whitehead2022reliablevqa} are close in spirit to a gate that prefers refusal. Our check runs \emph{before} the robot acts and is closed-set and zero-shot. Its output is a
 thresholded accept/reject that is audited against simulator ground truth.
 The closest methodological relative is KnowNo~\cite{ren2023knowno}, which scores multiple-choice answers by
 next-token probability and asks a human for help, with a conformal-prediction coverage guarantee (see~\cite{angelopoulos2021conformal} for background on conformal prediction).
+Introspective planning~\cite{liang2024introspective} extends this line by letting the planner reason about task ambiguity.
+Conformal risk control~\cite{angelopoulos2024conformalrisk} controls the expected value of any monotone loss (for example a false-negative rate), and Learn then Test~\cite{angelopoulos2025ltt}
+gives high-probability risk control; our study K (held-out fire miss rate $\le\alpha$ with probability 0.9) is of that form. Conformal decision theory~\cite{lekeufack2024conformaldecision}
+calibrates a robot decision rather than a prediction set. Our gate is a one-shot accept/refuse threshold and not an online-adaptive controller.
 SayCan~\cite{ichter2023saycan} likewise scores a fixed candidate set by language-model likelihood.
 We share the scoring, but we respond to uncertainty by refusing or searching, and we add permuted-option agreement as a
 test-time defence against letter bias.
@@ -73,6 +90,7 @@ test-time defence against letter bias.
 \textbf{Multiple-choice scoring and its biases.}
 Scoring answer symbols works well when a model binds symbols to options~\cite{robinson2023mcqa}. Language models are reasonably calibrated on
 well-formatted multiple-choice questions~\cite{kadavath2022know}, but they prefer certain option IDs~\cite{zheng2024mcselectors} and orders~\cite{pezeshkpour2024order}, and their raw confidence needs validation~\cite{guo2017calibration,zhao2021calibrate}.
+On embodied question answering, even the best frontier model reaches only 42.79\% recall when it should abstain~\cite{wu2025abstaineqa}, which supports a calibrated refuse option over trusting the model to abstain.
 Our two permuted questions are a minimal, deterministic form of self-consistency~\cite{wang2023selfconsistency}.
 The Yes/No hazard question follows the polling style of POPE~\cite{li2023pope}.
 
@@ -80,12 +98,16 @@ The Yes/No hazard question follows the polling style of POPE~\cite{li2023pope}.
 and control barrier functions~\cite{ames2019cbf} keep a simple verified layer between a complex decision maker and
 the actuators. LLM-controlled robots can be manipulated into harmful actions~\cite{robey2025jailbreaking}, and
 guardrails such as RoboGuard~\cite{ravichandran2026guardrails} check plans before execution.
+The safety filter~\cite{hsu2024safetyfilter} is the current umbrella for such least-restrictive overrides of a nominal controller; our velocity guard is a minimal instance and the VLM check is a perception-side gate in the same spirit.
+Closest in using a VLM for safety, Santos et al.~\cite{santos2025updating} turn images and language feedback into a failure set that a Hamilton--Jacobi safety filter enforces,
+so the guarantee comes from the verified filter; ours is a union bound over check errors. RoboSafe~\cite{wang2025robosafe} guards VLM-driven embodied agents with executable safety rules and a short- and long-term safety memory, which drives rule-based replanning and is not constrained to be safety-monotone.
 In contrast to vision-language-action models~\cite{zitkovich2023rt2,kim2025openvla}, our VLM never commands motion.
 
 \textbf{Memory for robots in changing environments.}
 Robots increasingly keep long-horizon semantic memory. ReMEmbR~\cite{anwar2025remembr} and Embodied-RAG~\cite{xie2024embodiedrag} retrieve from a database of captioned observations; KARMA~\cite{wang2025karma} adds long- and
 short-term memory to embodied agents, and H-EMV~\cite{barmann2025hemv} verbalises a robot's episodic memory. 3D scene graphs such as Hydra~\cite{hughes2022hydra}, ConceptGraphs~\cite{gu2024conceptgraphs} and HOV-SG~\cite{werby2024hovsg} support planning~\cite{rana2023sayplan} and language grounding~\cite{huang2023vlmaps}. Long-term mapping has long dealt with change~\cite{biber2005dynamic,krajnik2017fremen}, and recent work tracks changes in dynamic scene graphs~\cite{schmid2024khronos,behrens2025lostfound}. These systems use memory to \emph{answer} or \emph{plan}. A recent preprint reports, in a small grid-navigation testbed, that acting on
-unaudited stale memory can be worse than having no memory~\cite{sun2026memorylies}. GLOVE~\cite{yin2026glove} and VLM-DEWM~\cite{tang2026vlmdewm} check memory or a world model against fresh observations to keep
+unaudited stale memory can be worse than having no memory~\cite{sun2026memorylies}. Long-term agent memory is also an attack surface: corrupted entries can steer an LLM agent~\cite{chen2024agentpoison}
+(an LLM-agent result, not a robotics one). Memory benchmarks such as FindingDory~\cite{yadav2025findingdory} measure how well memory supports recall in long-horizon tasks, not whether acting on it is safe once the world has changed. GLOVE~\cite{yin2026glove} and VLM-DEWM~\cite{tang2026vlmdewm} check memory or a world model against fresh observations to keep
 the memory \emph{correct}.
 We study a different use: memory decides \emph{where and how carefully to verify}. We restrict it so that it can never
 reduce verification, and we state this as a provable invariant and test it under scripted change.
@@ -108,6 +130,12 @@ models agree on most images, and the second model's value depends strongly on ho
 \textbf{Evaluation practice.} We follow recommendations to report conditions, multiple metrics, uncertainty
 and failure modes~\cite{kressgazit2024empirical}. We use Wilson intervals~\cite{wilson1927probable} and exact McNemar
 tests~\cite{mcnemar1947note}. Domain randomisation~\cite{tobin2017domain} is used here to build a held-out \emph{test} distribution, not for training.
+Our design is fixed-$n$ and pre-registered; sequential testing with valid early stopping~\cite{snyder2025policycomparison} is a possible refinement for small $n$.
+How far simulation predicts real-world behaviour is itself measurable~\cite{li2024simpler}; we make no claim beyond simulation.
+
+\textbf{Fire and smoke perception.} We use D-Fire~\cite{venancio2022dfire} for study P because it is CC0 and ground-level with negative images; FASDD~\cite{wang2025fasdd}
+is a larger alternative with ground-level, UAV and satellite subsets and a possible future source. Local open-weight VLMs have been used for wildfire detection from UAV imagery~\cite{seidel2025wildfirevlm},
+descriptively and without refusal semantics or a closed-loop audit.
 
 \section{Additional T1 analyses}\label{sec:t1extra}
 \subsection{Decision-rule ablations}
