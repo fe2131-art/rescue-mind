@@ -22,6 +22,7 @@ from pathlib import Path
 
 STATIONS = ('water', 'medicine')
 CAUTION_TAU_H = 0.01      # stricter p(fire/smoke) refusal threshold at a station with a recent hazard (v3.6: 0.05)
+HAZARD_REASON = 'visible_hazard_at_checkpoint'
 HORIZON = 3               # a hazard is "recent" if seen during the last HORIZON missions in memory
 SIDE_JA = {'front': '正面', 'L': '左', 'R': '右'}
 ITEM_JA = {'water': '飲料水', 'medicine': '医療物資', 'other': '依頼物資以外/空', 'uncertain': '不確か'}
@@ -84,11 +85,26 @@ def _supply_seen(cp: dict) -> str:
 
 
 def _front_hazard(cp: dict) -> bool:
+    """A REAL hazard at the front: a model answered scene == 'hazard' (p >= the standard tau_h).  A score that only
+    crossed the tightened caution threshold is a caution alert (`_front_caution`), not a hazard."""
     calls = cp.get('model_calls') or {}
     if any(((c or {}).get('result') or {}).get('scene') == 'hazard' for c in calls.values() if isinstance(c, dict)):
         return True
+    d = cp.get('decision') or {}      # the Jev-role model's hazard also refuses under the standard rule
+    return d.get('reason') == HAZARD_REASON and 'pre_caution_reason' not in d and 'look_around_hazard_sides' not in d
+
+
+def _front_caution(cp: dict) -> bool:
+    """Caution-level alert at the front: no real hazard, but p(hazard) >= the caution threshold in force (tau_mem <= p < tau_h)."""
     tau = cp.get('memory_caution_tau_h')
-    return tau is not None and max(_hazard_prob(calls.get('first')), _hazard_prob(calls.get('second'))) >= tau
+    calls = cp.get('model_calls') or {}
+    return (tau is not None and not _front_hazard(cp)
+            and max(_hazard_prob(calls.get('first')), _hazard_prob(calls.get('second'))) >= tau)
+
+
+def _peek_real_hazard(p: dict) -> bool:
+    """A side view that the standard rule flagged.  Entries without a recorded reason (older logs) count as real."""
+    return bool(p.get('hazard')) and p.get('reason', HAZARD_REASON) == HAZARD_REASON
 
 
 def observations(mission: dict, tag: str) -> list[dict]:
@@ -98,10 +114,14 @@ def observations(mission: dict, tag: str) -> list[dict]:
     def add(station, cp, peeks=()):
         if not isinstance(cp, dict) or cp.get('memory_trusted') or 'decision' not in cp:
             return
-        views = (['front'] if _front_hazard(cp) else []) + [p['side'] for p in peeks if p.get('hazard')]
+        # I-19 fix #28: memory records REAL hazards (standard rule) separately from caution-level alerts (only the tightened
+        # threshold crossed).  Only real hazards renew the caution horizon, so a false alarm at the caution threshold cannot
+        # pin a fire-free station in caution forever (the old rule recorded the caution alert as a hazard, which renewed it).
+        views = (['front'] if _front_hazard(cp) else []) + [p['side'] for p in peeks if _peek_real_hazard(p)]
+        cviews = (['front'] if _front_caution(cp) else []) + [p['side'] for p in peeks if p.get('hazard') and not _peek_real_hazard(p)]
         calls = cp.get('model_calls') or {}
         out.append({'tag': tag, 'station': station, 'supply': _supply_seen(cp),
-                    'hazard': bool(views), 'hazard_views': views,
+                    'hazard': bool(views), 'hazard_views': views, 'caution_alert': bool(cviews), 'caution_views': cviews,
                     'hazard_prob_max': round(max([_hazard_prob(calls.get('first')), _hazard_prob(calls.get('second'))]
                                                  + [max(_hazard_prob(p['model_calls'].get('first')),
                                                         _hazard_prob(p['model_calls'].get('second'))) for p in peeks]), 4),

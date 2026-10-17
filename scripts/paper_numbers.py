@@ -621,6 +621,17 @@ def main():
         e10 = kk['alphas']['0.1']['K_PAC']['heldout_false_alarm']
         m['KFAMissionTen'] = f"{100 * (1 - (1 - e10['k'] / e10['n']) ** 3):.0f}\\%"       # three fire-free views per approval, independence assumed (descriptive)
         m['KFAViewTen'] = f"{100 * e10['k'] / e10['n']:.1f}\\%"
+        c_ = kk.get('caution')    # per-view false-alarm rate at the caution threshold 0.01 and the cost-bound figures built from its Wilson upper limit
+        if c_:
+            fa_ = c_['heldout_false_alarm']; up_ = fa_['ci95'][1]
+            m['KCautTau'] = f"{c_['tau']:g}"
+            m['KCautFA'] = f"{fa_['k']}/{fa_['n']}"
+            m['KCautFAUp'] = f"{100 * up_:.1f}\\%"
+            pt_ = fa_['k'] / fa_['n']
+            for v_, nm_ in ((3, 'Three'), (6, 'Six')):
+                m[f'KCaut{nm_}Pt'] = f"{100 * (1 - (1 - pt_) ** v_):.1f}\\%"
+                m[f'KCaut{nm_}Up'] = f"{100 * (1 - (1 - up_) ** v_):.1f}\\%"
+                m[f'KCaut{nm_}Boole'] = f"{100 * min(1.0, v_ * up_):.1f}\\%"
         m['KSmallCal'] = f"{100 * kk['small_fire_frac']['cal']:.0f}\\%"; m['KSmallHeld'] = f"{100 * kk['small_fire_frac']['heldout']:.0f}\\%"
     # ---- registered-claim status per study (Table of all studies): supported / not supported / pending / descriptive (no claim registered)
     def _load(n):
