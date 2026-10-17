@@ -392,7 +392,12 @@ def mission_segment(run_dir: Path, spec: dict, cam: FilmCamera, emit, narr=None,
                 # I-15: what the memory proposed for this mission (it never skips a check)
                 rounded(d, (1356, y - 4, 1866, y + 58), (40, 44, 92), 10)
                 text(d, (1366, y), '記憶（前回の出動）→ 提案のみ・確認は省略しない', 18, (190, 196, 255), True)
-                for k, ln in enumerate(wrap_lines(mem['rationale'][0], 18, 490)[:1]):
+                st_ja = {'water': '拠点W', 'medicine': '拠点M'}
+                it_ja = {'water': '飲料水', 'medicine': '医療物資'}
+                fs, cs = mem.get('first_station'), mem.get('catalog_station')
+                short = (f"前回、{it_ja.get(cs, cs)}を{st_ja.get(fs, fs)}で確認 → 先に{st_ja.get(fs, fs)}へ" if fs and cs and fs != cs
+                         else mem['rationale'][0])
+                for k, ln in enumerate(wrap_lines(short, 18, 490)[:1]):
                     text(d, (1366, y + 26 + 22 * k), ln, 18, INK)
                 y += 66
             active = None

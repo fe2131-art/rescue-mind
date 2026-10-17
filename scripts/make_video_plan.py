@@ -203,11 +203,12 @@ def evidence_card(seconds):
         p1, p2 = h['P1_efficiency_relocation_persist'], h['P2_safety_naive_vs_verified']
         t0, t2 = p1['time_M0_median_s'], p1['time_M2_median_s']
         speed = f"所要時間 {t0:.0f}→{t2:.0f}秒・" if t0 is not None and t2 is not None else ''
-        rows.append(['閉ループ H（記憶）', [f"{speed}危険な配達 素朴 {p2['unsafe_M1']}／検証つき {p2['unsafe_M2']}",
+        p3 = h['P3_no_extra_risk_vs_v36']
+        rows.append(['閉ループ H（記憶）', [f"{speed}危険な配達 記憶なし {p3['unsafe_M0']}・本方式 {p3['unsafe_M2']}（素朴 {p2['unsafe_M1']}）",
                                                   G if h['headline_supported'] else W]])
         say.append((f"出動をまたぐ記憶では、入れ替わりが続く出動の所要時間の中央値が、記憶なしの{t0:.0f}秒から{t2:.0f}秒。"
                     if t0 is not None and t2 is not None else '出動をまたぐ記憶では、')
-                   + f"危険な配達は、素朴な記憶の{p2['unsafe_M1']}件に対して、検証つき記憶は{p2['unsafe_M2']}件。")
+                   + f"危険な配達は、記憶なしの{p3['unsafe_M0']}件に対して、本方式は{p3['unsafe_M2']}件。確認を省く素朴な記憶では{p2['unsafe_M1']}件でした。")
     j = jload(RES / 'j_summary.json')
     if j:
         c = j['per_config']
