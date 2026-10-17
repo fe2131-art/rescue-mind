@@ -307,6 +307,8 @@ def watch_text():
     parts = []
     if '隠れた' in titles:
         parts.append('「隠れた小さな火」のデモ（正面では見えない火を、横へ動いて撮り直して見つけて止まる）')
+    if '確認不要' in titles:
+        parts.append('「確認不要」と言われても確認するデモ（言われたまま信じず、横から見て火を見つけて止まる）')
     if '取り違え' in titles:
         parts.append('「取り違え」のデモ（違えば別の拠点を探し、無ければ止まって報告する）')
     if '記憶' in titles:
@@ -316,9 +318,10 @@ def watch_text():
     total = ch[-1]['end_s']
     txt = (f'**動画で見てほしい点**（現行の動画、約{int(total // 60)}分{int(round(total % 60)):02d}秒、実走デモ{len(demos)}本。`docs/video_chapters.json` の章立てから生成）：'
            + '、'.join(parts) + '。評価の表が1枚入っている。')
-    missing = [n for n, key in (('助言', '助言'), ('倉庫', '倉庫'), ('未知の配置（L）', '配置')) if key not in titles]
+    missing = [n for n, key in (('助言', '確認不要'), ('倉庫', '倉庫'), ('未知の配置（L）', '配置')) if key not in titles]
+    later = '助言と倉庫は評価Aと倉庫の予備実験' if '助言' in missing else '倉庫は倉庫の予備実験'
     if missing:
-        txt += f'{"・".join(missing)}の場面は現行の動画に無い。助言と倉庫は評価Aと倉庫の予備実験のあとで撮影して加える予定（動画 v5、[計画](docs/design/video_v5_plan.md)）。'
+        txt += f'{"・".join(missing)}の場面は現行の動画に無い。{later}のあとで撮影して加える予定（動画 v5、[計画](docs/design/video_v5_plan.md)）。'
     return txt + '数値は[結果](#結果)と説明資料で確認できる。'
 
 
@@ -379,9 +382,21 @@ def v_text():
         d, a = v['V1_time_diff'], v['arms']
         return (f"M0−M2の所要時間差 実測 {d['mean_M0_minus_M2_s']:.0f} 秒（事前登録した95%予測区間 {d['pred']['p2.5']:.0f}〜{d['pred']['p97.5']:.0f} 秒）、"
                 f"危険な配達は 記憶なし {a['M0']['unsafe']}・素朴な記憶 {a['M1']['unsafe']}・検証つき記憶 {a['M2']['unsafe']}件。"
-                f"主張は モデルの予測：{'成立' if v['claim_model_predicts'] else '不成立'}、ランダムな変化でも安全に速い：{'成立' if v['claim_memory_under_random_change'] else '不成立'}")
+                + advice_numbers.v_claims_ja(bold='md') + ' 図：[`docs/figures/v_prediction.png`](docs/figures/v_prediction.png)')
     except (TypeError, KeyError):
         return PENDING
+
+
+def v_idea_text():
+    """Short statement for the idea section; the failed memory claim is named here, not only in the results table."""
+    f = advice_numbers.v_facts()
+    if not f:
+        return PENDING
+    s = (f"出動ごとに物資と火がランダムに変わる10系列×6出動で、先に登録した予測を確かめた。モデルの予測は**{'成立' if f['model_claim'] else '不成立'}**（M0−M2の時間差 {f['diff']:.0f} 秒、予測区間 {f['pred_lo']:.0f}〜{f['pred_hi']:.0f} 秒の内側）。")
+    if not f['memory_claim']:
+        s += (f"一方、**記憶は安全という主張は不成立**：余裕の条件（M2−M0 = {f['m2_minus_m0']} 件、余裕 {f['margin']} 件以下）は成立したが、系列単位のMcNemar検定が p={f['mcnemar_p']:.4f}（{f['disc'][0]}対{f['disc'][1]}）で基準 0.05 に届かなかった。"
+              "原因は10系列という検出力の不足と、M2の唯一の危険な配達が記憶ではなく確認の誤り（到着位置のぶれ）だったこと。失敗として残している。詳細は[結果](#結果)の評価V・[FINDINGS](docs/FINDINGS.md) #29。")
+    return s
 
 
 def w_text():
@@ -577,6 +592,10 @@ def section_novelty():
     ![記憶は提案、判断はその場の目で（出動をまたぐ記憶の原則）](docs/figures/memory_principle_ja.png)
 
     ![事例：記憶なしは隠れた火に配達（p_h=0.0346）、検証つき記憶は火を見た拠点の閾値を0.01に厳しくして停止（p_h=0.0489）。1件の事例で、統計的な主張ではない](docs/figures/memory_case_ja.png)
+
+  * **ランダムな変化での再検証（評価V）**：{v_idea_text()}
+
+    ![評価V：登録した予測区間（帯）と閉ループの実測（点）](docs/figures/v_prediction.png)
 
   * **機械検証**（[I-23](docs/IMPROVEMENT_LOG.md)）：{i23_text() or '結果ファイルなし'}。証明が対象にするのは、確認の判定・助言の畳み込み・訪問ループという小さな純関数で、助言の長さも画像も任意。
   * **必要十分**（補足 S10「必要性」）：{necessity_text()}
@@ -782,7 +801,7 @@ def section_en(e, v):
     try:
         v = jl('v_summary.json')
         d1, av = v['V1_time_diff'], v['arms']
-        L.append(f"| V: model vs. closed loop (random change) | M0-M2 time saving observed {d1['mean_M0_minus_M2_s']:.0f} s (registered 95% interval {d1['pred']['p2.5']:.0f}-{d1['pred']['p97.5']:.0f} s); unsafe deliveries M0 {av['M0']['unsafe']}, M1 {av['M1']['unsafe']}, M2 {av['M2']['unsafe']}; model-predicts claim {'supported' if v['claim_model_predicts'] else 'not supported'}, memory-under-random-change claim {'supported' if v['claim_memory_under_random_change'] else 'not supported'} |")
+        L.append(f"| V: model vs. closed loop (random change) | M0-M2 time saving observed {d1['mean_M0_minus_M2_s']:.0f} s (registered 95% interval {d1['pred']['p2.5']:.0f}-{d1['pred']['p97.5']:.0f} s); unsafe deliveries M0 {av['M0']['unsafe']}, M1 {av['M1']['unsafe']}, M2 {av['M2']['unsafe']}; {advice_numbers.v_claims_en()} |")
     except (TypeError, KeyError):
         L.append('| V: model vs. closed loop (random change) | pre-registered, running |')
     try:
@@ -899,7 +918,7 @@ def main():
         if rows:
             tables += [f'#### {title}', '', '\n'.join(head + rows), '']
     parts = ['<!-- RESULTS:START -->', '## 結果', '',
-             '事前登録した評価の一覧（D・E・F・G・T1・T2・Z・P・R・K・H・J、結果待ちの' + '・'.join(waiting_studies()) + '）を、論文と同じ**一本の筋**の順に並べる：①確かめる ②誤りの大半は隠れた火 ③横から見直す ④見ていないものは締めるだけ ⑤保証の外 ⑥採用しなかったもの。Qwen3.5-9B（ローカル・V100）。条件・閾値・解析は結果を見る前に `experiments/PREREGISTRATION_*.md` に固定し、台帳は全試行を記録。結果待ちの研究は、結果ファイルができると数値が自動で入る。', '',
+             '事前登録した評価の一覧（D・E・F・G・T1・T2・Z・P・R・K・H・J' + ''.join('・' + k for k in ('L', 'V') if (RES / f'{k.lower()}_summary.json').is_file()) + '、結果待ちの' + '・'.join(waiting_studies()) + '）を、論文と同じ**一本の筋**の順に並べる：①確かめる ②誤りの大半は隠れた火 ③横から見直す ④見ていないものは締めるだけ ⑤保証の外 ⑥採用しなかったもの。Qwen3.5-9B（ローカル・V100）。条件・閾値・解析は結果を見る前に `experiments/PREREGISTRATION_*.md` に固定し、台帳は全試行を記録。結果待ちの研究は、結果ファイルができると数値が自動で入る。', '',
              '用語：**誤許可**＝届けてはいけない場面で「届けてよい」と判断してしまうこと（ロボットを実際に動かす評価では**誤配達**。火のある拠点から届けてしまうことは**危険な配達**）。**正しい許可**＝届けてよい場面で正しく「よい」と判断できること。**閉ループ**＝AIの判断でロボットが実際に動くところまで含めた評価。**ε**＝確認そのものが、届けてはいけない拠点を許可してしまう確率（助言の危険は、この内側に収まる）。', '',
              '\n'.join(tables)]
     if t1_block:

@@ -80,8 +80,9 @@ def facts():
     """List of dicts: name, expected (display), readme/yt/report: [needles], forbid: {doc: [regex]}, macro: {name: value}."""
     F = []
 
-    def add(name, expected, readme=(), yt=(), report=(), macro=None):
-        F.append(dict(name=name, expected=expected, readme=list(readme), yt=list(yt), report=list(report), macro=macro or {}))
+    def add(name, expected, readme=(), yt=(), report=(), macro=None, yt_key=None):
+        # yt_key: marker of a YouTube detail line that make_youtube_description.py may drop by design when the text exceeds 5000 bytes
+        F.append(dict(name=name, expected=expected, readme=list(readme), yt=list(yt), report=list(report), macro=macro or {}, yt_key=yt_key))
 
     e = ledger('campaign_E_ledger.jsonl')
     if e:
@@ -110,23 +111,40 @@ def facts():
             [f"期待どおり {pl['expected_behaviour']}、危険な配達 {pl['unsafe_deliveries']}件"], [f"期待どおり {pl['expected_behaviour']}、危険な配達 {pl['unsafe_deliveries']}件"],
             [f"期待どおり{pl['expected_behaviour']}"], {'LCorrect': pl['expected_behaviour'], 'LUnsafe': str(pl['unsafe_deliveries']),
                                                        'LClaim': 'supported' if pl['claim_supported'] else 'not supported'})
+    import advice_numbers
+    vf = advice_numbers.v_facts()
+    if vf:
+        d, u, ok = vf['diff'], vf['unsafe'], lambda x: '成立' if x else '不成立'
+        mp = f"{vf['mcnemar_p']:.4f}"
+        add('V paired time saving M0-M2 (s)', f"{d:.0f} (registered {vf['pred_lo']:.0f}-{vf['pred_hi']:.0f})",
+            [f"実測 {d:.0f} 秒", f"{vf['pred_lo']:.0f}〜{vf['pred_hi']:.0f} 秒"], [f"時間差 {d:.0f}秒", f"{vf['pred_lo']:.0f}〜{vf['pred_hi']:.0f}秒"],
+            [f"実測 {d:.0f} 秒", f"{vf['pred_lo']:.0f}〜{vf['pred_hi']:.0f} 秒"], {'VObsDiff': f'{d:.0f}'})
+        add('V unsafe deliveries M0 / M1 / M2', f"{u['M0']} / {u['M1']} / {u['M2']} of {vf['n_per_arm']}",
+            [f"記憶なし {u['M0']}・素朴な記憶 {u['M1']}・検証つき記憶 {u['M2']}件"], [f"記憶なし {u['M0']}・素朴な記憶 {u['M1']}・検証つき記憶 {u['M2']}件"],
+            [f"記憶なし {u['M0']}・素朴な記憶 {u['M1']}・本方式 {u['M2']}件"],
+            {'VUnsafeMzero': str(u['M0']), 'VUnsafeMone': str(u['M1']), 'VUnsafeMtwo': str(u['M2'])})
+        add('V claims (model / memory under random change) and the sequence McNemar p', f"{ok(vf['model_claim'])} / {ok(vf['memory_claim'])}, p={mp}",
+            [f"モデルの予測：{ok(vf['model_claim'])}", f"記憶はランダムな変化でも安全：{ok(vf['memory_claim'])}", f"p={mp}"],
+            [f"モデルの予測は{ok(vf['model_claim'])}", f"の主張は{ok(vf['memory_claim'])}", f"p={mp}"],
+            [f"モデルの予測：{ok(vf['model_claim'])}", f"記憶はランダムな変化でも安全（V4）：{ok(vf['memory_claim'])}", f"p={mp}"],
+            {'VClaimModel': 'supported' if vf['model_claim'] else 'not supported', 'VClaimMemory': 'supported' if vf['memory_claim'] else 'not supported', 'VSeqP': mp})
     p = jload('p_summary.json')
     if p:
         rc, fa = p['recall'], p['false_alarm']
         add('P recall / false alarms (real photos)', f"{rc['k']}/{rc['n']} / {fa['k']}/{fa['n']}",
             [f"{rc['k']}/{rc['n']}", f"{fa['k']}/{fa['n']}"], [f"検出 {rc['k']}/{rc['n']}、火の無い写真で誤警報 {fa['k']}/{fa['n']}"], [f"{fa['k']}/{fa['n']}"],
-            {'PRecall': f"{rc['k']}/{rc['n']}", 'PFalseAlarm': f"{fa['k']}/{fa['n']}"})
+            {'PRecall': f"{rc['k']}/{rc['n']}", 'PFalseAlarm': f"{fa['k']}/{fa['n']}"}, yt_key='評価P')
     p2 = jload('p2_summary.json')
     if p2 and p2.get('chosen_test'):
         ct = p2['chosen_test']
         rk, fk = f"{ct['recall']['k']}/{ct['recall']['n']}", f"{ct['false_alarm']['k']}/{ct['false_alarm']['n']}"
         add('P2 calibrated recall / false alarms', f'{rk} / {fk}', [rk, fk], [f'検出 {rk}、誤警報 {fk}'], [f'検出{rk}・誤警報{fk}'],
-            {'PTwoRecall': rk, 'PTwoFA': fk, 'PTwoClaim': 'supported' if p2['claim_supported'] else 'not supported'})
+            {'PTwoRecall': rk, 'PTwoFA': fk, 'PTwoClaim': 'supported' if p2['claim_supported'] else 'not supported'}, yt_key='評価P')
     t1 = jload('t1_summary.json')
     if t1:
         f = t1['models']['Qwen3.5-9B']['rules']['full']
         add('T1 false approvals (registered rule)', f"{f['false_approvals']}/{f['n_deny']}", [f"{f['false_approvals']}/{f['n_deny']}"],
-            [f"誤許可 {f['false_approvals']}枚"], [], {'TFA': str(f['false_approvals']), 'TNdeny': str(f['n_deny'])})
+            [f"誤許可 {f['false_approvals']}枚"], [], {'TFA': str(f['false_approvals']), 'TNdeny': str(f['n_deny'])}, yt_key='（T1）')
     r = jload('r_summary.json')
     if r:
         p1 = r['P1_pooled']
@@ -136,7 +154,7 @@ def facts():
     if j:
         c = j['per_config']
         add('J expected behaviour (two-model check)', f"{c['J']['correct']}/{c['J']['n']}", [f"{c['J']['correct']}/{c['J']['n']}"],
-            [f"期待どおり {c['J']['correct']}/{c['J']['n']}"], [f"{c['J']['correct']}/{c['J']['n']}"], {'JCorrectJ': f"{c['J']['correct']}/{c['J']['n']}"})
+            [f"期待どおり {c['J']['correct']}/{c['J']['n']}"], [f"{c['J']['correct']}/{c['J']['n']}"], {'JCorrectJ': f"{c['J']['correct']}/{c['J']['n']}"}, yt_key='評価J')
         vr = j['P1_runs_on_one_v100'].get('peak_vram_mib')
         if vr:
             add('J peak GPU memory (GiB, not GB)', f'{vr / 1024:.1f} GiB', [], [], [f'{vr / 1024:.1f}GiB'], {'JPeakVram': f'{vr / 1024:.1f}'})
@@ -204,6 +222,9 @@ def check_docs(F, docs, mac):
                 cells[doc] = 'skip'
                 continue
             miss = [n for n in needles if norm(n) not in norm(text)]
+            if doc == 'yt' and miss and f.get('yt_key') and f['yt_key'] not in text and 'ほかの結果' in text:
+                cells[doc] = 'dropped'      # the whole detail line was dropped by design (5000-byte limit; README and report carry it)
+                continue
             cells[doc] = 'ok' if not miss else 'MISMATCH'
             if miss:
                 f.setdefault('detail', []).append(f'{doc}: missing {miss}')
@@ -271,6 +292,27 @@ def main():
         rx = re.compile(rf'評価{k}[^\n|]*\|[^\n]*実行中（事前登録済み）')
         hit = rx.search(docs['readme'])
         extra.append((f'README row of study {k} says "running" without results', 'MISMATCH' if hit else 'ok', ''))
+
+    # study V has results: no document may still call it running / pending
+    import advice_numbers
+    if (RES / 'v_summary.json').is_file():
+        hit = re.search(r'評価V[^\n|]*\|[^\n]*実行中（事前登録済み）', docs['readme']) or re.search(r'V: model vs\. closed loop[^\n]*pre-registered, running', docs['readme'])
+        extra.append(('README row of study V still says "running"', 'MISMATCH' if hit else 'ok', ''))
+        rt = docs.get('report')
+        if rt is not None:
+            hit = re.search(r'評価V[^\n]{0,40}実行中|V[^\n]{0,10}実行中', rt)
+            extra.append(('report still says study V is running', 'MISMATCH' if hit else 'ok', f'matches {hit.group(0)!r}' if hit else ''))
+        yt_hit = re.search(r'再検証V[^\n]*実行中', docs['yt'])
+        extra.append(('YouTube text still says study V is running', 'MISMATCH' if yt_hit else 'ok', ''))
+        # the failed registered claim must stay visible in every document (not only in the paper)
+        if not advice_numbers.v_facts()['memory_claim']:
+            for doc, needle in (('readme', '不成立'), ('yt', '不成立'), ('report', '不成立')):
+                t = docs.get(doc)
+                if t is None:
+                    continue
+                seg = [m.start() for m in re.finditer('評価V|再検証V|ランダムな変化', t)]
+                ok_ = any('不成立' in t[i:i + 900] for i in seg)
+                extra.append((f'{doc}: the failed memory claim of study V is stated', 'ok' if ok_ else 'MISMATCH', ''))
 
     # numbers.tex is what scripts/paper_numbers.py generates now
     try:

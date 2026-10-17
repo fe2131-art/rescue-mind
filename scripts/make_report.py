@@ -378,7 +378,8 @@ def v_result_text(vs):
     ok_ = lambda x: '成立' if x else '不成立'
     return (f"M0とM2の所要時間差 実測 {v1['mean_M0_minus_M2_s']:.0f} 秒（事前登録の予測区間 {v1['pred']['p2.5']:.0f}〜{v1['pred']['p97.5']:.0f} 秒）、"
             f"危険な配達 記憶なし {av['M0']['unsafe']}・素朴な記憶 {av['M1']['unsafe']}・本方式 {av['M2']['unsafe']} 件。"
-            f"モデルの予測：<b>{ok_(vs['claim_model_predicts'])}</b>、ランダムな変化でも安全に速い：<b>{ok_(vs['claim_memory_under_random_change'])}</b>")
+            f"モデルの予測：<b>{ok_(vs['claim_model_predicts'])}</b>、記憶はランダムな変化でも安全（V4）：<b>{ok_(vs['claim_memory_under_random_change'])}</b>"
+            + ('' if vs['claim_memory_under_random_change'] else '（余裕の条件は成立、系列単位の検定が p=%.4f で届かず。検出力の不足と、確認の誤り1件による。付録C2）' % vs['V4_safety']['seq_mcnemar_M1_vs_M2_p']))
 
 
 def w_result_text(ws):
@@ -443,6 +444,30 @@ def p_auroc():
     if not pos or not neg:
         return None
     return sum((a > b) + 0.5 * (a == b) for a in pos for b in neg) / (len(pos) * len(neg))
+
+
+def v_detail(vs):
+    """Appendix C2: study V (registered predictions, then closed loop): V1-V4 table, the one figure, and the failed memory claim stated in full."""
+    head = P('<b>予測してから試す（評価V、事前登録）</b>：上のモデルの予測（所要時間差と危険な配達数の区間）を最初の試行の前に登録し、'
+             '物資と火がランダムに変わる10系列×6出動（q=0.2）で確かめる。', 'small')
+    if not vs:
+        return [head, P('結果は<b>実行中</b>で、出たら本資料に反映する。', 'small'), Spacer(1, 3)]
+    f = advice_numbers.v_facts()
+    a = vs['arms']
+    ok = lambda x: '<b>成立</b>' if x else '<b>不成立</b>'
+    rows = [['基準（登録）', '結果', '判定'],
+            ['V1 所要時間差 M0−M2 が予測区間の内側', f"実測 {vs['V1_time_diff']['mean_M0_minus_M2_s']:.1f} 秒（予測区間 {f['pred_lo']:.1f}〜{f['pred_hi']:.1f} 秒）", ok(f['v1'])],
+            ['V2 危険な配達・探索回数が予測区間の内側', f"危険な配達 M0 {a['M0']['unsafe']}・M1 {a['M1']['unsafe']}・M2 {a['M2']['unsafe']}、探索 M0 {a['M0']['searches']}・M2 {a['M2']['searches']} 回", ok(f['v2'])],
+            ['V3 速さ（系列単位の対比較）', f"{f['seq_n']}系列、差の中央値 {vs['V3_speed']['median_seq_mean_diff_s']:.1f} 秒、Wilcoxon正確検定 {pexact(f['v3_p'])}", ok(f['v3'])],
+            ['V4 安全：M2−M0 が余裕（3 件）以下、かつ系列単位のMcNemar（M1 対 M2）が p&lt;0.05',
+             f"M2−M0 = {f['m2_minus_m0']} 件（余裕の条件は成立）。危険な配達のあった系列 M1 {f['seq_unsafe']['M1']}・M2 {f['seq_unsafe']['M2']}／{f['seq_n']}（食い違い {f['disc'][0]}対{f['disc'][1]}）、{pexact(f['mcnemar_p'])}。副次の厳密な M2 ≤ M0 は不成立（{a['M2']['unsafe']} 対 {a['M0']['unsafe']}）", ok(f['v4'])]]
+    out = [head, Spacer(1, 2), table(rows, [52, 100, 22]), Spacer(1, 3)]
+    out += fig('v_prediction.png', 168, '評価V：登録した予測（帯：95%区間、横線：中央値）と閉ループの実測（点）。所要時間の差・危険な配達・探索回数は区間の内側。'
+               'M2 の危険な配達 1 件は区間の内側だが M0 の 0 件より多く、これが V4 の厳密な比較を満たさなかった。')
+    out += [P('<b>結果</b>：' + advice_numbers.v_claims_ja(f) +
+              ' 確認を省かない設計が危険を増やさない、という主張はこの評価では<b>検定で支持できなかった</b>。1件を除外したり基準を後から緩めたりはしない（FINDINGS #29）。'
+              '10系列を増やして検出力を確かめる追試と、I-20 を有効にした再評価は今後の課題である。', 'small'), Spacer(1, 3)]
+    return out
 
 
 def memory_price_text():
@@ -564,9 +589,7 @@ def sec_memory():
             P(f"速さの限定：{h['P1_efficiency_relocation_persist']['time_M0_median_s']:.0f}→{h['P1_efficiency_relocation_persist']['time_M2_median_s']:.0f}秒は、置き場所が変わったままの8出動での差。置き場所が元に戻った8出動では、記憶の提案した拠点に先に行ってから探すため検証つき記憶の方が遅い（中央値 {h['per_arm']['M2']['by_transition']['relocation_change']['time_median_s']:.0f} 秒 対 記憶なし "
               f"{h['per_arm']['M0']['by_transition']['relocation_change']['time_median_s']:.0f} 秒）。全体の中央値は {h['per_arm']['M0']['time_median_s']:.0f} → {h['per_arm']['M2']['time_median_s']:.0f} 秒。"), Spacer(1, 3)]
     out += memory_price_text()
-    vs_ = jload('v_summary.json')
-    out += [P('<b>予測してから試す（評価V、事前登録）</b>：上のモデルの予測（所要時間差と危険な配達数の区間）を最初の試行の前に登録し、物資と火がランダムに変わる10系列×6出動（q=0.2）で確かめる。'
-              + (v_result_text(vs_) + '。' if vs_ else '結果は<b>実行中</b>で、出たら本資料に反映する。'), 'small'), Spacer(1, 3)]
+    out += v_detail(jload('v_summary.json'))
     _c = [t for t in h['trials'] if t['arm'] == 'M2' and t['k'] > 1 and t.get('caution')]
     _free = [t for t in _c if not t['fire_perceivable_at']]
     _cn, _cf, _cfr = len(_c), len(_free), sum(bool(t['false_refusal']) for t in _free)
@@ -1071,7 +1094,7 @@ def story_chain(D, E, V, T):
     h = jload('h_summary.json')
     hp = h['P3_no_extra_risk_vs_v36'] if h else None
     sj = jload('s_summary.json')
-    pend_va = '' if (jload('a_summary.json') and jload('v_summary.json')) else '<br/>評価V：実行中、評価A：未実行'
+    pend_va = '' if jload('a_summary.json') else '<br/>評価A：未実行'
     g = lambda x: f"<br/><font color='#52514e'>{x}</font>"
     heads = ['① 迷ったら止まる', '② 誤りの正体', '③ 横から見直す', '④ 助言は締めるだけ', '⑤ 保証の外']
     bodies = [
@@ -1271,7 +1294,11 @@ def story_limits(D, E, V, SP):
               '<b>すべてシミュレーション</b>（実機なし）。物資の把持・運搬は未実装。実写で検証したのは火災判定（P）だけで、閾値は現場ごとに較正が要る。',
               '信用枠（I-24）の数値は<b>合成した結果の記述モデル</b>で、閉ループの確認（研究B）は' + ('結果あり。' if advice_numbers.pending_studies()['B'] else '結果待ち。')
               + '機械検証（I-23）は転記したモデルとコードが対象で、同じ筆者による転記と z3・CPython を信頼している。第三者による再現はまだ無い。',
-              '閉ループの評価は8〜16組と少なく、記憶の評価Hは世界の変化が台本どおり（ランダムな変化は評価Vで確かめる）。']
+              '閉ループの評価は8〜16組と少なく、記憶の評価Hは世界の変化が台本どおり（ランダムな変化は評価Vで確かめた）。']
+    _vf = advice_numbers.v_facts()
+    if _vf and not _vf['memory_claim']:
+        items.insert(0, f"<b>記憶の安全の主張（評価V、V4）は不成立</b>：余裕の条件（M2−M0 = {_vf['m2_minus_m0']} 件、余裕 {_vf['margin']} 件以下）は成立したが、系列単位のMcNemar検定が "
+                        f"p={_vf['mcnemar_p']:.4f}（{_vf['disc'][0]}対{_vf['disc'][1]}）で届かなかった。原因は10系列の検出力不足と、M2の1件が記憶でなく確認の誤り（付録C2）。失敗として残す。")
     s += bullets(items)
     s += [P('7. 動画と再現', 'h1')]
     chap = ROOT / 'docs/video_chapters.json'
@@ -1280,7 +1307,7 @@ def story_limits(D, E, V, SP):
         mmss = lambda x: f'{int(x // 60)}:{int(x % 60):02d}'
         s += [P(f"動画は全 {mmss(round(ch[-1]['end_s']))}。映像はすべてGazeboの実レンダリング（模式図・モックなし）で、字幕・確率バー・軌跡・ロボットの報告文はその試行のログから自動合成。"
                 f"<b>{SP}</b>で、速度は画面左上に常時表示している（構成は付録N）。")]
-    s += fig('video_frame_decision.png', 74, '動画の一場面（物資の取り違え）：拠点Wで救急箱を確認して拒否し、もう一方の拠点を確認しに向かう。下段はロボットの日本語報告。')
+    s += fig('video_frame_decision.png', 58, '動画の一場面（物資の取り違え）：拠点Wで救急箱を確認して拒否し、もう一方の拠点を確認しに向かう。下段はロボットの日本語報告。')
     s += [P('再現：<font name="IPAexG">bash docker/build.sh</font> → <font name="IPAexG">bash docker/run.sh python3 scripts/run_campaign.py --protocol experiments/campaign_e_protocol.json</font>。'
             '設計判断は docs/DESIGN_DECISIONS.md。本資料・動画・コードに氏名・所属・メールアドレス等の個人情報は含めていない。', 'small')]
     return s
