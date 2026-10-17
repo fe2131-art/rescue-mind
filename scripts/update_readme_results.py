@@ -16,6 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from t1_analysis import decide, wilson  # noqa: E402
+import count_tests  # noqa: E402  (generated test / findings counts)
 
 RES = ROOT / 'experiments/results'
 GROUP = {'nominal': ('正常配置', '配達'), 'swapped': ('水と救急箱の取り違え', '別拠点を探索して配達'),
@@ -376,6 +377,22 @@ def section_zpr():
     return rows, notes
 
 
+def sync_counts(txt, path):
+    """Replace the test / findings counts in prose by the generated ones (scripts/count_tests.py)."""
+    nt, nf = count_tests.n_tests(), count_tests.n_findings()
+    subs = [(r'(実際に動かして初めて分かった)\d+(件の問題)', rf'\g<1>{nf}\g<2>'),
+            (r'(テスト（)[^）]*?(件。ROS/Gazebo不要)', rf'\g<1>{nt}\g<2>' if nt else None),
+            (r'(以下の)\d+(件の問題)', rf'\g<1>{nf}\g<2>'),
+            (r'(単体テストは現在)\d+(件）)', rf'\g<1>{nt}\g<2>' if nt else None),
+            (r'(FINDINGS\()\d+(件\))', rf'\g<1>{nf}\g<2>'),
+            (r'(実行で見つけた)\d+(件)', rf'\g<1>{nf}\g<2>'),
+            (r'(\| テスト \| )[^|]*?(件)前後(（`python3)', rf'\g<1>{nt}\g<2>\g<3>' if nt else None)]
+    for pat, rep in subs:
+        if rep:
+            txt = re.sub(pat, rep, txt)
+    return txt
+
+
 def main():
     e, d, t, v = section_e(), section_d(), t1_parts(), section_v36()
     head = ['| 評価（事前登録） | 内容 | 結果 |', '|---|---|---|']
@@ -431,7 +448,11 @@ def main():
         desc = (f"デモ動画（YouTube、{length}、日本語ナレーション付き。実走デモ{len(demos)}本（{'／'.join(demos)}）と、事前登録した結果の表{n_tab}枚"
                 + (f"。{sp}で、速度は画面に常時表示）" if sp else '）'))
         txt = re.sub(r'デモ動画（YouTube、[^\n]*?）(?=／ 本リポジトリ)', lambda _: desc, txt, count=1)
+    txt = sync_counts(txt, readme)
     readme.write_text(txt, encoding='utf8')
+    for name in ('FINDINGS.md', 'HANDOFF.md'):       # prose counts in the other docs
+        f = ROOT / 'docs' / name
+        f.write_text(sync_counts(f.read_text(encoding='utf8'), f), encoding='utf8')
     print('README results updated: G', v[1] if v else None, '| E', e[1] if e else None, '| D', d[1] if d else None, '| T1', bool(t))
 
 

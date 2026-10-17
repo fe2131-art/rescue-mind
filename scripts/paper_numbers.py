@@ -15,6 +15,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'scripts'))
 RES = ROOT / 'experiments/results'
 OUT = ROOT / 'docs/paper'
 
@@ -96,6 +97,10 @@ def campaign(m: Macros, prefix: str, file: str):
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     m = Macros()
+    import count_tests
+    nt, nf = count_tests.n_tests(), count_tests.n_findings()
+    m['NTests'] = str(nt) if nt is not None else r'\TBD'      # scripts/count_tests.py (run in rm-dev)
+    m['NFindings'] = str(nf)                                     # rows of the main table in docs/FINDINGS.md
     # ---- campaign C (v3.3, 30 trials) and D (v3.4, 42 trials)
     c_rows = ledger('campaign_ledger.jsonl')
     if c_rows:

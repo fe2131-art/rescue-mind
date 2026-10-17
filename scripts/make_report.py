@@ -21,13 +21,14 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import (BaseDocTemplate, Frame, Image, KeepTogether, PageBreak, PageTemplate,
+from reportlab.platypus import (BaseDocTemplate, CondPageBreak, Frame, Image, KeepTogether, PageBreak, PageTemplate,
                                 Paragraph, Spacer, Table, TableStyle)
 
 ROOT = Path(__file__).resolve().parents[1]
 RES = ROOT / 'experiments/results'
 FIG = ROOT / 'docs/figures'
 sys.path.insert(0, str(ROOT / 'scripts'))
+import count_tests  # noqa: E402  (generated test / findings counts)
 from t1_analysis import wilson  # noqa: E402  (Wilson 95% CI, shared with the T1 analysis)
 
 pdfmetrics.registerFont(TTFont('IPAexG', '/usr/share/fonts/opentype/ipaexfont-gothic/ipaexg.ttf'))
@@ -311,26 +312,23 @@ def sec_memory():
         proto = json.loads(pf.read_text())
         sha = (f"プロトコル（{proto['planned_n']}試行、sha256 先頭16桁 {hashlib.sha256(pf.read_bytes()).hexdigest()[:16]}）は"
                '最初の試行の前に固定した。')
-    out = [P('5.1 出動をまたぐ記憶（I-15）：記憶は提案し、知覚が決める', 'h2'),
-           P('同じ避難所への補給は繰り返される。前回の出動で見たものを覚えていれば、物資が入れ替わったままの現場で毎回遠回りせずに済む。'
-             'しかし災害現場は出動のたびに変わり、古い記憶に従うのは危険である。そこで<b>記憶にできることを2つだけに限る</b>（docs/DESIGN_DECISIONS.md D13）。')]
+    out = [P('4.2 新規性2：出動をまたぐ記憶——記憶は提案だけ、確認は減らさない（I-15）', 'h2'),
+           P('同じ避難所への補給は繰り返される。前回の出動で見たものを覚えていれば遠回りを避けられるが、災害現場は出動のたびに変わり、古い記憶に従うのは危険である。'
+             'そこで<b>記憶にできることを限る</b>（docs/DESIGN_DECISIONS.md D13）。')]
     out += bullets([
-        '<b>記憶に書くもの</b>：各出動で、ロボット自身が拠点ごとに「見えた物資」と「危険（火・煙）が見えた方向」を追記する。真値は書かない。',
+        '<b>書くもの</b>：各出動で、ロボット自身が拠点ごとに「見えた物資」と「火・煙が見えた方向」を追記する（真値は書かない）。',
         '<b>順序の提案</b>：前回、依頼物資が別の拠点で見えていたら、その拠点を先に訪ねる。行った先でも必ず現物確認する。',
-        '<b>慎重さの追加</b>：最近火を見た拠点では、すべての視点で危険の閾値 τ_h を 0.05 から <b>0.01</b> に下げ、火が見えた側から先に見る。',
+        '<b>慎重さの追加</b>：最近火を見た拠点では、すべての視点で危険の閾値 τ_h を 0.05 から <b>0.01</b> に下げる。',
         '<b>確認は決して減らさない</b>：記憶を理由に、現物確認・横からの見直し・閾値を省いたり緩めたりしない。'])
-    out += [Spacer(1, 3), P('<b>命題（安全側への単調性）</b>：同じカメラ画像を見たとき、記憶を使うロボットが配達する場面は、記憶を使わないロボットも配達する場面だけである。'
-              '記憶を使うことで配達が増えることはなく、同じか減る。理由は、許可が「依頼物資を確認でき、かつ正面・左右のすべての視点で危険が閾値未満」という'
-              'AND条件であり、記憶は閾値を下げるか確認の順序を変えるだけで、条件を外せないからである。この性質はコードで強制し'
-              '（<font name="IPAexG">apply_memory_caution</font>・<font name="IPAexG">peek_hazard</font>）、監査は保存した出力から記憶による判定を再計算する。'),
-            Spacer(1, 3), P('<b>比較対象 M1（素朴な記憶）</b>：記憶を信じる。前回その物資を見た拠点では確認と横からの見直しを省いて配達し、前回危険を見た拠点へは行かずに拒否する。'
-              '速いが、現場が変わると誤配達・火災への配達につながる。M1は評価Hで測るためだけに実装し、既定にはしない。'
-              '調査した範囲では、出動をまたぐ記憶で「どこを・どれだけ確認するか」を決め、しかも確認を減らさないことを保証する研究は見当たらなかった'
-              '（ReMEmbR、Embodied-RAG、When Memory Lies 等との関係は docs/IMPROVEMENT_LOG.md I-15）。'),
-            Spacer(1, 3), P('<b>事前登録した評価H</b>（<font name="IPAexG">experiments/PREREGISTRATION_H.md</font>）：16系列×3出動、世界は出動ごとに照明・小道具・火を引き直す。'
-              'M0/M1/M2 を同じ世界で対にして比べる。主要な基準は、P1：物資の入れ替わりが続く出動で M2 が M0 より速い（Wilcoxon正確検定）、'
-              'P2：危険な配達が M2 の方が M1 より少ない（McNemar正確検定）、P3：M2 の危険な配達が M0 以下。'
-              f'3つが揃って初めて「記憶の速さを保ち、危険を増やさない」と主張する。{sha}')]
+    out += [Spacer(1, 3), P('<b>命題（安全側への単調性）</b>：同じカメラ画像なら、記憶を使うロボットが配達する場面は、記憶を使わないロボットも配達する場面の一部である。'
+              '許可は「依頼物資を確認でき、かつ全視点で危険が閾値未満」というAND条件で、記憶は閾値を下げるか確認の順序を変えるだけで条件を外せないからである。'
+              'コードで強制し（<font name="IPAexG">apply_memory_caution</font>・<font name="IPAexG">peek_hazard</font>）、監査は保存した出力から記憶による判定を再計算する。'),
+            Spacer(1, 3), P('<b>比較対象 M1（素朴な記憶）</b>：記憶を信じ、前回その物資を見た拠点では確認を省いて配達し、前回危険を見た拠点へは行かない。速いが、現場が変わると誤配達につながる。'
+              'M1は評価Hで測るためだけに実装し、既定にはしない。調査した範囲では、出動をまたぐ記憶で確認の場所と量を決めつつ確認を減らさないことを保証する研究は見当たらなかった'
+              '（関連研究との関係は docs/IMPROVEMENT_LOG.md I-15）。'),
+            Spacer(1, 3), P('<b>事前登録した評価H</b>（<font name="IPAexG">experiments/PREREGISTRATION_H.md</font>）：16系列×3出動、世界は出動ごとに照明・小道具・火を引き直し、'
+              'M0（記憶なし）/M1/M2（提案）を同じ世界で対にして比べる。基準は P1：物資の入れ替わりが続く出動で M2 が M0 より速い、P2：危険な配達が M2 は M1 より少ない、'
+              f'P3：M2 の危険な配達が M0 以下。3つが揃って初めて「速さを保ち、危険を増やさない」と主張する。{sha}')]
     h = jload('h_summary.json')
     if not h:
         return out + [P('<b>評価H 実行中（事前登録済み）</b>。結果は <font name="IPAexG">experiments/results/h_summary.json</font> が生成され次第、本資料に反映する。'), Spacer(1, 4)]
@@ -358,10 +356,10 @@ def sec_memory():
 
 
 def sec_two_ai():
-    out = [P('5.2 当初計画の2つのAI（Jev役 Clef-Flash＋Qwen）を実機の閉ループで動かす（I-16）', 'h2'),
+    out = [P('4.3 新規性3：当初計画の2つのAI（Jev役 Clef-Flash＋Qwen）を閉ループで動かす（I-16）', 'h2'),
            P('当初計画は「Jev と Qwen の2つのAIで確認する」ことだった。Jev役はCloudflareのClef-Flash判断モデルをローカルで動かして担わせ、'
-             'T2ではオフラインで評価していたが、ロボットを動かす閉ループでは使っていなかった（I-13）。I-16 では、実機の経路が当初のJev要求（通路の安全を問う質問）を固定で使い、'
-             '開発データでは正しい配達の約半分しか許可しなかった点を直し、課題向けの質問に切り替えるフラグ（<font name="IPAexG">--jev-schema task</font>）を追加した。'
+             'T2ではオフラインで評価したが、ロボットを動かす閉ループでは使っていなかった（I-13）。I-16 では実機の経路に組み込み、'
+             '当初のJev要求（通路の安全を問う質問）が正しい配達の約半分しか許可しなかった点を、課題向けの質問に切り替えるフラグ（<font name="IPAexG">--jev-schema task</font>）で直した。'
              '両方のAIが許可したときだけ許可し、どちらかが危険を見れば止まる。')]
     t2 = jload('t2_summary.json')
     r = ((t2 or {}).get('results') or {}).get('J2(Clef-task,0.05)+Q4B')
@@ -369,11 +367,11 @@ def sec_two_ai():
         out += [P('V100 1台（32 GB）に載る2モデル構成はこの組（Clef-Flash 19 GB＋Qwen3.5-4B 9 GB）だけで、未使用のT2（オフライン）では誤許可 '
                   f"{r['false_approvals']}/{r['n_deny']}、正しい許可 {r['correct_approvals']}/{r['n_allow']}だった。")]
     out += [Spacer(1, 3), P('<b>独立性についての注意</b>：Clef-Flash のモデルカードは、これが Qwen3.5-9B からの追加学習であると記している。'
-              '2つのAIは<b>系統を共有しており、独立に開発されたものではない</b>。多様性は追加学習・大きさ・質問の書き方に由来するにとどまり、'
-              '独立な版でも誤りが相関すること（Knight &amp; Leveson 1986）を踏まえると、2つに分けたことによる安全の上乗せは主張しない（D11, D14）。')]
+              '2つのAIは<b>系統を共有しており、独立に開発されたものではない</b>。独立な版でも誤りが相関すること（Knight &amp; Leveson 1986）を踏まえ、'
+              '2つに分けたことによる安全の上乗せは主張しない（D11, D14）。')]
     j = jload('j_summary.json')
     if not j:
-        return out + [P('<b>評価J 実行待ち</b>（<font name="IPAexG">experiments/PREREGISTRATION_J.md</font>：24世界を v3.6（A）と2つのAI（J）で対にして実行）。'
+        return out + [P('<b>評価J 実行待ち（事前登録済み）</b>（<font name="IPAexG">experiments/PREREGISTRATION_J.md</font>：24世界を v3.6（A）と2つのAI（J）で対にして実行）。'
                         '主要な基準は、P1：V100 1台で失敗なく走る、P2：危険な配達が J は A 以下。'), Spacer(1, 4)]
     c = j['per_config']
     p1, p2, p3 = j['P1_runs_on_one_v100'], j['P2_no_extra_unsafe'], j['P3_correct_paired']
@@ -406,7 +404,7 @@ def sec_clip():
         b1, b2 = mod[key]['t1']['baseline'], mod[key]['t2']['baseline']
         rows.append([nm, cell(b1, 'FA', 'n_deny'), cell(b1, 'CA', 'n_allow'), cell(b2, 'FA', 'n_deny'), cell(b2, 'CA', 'n_allow')])
     s_, c_ = mod['siglip'], mod['clip']
-    return [P('5.3 比較：CLIP系ゼロショット（Z）', 'h2'),
+    return [P('4.5 比較：CLIP系ゼロショット（Z）', 'h2'),
             P('「VLMでなくても、CLIP系の画像と文章の類似度（ゼロショット）で同じ確認ができるのでは」という疑問を、'
               f"<font name=\"IPAexG\">{z['prereg']}</font> で事前登録して検証した。SigLIP（so400m）とCLIP（ViT-L/14）に本システムと同じ判定構造（物資と火災の2段）を与え、"
               f"閾値は開発データだけで決めた（開発データの正しい許可：SigLIP {th['siglip']['dev_correct_approvals']}/{th['siglip']['dev_n_allow']}、"
@@ -426,16 +424,14 @@ def sec_real():
     cat = p['by_category']
     ter = p['by_box_area_tercile']
     cuts = p['tercile_cuts_area_fraction']
-    out = [P('5.4 実写画像（P）：シミュレーションの外での火災判定', 'h2'),
+    out = [P('4.6 実写画像（P）：シミュレーションの外での火災判定', 'h2'),
            P(f"シミュレーションの画像だけでは「実写で通用するか」が分からない。そこで実写の火災データセット（D-Fire、CC0）から{p['n']}枚を層別に抽出し、"
              '凍結したv3.6の危険の問い（h36＋拡大切り出し、τ_h=0.05）をそのまま当てた'
              f"（<font name=\"IPAexG\">{p['registered']}</font>、推論の前に登録）。"
              f"火・煙のある画像の検出 <b>{rate_ci(p['recall'])}</b>、火も煙も無い画像の誤警報 <b>{rate_ci(p['false_alarm'])}</b>。"),
-           table([['画像の種類', '危険と判定 ／ 枚数'],
-                  ['煙のみ', cat['smoke']], ['炎のみ', cat['fire']], ['炎と煙', cat['both']],
-                  ['火も煙も無い（誤警報）', cat['none']],
-                  [f"火・煙の面積の三分位（検出）", f"小（画面の{cuts[0] * 100:.1f} %未満）{ter['t1']}、中 {ter['t2']}、大（{cuts[1] * 100:.0f} %以上）{ter['t3']}"]],
-                 [60, 114]), Spacer(1, 3),
+           table([['煙のみ', '炎のみ', '炎と煙', '火も煙も無い（誤警報）', '検出：面積の三分位（小・中・大）'],
+                  [cat['smoke'], cat['fire'], cat['both'], cat['none'], f"{ter['t1']}・{ter['t2']}・{ter['t3']}"]],
+                 [26, 26, 26, 42, 54]), P(f"表の値は「危険と判定／枚数」。面積の三分位の切れ目は画面の{cuts[0] * 100:.1f} %と{cuts[1] * 100:.0f} %。", 'small'), Spacer(1, 3),
            P(f"<b>解釈と含意</b>：見逃しはほぼ無い（小さな火・煙も検出）が、火の無い画像の {p['false_alarm']['k']}/{p['false_alarm']['n']} を危険と判定した。誤警報の多くは、"
              '霞・低い雲・レンズの汚れ・夕焼け・光るテントなどの紛らわしい画像である。つまり<b>安全側に倒れている代わりに、現場ごとの較正なしでは停止が多すぎる</b>。'
              'シミュレーションで固定した閾値をそのまま実写へ持ち込むべきではない。')]
@@ -446,7 +442,7 @@ def sec_real():
                   f"（{p2['chosen_wording']}、τ_h={p2['chosen_tau']}）、較正に使っていない400枚で確かめた。検出 {rate_ci(ct['recall'])}、誤警報 {rate_ci(ct['false_alarm'])}。"
                   f"登録した基準（検出0.90以上かつ誤警報0.20以下）：<b>{'成立' if p2['claim_supported'] else '不成立（' + '；'.join(p2.get('failed', [])) + '）'}</b>。")]
     else:
-        out += [P('<b>追試P2は評価中</b>：現場での較正（火の無い現地画像で閾値を決める手順）が、較正に使っていない画像で通用するかを事前登録した'
+        out += [P('<b>追試P2は実行中（事前登録済み）</b>：現場での較正（火の無い現地画像で閾値を決める手順）が、較正に使っていない画像で通用するかを事前登録した'
                   '（<font name="IPAexG">experiments/PREREGISTRATION_P2.md</font>、修正1：較正画像は訓練分割の9シャード全体から抽出）。'
                   '結果は <font name="IPAexG">experiments/results/p2_summary.json</font> に出力される。')]
     return out + [Spacer(1, 4)]
@@ -454,12 +450,12 @@ def sec_real():
 
 def sec_camera():
     r = jload('r_summary.json')
-    out = [P('5.5 カメラ劣化（R）：実機カメラに近づけたとき、失敗は「停止」に倒れるか', 'h2'),
+    out = [P('4.7 カメラ劣化（R）：実機カメラに近づけたとき、失敗は「停止」に倒れるか', 'h2'),
            P('Gazeboの画像は雑音がなく鮮明で、露出も適正である。実機のカメラはそうではない。未使用のT2画像（30世界）に、6種類の劣化（センサー雑音、動きぶれ、ピンぼけ、露出不足、露出過多、JPEG劣化）を'
              '2段階ずつ（計12条件）加え、v3.6の確認が<b>フェイルクローズ</b>（誤りが停止になり、誤った許可にならない）のままかを調べる（'
              '<font name="IPAexG">experiments/PREREGISTRATION_R.md</font>。閾値・問いは変更しない）。')]
     if not r:
-        return out + [P('<b>評価中</b>（結果は <font name="IPAexG">experiments/results/r_summary.json</font> に出力される）。'), Spacer(1, 4)]
+        return out + [P('<b>実行中（事前登録済み）</b>（結果は <font name="IPAexG">experiments/results/r_summary.json</font> に出力される）。'), Spacer(1, 4)]
     pp, cond = r['P1_pooled'], r['conditions']
     worst = min(cond, key=lambda c: cond[c]['ca_rate'])
     nm = lambda c: f"{R_FAM.get(c.rsplit('_', 1)[0], c)}（{'中' if c.endswith('_M') else '強'}）"
@@ -471,13 +467,7 @@ def sec_camera():
               f"他の条件は {min(cond[c]['correct_approvals'] for c in cond if c != worst)}/{r['n_allow']} 以上で、可用性の低下は露出過多に集中する。"
               + ('「危険な劣化」と判定された条件：' + '、'.join(nm(c) for c in r['P2_unsafe_conditions']) + '。' if r['P2_unsafe_conditions']
                  else '清浄な画像より有意に誤許可が増えた条件はない（Holm補正）。'))]
-    rows = [['劣化', '段階', '誤許可', '火の見逃し', '正しい許可', '品質ゲートで棄却']]
-    for c in cond:
-        f_, sv = c.rsplit('_', 1)
-        o = cond[c]
-        rows.append([R_FAM.get(f_, f_), '中' if sv == 'M' else '強', f"{o['false_approvals']}/{r['n_deny']}", f"{o['fire_missed']}/{r['n_visible_fire']}",
-                     f"{o['correct_approvals']}/{r['n_allow']}", o['gate_rejected']])
-    return out + [Spacer(1, 3), table(rows, [38, 16, 28, 28, 30, 34]), Spacer(1, 4)]
+    return out + [Spacer(1, 4)]
 
 
 def sec_prereg(D, E):
@@ -491,38 +481,209 @@ def sec_prereg(D, E):
     zs = ((z or {}).get('models') or {}).get('siglip')
     gp = g['primary'] if g else None
     rows = [['研究', '問い', '登録文書', '結果'],
-            ['D（v3.4）', '閉ループ42試行で期待どおりに動くか', reg('v34'), f"{D['correct']}/{D['n']}、誤許可 {D['false_approvals']}" if D else '評価中'],
-            ['E（v3.5）', 'ランダムな世界で回復探索は効くか', reg('E'), f"{E['ok']}/{E['n']}、誤配達 {E['fa']}" if E else '評価中'],
-            ['T1', '未使用の画像での誤許可', reg('T1'), f"誤許可 {m9['false_approvals']}/{m9['n_deny']}" if m9 else '評価中'],
+            ['D（v3.4）', '閉ループ42試行で期待どおりに動くか', reg('v34'), f"{D['correct']}/{D['n']}、誤許可 {D['false_approvals']}" if D else PEND],
+            ['E（v3.5）', 'ランダムな世界で回復探索は効くか', reg('E'), f"{E['ok']}/{E['n']}、誤配達 {E['fa']}" if E else PEND],
+            ['T1', '未使用の画像での誤許可', reg('T1'), f"誤許可 {m9['false_approvals']}/{m9['n_deny']}" if m9 else PEND],
             ['F・G', '横から見直すと小さな火への配達が減るか', reg('G'),
-             f"G：配達 {gp['wrong_deliveries_B']} → {gp['wrong_deliveries_C']}（p={pexact(gp['mcnemar_p'])}）" if gp else '評価中'],
+             f"G：配達 {gp['wrong_deliveries_B']} → {gp['wrong_deliveries_C']}（p={pexact(gp['mcnemar_p'])}）" if gp else PEND],
             ['T2', '未使用の画像で改良が悪化しないか', reg('T2'),
-             f"誤許可 {q['false_approvals']}/{q['n_deny']}、正しい許可 {q['correct_approvals']}/{q['n_allow']}" if q else '評価中'],
+             f"誤許可 {q['false_approvals']}/{q['n_deny']}、正しい許可 {q['correct_approvals']}/{q['n_allow']}" if q else PEND],
             ['Z', 'CLIP系ゼロショットでも足りるか', reg('Z'),
-             f"T1誤許可：本システム {zs['t1']['ours']['FA']}、SigLIP {zs['t1']['baseline']['FA']}" if zs else '評価中'],
+             f"T1誤許可：本システム {zs['t1']['ours']['FA']}、SigLIP {zs['t1']['baseline']['FA']}" if zs else PEND],
             ['P', '実写の火災画像で通用するか', reg('P'),
-             f"検出 {p['recall']['k']}/{p['recall']['n']}、誤警報 {p['false_alarm']['k']}/{p['false_alarm']['n']}" if p else '評価中'],
+             f"検出 {p['recall']['k']}/{p['recall']['n']}、誤警報 {p['false_alarm']['k']}/{p['false_alarm']['n']}" if p else PEND],
             ['P2', '現場での較正で実写の誤警報が減るか', reg('P2'),
              (f"検出 {p2['chosen_test']['recall']['k']}/{p2['chosen_test']['recall']['n']}、"
-              f"誤警報 {p2['chosen_test']['false_alarm']['k']}/{p2['chosen_test']['false_alarm']['n']}") if p2 and p2.get('chosen_test') else '評価中'],
+              f"誤警報 {p2['chosen_test']['false_alarm']['k']}/{p2['chosen_test']['false_alarm']['n']}") if p2 and p2.get('chosen_test') else PEND],
             ['R', 'カメラ劣化でもフェイルクローズか', reg('R'),
-             f"誤許可 {rr['P1_pooled']['false_approvals']}/{rr['P1_pooled']['n']}" if rr else '評価中'],
+             f"誤許可 {rr['P1_pooled']['false_approvals']}/{rr['P1_pooled']['n']}" if rr else PEND],
             ['H', '記憶で速くなり、危険は増えないか', reg('H'),
-             ('主張 ' + ('成立' if h['headline_supported'] else '不成立')) if h else '評価H 実行中'],
+             ('主張 ' + ('成立' if h['headline_supported'] else '不成立')) if h else PEND],
             ['J', '2つのAIが実機の閉ループで動くか', reg('J'),
-             f"危険な配達 A {j['P2_no_extra_unsafe']['unsafe_A']}、J {j['P2_no_extra_unsafe']['unsafe_J']}" if j else '評価J 実行待ち']]
-    return [KeepTogether([P('5.6 事前登録した研究の一覧', 'h2'),
+             f"危険な配達 A {j['P2_no_extra_unsafe']['unsafe_A']}、J {j['P2_no_extra_unsafe']['unsafe_J']}" if j else PEND]]
+    return [KeepTogether([P('G. 事前登録した研究の一覧', 'h2'),
             P('どの研究も、結果を見る前に条件・基準・解析を <font name="IPAexG">experiments/PREREGISTRATION_<記号>.md</font> に固定した。'
               '失敗した試行も台帳に残している。'),
             table(rows, [20, 66, 24, 64])]), Spacer(1, 4)]
 
 
-def chapter_novelty(D, E):
-    s = [P('5. 新規性と追加の検証', 'h1'),
-         P('ここまでの評価（D・E・F・G・T1・T2）に加えて、記憶（H）、当初計画の2つのAI（J）、CLIP系との比較（Z）、実写画像（P）、カメラ劣化（R）を追加した。'
-           '結果ファイルがまだ無いものは「評価中」と明記し、数値は書かない。')]
-    for sec in (sec_memory(), sec_two_ai(), sec_clip(), sec_real(), sec_camera(), sec_prereg(D, E)):
+def chapter_novelty(D, E, V):
+    s = [P('4. 新規性と結果', 'h1'),
+         P('新規性3つ（4.1〜4.3）と、それを支える検証（4.4〜4.7）。結果ファイルがまだ無いものは「実行中（事前登録済み）」と明記し、数値は書かない。')]
+    for sec in (sec_active(V), sec_memory(), sec_two_ai(), sec_e_compact(D, E), sec_clip(), sec_real(), sec_camera()):
         s += sec
+    return s
+
+
+PEND = '実行中（事前登録済み）'
+
+
+def headline(D, E, V):
+    """'1ページ目の要旨': what the robot does, the three novelties, the pre-registered results E, G, R, Z, P (H, J).
+    Every number is read from a result file; a missing file gives a pending note."""
+    z, p, p2, rr, h, j, t1 = (jload(n) for n in ('z_summary.json', 'p_summary.json', 'p2_summary.json', 'r_summary.json',
+                                                 'h_summary.json', 'j_summary.json', 't1_summary.json'))
+    gp = V['g']['primary'] if V else None
+    gc = V['g']['per_config'] if V else None
+    ok_ = lambda x: '成立' if x else '不成立'
+    # --- evaluation H / J result strings (graceful fallbacks)
+    if h:
+        p2h = h['P2_safety_naive_vs_verified']
+        h_res = (f"危険な配達 M1 {p2h['unsafe_M1']} → M2 {p2h['unsafe_M2']}、速さ {ok_(h['P1_efficiency_relocation_persist']['supported'])}・"
+                 f"安全 {ok_(p2h['supported'])}・追加の危険なし {ok_(h['P3_no_extra_risk_vs_v36']['supported'])}。全体の主張：<b>{ok_(h['headline_supported'])}</b>")
+    else:
+        h_res = PEND
+    if j:
+        pj = j['P2_no_extra_unsafe']
+        j_res = (f"危険な配達 A {pj['unsafe_A']}、J {pj['unsafe_J']}、J の失敗 {j['P1_runs_on_one_v100']['failed_J']} 件。"
+                 f"全体の主張：<b>{ok_(j['P1_runs_on_one_v100']['supported'] and pj['supported'])}</b>")
+    else:
+        j_res = PEND
+    out = [P('1ページ目の要旨', 'h1'),
+           P('<b>何をするロボットか</b>：自然言語で物資を依頼された差動二輪ロボットが、物資拠点へ自律移動して静止し、搭載カメラの画像をローカルVLM（Qwen3.5-9B）で確かめる。'
+             '依頼の物資が確認でき、火・煙が見えないときだけ避難所Bへ向かう。物資が違えばもう一方の拠点を探し、危険なら探索せずに止まり、見たものを日本語で人に報告する。'
+             '狙いは「AIが間違えたときにロボットが動かないこと」を、ログとシミュレータの真値で第三者が検証できる形にすること。本資料の「配達」は避難所Bへの接近までで、把持・荷降ろしはシミュレーションしていない。'),
+           Spacer(1, 3), P('<b>3つの新規性</b>', 'body')]
+    g_txt = (f"評価G：火があるのに配達 {gp['wrong_deliveries_B']} → {gp['wrong_deliveries_C']}（p={pexact(gp['mcnemar_p'])}）" if gp else PEND)
+    out += bullets([
+        f"<b>横から見直す能動知覚</b>（4.1）：許可の直前に拠点の左右へ移動して撮り直す。物資の陰の火は閾値を変えても分けられないが、視点を変えると見える。{g_txt}。",
+        f"<b>記憶は提案だけ・確認は減らさない、出動をまたぐ記憶</b>（4.2）：前回見た拠点を先に訪ね、最近火を見た拠点では閾値を厳しくするが、現物確認と横からの見直しは記憶を理由に省かない。評価H：{h_res}。",
+        f"<b>当初計画の2つのAI</b>（4.3）：Jev役 Clef-Flash と Qwen を V100 1台で併用し、両方が許可したときだけ許可する。2つは系統を共有し独立ではない。評価J：{j_res}。"])
+    rows = [['事前登録した研究', '結果', '読み方・限界']]
+    if E:
+        lo = wilson(E['ok'], E['n'])[0]
+        rows.append(['<b>E</b> ランダムな世界の閉ループ', f"{E['ok']}/{E['n']} が期待どおり、誤配達 {E['fa']}",
+                     f"試行数が少なく区間の下限は {lo * 100:.0f} %。停止が正解の試行は易しく、天井に近い"])
+    else:
+        rows.append(['<b>E</b> ランダムな世界の閉ループ', PEND, ''])
+    if gp:
+        rows.append(['<b>G</b> 横から見直す（B：正面のみ → C：＋左右）',
+                     f"火が見えた{gp['n_world_pairs_fire_perceivable']}世界で配達 {gp['wrong_deliveries_B']} → {gp['wrong_deliveries_C']}（McNemar p={pexact(gp['mcnemar_p'])}）、火の無い世界の誤停止 {gc['C']['false_hazard_stops']}/{gc['C']['fire_free_trials']}",
+                     f"火の多くは設計上、正面から見えにくい世界で、測るのは「横から見る効果」。見逃し {gc['C']['wrong_deliveries']} 件が残る"])
+    else:
+        rows.append(['<b>G</b> 横から見直す', PEND, ''])
+    if rr:
+        cond = rr['conditions']
+        worst = min(cond, key=lambda c: cond[c]['ca_rate'])
+        pp = rr['P1_pooled']
+        rows.append(['<b>R</b> カメラ劣化（12条件）', f"誤許可 {pp['false_approvals']}/{pp['n']}（Wilson 上限 {pp['wilson_ci95'][1] * 100:.2f} %）",
+                     f"基準の誤許可が元から0で天井。「悪化は観察されなかった」に近い。代償：最悪の条件で正しい許可 {cond[worst]['correct_approvals']}/{rr['n_allow']}"])
+    else:
+        rows.append(['<b>R</b> カメラ劣化（12条件）', PEND, ''])
+    if z:
+        so, ba, cl = z['models']['siglip']['t1']['ours'], z['models']['siglip']['t1']['baseline'], z['models']['clip']['t1']['baseline']
+        rows.append(['<b>Z</b> CLIP系ゼロショットとの比較（T1、τ_h=0.05）',
+                     f"誤許可：本システム {so['FA']}/{so['n_deny']}、SigLIP {ba['FA']}/{ba['n_deny']}、CLIP {cl['FA']}/{cl['n_deny']}",
+                     f"CLIPは正しい許可 {cl['CA']}/{cl['n_allow']} で、ほぼ何も許可しない。SigLIPは誤許可が多い"])
+    else:
+        rows.append(['<b>Z</b> CLIP系ゼロショットとの比較', PEND, ''])
+    if p:
+        res = f"実写{p['n']}枚：検出 {p['recall']['k']}/{p['recall']['n']}、火の無い画像の誤警報 {p['false_alarm']['k']}/{p['false_alarm']['n']}"
+        lim = '安全側だが<b>止まりすぎる</b>（最大の限界）。現場ごとの閾値の較正が必要'
+        if p2 and p2.get('chosen_test'):
+            ct = p2['chosen_test']
+            lim += f"。較正した追試P2：誤警報 {ct['false_alarm']['k']}/{ct['false_alarm']['n']}、登録した基準 {ok_(p2['claim_supported'])}"
+        rows.append(['<b>P</b> 実写の火災画像', res, lim])
+    else:
+        rows.append(['<b>P</b> 実写の火災画像', PEND, ''])
+    rows.append(['<b>H</b> 出動をまたぐ記憶', h_res, '' if h else '結果が出たら資料に反映する'])
+    rows.append(['<b>J</b> 2つのAIの閉ループ', j_res, '' if j else 'スモーク試験では V100 1台に載り、閉ループが完走した'])
+    out += [Spacer(1, 4), table(rows, [42, 74, 58]), Spacer(1, 3),
+            P('すべてシミュレーション上の評価で、実写で検証したのは火災判定（P）だけ。閉ループ（E・G・H・J）は実機・実写では未検証。'
+              '各研究の条件・基準・解析は結果を見る前に <font name="IPAexG">experiments/PREREGISTRATION_*.md</font> に固定した。', 'small'),
+            Spacer(1, 4)]
+    return out
+
+
+def sec_active(V):
+    """4.1 look-around (I-14): the G table; the F / T2 detail is in the appendix."""
+    if not V:
+        return [P('4.1 新規性1：横から見直す能動知覚', 'h2'), P(PEND)]
+    f, g = V['f'], V['g']
+    fp, gp, fc, gc = f['primary'], g['primary'], f['per_config'], g['per_config']
+    fm = sorted(x['fire_pixels'] for x in f.get('trials', []) if x['config'] == 'B' and x['wrong_delivery'] and x.get('fire_pixels'))
+    FPX = f"{fm[0]:,}〜{fm[-1]:,}画素" if fm else '小さく'
+    out = [P('4.1 新規性1：横から見直す能動知覚（I-14、評価F → G）', 'h2'),
+           P(f"T1で残った弱点は、物資の陰に隠れた小さな火の見逃しである。問い方の改良と拡大切り出しを加えた評価F（対比較）でも、配達してしまった回数は"
+             f" {fp['wrong_deliveries_A']}/{fp['n_world_pairs_fire_visible_both']} → {fp['wrong_deliveries_B']}/{fp['n_world_pairs_fire_visible_both']} 世界、p={pexact(fp['mcnemar_p'])} で有意でなかった。"
+             f"見逃した火は正面から{FPX}しか写らず、p(危険)が火の無い画像と重なるため、閾値の調整では分けられない。"
+             '同じ火は左右0.4 mずらした視点では4,600〜22,000画素で見えた。そこで<b>VLMではなくロボットの視点を変える</b>：'
+             '許可の直前に拠点の左右0.4 mへ移動して、照準・静止確認・撮り直し・判定をやり直し、どちらかで危険を見れば探索せずに止まる（横からの物資判定は使わない）。')]
+    rows = [['', 'B：正面のみ', 'C：＋横から見直す（v3.6）']]
+    rows.append([f"3視点（正面・左右0.4 m）のどれかで火が見えた{gp['n_world_pairs_fire_perceivable']}世界で、火があるのに配達した回数",
+                 f"{gc['B']['wrong_deliveries']}/{gc['B']['visible_fire_trials']}", f"<b>{gc['C']['wrong_deliveries']}/{gc['C']['visible_fire_trials']}</b>"])
+    rows.append(['火の無い世界での誤った停止', f"{gc['B']['false_hazard_stops']}/{gc['B']['fire_free_trials']}", f"<b>{gc['C']['false_hazard_stops']}/{gc['C']['fire_free_trials']}</b>"])
+    rows.append(['期待どおりの行動', f"{gc['B']['correct']}/{gc['B']['n']}（95%区間 {gc['B']['correct_ci95'][0] * 100:.0f}–{gc['B']['correct_ci95'][1] * 100:.0f} %）",
+                 f"<b>{gc['C']['correct']}/{gc['C']['n']}</b>（{gc['C']['correct_ci95'][0] * 100:.0f}–{gc['C']['correct_ci95'][1] * 100:.0f} %）"])
+    if V['wall_B'] and V['wall_C']:
+        rows.append(['正常配達1回の所要時間（中央値）', f"{V['wall_B']:.0f} 秒", f"{V['wall_C']:.0f} 秒（約 +{V['wall_C'] - V['wall_B']:.0f} 秒）"])
+    out += [P(f"<b>評価G</b>（<font name=\"IPAexG\">experiments/PREREGISTRATION_G.md</font>）：新しい{g['n_trials'] // 2}世界を B と C で対にして{g['n_trials']}試行を実行した。"
+              '主張は「Cの方が配達してしまう回数が少なく、かつ p<0.05」で、結果を見る前に固定した。'),
+            table(rows, [78, 44, 52]), Spacer(1, 3),
+            P(f"食い違いは B のみ {gp['discordant_B_only']}・C のみ {gp['discordant_C_only']}、McNemar の正確検定で <b>p={pexact(gp['mcnemar_p'])}</b>。事前登録した主張が成立した。"
+              f"ただしこの{gp['n_world_pairs_fire_perceivable']}世界の火の多くは設計上、正面からは見えにくい（または見えない）ため、これは「横から見る効果」の測定である。"
+              '拠点配置が固定のシミュレーションで、試行数が少なく区間が広い。', 'small')]
+    if V['miss']:
+        m = V['miss'][0]
+        out += [P(f"<b>唯一の見逃し</b>（{m['world']}）：火が正面から{m['fire_pixels_front']}画素（完全に隠れる）、横からも最大 {m['fire_pixels_best_side']:,} 画素と最小で、"
+                  'p(危険)が閾値0.05に届かなかった。限界として明記する。', 'small')]
+    return out + [Spacer(1, 3)]
+
+
+def sec_e_compact(D, E):
+    """4.4 closed-loop baselines D and E in a few lines; the strata table is in the appendix."""
+    if not (D or E):
+        return []
+    txt = []
+    if D:
+        txt.append(f"評価D（v3.4）：{D['n']}試行で期待どおり {D['correct']}/{D['n']}、誤許可 {D['false_approvals']}")
+    if E:
+        nb = E['n'] - E['allow']
+        txt.append(f"評価E（v3.5、試行ごとにランダムな世界）：{E['ok']}/{E['n']}（Wilson 95%区間 {pct_ci(E['ok'], E['n'])}）、誤配達 {E['fa']}、判断遅延の中央値 {E['lat_med']:.2f} 秒。"
+                   f"同じ試行への反事実の基準は、盲目的に配達すると {E['allow']}/{E['n']}（誤行動 {nb}）、回復探索なしで {E['allow']}/{E['n']}")
+    return [P('4.4 閉ループのベースライン（評価D・E）', 'h2'),
+            P('。'.join(txt) + '。インフラ失敗の再試行も台帳に残し、集計は最終試行のみ。同じ世界の反復であり、試行数が少ない点に注意。層別の表は付録A・B。')]
+
+
+def camera_table():
+    r = jload('r_summary.json')
+    if not r:
+        return []
+    cond = r['conditions']
+    rows = [['劣化', '段階', '誤許可', '火の見逃し', '正しい許可', '品質ゲートで棄却']]
+    for c in cond:
+        f_, sv = c.rsplit('_', 1)
+        o = cond[c]
+        rows.append([R_FAM.get(f_, f_), '中' if sv == 'M' else '強', f"{o['false_approvals']}/{r['n_deny']}", f"{o['fire_missed']}/{r['n_visible_fire']}",
+                     f"{o['correct_approvals']}/{r['n_allow']}", o['gate_rejected']])
+    return [table(rows, [38, 16, 28, 28, 30, 34]), Spacer(1, 4)]
+
+
+def main_tail(account, SP, p_fa):
+    s = [P('5. 実用性・応用可能性', 'h1')]
+    s += bullets(['<b>在庫と現物のずれに強い</b>：物流倉庫・病院内搬送・避難所運営で、誤った物資を届けず、無ければ探し、それでも無ければ人に報告して止まる。',
+                  '<b>オフライン・オンデバイス</b>：通信途絶を想定し、推論はすべて単一GPU上（APIキー不要、Apache-2.0のモデル）。',
+                  '<b>説明と検証可能性</b>：判断画像のハッシュ・各質問の確率・日本語報告・真値軌跡・ROS bagを試行ごとに保存し、第三者が判断と行動の因果を再計算できる。'])
+    s += [P('6. 限界・反省と今後の課題', 'h1')]
+    lim = ['v3.6の横から見直す効果（評価G）は、拠点配置が固定の新しい世界での対比較で、試行数は少ない。完全に隠れた火は横からも見逃し得る。実機・実写では未検証。',
+           '物資の把持・運搬は未実装。Nav2の動的経路計画ではなく既知配置のウェイポイント追従。',
+           '小道具は単純形状、拠点は2か所・避難所は1か所の固定配置。実機（SO-101等）でのSim-to-Realは未検証。実写画像で検証したのは火災判定のみ（4.6章）で、物資の確認と閉ループは実写では未検証。',
+           '閾値（τ_s=0.50、τ_h=0.05）は確率の較正ではない。開発データでは余裕が大きいが、分布の異なる環境では再評価が必要。',
+           'ROSグラフ監視は認証機構ではなく、実機の安全認証を意味しない。']
+    if p_fa:
+        lim.insert(0, f'実写の火の無い画像の誤警報は {p_fa}（4.6章）。安全側に倒れる代わりに止まりすぎるため、現場での閾値の較正が前提になる。')
+    s += bullets(lim)
+    chap = ROOT / 'docs/video_chapters.json'
+    s += [P('7. 提出動画と再現方法', 'h1')]
+    if chap.is_file():
+        ch = json.loads(chap.read_text(encoding='utf8'))
+        mmss = lambda x: f'{int(x // 60)}:{int(x % 60):02d}'
+        s += [P(f"動画は全 {mmss(round(ch[-1]['end_s']))}。3-D映像はすべてGazeboの実レンダリング（俯瞰カメラ＋ロボット搭載カメラ）で、模式図やモック映像は使っていない。"
+                f'字幕・確率バー・軌跡・ロボットの報告文はその試行のログから自動合成。<b>{SP}</b>で、速度は画面左上に常時表示している。ナレーションは VOICEVOX:四国めたん。構成は付録J。')]
+    s += [P('再現：<font name="IPAexG">bash docker/build.sh</font> → <font name="IPAexG">bash docker/run.sh python3 scripts/run_campaign.py --protocol experiments/campaign_e_protocol.json</font>（v3.6 の構成が既定値。過去の評価の再現は各台帳の stack_args を明示）。'
+            '全体フローは docs/ARCHITECTURE.md、設計判断は docs/DESIGN_DECISIONS.md。'),
+          P('本資料・動画・コードに氏名・所属・メールアドレス等の個人情報は含めていない。講座サンプル（差動二輪ROSシミュレーション等）を出発点に、'
+            '現地VLM確認・回復探索・独立安全ガード・真値監査・事前登録評価を独自に設計・実装した。', 'small')]
     return s
 
 
@@ -532,10 +693,13 @@ def build(account: str, video_url: str | None, repo_url: str):
     T = t1_info()
     V = v36_info()
     SP = speed_text()
+    pj = jload('p_summary.json')
+    p_fa = f"{pj['false_alarm']['k']}/{pj['false_alarm']['n']}" if pj else None
+    rr_tab = camera_table()
     C = [r for r in ledger('campaign_ledger.jsonl') if r.get('final', True)]
     c_ok = sum(r['correct'] for r in C)
     rob = jload('i05_robustness_summary.json') or {}
-    sel = jload('i08_model_selection.json') or []
+    msel = jload('i08_model_selection.json') or []
     it = {k: (jload(f) or {}).get('summary') for k, f in (('tfidf', 'intent_tfidf.json'), ('q3b', 'intent_hybrid_qwen25vl3b.json'),
                                                           ('q9b', 'intent_hybrid_selected_qwen35_9b_i35.json'))}
     i01 = {k: jload(f'i01_drift/{k}.json') for k in ('baseline', 'sphere_wheels')}
@@ -546,36 +710,22 @@ def build(account: str, video_url: str | None, repo_url: str):
                           title='RescueMind v3.6 説明資料', author=account, subject='Physical AI 応用1講座 最終課題')
     doc.addPageTemplates([PageTemplate('p', [Frame(18 * mm, 16 * mm, 174 * mm, 266 * mm, id='f')], onPage=on_page)])
     s = []
-    head = (f"事前登録した{D['n']}試行の閉ループ評価で期待どおりの行動 <b>{D['correct']}/{D['n']}</b>、"
-            f"誤った物資・火災のある拠点からの配達（誤許可）<b>{D['false_approvals']} 件</b>、判断遅延の中央値 {D['lat_med']:.1f} 秒") if D else '（評価D実行中）'
-    if E:
-        head += (f"。v3.5の評価E（試行ごとにランダムな世界、{E['n']}試行）で <b>{E['ok']}/{E['n']}</b>、誤配達 {E['fa']} 件")
-    if V:
-        gp, gc = V['g']['primary'], V['g']['per_config']
-        head += (f"。v3.6（小さな火への対策）の評価G（新しい世界の対比較）では、3視点（正面・左右0.4 m）のどれかで火が見えた{gp['n_world_pairs_fire_perceivable']}世界で、火があるのに配達した回数が "
-                 f"<b>{gp['wrong_deliveries_B']} → {gp['wrong_deliveries_C']}</b>（McNemar正確検定 p={pexact(gp['mcnemar_p'])}）、火の無い世界での誤停止 {gc['C']['false_hazard_stops']}/{gc['C']['fire_free_trials']}")
-    if T:
-        ru = T['t1']['models']['Qwen3.5-9B']['rules']['full']
-        head += (f"。未使用の画像{T['t1']['models']['Qwen3.5-9B']['n_images']}枚（T1）では、拒否すべき非火災画像 {T['n_neg']} 枚の誤許可 {T['fa_neg']} 件、"
-                 f"小さく写った火の見逃しが残る弱点")
     s += [P('RescueMind：現地で「目で確かめてから」届ける災害物資ロボット', 'title'),
-          P('最新のローカルVLM（Qwen3.5-9B / V100）× ROS 2 Jazzy × Gazebo Harmonic — 誤った物資を届けず、無ければ探し、危険なら止まる', 'sub'),
-          table([['項目', '内容'],
+          P('最新のローカルVLM（Qwen3.5-9B / V100）× ROS 2 Jazzy × Gazebo Harmonic — 誤った物資を届けず、無ければ探し、危険なら止まる', 'sub')]
+    s += headline(D, E, V)
+    s += [table([['項目', '内容'],
                  ['提出者', f'omnicampus アカウント：{account}'],
                  ['コード', repo_url],
                  ['動画', video_url or f'YouTube（タイトル：PAI最終課題_{account}）。{SP}（倍速は動画内に常時表示）。日本語ナレーション（VOICEVOX:四国めたん）'],
-                 ['範囲', '物資の現物確認と避難所Bへの接近まで。本資料の「配達」はこの意味で、物資の把持・荷降ろし・受け渡しはシミュレーションしていない'],
                  ['使用ツール', 'ROS 2 Jazzy / Gazebo Harmonic（Docker・EGLヘッドレス描画）/ PyTorch 2.8 + Transformers 5.20 / Tesla V100 32GB（sudo不要）'],
-                 ['AIの活用', '① 自然言語指示の理解（ローカルLLM）② 搭載カメラ画像による現物・危険の確認（ローカルVLM、選択肢の確率で判断）③ 現場の人への日本語状況報告'],
-                 ['主結果', head]],
-                [28, 146]), Spacer(1, 6)]
-    crit = [['審査基準', '本作品での取り組み', '根拠（本資料の節・リポジトリ）'],
-            ['創造性', '「運ぶAI」ではなく「間違えたら動かないAI」。現物確認・別拠点の探索・火災時の停止・日本語の状況報告を1つの閉ループに統合', '1章, 3章, 4.2章（評価E）, 動画デモ2・3'],
-            ['技術力', '選択肢の確率によるVLM判定、最新モデルの調査と公平比較、Gazebo真値による独立監査、独立速度ガード、事前登録した閉ループ評価（D・E・F・G）と未使用画像の評価（T1・T2）、弱点（小さな火）の特定と、問い方の改良・2つ目のAI・横から見直す能動知覚による段階的な対策（対比較の検定つき）、推測航法ドリフトの原因特定',
-             '2章, 4.1–4.4章, 5章（H・J・Z・P・R）, 6章, docs/IMPROVEMENT_LOG.md'],
-            ['実用性', 'オフライン・単一GPU・Apache-2.0、在庫と現物のずれへの対応、人への報告と判断の委譲、Docker（sudo不要）で再現可能。ランダム化した世界での評価Eと反事実との比較で、回復探索の実効果を示した', '4.2・4.4章, 8章, 11章, README'],
-            ['表現力', '実レンダリング映像にAR軌跡・確率バー・ロボットの報告を重ねた日本語ナレーション付き動画、全体フロー図・設計判断記録', '4.2–4.4章（区間推定・検定つきの表）, 10章, docs/ARCHITECTURE.md']]
-    s += [P('審査基準との対応', 'h2'), table(crit, [18, 100, 56]), Spacer(1, 4)]
+                 ['AIの活用', '① 自然言語指示の理解（ローカルLLM）② 搭載カメラ画像による現物・危険の確認（ローカルVLM、選択肢の確率で判断）③ 現場の人への日本語状況報告']],
+                [28, 146]), Spacer(1, 4)]
+    crit = [['審査基準', '本作品での取り組み', '根拠（本資料の節）'],
+            ['創造性', '「運ぶAI」ではなく「間違えたら動かないAI」。新規性3つ：横から見直す能動知覚、確認を減らさない出動をまたぐ記憶、当初計画の2つのAI', '要旨, 4.1–4.3章'],
+            ['技術力', '選択肢の確率によるVLM判定、独立速度ガード、Gazebo真値による独立監査、事前登録した閉ループ評価（D・E・F・G・H・J）と未使用画像の評価（T1・T2・Z・P・R）、対比較の検定つきで弱点を段階的に改善', '2–4章, 付録'],
+            ['実用性', 'オフライン・単一GPU・Apache-2.0、在庫と現物のずれへの対応、人への報告と判断の委譲、実写画像での限界の公開（誤警報）、Dockerで再現可能', '5–7章, 4.6章'],
+            ['表現力', '実レンダリング映像にAR軌跡・確率バー・ロボットの報告を重ねた日本語ナレーション付き動画、全体フロー図、結果の表（区間推定・検定つき）', '7章, 付録J']]
+    s += [P('審査基準との対応', 'h2'), table(crit, [18, 108, 48]), Spacer(1, 4)]
     s += [P('1. 課題の概要と目的', 'h1'),
           P('災害時の物資配送では「在庫表では水があるはずの棚に救急箱が置かれていた／空だった」という<b>情報と現物の食い違い</b>や、'
             '<b>現場の危険（火災）</b>が起こる。指示どおり機械的に運ぶロボットは、誤った物資を届けたり危険な場所に留まったりする。'
@@ -584,7 +734,7 @@ def build(account: str, video_url: str | None, repo_url: str):
             '火災を見たら探索せずに停止して、見たものを日本語で報告する。'),
           P('狙いは「AIに運ばせる」ことではなく、<b>AIの判断が間違っていればロボットが動かないこと</b>を、ログと物理シミュレータの真値で第三者が検証できる形にすることである。'
             'ロボットは物資の把持・運搬は行わない（現物確認と避難所への接近までを対象とし、配達完了とは表現しない）。')]
-    s += fig('architecture.png', 172, '図1 実行時アーキテクチャ。全推論はローカルGPUで実行（クラウドAPI不使用）。詳細なフロー図は docs/ARCHITECTURE.md。')
+    s += fig('architecture.png', 125, '図1 実行時アーキテクチャ。全推論はローカルGPUで実行（クラウドAPI不使用）。詳細なフロー図は docs/ARCHITECTURE.md。')
     # ---- 2. AI
     s += [P('2. AIの活用と工夫', 'h1'),
           P('2.1 現地確認：文章を生成させず「選択肢の確率」で判断する', 'h2'),
@@ -596,12 +746,7 @@ def build(account: str, video_url: str | None, repo_url: str):
           P('当初のQwen2.5-VL-3B（2025年1月・研究用途ライセンス）から、2025〜2026年の新世代（Qwen3-VL-8B、Qwen3.5-4B/9B、いずれもApache-2.0）を調査した。'
             'V100（FP16のみ）向けに torch 2.8＋transformers 5.20 の実行環境を用意し、<b>同じ開発データ・同じ手順</b>で比較。'
             '1回目は3B向けに調整したプロンプトのため新モデルが救急箱を「その他」と答える誤りが多発し、選択肢に外見と用途を併記したモデル非依存のプロンプトで公平に再比較した。')]
-    if sel:
-        s += [table([['モデル', '公開', '視覚判定（176枚）', '状況説明（128枚）', '指示理解（開発40文）', '1問の遅延']] +
-                    [[r['model'], r['released'], r.get('vision_v35', '-'), r.get('explain', '-'), r.get('intent_dev_i35', '-'),
-                      f"{r.get('latency_v35', 0):.2f} 秒"] for r in sel], [30, 18, 36, 26, 36, 22]), Spacer(1, 3)]
-    s += [P('誤許可（視覚）と危険な誤受理（指示）がともに0だった唯一の新世代モデル <b>Qwen3.5-9B（2026年2月）</b>を採用した。状況説明の正確さは 84 → 125/128 に向上。')]
-    s += fig('i08_models.png', 165, '図2 モデル比較（開発データ）。右：危険側の誤り。評価用データはモデル選定に使っていない。')
+    s += [P('誤許可（視覚）と危険な誤受理（指示）がともに0だった唯一の新世代モデル <b>Qwen3.5-9B（2026年2月）</b>を採用した。状況説明の正確さは 84 → 125/128 に向上（比較表は付録E）。')]
     s += [P('2.3 自然言語指示の理解', 'h2'),
           P('同じローカルモデルに「物資は？」「届け先は？」の選択式2問を出して解釈し、明示的に別の避難所名がある指示は規則で必ず拒否する。'
             f"事前に固定した未知の言い換え60文（間接表現・否定・ひらがな・英語・無関係な依頼を含む）で、v3.3のTF-IDF {it['tfidf']['correct']}/60（危険な誤受理{it['tfidf']['unsafe_accepts']}）→ "
@@ -621,7 +766,10 @@ def build(account: str, video_url: str | None, repo_url: str):
         '<b>独立速度ガード</b>：ミッションは速度を要求するだけで、<font name="IPAexG">/cmd_vel</font> の唯一の発行者は別プロセスのガード。センサー鮮度・前方距離・速度上限を10 Hzで判定し異常はラッチ停止。DDSグラフで第2の発行者を検知したら非常停止。',
         '<b>真値による監査</b>：成功・停止は、独立レコーダが記録した <b>Gazebo真値姿勢</b>・ROS bag・時系列で判定する。回復探索は「最初の拒否の再計算 → 停止保持 → 探索 → 別拠点での新しい判断」の順序と画像ハッシュまで監査する。',
     ])
-    # ---- 4. results
+    s += chapter_novelty(D, E, V)
+    s += main_tail(account, SP, p_fa)
+    M, s = s, [PageBreak(), P('付録（詳細な表・過去の評価・失敗の一覧）', 'h1'),
+                P('本文で省いた表と経緯。数値はすべて結果ファイルから生成している。', 'small')]
     if D:
         by = D['by']
         rows = [['シナリオ', '期待する行動', '試行', '期待どおり', '実際の行動']]
@@ -632,21 +780,19 @@ def build(account: str, video_url: str | None, repo_url: str):
             from collections import Counter
             cnt = Counter(OBS.get(r['observed_action'], r['observed_action']) for r in rs)
             rows.append([ja, want, len(rs), f"{sum(r['correct'] for r in rs)}/{len(rs)}", '、'.join(f'{k} {v}' for k, v in cnt.items())])
-        s += [P('4. 評価結果', 'h1'), P('4.1 事前登録した閉ループ評価D（v3.4）', 'h2'),
+        s += [P('A. 事前登録した閉ループ評価D（v3.4）', 'h2'),
               P(f"試行ごとに Gazebo・ブリッジ・ガード・VLMを新規起動し、{D['n']}試行を事前に決めた順序で実行した。"
                 f"期待どおりの行動 <b>{D['correct']}/{D['n']}</b>、誤許可 <b>{D['false_approvals']}</b> 件、"
                 f"指示文の解釈 {D['intent_ok']}/{D['n']} 正解、判断遅延（静止画取得→判断）中央値 {D['lat_med']:.2f} 秒（最大 {D['lat_max']:.2f} 秒）。"
                 + (f"VLM判断前のインフラ失敗による再試行 {D['retries']} 件（台帳に記録）。" if D['retries'] else '')
                 + '同じワールドの反復であり、独立なシーン数ではない点に注意。'),
               table(rows, [34, 38, 12, 20, 70]), Spacer(1, 4)]
-        s += fig('campaign_d_results.png', 125, '図3 評価Dのシナリオ別結果。')
-        s += fig('trajectories_d.png', 88, '図4 評価D全試行のGazebo真値軌跡。取り違えでは別拠点を経由して避難所へ、欠品・火災では拠点で停止している。')
+        s += fig('campaign_d_results.png', 100, '図2 評価Dのシナリオ別結果。')
+        s += fig('trajectories_d.png', 68, '図3 評価D全試行のGazebo真値軌跡。取り違えでは別拠点を経由して避難所へ、欠品・火災では拠点で停止している。')
         s += [P(f"参考：v3.3（評価C、30試行、Qwen2.5-VL-3B、回復探索なし）は VLM判断 30/30・監査まで合格 {c_ok}/30。"
                 '取り違えシーンでは「停止」が正解であり、正しい物資を届けることはできなかった。', 'small')]
     if E:
-        if not D:
-            s += [P('4. 評価結果', 'h1')]
-        s += [P('4.2 評価E（v3.5）：試行ごとにランダムな世界での事前登録評価', 'h2'),
+        s += [CondPageBreak(120 * mm), P('B. 評価E（v3.5）：試行ごとにランダムな世界での事前登録評価', 'h2'),
               P(f"照明・小道具の配置・妨害物・火災をランダム化した世界を試行ごとに生成し、{E['n']}試行を事前に決めた順序で実行した"
                 f"（<font name=\"IPAexG\">experiments/campaign_e_protocol.json</font>）。期待どおりの行動 <b>{E['ok']}/{E['n']}</b>、"
                 f"誤許可 <b>{E['fa']}</b> 件、判断遅延の中央値 {E['lat_med']:.2f} 秒。"
@@ -666,9 +812,7 @@ def build(account: str, video_url: str | None, repo_url: str):
     if T:
         t1 = T['t1']
         m9 = t1['models']['Qwen3.5-9B']
-        if not (D or E):
-            s += [P('4. 評価結果', 'h1')]
-        s += [P(f"4.3 未使用の画像{m9['n_images']}枚（T1）での評価", 'h2'),
+        s += [P(f"C. 未使用の画像{m9['n_images']}枚（T1）での評価", 'h2'),
               P(f"モデル選定・閾値決定に一度も使っていない{m9['n_images']}枚（描画前に <font name=\"IPAexG\">experiments/PREREGISTRATION_T1.md</font> で登録）。"
                 f"拒否すべき画像（{m9['rules']['full']['n_deny']}枚）での誤許可、許可すべき画像（{m9['rules']['full']['n_allow']}枚）での正しい許可、"
                 f"見えている火（{m9['hazard_recall'][1]}枚）の検出数を示す。τ_h は登録した主設定 {t1['tau_h']} と、事前指定の副設定 0.05（v3.5）。")]
@@ -700,10 +844,8 @@ def build(account: str, video_url: str | None, repo_url: str):
         fp, gp, fc, gc = f['primary'], g['primary'], f['per_config'], g['per_config']
         fm = sorted(x['fire_pixels'] for x in f.get('trials', []) if x['config'] == 'B' and x['wrong_delivery'] and x.get('fire_pixels'))
         FPX = f"{fm[0]:,}〜{fm[-1]:,}画素（{len(fm)}件）" if fm else '小さく'
-        if not (D or E or T):
-            s += [P('4. 評価結果', 'h1')]
-        s += [P('4.4 v3.6：物資の陰に隠れた小さな火への対策（問い方 → 横から見直す）', 'h2'),
-              P('4.3で分かった残る弱点（小さく写った・物資の陰の火の見逃し）に対し、<b>結果を見る前に条件を固定</b>して、段階的に3つの手を打った。'
+        s += [P('D. 小さな火への対策の経過（手1：評価F、未使用のT2）', 'h2'),
+              P('付録Cで分かった残る弱点（小さく写った・物資の陰の火の見逃し）に対し、<b>結果を見る前に条件を固定</b>して、段階的に3つの手を打った。'
                 '最終構成 v3.6 はオーケストレータの<b>既定値</b>（Qwen3.5-9B、危険の問い方 h36＋拡大切り出し tiles、τ_h=0.05、横から見直す0.4 m、回復探索・状況報告あり、DDS非同期）で、'
                 '過去の評価を再現するときは各台帳の <font name="IPAexG">stack_args</font> のフラグを明示する。')]
         s += bullets([
@@ -716,26 +858,8 @@ def build(account: str, video_url: str | None, repo_url: str):
             f"食い違いは {fp['discordant_A_only']}:{fp['discordant_B_only']}、McNemar正確検定 p={fp['mcnemar_p']}で<b>有意ではない</b>。"
             f"Bが見逃した火は正面から{FPX}しか写らず、p(危険)が火の無い画像と重なるため、閾値の調整では分けられないと判断した（docs/IMPROVEMENT_LOG.md I-14）。",
             "<b>手2：I-14 横から見直す（能動知覚）</b>。同じ火は、確認位置から左右に0.4 mずらした視点では4,600〜22,000画素で見えた（開発用の予備走行、マスク画像で確認）。"
-            "VLMの判定ではなく<b>ロボットの視点</b>を変える。"])
-        rows = [['', 'B：正面のみ（手1）', 'C：＋横から見直す（v3.6）']]
-        rows.append([f"3視点（正面・左右0.4 m）のどれかで火が見えた{gp['n_world_pairs_fire_perceivable']}世界で、火があるのに配達した回数",
-                     f"{gc['B']['wrong_deliveries']}/{gc['B']['visible_fire_trials']}", f"<b>{gc['C']['wrong_deliveries']}/{gc['C']['visible_fire_trials']}</b>"])
-        rows.append([f"火の無い世界での誤った停止", f"{gc['B']['false_hazard_stops']}/{gc['B']['fire_free_trials']}", f"<b>{gc['C']['false_hazard_stops']}/{gc['C']['fire_free_trials']}</b>"])
-        rows.append(['期待どおりの行動', f"{gc['B']['correct']}/{gc['B']['n']}（95%区間 {gc['B']['correct_ci95'][0] * 100:.0f}–{gc['B']['correct_ci95'][1] * 100:.0f} %）",
-                     f"<b>{gc['C']['correct']}/{gc['C']['n']}</b>（{gc['C']['correct_ci95'][0] * 100:.0f}–{gc['C']['correct_ci95'][1] * 100:.0f} %）"])
-        rows.append(['判断遅延の中央値（1回の判定）', f"{gc['B']['latency_median_s']:.2f} 秒", f"{gc['C']['latency_median_s']:.2f} 秒"])
-        if V['wall_B'] and V['wall_C']:
-            rows.append(['正常配達1回の所要時間（中央値）', f"{V['wall_B']:.0f} 秒", f"{V['wall_C']:.0f} 秒（約 +{V['wall_C'] - V['wall_B']:.0f} 秒）"])
-        s += [P(f"<b>評価G</b>（<font name=\"IPAexG\">experiments/PREREGISTRATION_G.md</font>）：新しい{g['n_trials'] // 2}世界を B と C で対にして{g['n_trials']}試行を実行した。主張は"
-                f"「Cの方が配達してしまう回数が少なく、かつ p<0.05」で、結果を見る前に固定した。", 'body'),
-              table(rows, [64, 52, 58]), Spacer(1, 3),
-              P(f"食い違いは B のみ {gp['discordant_B_only']}・C のみ {gp['discordant_C_only']}、McNemar の正確検定で <b>p={pexact(gp['mcnemar_p'])}</b>。"
-                f"事前登録した主張が成立した。ただしこの{gp['n_world_pairs_fire_perceivable']}世界の火の多くは設計上、正面からは見えにくい（または見えない）ため、これは「横から見る効果」の測定である。"
-                '評価の世界は拠点配置が固定でシミュレーションである点、試行数が少なく区間が広い点にも注意。', 'small')]
-        if V['miss']:
-            m = V['miss'][0]
-            s += [P(f"<b>唯一の見逃し</b>（{m['world']}）：火が正面から{m['fire_pixels_front']}画素（完全に隠れる）、横からも最大 {m['fire_pixels_best_side']:,} 画素と最小で、"
-                    f"p(危険)が閾値0.05に届かなかった。限界として明記する。")]
+            "VLMの判定ではなく<b>ロボットの視点</b>を変える（4.1章）。"])
+        s += [P('手2の評価G（対比較・事前登録）は本文4.1章に載せた。', 'small')]
         if t2:
             R = t2['results']
             ref, j2, sj = R[t2['reference']], R['J2(Clef-task) tau_h=0.05'], R[t2['selected']]
@@ -751,9 +875,17 @@ def build(account: str, video_url: str | None, repo_url: str):
                        f"1画像あたりの推論は中央値 {V['clef_lat']:.1f} 秒（V100）。" if V['clef_lat'] else '')
                     + "当初のJev要求（通路の安全を問う質問）のままでは物資の存在確率が低く出て、正しい配達の約半分を拒否した（"
                     + f"{R['J(Clef) tau_h=0.05']['correct_approvals']}/{R['J(Clef) tau_h=0.05']['n_allow']}）。判断モデルは<b>質問の書き方に強く依存</b>する。", 'small')]
-    s += chapter_novelty(D, E)
-    # ---- 6. improvements
-    s += [P('6. 改善の軌跡（v3.3 → v3.6）', 'h1'),
+    if msel:
+        s += [P('E. モデルの調査と選定（最新世代への更新）', 'h2'),
+              table([['モデル', '公開', '視覚判定（176枚）', '状況説明（128枚）', '指示理解（開発40文）', '1問の遅延']] +
+                    [[r['model'], r['released'], r.get('vision_v35', '-'), r.get('explain', '-'), r.get('intent_dev_i35', '-'),
+                      f"{r.get('latency_v35', 0):.2f} 秒"] for r in msel], [30, 18, 36, 26, 36, 22]), Spacer(1, 3)]
+    s += fig('i08_models.png', 135, '図4 モデル比較（開発データ）。右：危険側の誤り。評価用データはモデル選定に使っていない。')
+    if rr_tab:
+        s += [P('F. カメラ劣化（R）の全12条件', 'h2')] + rr_tab
+    s += sec_prereg(D, E)
+    # ---- improvements
+    s += [P('H. 改善の軌跡（v3.3 → v3.6）', 'h2'),
           P('審査基準（創造性・技術力・実用性・表現力）に沿って自己レビューし、弱点ごとに改善項目を立て、すべて「仮説 → 変更 → 計測（Before/After）」で記録した'
             '（<font name="IPAexG">docs/REVIEW_AND_PLAN.md</font>、<font name="IPAexG">docs/IMPROVEMENT_LOG.md</font>、コミットは <font name="IPAexG">git log --grep I-0</font> で追跡可能）。')]
     imp = [['ID', '弱点・動機', '改善', 'Before → After（計測）']]
@@ -777,43 +909,25 @@ def build(account: str, video_url: str | None, repo_url: str):
     imp.append(['I-08', 'モデルが古く研究用途限定', '最新世代の調査・公平比較 → Qwen3.5-9B', '説明 84→125、指示 50→55/60、誤許可0維持'])
     imp += improvements_late(D, E)
     s += [table(imp, [12, 38, 64, 60]), Spacer(1, 4)]
-    s += fig('i01_drift.png', 135, '図5 I-01 推測航法ドリフトの原因切り分け（棄却した仮説も含む）。')
+    s += fig('i01_drift.png', 110, '図5 I-01 推測航法ドリフトの原因切り分け（棄却した仮説も含む）。')
     # ---- 6. findings
-    s += [P('7. 実際に動かして初めて分かった問題（v3.2引継ぎ → v3.3）', 'h1'),
-          P('引継ぎ時点のコードは506件の単体テストに合格していたが、実Gazebo・実ROS 2・実GPUでは一度も動いていなかった。'
-            '実行して（v3.3〜v3.6の開発と評価準備を含め）21件の問題を発見し、すべて再現→修正→確認した（<font name="IPAexG">docs/FINDINGS.md</font>）。代表例：')]
+    s += [P('I. 実際に動かして初めて分かった問題（v3.2引継ぎ → v3.3）', 'h2'),
+          P(f'引継ぎ時点のコードは単体テスト（現在{count_tests.n_tests()}件）に合格していたが、実Gazebo・実ROS 2・実GPUでは一度も動いていなかった。'
+            f'実行して（v3.3〜v3.6の開発と評価準備を含め）{count_tests.n_findings()}件の問題を発見し、すべて再現→修正→確認した（<font name="IPAexG">docs/FINDINGS.md</font>）。代表例：')]
     s += bullets(['車輪軸の定義誤り：オドメトリ上は1.1 m前進、実際の車体は0.15 m（→ Gazebo真値による監査を新設）',
                   'Best Effort QoS で 0.9 MB の画像が102枚中10枚しか届かない（→ Reliable に統一）',
                   'gpu_lidar が自機のカメラマスト（visual）を障害物として検出（→ 可視性マスク）',
                   '評価の中断時に孤立したスタックが別試行に速度指令を出し続けた（→ 段階的停止と起動前の孤立スタック検出。Publisher監視は正しく検知していた）'])
-    s += fig('wheel_axis_regression.png', 125, '図6 同じ速度指令に対する車輪オドメトリとGazebo真値（左：引継ぎ版、右：修正後）。')
-    # ---- 7..10
-    s += [P('8. 実用性・応用可能性', 'h1')]
-    s += bullets(['<b>在庫と現物のずれに強い</b>：物流倉庫・病院内搬送・避難所運営で、誤った物資を届けず、無ければ探し、それでも無ければ人に報告して止まる。',
-                  '<b>オフライン・オンデバイス</b>：通信途絶を想定し、推論はすべて単一GPU上（APIキー不要、Apache-2.0のモデル）。',
-                  '<b>説明と検証可能性</b>：判断画像のハッシュ・各質問の確率・日本語報告・真値軌跡・ROS bagを試行ごとに保存し、第三者が判断と行動の因果を再計算できる。'])
-    s += [P('9. 限界と今後の課題', 'h1')]
-    s += bullets(['v3.6の横から見直す効果（評価G）は、拠点配置が固定の新しい世界での対比較で、試行数は少ない。完全に隠れた火は横からも見逃し得る。実機・実写では未検証。',
-                  '物資の把持・運搬は未実装。Nav2の動的経路計画ではなく既知配置のウェイポイント追従。',
-                  '小道具は単純形状、拠点は2か所・避難所は1か所の固定配置。実機（SO-101等）でのSim-to-Realは未検証。実写画像で検証したのは火災判定のみ（5.4章）で、物資の確認と閉ループは実写では未検証。',
-                  '閾値（τ_s=0.50、τ_h=0.05）は確率の較正ではない。開発データでは余裕が大きいが、分布の異なる環境では再評価が必要。',
-                  'ROSグラフ監視は認証機構ではなく、実機の安全認証を意味しない。'])
+    s += fig('wheel_axis_regression.png', 100, '図6 同じ速度指令に対する車輪オドメトリとGazebo真値（左：引継ぎ版、右：修正後）。')
     chap = ROOT / 'docs/video_chapters.json'
     if chap.is_file():
         ch = json.loads(chap.read_text(encoding='utf8'))
         mmss = lambda x: f'{int(x // 60)}:{int(x % 60):02d}'
-        s += [P('10. 提出動画の構成', 'h1'),
-              P(f"全 {mmss(round(ch[-1]['end_s']))}。3-D映像はすべてGazeboの実レンダリング（俯瞰カメラ＋ロボット搭載カメラ）で、模式図やモック映像は使っていない。"
-                f'字幕・確率バー・軌跡・ロボットの報告文はその試行のログから自動合成。<b>{SP}</b>で、速度は画面左上に常時表示している。ナレーションは VOICEVOX:四国めたん。'),
+        s += [P('J. 提出動画の構成', 'h2'),
               table([['時刻', '内容', '備考']] + [[f"{mmss(c['start_s'])}–{mmss(c['end_s'])}", c['title'],
                      (c['speed'] or '') + (f"（run {c['run_id']}）" if c.get('run_id') else '')] for c in ch], [24, 90, 60])]
-    s += fig('video_frame_decision.png', 105, '図7 動画の一場面（取り違え）：拠点Wで救急箱を確認して拒否し、もう一方の拠点を確認しに向かう。下段はロボットの日本語報告。')
-    s += [P('11. 再現方法', 'h1'),
-          P('<font name="IPAexG">bash docker/build.sh</font> → <font name="IPAexG">bash docker/run.sh python3 scripts/run_campaign.py --protocol experiments/campaign_e_protocol.json</font>（v3.6 の構成が既定値。過去の評価の再現は各台帳の stack_args を明示）。'
-            '全体フローは docs/ARCHITECTURE.md、設計判断は docs/DESIGN_DECISIONS.md。'),
-          P('本資料・動画・コードに氏名・所属・メールアドレス等の個人情報は含めていない。講座サンプル（差動二輪ROSシミュレーション等）を出発点に、'
-            '現地VLM確認・回復探索・独立安全ガード・真値監査・事前登録評価を独自に設計・実装した。', 'small')]
-    doc.build(s)
+    s += fig('video_frame_decision.png', 85, '図7 動画の一場面（取り違え）：拠点Wで救急箱を確認して拒否し、もう一方の拠点を確認しに向かう。下段はロボットの日本語報告。')
+    doc.build(M + s)
     print(out)
     return out
 
