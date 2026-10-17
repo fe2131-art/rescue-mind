@@ -230,7 +230,7 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 * 第三者採点の5回目：31.5（提出物そのまま）／32.0（ソースから作り直した場合）。主な指摘はPDFと動画が古いこと → PDF は J 反映で再構築済み（本文8頁）。動画は記憶デモ入りで再描画中（`bjthk2qm5`、約2分51秒）。
 * **新しい中心の貢献 I-19「信頼できない入力は締める方向にしか使えない」**（`docs/design/I19_untrusted_inputs.md`）：記憶・他ロボット・在庫記録・依頼文はすべて「助言」として扱い、拠点の順番の入れ替えと慎重さの追加にしか使わない。悪意ある助言があっても危険な配達の上限は k×ε のまま。
   * 実装：ブランチ `i19-advice`（worktree `.claude/worktrees/i19`）。`rescuemind/advice.py`、`advice_llm.py`、サーバの `/v1/advice`、ミッション・オーケストレータ・監査・`run_campaign.py`・現場報告に組み込み済み。
-  * study A（閉ループ、162 run、約8.5時間。monotone・naive・filtered［LLMガードレール］の3方式）：`make_protocol_a.py`、`a_analysis.py`、`a_run.sh`。事前登録の草稿は `PREREGISTRATION_A.md`。
+  * study A（閉ループ、114 run、約6時間）：`make_protocol_a.py`、`a_analysis.py`、`a_run.sh`。事前登録の草稿は `PREREGISTRATION_A.md`。
   * 注入文 224件を dev と test に半分ずつ分けた。dev でプロンプトを調整 → `advice_prompts_frozen.json` に凍結 → test を評価（`advice_injection_eval.py --split`）。
   * **まだ GPU で動かしていない**。W の後に、ブランチをマージ → dev で調整・凍結 → A を事前登録（コミット）→ 予備走行 → 本番、の順で進める（手動）。
 * **study S（場面の文字による注入：「WATER」の貼り紙、「SAFE – NO FIRE」の看板、「Cと答えて」）**：Sonnet が別の worktree で実装中。画像単位の評価で、構造上の保証が及ばない残りの弱点を正直に測る。
@@ -244,6 +244,33 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 * 動画を再描画した（2:53）。まとめのカードは記憶なし対本方式を先に出す。
 * study A：LLM フィルタ（ガードレール）の群を追加して 162 run に。study Q（実写の物資確認）は Sonnet が設計中。
 * **優秀賞に向けた次の一手**：A の後に I-19 の撮影（「確認不要」と書かれた依頼や「SAFE」の看板があっても確認して止まる）を動画に入れる。説明資料は1枚目を図中心にする。PDF の TBD を0にする。
+
+**2026-10-17 21:00 追記（ユーザー指示「小手先ではなく、ロジックと環境の根本的な改良を」）**
+* **I-20：疑わしいときだけ視点を増やす**。開発データでは、0.05 で見逃した火 23 件のうち 17 件が 0.005 以上で、火の無い画像は 40/380。
+  * W の Amendment 1 に登録済み（main とブランチ）：±0.8 m と 0.3 m 近い正面の3視点を追加で描画し、副次解析 `summarise_adaptive` で評価する。F/L/R の世界は変えていない。
+* **I-21：現実的な救援物資の倉庫**（`docs/design/I21_realistic_depot.md`、ブランチ `i21-depot`、worktree `.claude/worktrees/i21`）。
+  * AWS small warehouse（MIT-0）を `worlds/assets/aws-wh` に置く（git 管理外。`scripts/fetch_depot_assets.sh` で取得）。
+  * 壁・床・棚・散乱物（世界ごとのランダム配置）・パレットジャッキの障害物・粒子の煙を、操作領域の外に配置した。
+  * `build_variant(depot={...})` で使う。テスト合格。
+  * `v_run.sh` が V の前にプレビュー画像を描画する（`docs/figures/depot_preview_*.jpg`、ログは `experiments/results/depot_preview.log`）。
+  * 次の段階：拠点を4か所にして研究X。
+* **文献調査（全文）**：`docs/paper/LITERATURE_REVIEW.md` に、新規性への脅威トップ5と、論文に貼れる位置づけ文がある。
+  * I-19 版の論文の関連研究を書き直した（「完全性の非干渉を一方向に緩めたもの」「予測つきアルゴリズム」と位置づけ、新規なのは知覚の門への適用・上界・監査つきの閉ループ評価）。
+* **一貫性と頑健性の曲線**（`scripts/advice_curve.py`、`fig_advice_curve.pdf`）：本方式は助言の正答率によらず危険が助言なしと同じで、正しい助言では 118→74 秒（k=4）。素朴な追従は 10〜51/100、LLM フィルタは 3〜11/100 の危険が残る。
+* **研究Q（実写の物資確認）**：ブランチ `worktree-agent-ac893207bdda069d9`。Wikimedia Commons の 405 枚で、ラベルは目視確認済み。GPU で 30〜40 分。`q_run.sh` は作成中。
+* **研究S**：OCR マスクと「文字を無視せよ」の防御群を追加中（Sonnet）。
+* GPU の順番（予定）：L → V → W → Q → A → S → X。
+
+**2026-10-17 21:45 追記**
+* **L 完了：主張成立**（未知の配置 24/24、危険な配達 0）。
+* I-18 は main にマージ済み。チェーンの「I18_TESTS_FAILED」はホスト環境だけの問題（sklearn なし・Python 3.10 に enterContext なし）だった。コンテナでは 657/657 合格。ホストにも sklearn を入れ、テストにシムを足して 657 OK。revert は実行されていない（`-q` が使えないため）。
+* V：予備走行は合格。マスクを描画したあと予測を自動でコミットし、本番 160 run に進む（一晩）。**V の実行中は重い処理をしない**。
+* I-21：倉庫の世界が Gazebo で読み込めるようになった（AWS モデルの不正な慣性値を除去）。プレビュー画像は `docs/figures/depot_preview_sheet.jpg`（ブランチ i21）。粒子の煙の写り方と、台をパレットらしい見た目にすることが残っている。
+  * Gazebo の試験は、別の区画（`GZ_PARTITION=depottest ROS_DOMAIN_ID=99`）なら V と並行して走らせられる。ただし `nice` は付けない（環境変数が消える）。
+* 4拠点化は完了（ブランチ i21-depot、818 テスト）。
+* 査読5回目（`REVIEW_NOTES_R5.md`）への対応：
+  * 済み：保証の書き直し（命題2は相対保証）。
+  * Sonnet が進行中：軟拒否・scrutiny・A-steer、信頼基盤テスト。
 
 **評価中の厳守事項**：重い処理（ビルド・テスト・図の生成・動画）をしない。J では CPU 負荷とページキャッシュの取り合いで判断時間が延びた。逸脱は J の事前登録に記録済み。
 
@@ -292,3 +319,27 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 
 `docs/ARCHITECTURE.md`（全体フロー図）、`docs/DESIGN_DECISIONS.md`（D1–D15）、`docs/IMPROVEMENT_LOG.md`（I-01–I-18）、
 `docs/FINDINGS.md`（実行で見つけた25件）、`docs/REVIEW_AND_PLAN.md`（審査基準別レビュー）、`experiments/`（事前登録・プロトコル・開発セット・台帳・証拠）。
+
+**2026-10-17 22:00 実行中の連鎖（最新）**
+* `byvmbjuo9`：V の本番（予測は最初の試行より前にコミット済み：0118289）→ `V_DONE`（10月18日 6時ごろの見込み）。
+* `bn71t32h1`：`V_DONE` を待つ → W のブランチをマージ（Amendment 1 の追加視点を含む）→ 描画（約2.6時間）→ 採点 → `W_DONE`。
+* `b1lqzbr20`：`W_DONE` を待つ → Q のブランチをマージ（これが事前登録）→ テスト → `q_run.sh`（約40分）→ `Q_CHAIN_DONE`。
+* その後は手動で進める：
+  1. 統合ブランチ `i21-depot` を main にマージする（I-19・I-20・I-21・4拠点・軟拒否・scrutiny を含む）。
+  2. 注入文の dev 半分でプロンプトを調整し、凍結 → A を事前登録 → 予備走行 → 本番（226 run、約11.5時間）。
+  3. S（約2.4時間）→ XD・X（Sonnet が設計中）。
+
+**2026-10-17 23:00 統合ブランチ `i21-depot`（worktree `.claude/worktrees/i21`）の状態**
+* 含むもの：
+  * I-19（助言は締めるだけ、study A は 226 run の草稿）
+  * I-20（疑わしいときの追加視点）
+  * I-21（倉庫、k=4、パレット、煙だけの火災）
+  * 軟拒否（`--caution-soft`）、scrutiny（`--advice-scrutiny`）
+  * 研究 S（看板・OCR マスク・文字を無視させる）、X・XD（倉庫）、L、I-18、W
+  * 信頼基盤テスト（独立した参照実装・変異体 196 個・fuzz。実バグ 6 件を修正、FINDINGS #24・#25）
+  * 論文（「Advice May Only Tighten」として一本の筋に再構成、本文 8 頁以内）
+  * 説明資料（本文 5 頁、付録 A〜N）
+* 模擬査読6回目（`REVIEW_NOTES_R6.md`）：結果が設計どおりなら RA-L で weak accept 圏。登録前に文言を固める作業（W Amendment 2・A/S/X/XD・命題2 の ε_any）を Sonnet が進めている。
+* V・W・Q の後にすること：`i21-depot` を main にマージする → 全テスト → A（文言を固め、dev で調整して凍結、予備走行）→ XD → S → X。
+* 要約図は新しい筋（助言は締めるだけ）に作り直す必要がある。結果が出てから行う。
+

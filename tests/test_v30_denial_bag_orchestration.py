@@ -45,6 +45,12 @@ class FakeSupervisor:
 
 
 class OrchestrationContractTests(unittest.TestCase):
+    if not hasattr(__import__('unittest').TestCase, 'enterContext'):      # Python < 3.11 (host): same semantics
+        def enterContext(self, cm):
+            result = cm.__enter__()
+            self.addCleanup(cm.__exit__, None, None, None)
+            return result
+
     def setUp(self):
         FakeSupervisor.events=[]
         FakeSupervisor.mission_error=None
