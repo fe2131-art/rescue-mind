@@ -177,7 +177,8 @@ def verify_station_local(image_path: str | Path, expected: str, *,
                          mode: str='single', primary_url: str=DEFAULT_PRIMARY_URL,
                          secondary_url: str=DEFAULT_SECONDARY_URL,
                          primary_model: str=PRIMARY_MODEL, secondary_model: str=SECONDARY_MODEL,
-                         transport=None, jev_url: str | None = None, jev_hazard_threshold: float = .35) -> dict:
+                         transport=None, jev_url: str | None = None, jev_hazard_threshold: float = .35,
+                         jev_schema: str = 'jev') -> dict:
     """Use only real local HTTP inference in production; injection is unit-test only."""
     if mode not in ('single','dual'):
         raise LocalInferenceError('mode must be single or dual')
@@ -201,11 +202,12 @@ def verify_station_local(image_path: str | Path, expected: str, *,
         # I-13: second, differently trained model in the original plan's Jev role (fail closed on any error)
         from .clef_local import infer as clef_infer
         try:
-            jev_call=clef_infer(image, jev_url)
+            jev_call=clef_infer(image, jev_url, schema=jev_schema)   # 'task' = the T2-evaluated task wording
         except Exception as exc:
             raise LocalInferenceError(f'Jev-role model failed: {exc}') from exc
         out['jev_call']=jev_call
         out['jev_hazard_threshold']=jev_hazard_threshold
+        out['jev_schema']=jev_schema
         out['decision']=combine_with_jev(decision, jev_call, expected, hazard_threshold=jev_hazard_threshold)
         out['limitations']='Two differently trained local models (Qwen + Clef-Flash in the Jev role); not a safety certification.'
     return out

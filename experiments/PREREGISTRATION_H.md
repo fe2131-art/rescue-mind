@@ -86,4 +86,14 @@ Ground truth is never written. Plans:
   leaves the arm's memory unchanged.
 
 ## Amendments
-(none)
+**Amendment 1 (before any H trial; mechanics pilot on separate worlds, `campaign_H_pilot_ledger.jsonl`,
+`campaign_H_pilot2_ledger.jsonl`).**
+* The first pilot showed a bug: after a swapped mission, memory recorded the supply seen at the first station as
+  `uncertain`, so the verified plan did not propose the other station. The cause was that the code read the decision's
+  confidences, which belong to the *requested* supply. The remembered supply is now the label both passes named with
+  ≥ 0.5 on it. A regression test was added.
+* After the fix, the pilot was run again. M2 went straight to the station where the supply had been seen (84 s,
+  against 114 s with the search). M1 skipped the check (40 s, `COMPLETED_MEMORY_TRUSTED`). Both passed every audit.
+* The hazard paths had already passed in the first pilot: M1 refused without moving (`DENIED_BY_MEMORY`, 3 s), and M2
+  applied caution and refused the fire at the front.
+* The protocol, arms, endpoints and analysis are unchanged.

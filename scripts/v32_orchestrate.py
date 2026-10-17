@@ -78,7 +78,7 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
                prompt_set: str = 'v33', model: str | None = None, intent_backend: str = 'tfidf',
                intent_prompt: str = 'i34', describe_prompt: str = 'e0', inject_stall: float = 0.0,
                hazard_threshold: float = 0.5, control_qos: str = 'reliable', hazard_views: str = 'full',
-               hazard_prompt: str = 'h35', jev_local: str = 'off', jev_hazard_threshold: float = .35,
+               hazard_prompt: str = 'h35', jev_local: str = 'off', jev_hazard_threshold: float = .35, jev_schema: str = 'jev',
                look_around: float = 0.0, memory_file: str | None = None, memory_mode: str = 'off') -> dict:
     if scenario not in ('motion-check', 'live'):
         raise ValueError('invalid scenario')
@@ -124,7 +124,8 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
             # I-13: the original plan's Jev role, answered locally by Clef-Flash (Jev/SystemOne API)
             services.insert(1,ManagedCommand('jev_role_clef', shell_exec([
                 'python3',str(ROOT/'scripts/clef_server.py'),'--port','8767'])))
-            cmd += ['--jev-url','http://127.0.0.1:8767/v1/systemone','--jev-hazard-threshold',str(jev_hazard_threshold)]
+            cmd += ['--jev-url','http://127.0.0.1:8767/v1/systemone','--jev-hazard-threshold',str(jev_hazard_threshold),
+                    '--jev-schema',jev_schema]
         if local_mode=='dual':
             services.insert(1,ManagedCommand('secondary_local_vlm', shell_exec([
                 'python3',str(ROOT/'scripts/local_vlm_server.py'),'--model',SECONDARY_MODEL,'--port','8766'])))
@@ -283,6 +284,8 @@ def main(argv=None):
     p.add_argument('--jev-local', choices=['off', 'clef'], default='off',
                    help='I-13: add the Jev-role model (Clef-Flash, local) - both models must approve')
     p.add_argument('--jev-hazard-threshold', type=float, default=.35)
+    p.add_argument('--jev-schema', choices=['jev', 'task'], default='jev',
+                   help='I-16: ask the Jev-role model the original Jev request or the task-worded request (T2: task)')
     p.add_argument('--hazard-views', choices=['full', 'tiles'], default='tiles', help='I-11: hazard question on crops too')
     p.add_argument('--hazard-prompt', choices=['h35', 'h36'], default='h36', help='I-11: hazard question wording')
     p.add_argument('--inject-warmup-stall', type=float, default=0.0, help='I-09 fault injection (A/B tests only)')
@@ -332,7 +335,7 @@ def main(argv=None):
                  describe_prompt=args.describe_prompt, inject_stall=args.inject_warmup_stall,
                  hazard_threshold=args.hazard_threshold, hazard_views=args.hazard_views,
                  hazard_prompt=args.hazard_prompt, jev_local=args.jev_local, look_around=args.look_around,
-                 jev_hazard_threshold=args.jev_hazard_threshold,
+                 jev_hazard_threshold=args.jev_hazard_threshold, jev_schema=args.jev_schema,
                  memory_file=args.memory_file, memory_mode=args.memory_mode,
                  control_qos='best_effort' if args.dds_mode == 'best_effort' else 'reliable')
     if args.dds_mode == 'async':
@@ -377,6 +380,7 @@ def main(argv=None):
     summary['memory_file'] = args.memory_file
     summary['memory_mode'] = args.memory_mode
     summary['jev_hazard_threshold'] = args.jev_hazard_threshold
+    summary['jev_schema'] = args.jev_schema
     summary['hazard_views'] = args.hazard_views
     summary['hazard_prompt'] = args.hazard_prompt
     summary['describe_prompt'] = args.describe_prompt
