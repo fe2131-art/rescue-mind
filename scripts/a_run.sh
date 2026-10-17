@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Study A (I-19), full sequence (experiments/PREREGISTRATION_A.md).  Run from the main checkout ONLY when no other campaign
 # uses Gazebo / the GPU (it drives rm-next):   bash scripts/a_run.sh
-# (a) mechanics pilot (separate worlds, 24 runs), STOPS unless every file-channel run ends as designed and the operator
+# (a) mechanics pilot (separate worlds, 27 runs: 24 + 3 A-steer arms), STOPS unless every file-channel run ends as designed and the operator
 #     channel extracts the intended advice in >= 9 of 12 runs
-# (b) design fire masks (front + two side poses 0.4 m) for the F worlds, (c) the registered campaign (162 runs),
+# (b) design fire masks (front + two side poses 0.4 m) for the F and A-steer (D) worlds, (c) the registered campaign (226 runs:
+#     162 + 64 A-steer),
 # (d) analysis -> experiments/results/a_summary.json
 set -uo pipefail
 cd "$(dirname "$0")/.."
