@@ -36,7 +36,7 @@ FURNITURE = [
     ('TrashCanC_01', -1.592, 7.715, 0.0),
 ]
 # Movable clutter drawn per world near (behind / beside) the stations: in the camera's view, never in a corridor.
-CLUTTER_SLOTS = [(-3.2, 3.0), (-2.9, 3.4), (3.2, 3.0), (2.9, 3.4), (-3.4, 1.6), (3.5, 1.4), (0.0, 2.9), (4.2, -2.6)]
+CLUTTER_SLOTS = [(-3.2, 3.0), (-2.9, 3.4), (3.2, 3.0), (2.9, 3.4), (-3.4, 1.6), (4.35, 1.9), (0.0, 2.9), (4.2, -2.6)]
 CLUTTER_MODELS = ('Bucket_01', 'TrashCanC_01', 'ClutteringC_01')
 # The operating area that the robot drives through (origin, the two station waypoints, the side poses, the shelter
 # approach and the recovery leg between stations), with clearance.  Furniture whose footprint centre falls inside is
