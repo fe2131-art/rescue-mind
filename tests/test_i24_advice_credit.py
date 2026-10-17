@@ -172,3 +172,68 @@ class Proposition3(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class FromMission(unittest.TestCase):
+    def cp(self, exp, a, b, allow, reason='ok', peeks=()):
+        return {'decision': {'expected': exp, 'first_supply': a, 'second_supply': b, 'allow': allow, 'reason': reason},
+                'look_around': {'peeks': [{'side': s} for s in peeks]}}
+
+    def test_recovery_run(self):
+        m = {'recovery': {'first_station': 'medicine',
+                          'first_checkpoint': self.cp('water', 'medicine', 'medicine', False, 'local_vlm_disagree_or_wrong_supply')},
+             'checkpoint_station': 'water', 'checkpoint': self.cp('water', 'water', 'water', True, peeks=('L', 'R', 'L2', 'R2', 'N'))}
+        v = ac.visits_from_mission(m)
+        self.assertEqual([x['station'] for x in v], ['medicine', 'water'])
+        self.assertEqual([x['supply_match'] for x in v], [False, True])
+        self.assertEqual([x['refused'] for x in v], [False, False])
+        self.assertEqual(v[1]['scrutiny_views'], 3)
+
+    def test_caution_only_and_base_hazard(self):
+        m = {'recovery': {'first_station': 'S1', 'first_checkpoint': self.cp('water', 'water', 'water', False, 'hazard_side_view'),
+                          'hops': [{'station': 'S3', 'checkpoint': self.cp('water', 'water', 'water', False, 'hazard_side_view')}]},
+             'caution_refusals': [{'station': 'S3'}],
+             'checkpoint_station': 'S2', 'checkpoint': self.cp('water', 'water', 'medicine', False, 'local_vlm_disagree_or_wrong_supply')}
+        v = ac.visits_from_mission(m)
+        self.assertEqual([(x['refused'], x['refused_base']) for x in v], [(True, True), (True, False), (False, False)])
+        self.assertEqual(v[2]['supply_match'], None)
+
+    def test_real_saved_run_if_present(self):
+        import os
+        p = os.path.expanduser('~/work/rescue-mind/outputs/runs/b4fcd9d164444db7/mission.json')
+        if not os.path.isfile(p):
+            self.skipTest('saved run not available')
+        v = ac.visits_from_mission(json.load(open(p, encoding='utf8')))
+        self.assertEqual([(x['station'], x['supply_match']) for x in v], [('medicine', False), ('water', True)])
+
+
+class Wiring(unittest.TestCase):
+    """plan_for_mission (mission node) reads the ledger; the orchestrator audits and settles it from mission.json."""
+
+    def test_plan_for_mission_and_orchestrator_settlement(self):
+        import os, sys, tempfile
+        from pathlib import Path
+        from rescuemind.advice_llm import plan_for_mission
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
+        import v32_orchestrate as orch
+        with tempfile.TemporaryDirectory() as d:
+            led_p, adv_p = os.path.join(d, 'credit.json'), os.path.join(d, 'advice.json')
+            Path(adv_p).write_text(json.dumps([loc('peer', 'medicine')]))
+            for mission in range(3):
+                plan = plan_for_mission('water', None, mode='monotone', advice_file=adv_p, credit_path=led_p)
+                log = Path(d) / f'run{mission}'
+                log.mkdir()
+                fc = {'decision': {'expected': 'water', 'first_supply': 'medicine', 'second_supply': 'medicine', 'allow': False,
+                                   'reason': 'local_vlm_disagree_or_wrong_supply'}}
+                ok = {'decision': {'expected': 'water', 'first_supply': 'water', 'second_supply': 'water', 'allow': True}}
+                m = {'memory': plan, 'checkpoint_station': 'water', 'checkpoint': ok, 'events': []}
+                if plan['first_station'] == 'medicine':
+                    m['recovery'] = {'first_station': 'medicine', 'first_checkpoint': fc}
+                (log / 'mission.json').write_text(json.dumps(m))
+                ev = orch.advice_audit(log)
+                self.assertTrue(ev['checked'])
+                self.assertEqual(ev['credit']['checked'], True)
+                out = orch.settle_credit(log, led_p, f'run{mission}')
+                self.assertEqual(plan['first_station'], 'medicine' if mission < 2 else 'water')
+            self.assertEqual(out['credit']['peer']['loc'], 0.0)
+            self.assertEqual(ac.load(led_p)['missions'], 3)
