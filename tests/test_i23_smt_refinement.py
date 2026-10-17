@@ -211,7 +211,16 @@ class Mutants(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.results = {r['mutant']: r for r in V.run_code_mutants(max(N, 800))}
+        # run in a fresh interpreter: in a full `unittest discover` run, module state left by other tests made one mutant
+        # survive once (order-dependent; isolated runs are deterministic under every PYTHONHASHSEED).  Same code as make verify.
+        import subprocess, json as _json, sys as _sys
+        from pathlib import Path as _P
+        root = _P(__file__).resolve().parents[1]
+        code = ('import sys,json; sys.path[:0]=["scripts","."]; import verify_advice_smt as V; '
+                f'r=V.run_code_mutants({max(N, 800)}); '
+                'print(json.dumps([{k: v for k, v in x.items() if k not in ("impl",)} for x in r], default=str))')
+        out = subprocess.run([_sys.executable, '-c', code], cwd=root, capture_output=True, text=True, timeout=1800, check=True)
+        cls.results = {r['mutant']: r for r in _json.loads(out.stdout.strip().splitlines()[-1])}
 
     def test_at_least_ten_mutants(self):
         self.assertGreaterEqual(len(self.results), 10)
