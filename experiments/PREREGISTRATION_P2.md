@@ -33,4 +33,7 @@ Otherwise we report which constraint failed.
 evaluated robot.
 
 ## Amendments
-(none)
+**Amendment 1 (before any P2 inference).** The two train shards named above are ordered by file name and hold almost
+only fire-free images: 3 815 none, 11 smoke-only, 2 fire-only, 0 both. The registered calibration set therefore cannot be
+drawn from them. The calibration set is drawn from **all nine** train shards instead, with the same counts and seed.
+Nothing else changes.
