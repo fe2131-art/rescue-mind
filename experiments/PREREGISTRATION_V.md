@@ -88,4 +88,28 @@ order rotating over sequences. All runs use the orchestrator defaults; only `--m
 * A memory file is appended only by a run that produced observations.
 
 ## Amendments
-(none)
+**Amendment 1 (2026-10-17, before any V trial, pilot or mask render; prompted by mock review R4, `docs/paper/REVIEW_NOTES_R4.md` §0).**
+1. *Unmeasured time.* Campaign H has no run that searches and then stops at a fire (`deny_search`). The predictor had
+   silently used a default of 75 s for it, and 15 of V's fire missions take this path. The predictor now takes this
+   time from the four campaign G runs of v3.6 with look-around that ended this way (59.4, 60.8, 70.7 and 58.9 s), and it
+   refuses to predict if any outcome type has no measured time. The values are in `experiments/results/v_time_pool_extra.json`.
+   With this change the dry-run prediction of M0 − M2 is 15.5 s (95% PI 11.1–20.0 s); before, it was 18.2 s
+   (14.1–22.5 s). The registered numbers remain the ones in the committed `v_predictions.json`.
+2. *V2 had little power.* Unsafe-count intervals of [0, 5] cannot reject much. V2 now also requires that the number of
+   searches (deliveries or refusals after visiting the other station) in M0 and M2 is within ±3 of the model's
+   prediction. This is the mechanism that produces the time saving, and the model predicts it almost
+   deterministically from the drawn states.
+3. *V4 had no margin.* With about one expected event per arm, "M2 ≤ M0" fails by chance alone. V4 now requires
+   M2 − M0 unsafe ≤ the 97.5th percentile of the model's M2 − M0 distribution (`unsafe_diff_M2_minus_M0` in the
+   committed predictions; 3 in the dry run). It also still requires sequence-level McNemar M2 < M1, p < 0.05. The strict
+   "M2 ≤ M0" is reported as secondary.
+4. *Silent relabelling.* A drawn fire whose design-mask entry is missing now stops the predictor, instead of counting
+   as no fire.
+5. *Code merged before the first V trial.* Neither change touches a decision:
+   * I-17: per-run arena layouts. The default layout is unchanged, and V uses the default.
+   * I-18: the operator report written after each run (non-fatal post-run hook).
+   They are merged by `scripts/after_l_chain.sh` only after the full unit-test suite passes.
+6. *Host load.* `v_run.sh` waits until the 1-minute load average is below 6 before the campaign starts. No other heavy
+   job is started during V. Mission times measured under load are flagged in the analysis as a deviation, as in J.
+7. *By design.* The fire sits behind whichever station holds the supply, so a persisting fire moves with a relocated
+   supply. This is the model's change process, kept on purpose so that model and experiment match.
