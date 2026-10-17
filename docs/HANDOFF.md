@@ -76,7 +76,7 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 * 4コアのホストは CPU が飽和気味（ロードアベレージ約3.9）。**キャンペーン中に重い処理（動画合成・音声合成・ビルド）をしない**。キャンペーン中に実行時コードを編集しない（各試行がファイルを読み直す）。
 * 非rootユーザーには `--cap-add` だけでは権限が渡らない（ファイルケーパビリティが必要）。
 * Qwen3.5 は思考モードが既定 → `enable_thinking=False`（サーバで対応済み）。FP16 で非有限 logits なら判断拒否。
-* 動画は **3分以内**（現在 2:30）。倍速は区間ごとに画面表示（走行4倍、確認2倍、判断の瞬間は等速）。
+* 動画は **3分以内**（現在 2:46）。倍速は区間ごとに画面表示（走行8倍、確認3倍、判断の瞬間は等速）。
 
 ## 5. 現状（2026-10-18 10時ごろ）— 圧縮後はここから再開する
 
@@ -98,7 +98,7 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 | D（42試行） | 42/42 |
 | E（60試行、試行ごとにランダムな世界） | 60/60、誤った配達 0 |
 | T1（未使用の画像600枚） | v3.4 の誤許可 5/408（「2%未満」の主張は不成立）。物資の誤許可は 0/332。弱点は物資の陰の小さな火 |
-| T2（未使用の画像600枚） | v3.5 でも 0/407 と天井で、改善は測れない。Clef（課題向けの質問）単独でも 0/407・正しい許可 187/193、判断は約0.8秒 |
+| T2（未使用の画像600枚） | v3.5 でも 0/407 と天井で、改善は測れない。Clef（課題向けの質問）単独でも 0/407・正しい許可 187/193、1画像あたりの推論は中央値0.6秒 |
 | 開発データ（I-11/I-13） | 見逃した火：v3.5 46 → h36＋tiles 17 → Clef＋Qwen 15（ただし 37 GB で V100 1台に載らない） |
 | F（閉ループ、対比較） | 小さな火で配達してしまった回数：v3.5 12/13 → B 7/13（p=0.0625、有意でない） |
 | G（閉ループ、対比較、新しい世界） | **横から見直す（I-14）で 11/16 → 1/16、p=0.002、誤った停止 0/8**。唯一の見逃し W19 は正面から0画素、横からも最小の2,308画素 |
@@ -107,7 +107,7 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 * 動画（v3.6）は完成：2:46・ナレーションあり、走行8倍速・確認3倍速・判断は等速で、横から見直す場面を含む。
   * 使った run：deliver dbed92419f88479e、recover b4fcd9d164444db7、empty 367928c988f34e34、hidden_fire 9d73663832c94f16。
   * 再生成：`make_video_plan.py --deliver .. --recover .. --empty .. --hidden-fire ..` → `make_demo_video.py --narrate 2`。
-* 説明資料PDF（9ページ）・README・YouTube説明文・SUBMISSION を v3.6（F・G・T2・I-14）に更新した。論文の Abstract と貢献に G を追加した。
+* 説明資料PDF（当時9ページ、現在11ページ）・README・YouTube説明文・SUBMISSION を v3.6（F・G・T2・I-14）に更新した。論文の Abstract と貢献に G を追加した。
 * 訂正：F で B が見逃した7件のうち1件（W21）は 8,573画素・p=0.019 だった（G の事前登録に Erratum を追記）。
 * **R（カメラ劣化12条件、事前登録 `PREREGISTRATION_R.md`）**：
   * 実行：`scripts/r_eval.sh`（再開可能。停止は `scripts/stop_r.sh`）。結果は `devset_r_<条件>.json`。
@@ -115,7 +115,7 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 * **新規性 I-15：出動をまたぐ記憶**（`rescuemind/mission_memory.py`、D13、IMPROVEMENT_LOG I-15）。
   * 記憶にできるのは順序の提案と慎重さの追加だけ。確認は減らさない（安全側への単調性。監査が再計算する）。
   * 文献調査の結果、この「記憶で確認の場所と量を決め、確認は減らさない」型の先行研究は見当たらなかった（ReMEmbR、Embodied-RAG、When Memory Lies など）。
-  * 評価H は事前登録済み：`PREREGISTRATION_H.md`、16系列×3出動、M0（記憶なし）・M1（素朴な記憶）・M2（検証付きの記憶）、計112 run。
+  * 評価H は事前登録済み：`PREREGISTRATION_H.md`、16系列（1回目の出動は3方式で共通の16 run、2・3回目を M0・M1・M2 の3方式で 16×2×3=96 run）、計112 run。
     * 実行：`run_campaign.py --protocol experiments/campaign_h_protocol.json --ledger experiments/results/campaign_H_ledger.jsonl`
     * 解析：`scripts/h_analysis.py`、`scripts/h_change_rate_model.py`（変化率スイープ、図 `fig_h_change_rate.pdf`）。
   * 予備走行（`campaign_H_pilot*_ledger.jsonl`）で、見た物資の判定に誤りを発見して修正した（判断の確信度は依頼物資のものだった）。H の Amendment 1 に記録すること。
@@ -267,5 +267,5 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 
 ## 7. 主要ファイルの地図
 
-`docs/ARCHITECTURE.md`（全体フロー図）、`docs/DESIGN_DECISIONS.md`（D1–D8）、`docs/IMPROVEMENT_LOG.md`（I-01–I-09）、
+`docs/ARCHITECTURE.md`（全体フロー図）、`docs/DESIGN_DECISIONS.md`（D1–D15）、`docs/IMPROVEMENT_LOG.md`（I-01–I-18）、
 `docs/FINDINGS.md`（実行で見つけた23件）、`docs/REVIEW_AND_PLAN.md`（審査基準別レビュー）、`experiments/`（事前登録・プロトコル・開発セット・台帳・証拠）。

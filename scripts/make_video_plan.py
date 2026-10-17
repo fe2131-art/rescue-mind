@@ -164,8 +164,12 @@ def fix_card(seconds):
                      cell(pr['wrong_deliveries_B'], pr['wrong_deliveries_C'], pr['n_world_pairs_fire_perceivable'])])
         say.append(f"さらに横から見直すと、火が見えるのに配達した回数は{pr['n_world_pairs_fire_perceivable']}件中"
                    f"{pr['wrong_deliveries_B']}件から{pr['wrong_deliveries_C']}件になりました。")
+    gs = ''
+    if g:
+        gc = g['per_config']['C']
+        gs = f"誤った停止は {gc['false_hazard_stops']}/{gc['fire_free_trials']} のまま"
     notes = ['対策1：危険の質問に「小さい・隠れた・端で切れた火や煙」を明記し、3つの拡大切り出しでも尋ねる（開発データのみで選定）。',
-             '対策2（G）：正面で許可しても、左右0.4 mから見直す。誤った停止は 0/8 のまま（事前登録・正確McNemar検定）。']
+             '対策2（G）：正面で許可しても、左右0.4 mから見直す。' + (gs + '（事前登録・正確McNemar検定）。' if gs else '')]
     j = sel.get('selected') or {}
     if j.get('config', '').startswith('J2(') or 'Clef' in j.get('config', ''):
         notes.append(f"評価した：Cloudflare Clef-Flash を当初計画の「Jev」の役割（2つ目のAI）で組み合わせ（見逃し {j['n_dh_fire'] - j['dh_fire_refused']}/{nf}）。"
@@ -213,7 +217,7 @@ def evidence_card(seconds):
     z = jload(RES / 'z_summary.json')
     if z:
         sg = z['models']['siglip']['t2']['baseline']
-        rows.append(['比較 Z（CLIP系ゼロショット）', [f"SigLIP 誤許可 {sg['FA']}/{sg['n_deny']}（本手法 0）", G]])
+        rows.append(['比較 Z（CLIP系ゼロショット）', [f"SigLIP 誤許可 {sg['FA']}/{sg['n_deny']}（本手法 {z['models']['siglip']['t2']['ours']['FA']}）", G]])
     pp = jload(RES / 'p_summary.json')
     if pp:
         rows.append(['実写 P（D-Fire 400枚）', [f"火・煙を検出 {pp['recall']['k']}/{pp['recall']['n']}・火の無い写真で誤警報 {pp['false_alarm']['k']}/{pp['false_alarm']['n']}", W]])
