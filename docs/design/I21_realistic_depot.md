@@ -126,3 +126,66 @@ a shim; `test_core`/`test_v08` need scikit-learn).
 5. `scripts/make_demo_video.py` (two-station names only) and the arena-only builders (`build_image_set`, `build_testset_t1`,
    `vlm_devset_capture`) are not generalised. Study X still needs its world sampler (supply arrangement via `supply_at`,
    smoke/fire, obstacle, lighting) and its registration.
+
+
+## Phase 3: realism polish and the two transfer studies (XD image level, X closed loop; designed 2026-10-17, nothing run)
+
+Why. Review R5 (item 4): a bigger simulator does not make results transfer. The claim that is supposed to transfer has to be stated
+before the data, the claims that are not supposed to transfer have to be measured separately, and one hazard appearance must come from
+outside the development loop. Two registrations are drafted: `experiments/PREREGISTRATION_XD.md` (image level, the v3.6 check re-measured
+on 1 284 depot images, tau_h recalibrated, realism ablated, real fire-free warehouse photographs) and `experiments/PREREGISTRATION_X.md`
+(80 closed-loop runs in the k = 4 depot: behaviour cells, memory over k = 4 against the registered k-scaling prediction, A-steer).
+
+### World-spec options added to `rescuemind.depot` (all off by default; off = byte-identical SDF, tested)
+| Option (`depot` dict) | Effect | Notes |
+|---|---|---|
+| `pallets: 'wood_cartons'` | each supply platform is drawn as a wooden pallet (deck boards, stringers) carrying a stretch-wrapped carton plinth up to the old top (0.5 m), plus one or two small cartons standing on the top at the corners nearest the wall (never on a distractor) | **visual only**: the collision element, the pose and the 0.9 m × 0.9 m footprint are untouched, so every audit and every lidar result stays valid; the old grey box visual is replaced |
+| `hazard_style: 'smoke_only'` | the hazard is a rising plume of static smoke puffs without flames (a burnt patch on the floor); a particle plume goes on top with `particle_smoke` | a smoke-only world is a **hazard** (D-Fire's smoke-only class is positive); labels count the static puffs, particle smoke is never in a mask |
+| `hazard_style: 'mesh_flame'` | three nested shells of a procedurally generated jagged flame mesh (OBJ, 5–8 lofted tongues) | not our ellipsoids; mesh and parameters are drawn from the world's seed |
+| `hazard_style: 'billboard'` | three crossed double-sided planes with an alpha-textured flame sprite (procedural, hard-edged alpha; a third-party PNG can be passed) | the mask uses the same silhouette in flat magenta; **needs the Gazebo smoke test** (alpha textures), see the gate in the XD registration |
+| `clutter: False` | no movable clutter (realism ablation) | the random stream is unchanged, the pallet jack keeps its place |
+Generated meshes and textures go to `worlds/assets/generated` (git-ignored). `rescuemind/robust_scenes.py` only gained three guarded
+calls into these functions. `rescuemind.depot.k4_design_pose / k4_side_pose / k4_near_pose` give the nominal checkpoint, look-around and
+extra-view poses of a bay (0.2 m short of the waypoint, as in the arena), and `scripts/fire_mask_at_pose.py` now accepts the bay ids.
+
+### Claims that transfer, and claims that do not (for the paper; the evidence column says where it will come from)
+**Transfer (structural; the depot is a test of them, and a failure is reported as a failure).**
+| Claim | Why it should transfer | Test and criterion | Evidence |
+|---|---|---|---|
+| The supply check approves no wrong or missing supply (closed-set, two permuted passes) | it is a property of the decision rule and of the scoring, not of the room | XD-2 O4: 0 of 35 wrong- or missing-supply worlds approved (front and look-around) | arena: 0/407 (T2) |
+| Looking from the side reduces the misses of the front check | the side views are a second look at the same hazard; the look-around's misses are a subset of the front check's | XD-2 O1: fewer misses, exact McNemar p < 0.05 | arena: G 11 → 1 of 16 |
+| A small, partly hidden fire is harder than a large visible one | geometry (occlusion by the supply) | XD-2 O2: front-only miss rate small > big, Fisher one-sided p < 0.05 | arena: F, G, W |
+| The I-20 extra views never miss more than the fixed look-around and trigger on at most 15% of fire-free worlds | they can only add refusals | XD-2 O3 | arena: W Amendment 1 |
+| Advice may only reorder and tighten, so a delivery is never less safe than the check's own error budget (Prop. 2) | structural: there is no field through which advice can relax a check | X-s S2 (no audit failure), S3 (control safe), the unsafe count with its exact bound, X-m K3 | A (arena) |
+| Check-preserving memory saves visits, and the saving grows with k | closed form of `h_k_scaling.py`; the stale-proposal price is k − 1 | X-m K1, K2: sign-flip p < 0.05 and the registered 1.75-bay design prediction inside the bootstrap CI | H, V (k = 2) |
+| Truthful advice can cost a delivery (a caught fire at the steered bay loses the delivery the control would make), and scrutiny prices a false refusal | follows from "a hazard at a visited bay stops the mission" | X-s descriptive: deliveries lost, false refusals in the clean twins | not measurable in the k = 2 arena (needs duplicate supply) |
+
+**Do not transfer (re-estimated in the depot, reported next to the arena's numbers, never carried over).**
+| Quantity | Arena value | Why it should move | Where re-estimated |
+|---|---|---|---|
+| ε, the look-around miss rate; k·ε | G 1/16; W (pending) | clutter, racks, pallets, lighting, smoke change what the camera sees | XD-1 (pooled, per class, k·ε for k = 4) |
+| tau_h = 0.05 and tau_sus = 0.005 | frozen on development data | P2 already moved tau_h to 0.35 on real photographs | XD-4 recalibration on the calibration split; XD-R false alarms at 0.05, 0.35 and the depot value |
+| Correct approvals and false stops | 190/193; extra false stops (W) | clutter produces false alarms | XD-3 (C1: ≥ 80%) |
+| Which hazard appearance is hardest | our flame; smoke is the weak case on real photographs | smoke-only and non-arena flames were never in the development loop | XD-1 by class, P1 |
+| Seconds per extra bay (δ = 29.5 s), the wasted-visit price | measured in H, two bays 4 m apart | the bays are farther apart, the aisles longer | X-m: the depot's own δ (regression slope) |
+| The arrival-pose error of the controller | x 0.011, y 0.023 m, yaw 0.024 rad | longer legs, other approach directions | X-a/X-m ground-truth poses (to be compared with the XD assumption) |
+| The cost bound of advice-induced refusals (4/193 views at tau = 0.0113) | arena images | tied to the arena's false-alarm rate | recomputed from XD-4 at the caution threshold tau_h/5 (follow-up) |
+**Outside both studies (kept in the limitations paragraph).** Real smoke dynamics, real lighting noise and sensor noise, grasping and
+handover, a robot other than the diff-drive stand-in. XD-R (200 real fire-free warehouse photographs) is the only link to reality that is not our
+simulator; the real-camera recording of a monitor playing a fire clip is an optional follow-up.
+
+### Cost (nothing run; V100 host, no campaign running)
+| Study | Wall time | GPU hours |
+|---|---|---|
+| XD (smoke test 0.25 h, rendering 2.9 h, scoring 1.05 h, real photographs 0.1 h) | ≈ 4.3 h | ≈ 4.3 |
+| X (pilot 0.5 h, masks 0.5 h, 80 runs ≈ 4.8 h, re-runs 0.25 h; core 44 runs: 3.5 h) | ≈ 5.9 h | ≈ 7.3 (core 4.4) |
+| Total | ≈ 10 h | ≈ 11.6 |
+Order: XD smoke test (renders only), then XD (its recalibrated tau and its measured ε feed the X analysis), then the X pilot, X-a + X-m,
+and X-s. Scripts: `scripts/xd_render.sh`, `scripts/xd_eval.sh`, `scripts/x_run.sh`.
+
+### What the "Not done" list above becomes
+1. *Render the four bays' front views* — the XD smoke test (one world per class and ablation variant, colour and mask).
+2. *Drive the legs with the lidar guard on* and 3. *one full k = 4 recovery run with the audits* — the X mechanics pilot (9 runs).
+4. *The two-station depot render* — covered by the same smoke test only for the k = 4 bays; the two-station depot is left as is.
+5. *World sampler and registration for study X* — `scripts/make_protocol_x.py`, `PREREGISTRATION_X.md`; the image-level builder for the depot is
+   `scripts/build_testset_xd.py` (the arena-only builders `build_image_set`, `build_testset_t1` stay unchanged).

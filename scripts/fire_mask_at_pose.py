@@ -33,6 +33,9 @@ def design_pose(station: str, layout=None):
     """Camera pose for the design-time fire mask: fixed constants for the default arena; for a Study L layout,
     0.2 m short of the station waypoint on the start-waypoint line, yawed at the station centre."""
     import math
+    from rescuemind import depot
+    if station in depot.K4_IDS:          # I-21 four-bay depot: 0.2 m short of the bay's waypoint, facing the pallet
+        return depot.k4_design_pose(station)
     if layout is None:
         return DESIGN_POSE[station]
     from rescuemind.layout import Layout
@@ -47,6 +50,9 @@ def design_pose(station: str, layout=None):
 
 
 def station_center(station: str, layout=None):
+    from rescuemind import depot
+    if station in depot.K4_IDS:
+        return depot.K4_CENTERS[station][:2]
     if layout is None:
         return {'water': (2.0, 2.0), 'medicine': (-2.0, 2.0)}[station]
     from rescuemind.layout import Layout

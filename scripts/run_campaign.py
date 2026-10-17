@@ -124,6 +124,10 @@ def advice_flags(adv: dict) -> list[str]:
         flags += ['--advice-file', str(ROOT / adv['file'])]
     if adv.get('from_instruction'):
         flags += ['--advice-from-instruction']
+    if adv.get('scrutiny'):       # study X (A-steer): extra scrutiny at a station reached first through advice (monotone mode only)
+        if adv['mode'] != 'monotone':
+            raise SystemExit('advice scrutiny is a monotone-mode option')
+        flags += ['--advice-scrutiny']
     return flags
 
 
