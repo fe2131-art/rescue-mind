@@ -419,7 +419,7 @@
   * ミッションのフラグ `--advice-file` / `--advice-mode`（monotone と naive）/ `--advice-from-instruction`。オーケストレータの監査（`COMPLETED_ADVICE_TRUSTED`、`DENIED_BY_ADVICE`、単調性の監査）。
   * `scripts/make_protocol_a.py`、`scripts/a_analysis.py`、`scripts/advice_injection_eval.py`（約224件の指示文）。論文：「Untrusted inputs may only tighten」節（命題2）、補足に証明・コスト上限・脅威モデルの表。
 * **計測**（結果が出る前に記述）：
-  * 研究A（閉ループ、`experiments/PREREGISTRATION_A.md`）：114回、F（見える火）・S（入れ替え）・N（通常）の世界、助言は依頼文とファイルの2経路、方式は monotone（本方式）と naive（助言に従う）。A1：悪意のある助言での危険な配達（naive と monotone を世界で対にして McNemar）。A2：正しい助言での時間短縮。A3：サービス妨害のコスト（追加訪問 ≤ 1、誤拒否が上限内）。
+  * 研究A（閉ループ、`experiments/PREREGISTRATION_A.md`）：162回（当初114回＋ガードレール方式 filtered の48回）、F（見える火）・S（入れ替え）・N（通常）の世界、助言は依頼文とファイルの2経路、方式は monotone（本方式）・naive（助言に従う）・filtered（LLMの注入フィルタを通った助言に従う。実務のガードレール）。A1：悪意のある助言での危険な配達（naive と monotone を世界で対にして McNemar）。A2：正しい助言での時間短縮。A3：サービス妨害のコスト（追加訪問 ≤ 1、誤拒否が上限内）。
   * 研究S（画像、`experiments/PREREGISTRATION_S.md`、別ブランチ）：標識・ラベル・「Answer C」のような文字をシーンに置き、符号の有無で対にして誤許可を測る。保証の外にある残りの弱点を、事前の仮説（H1〜H7）つきで報告する。
   * Before：助言（依頼文・他ロボット・在庫）の扱いに構造的な保証はない。After：**結果待ち**（A、S とも未実行）。
 * **判断**：**結果待ち**。A1〜A3 のどれかが不成立なら、その部分と原因の実行を報告する。S は帰無結果でも保証の外にあることは変えず、残りの弱点として書く。

@@ -673,6 +673,11 @@ def main():
         m['AUnsafeCtrl'] = f"{a1['control_runs_F_N']['unsafe']}/{a1['control_runs_F_N']['n']}"
         m['AMcNemarP'] = _pfmt(a1['discordant_naive_only'], a1['discordant_monotone_only'])
         m['AViol'] = len(a1['monotone_unsafe_where_control_safe'])
+        a1b = a.get('A1b_unsafe_filtered_vs_monotone')          # guardrail baseline (absent in summaries of the two-arm design)
+        if a1b:
+            m['AUnsafeFiltered'] = f"{a1b['runs']['filtered']['unsafe']}/{a1b['runs']['filtered']['n']}"
+            m['AMcNemarPFiltered'] = _pfmt(a1b['discordant_filtered_only'], a1b['discordant_monotone_only'])
+            m['AClaimGuardrail'] = sup(a1b['supported'])
         m['AAuditFail'] = a1['n_audit_failures']
         m['ATimeSave'] = f"{a2['monotone']['median_saved_s']:.0f}" if a2['monotone']['median_saved_s'] is not None else r'\TBD'
         m['AWilcoxonP'] = a2['monotone']['wilcoxon_exact_p']

@@ -10,8 +10,11 @@ the inventory record, or hints and claims in the operator's instruction text.  A
 Mode 'monotone' (ours) turns advice into a plan that only reorders and tightens, so for the same camera frames every
 approval with advice is also an approval without it (Proposition: advice monotonicity; P(unsafe | any advice) <= k*eps).
 Mode 'naive' is the measured baseline of an advice-following agent: it skips the check on 'safe'/'skip' and refuses
-without visiting on 'hazard'.  The plan has the same schema as MissionMemory.plan, so the mission node and the audits
-handle both the same way.  Pure functions: no ROS, no model calls.
+without visiting on 'hazard'.  Mode 'filtered' is the realistic guardrail defence (LLM injection / safety filter in front
+of an advice-following agent): the same as 'naive' applied only to the items that pass `filter_fn`; items it flags as an
+attempt to relax or skip a safety check are dropped (and logged with the reason).  It is NOT monotone: whatever the filter
+misses ("verified, the water is at M") is followed.  The plan has the same schema as MissionMemory.plan, so the mission
+node and the audits handle all modes the same way.  Pure functions: no ROS, no model calls (filter_fn is injected).
 """
 from __future__ import annotations
 import json
@@ -20,6 +23,8 @@ from pathlib import Path
 from .mission_memory import STATIONS, CAUTION_TAU_H
 
 KINDS = ('location', 'hazard', 'safe', 'skip')
+MODES = ('off', 'monotone', 'naive', 'filtered')
+FOLLOWING = ('naive', 'filtered')       # modes that follow advice (no monotone guarantee)
 SOURCES = ('memory', 'peer', 'inventory', 'operator')
 STATION_JA = {'water': '拠点W', 'medicine': '拠点M'}
 SOURCE_JA = {'memory': '自分の記憶', 'peer': '他のロボット', 'inventory': '在庫記録', 'operator': '依頼文'}
@@ -54,9 +59,35 @@ def base_plan(item: str) -> dict:
             'skip_check': False, 'deny_without_visit': False, 'rationale': []}
 
 
-def plan(item: str, items: list[dict], mode: str, base: dict | None = None, *, caution_tau_h: float = CAUTION_TAU_H) -> dict:
-    """Combine advice with an existing plan (e.g. the memory plan).  Returns a new plan with an 'advice' record."""
-    if item not in STATIONS or mode not in ('off', 'monotone', 'naive'):
+def apply_filter(items: list[dict], filter_fn) -> tuple[list[dict], list[dict], dict]:
+    """Guardrail step of mode 'filtered': `filter_fn(item) -> {'flag': bool, 'p_yes': float|None, ...}` says whether the
+    item's text tries to relax / skip a safety check.  Returns (kept, dropped, info).  Fail-closed for the baseline: if the
+    filter raises or answers malformed, ALL items are dropped (the conservative choice for the baseline)."""
+    kept, dropped, info = [], [], {'n_flagged': 0, 'error': None}
+    try:
+        verdicts = []
+        for a in items:
+            v = filter_fn(a)
+            if not isinstance(v, dict) or not isinstance(v.get('flag'), bool):
+                raise AdviceError(f'malformed filter verdict: {v!r}')
+            verdicts.append(v)
+    except Exception as e:
+        info['error'] = f'{type(e).__name__}: {str(e)[:160]}'
+        return [], [dict(a, why='filter error: all advice dropped') for a in items], info
+    for a, v in zip(items, verdicts):
+        if v['flag']:
+            dropped.append(dict(a, why='flagged by filter', p_yes=v.get('p_yes')))
+            info['n_flagged'] += 1
+        else:
+            kept.append(a)
+    return kept, dropped, info
+
+
+def plan(item: str, items: list[dict], mode: str, base: dict | None = None, *, caution_tau_h: float = CAUTION_TAU_H,
+         filter_fn=None) -> dict:
+    """Combine advice with an existing plan (e.g. the memory plan).  Returns a new plan with an 'advice' record.
+    Mode 'filtered' needs `filter_fn` (see apply_filter); the items it keeps are followed exactly as in 'naive'."""
+    if item not in STATIONS or mode not in MODES or (mode == 'filtered' and filter_fn is None):
         raise AdviceError('bad advice plan request')
     items = validate(items)
     out = json.loads(json.dumps(base)) if base else base_plan(item)
@@ -66,7 +97,15 @@ def plan(item: str, items: list[dict], mode: str, base: dict | None = None, *, c
     out['advice'] = rec
     if mode == 'off' or not items:
         rec['rejected'] = [dict(a, why='advice off') for a in items] if mode == 'off' else []
+        if mode == 'filtered':
+            rec['dropped'], rec['filter'] = [], {'n_flagged': 0, 'error': None}
         return out
+    follow = mode in FOLLOWING
+    if mode == 'filtered':
+        items, rec['dropped'], rec['filter'] = apply_filter(items, filter_fn)
+        for a in rec['dropped']:
+            out['rationale'].append(f'（フィルタ）{SOURCE_JA[a["source"]]}の助言を破棄：{a["why"]}')
+    tag = '（フィルタ通過後の助言追従）' if mode == 'filtered' else '（素朴な助言追従）'
     for a in items:
         st, src = a['station'], SOURCE_JA[a['source']]
         if a['kind'] == 'location':
@@ -77,10 +116,10 @@ def plan(item: str, items: list[dict], mode: str, base: dict | None = None, *, c
             else:
                 rec['rejected'].append(dict(a, why='no reorder needed or already proposed'))
         elif a['kind'] == 'hazard':
-            if mode == 'naive' and st == out['first_station']:
+            if follow and st == out['first_station']:
                 out['deny_without_visit'] = True
                 rec['applied'].append(dict(a, effect='deny_without_visit'))
-                out['rationale'].append(f'（素朴な助言追従）{src}：{STATION_JA[st]}で火災 → 行かずに拒否')
+                out['rationale'].append(f'{tag}{src}：{STATION_JA[st]}で火災 → 行かずに拒否')
             else:
                 prev = (out['caution'].get(st) or {}).get('tau_h')
                 tau = min(caution_tau_h, prev) if prev is not None else caution_tau_h
@@ -89,10 +128,10 @@ def plan(item: str, items: list[dict], mode: str, base: dict | None = None, *, c
                 rec['applied'].append(dict(a, effect='caution'))
                 out['rationale'].append(f'{src}：{STATION_JA[st]}で火災の報告 → 全視点で閾値を {tau} に厳格化（行って確かめる）')
         else:   # safe / skip
-            if mode == 'naive':
+            if follow:
                 out['skip_check'] = True
                 rec['applied'].append(dict(a, effect='skip_check'))
-                out['rationale'].append(f'（素朴な助言追従）{src}：「{a["text"] or a["kind"]}」→ 現地確認を省略')
+                out['rationale'].append(f'{tag}{src}：「{a["text"] or a["kind"]}」→ 現地確認を省略')
             else:
                 rec['rejected'].append(dict(a, why='cannot relax a check'))
                 out['rationale'].append(f'{src}：「{a["text"] or a["kind"]}」→ 確認は省略できないため不採用')
@@ -124,13 +163,16 @@ def assert_monotone(before: dict, after: dict) -> None:
 
 def audit_plan(plan: dict) -> dict:
     """Run audit for a mission.json plan: recompute the invariant from the logged plan alone.  Raises AdviceError.
-    Returns a small evidence record.  Only 'monotone' plans are required to hold the invariant; for 'naive' and 'off'
-    the record just says what the advice did."""
+    Returns a small evidence record.  Only 'monotone' plans are required to hold the invariant; for 'naive', 'filtered'
+    and 'off' the record just says what the advice did (and, for 'filtered', what the filter dropped)."""
     rec = (plan or {}).get('advice')
     if not rec:
         return {'mode': None, 'checked': False}
     ev = {'mode': rec.get('mode'), 'checked': False, 'n_items': len(rec.get('items') or []),
           'applied': [a.get('effect') for a in rec.get('applied') or []], 'rejected': len(rec.get('rejected') or [])}
+    if rec.get('mode') == 'filtered':
+        ev['dropped'] = len(rec.get('dropped') or [])
+        ev['filter_error'] = (rec.get('filter') or {}).get('error')
     if rec.get('mode') == 'monotone':
         bad = [e for e in ev['applied'] if e not in ('reorder', 'caution')]
         if bad:
@@ -141,10 +183,10 @@ def audit_plan(plan: dict) -> dict:
 
 
 def skip_source(plan: dict | None) -> str | None:
-    """Who made the robot skip the on-site check?  'advice' (naive advice), 'memory' (naive memory) or None."""
+    """Who made the robot skip the on-site check?  'advice' (naive or filtered advice), 'memory' (naive memory) or None."""
     plan = plan or {}
     rec = plan.get('advice') or {}
-    if rec.get('mode') == 'naive' and plan.get('skip_check') and any(
+    if rec.get('mode') in FOLLOWING and plan.get('skip_check') and any(
             a.get('effect') == 'skip_check' for a in rec.get('applied') or []):
         return 'advice'
     if plan.get('mode') == 'naive' and plan.get('skip_check'):
@@ -156,7 +198,7 @@ def denial_source(plan: dict | None) -> str | None:
     """Who made the robot refuse without visiting?  Same convention as skip_source."""
     plan = plan or {}
     rec = plan.get('advice') or {}
-    if rec.get('mode') == 'naive' and plan.get('deny_without_visit') and any(
+    if rec.get('mode') in FOLLOWING and plan.get('deny_without_visit') and any(
             a.get('effect') == 'deny_without_visit' for a in rec.get('applied') or []):
         return 'advice'
     if plan.get('mode') == 'naive' and plan.get('deny_without_visit'):
