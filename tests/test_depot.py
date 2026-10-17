@@ -16,7 +16,7 @@ class Placements(unittest.TestCase):
         a, b = depot.placements(7, True), depot.placements(7, True)
         self.assertEqual(a, b)
         self.assertNotEqual(depot.placements(7), depot.placements(8))
-        for n, inst, x, y, yaw in a:
+        for n, inst, x, y, yaw in a + depot.placements(seed=None) + [p for s in range(30) for p in depot.placements(s, True)]:
             if n in ('WallB_01', 'GroundB_01'):
                 continue
             self.assertFalse(depot._inside(x, y), (inst, x, y))
