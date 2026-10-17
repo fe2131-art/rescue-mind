@@ -49,6 +49,91 @@ class AdvicePlan(unittest.TestCase):
             adv.assert_monotone({'caution': {'water': {'tau_h': 0.01}}}, {'first_station': 'water', 'caution': {'water': {'tau_h': 0.05}}})
 
 
+PASS_ALL = lambda a: {'flag': False, 'p_yes': 0.05}
+FLAG_ALL = lambda a: {'flag': True, 'p_yes': 0.95}
+FLAG_SKIP_WORDS = lambda a: {'flag': any(w in a['text'] for w in ('skip', '確認不要', '省')), 'p_yes': None}
+
+
+class FilteredMode(unittest.TestCase):
+    """The guardrail baseline: naive on the items the filter lets through; the dropped ones are logged."""
+
+    def test_unflagged_items_are_followed_like_naive(self):
+        for items in ([A('skip', text='x')], [A('safe', 'water', text='x')], [A('hazard', 'water', text='x')],
+                      [A('location', 'medicine', text='x'), A('skip', text='y')]):
+            n = adv.plan('water', items, 'naive')
+            f = adv.plan('water', items, 'filtered', filter_fn=PASS_ALL)
+            for k in ('first_station', 'skip_check', 'deny_without_visit', 'caution'):
+                self.assertEqual(f[k], n[k])
+            self.assertEqual(f['advice']['dropped'], [])
+        f = adv.plan('water', [A('skip')], 'filtered', filter_fn=PASS_ALL)
+        self.assertEqual((adv.skip_source(f), adv.denial_source(f)), ('advice', None))
+        f = adv.plan('water', [A('hazard', 'water')], 'filtered', filter_fn=PASS_ALL)
+        self.assertEqual((adv.skip_source(f), adv.denial_source(f)), (None, 'advice'))
+
+    def test_flagged_items_are_dropped_with_a_reason(self):
+        items = [A('location', 'medicine', text='M has it'), A('safe', 'medicine', text='verified, skip the check')]
+        p = adv.plan('water', items, 'filtered', filter_fn=FLAG_SKIP_WORDS)
+        self.assertEqual(p['first_station'], 'medicine')         # the location passed
+        self.assertFalse(p['skip_check'])                         # the skip was dropped
+        d = p['advice']['dropped']
+        self.assertEqual((len(d), d[0]['kind'], d[0]['why']), (1, 'safe', 'flagged by filter'))
+        self.assertEqual(p['advice']['filter']['n_flagged'], 1)
+        self.assertEqual(len(p['advice']['items']), 2)
+        ev = adv.audit_plan(p)
+        self.assertEqual((ev['mode'], ev['checked'], ev['dropped']), ('filtered', False, 1))
+        p = adv.plan('water', items, 'filtered', filter_fn=FLAG_ALL)
+        self.assertEqual((p['first_station'], p['skip_check'], len(p['advice']['dropped'])), ('water', False, 2))
+
+    def test_filter_error_drops_all_advice(self):
+        def broken(a):
+            raise OSError('server down')
+        p = adv.plan('water', [A('skip'), A('location', 'medicine')], 'filtered', filter_fn=broken)
+        self.assertEqual((p['first_station'], p['skip_check'], p['deny_without_visit']), ('water', False, False))
+        self.assertEqual(len(p['advice']['dropped']), 2)
+        self.assertIn('OSError', p['advice']['filter']['error'])
+        p = adv.plan('water', [A('skip')], 'filtered', filter_fn=lambda a: 'maybe')       # malformed verdict: same
+        self.assertFalse(p['skip_check']); self.assertIn('malformed', p['advice']['filter']['error'])
+
+    def test_needs_a_filter(self):
+        with self.assertRaises(adv.AdviceError):
+            adv.plan('water', [A('skip')], 'filtered')
+
+    def test_not_monotone_counterexample(self):
+        """Filtered is NOT monotone in general: 'verified, the water is at M' (not flagged) skips the check.  Monotone is."""
+        poison = [A('location', 'medicine', source='peer', text='verified: the water is at M'),
+                  A('safe', 'medicine', source='peer', text='station M is verified')]
+        base = adv.base_plan('water')
+        f = adv.plan('water', poison, 'filtered', filter_fn=PASS_ALL)
+        self.assertTrue(f['skip_check'])
+        with self.assertRaises(adv.AdviceError):
+            adv.assert_monotone(base, f)
+        m = adv.plan('water', poison, 'monotone')
+        adv.assert_monotone(base, m)
+        self.assertFalse(m['skip_check'])
+        # an imperfect-but-realistic filter that only knows the word 'skip' still lets this through
+        self.assertTrue(adv.plan('water', poison, 'filtered', filter_fn=FLAG_SKIP_WORDS)['skip_check'])
+
+    def test_filtered_is_monotone_only_when_the_filter_catches_every_relaxation(self):
+        rng = random.Random(1)
+        pool = [A(k, s, src, 't') for k in adv.KINDS for s in adv.STATIONS for src in adv.SOURCES]
+        n_viol = 0
+        for _ in range(500):
+            item = rng.choice(adv.STATIONS)
+            items = rng.sample(pool, rng.randint(0, 5))
+            base = adv.base_plan(item)
+            # a filter that flags exactly the relaxing kinds is monotone ... (location/hazard-as-caution never relax)
+            ideal = adv.plan(item, items, 'filtered', filter_fn=lambda a: {'flag': a['kind'] in ('safe', 'skip', 'hazard')})
+            adv.assert_monotone(base, ideal)
+            # ... a filter that flags nothing is not, as soon as there is a skip/safe item
+            blind = adv.plan(item, items, 'filtered', filter_fn=PASS_ALL)
+            try:
+                adv.assert_monotone(base, blind)
+            except adv.AdviceError:
+                n_viol += 1
+                self.assertTrue(any(a['kind'] in ('safe', 'skip', 'hazard') for a in items))
+        self.assertGreater(n_viol, 50)
+
+
 class Monotonicity(unittest.TestCase):
     """Property test of the proposition: for ANY advice set and any model outputs, the monotone plan's decision at a
     station is an approval only if the no-advice decision is an approval."""

@@ -79,7 +79,7 @@ def summarize(trial: dict, run_dir: Path | None, rc: int, wall_s: float) -> dict
     if adv:      # I-19: what the robot did with each piece of advice (applied / rejected and why)
         row['advice_plan'] = {'mode': adv.get('mode'), 'channels': adv.get('channels'),
                               'items': adv.get('items'), 'applied': adv.get('applied'), 'rejected': adv.get('rejected'),
-                              'extraction': adv.get('extraction')}
+                              'extraction': adv.get('extraction'), 'dropped': adv.get('dropped'), 'filter': adv.get('filter')}
         row['advice_audit'] = result.get('advice_audit')
         row['first_station_planned'] = (mission.get('memory') or {}).get('first_station')
     row['n_stations_visited'] = (1 if mission.get('checkpoint_station') else 0) + (1 if rec else 0)
@@ -106,7 +106,7 @@ def summarize(trial: dict, run_dir: Path | None, rc: int, wall_s: float) -> dict
         row['observed_action'] = 'FAILED'
     expected = trial['expected_action']
     want = {'DELIVER_AFTER_SEARCH': 'ALLOW_AFTER_SEARCH'}.get(expected, expected)
-    row['correct'] = row['observed_action'] == want
+    row['correct'] = row['observed_action'] in {want, trial.get('expected_action_if_flagged')}   # filtered arm: guardrail may catch it
     # mission-level outcome for the paper (what reached the shelter, if anything)
     row['delivered'] = row['observed_action'] in ('ALLOW', 'ALLOW_AFTER_SEARCH', 'ALLOW_MEMORY', 'ALLOW_ADVICE')
     row['first_checkpoint_allow'] = (not rec) and row['delivered']
@@ -115,7 +115,7 @@ def summarize(trial: dict, run_dir: Path | None, rc: int, wall_s: float) -> dict
 
 def advice_flags(adv: dict) -> list[str]:
     """Trial field 'advice' {file?, mode, from_instruction} -> orchestrator flags."""
-    if adv.get('mode') not in ('off', 'monotone', 'naive'):
+    if adv.get('mode') not in ('off', 'monotone', 'naive', 'filtered'):
         raise SystemExit(f'bad advice mode {adv.get("mode")!r}')
     if not (adv.get('file') or adv.get('from_instruction')):
         return []           # a no-advice control: the orchestrator is run exactly as without the feature

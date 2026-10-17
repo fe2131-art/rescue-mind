@@ -334,8 +334,9 @@ def main(argv=None):
     p.add_argument('--memory-mode', choices=['off', 'verified', 'naive'], default='off',
                    help='I-15: verified = memory proposes, perception disposes; naive = trust memory (baseline only)')
     p.add_argument('--advice-file', default=None, help='I-19: JSON list of advice items (peer / inventory / memory claims)')
-    p.add_argument('--advice-mode', choices=['off', 'monotone', 'naive'], default='off',
-                   help='I-19: monotone = advice may only reorder and tighten; naive = follow advice (baseline only)')
+    p.add_argument('--advice-mode', choices=['off', 'monotone', 'naive', 'filtered'], default='off',
+                   help='I-19: monotone = advice may only reorder and tighten; naive = follow advice; '
+                        'filtered = follow advice that an LLM injection filter does not flag (baselines only)')
     p.add_argument('--advice-from-instruction', action='store_true',
                    help='I-19: extract operator advice from the instruction text (closed-set, fail-closed)')
     p.add_argument('--jev-local', choices=['off', 'clef'], default='off',

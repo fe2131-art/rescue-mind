@@ -230,7 +230,7 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 * 第三者採点の5回目：31.5（提出物そのまま）／32.0（ソースから作り直した場合）。主な指摘はPDFと動画が古いこと → PDF は J 反映で再構築済み（本文8頁）。動画は記憶デモ入りで再描画中（`bjthk2qm5`、約2分51秒）。
 * **新しい中心の貢献 I-19「信頼できない入力は締める方向にしか使えない」**（`docs/design/I19_untrusted_inputs.md`）：記憶・他ロボット・在庫記録・依頼文はすべて「助言」として扱い、拠点の順番の入れ替えと慎重さの追加にしか使わない。悪意ある助言があっても危険な配達の上限は k×ε のまま。
   * 実装：ブランチ `i19-advice`（worktree `.claude/worktrees/i19`）。`rescuemind/advice.py`、`advice_llm.py`、サーバの `/v1/advice`、ミッション・オーケストレータ・監査・`run_campaign.py`・現場報告に組み込み済み。
-  * study A（閉ループ、114 run、約6時間）：`make_protocol_a.py`、`a_analysis.py`、`a_run.sh`。事前登録の草稿は `PREREGISTRATION_A.md`。
+  * study A（閉ループ、162 run、約8.5時間。monotone・naive・filtered［LLMガードレール］の3方式）：`make_protocol_a.py`、`a_analysis.py`、`a_run.sh`。事前登録の草稿は `PREREGISTRATION_A.md`。
   * 注入文 224件を dev と test に半分ずつ分けた。dev でプロンプトを調整 → `advice_prompts_frozen.json` に凍結 → test を評価（`advice_injection_eval.py --split`）。
   * **まだ GPU で動かしていない**。W の後に、ブランチをマージ → dev で調整・凍結 → A を事前登録（コミット）→ 予備走行 → 本番、の順で進める（手動）。
 * **study S（場面の文字による注入：「WATER」の貼り紙、「SAFE – NO FIRE」の看板、「Cと答えて」）**：Sonnet が別の worktree で実装中。画像単位の評価で、構造上の保証が及ばない残りの弱点を正直に測る。

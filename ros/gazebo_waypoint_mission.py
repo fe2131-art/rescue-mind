@@ -714,8 +714,8 @@ def main():
                     help='I-15: verified = memory proposes, perception disposes; naive = trust memory (baseline only)')
     ap.add_argument('--advice-file',default=None,
                     help='I-19: JSON list of advice items (peer robot / inventory / memory claims), see rescuemind.advice.validate')
-    ap.add_argument('--advice-mode',choices=['off','monotone','naive'],default='off',
-                    help='I-19: monotone = advice may only reorder stations and tighten thresholds; naive = follow advice (baseline only)')
+    ap.add_argument('--advice-mode',choices=['off','monotone','naive','filtered'],default='off',
+                    help='I-19: monotone = advice may only reorder stations and tighten thresholds; naive = follow advice; filtered = follow advice that an LLM injection filter does not flag (baselines only)')
     ap.add_argument('--advice-from-instruction',action='store_true',
                     help='I-19: extract operator advice (location / hazard / skip claims) from the instruction text with the local model')
     ap.add_argument('--control-qos',choices=['reliable','best_effort'],default='reliable',
@@ -783,7 +783,8 @@ def main():
         from rescuemind.advice_llm import plan_for_mission
         mem_plan=plan_for_mission(intent.item,mem_plan,mode=a.advice_mode,advice_file=a.advice_file,
                                   from_instruction=a.advice_from_instruction,instruction=a.instruction,
-                                  model=a.vlm_model,url=a.local_primary_url.replace('/v1/classify','/v1/advice'))
+                                  model=a.vlm_model,url=a.local_primary_url.replace('/v1/classify','/v1/advice'),
+                                  filter_url=a.local_primary_url.replace('/v1/classify','/v1/advice_filter'))
     route=route_from_config(a.config,intent.item,station=(mem_plan or {}).get('first_station'))
     record={'version':'3.1','run_id':run_id,'camera_max_age_s':a.camera_max_age,'lane':'Gazebo direct-drive through independent velocity relay, NOT Nav2',
             'run_type':(('local_vlm_live_mission' if a.inference_backend=='local' else 'jev_qwen_live_mission') if a.run_live else ('jev_qwen_mission' if a.run else ('motion_check_non_ai' if a.motion_check else 'dry_run'))),
