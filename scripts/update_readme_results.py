@@ -400,13 +400,28 @@ def audit_text():
             f'結果のある研究のうち **{ok}件で登録コミットが結果コミットより前**、{pend}件は結果待ち（登録のみ済み）')
 
 
+def x_text():
+    """Depot studies XD (image level) and X (closed loop) -> Japanese text; no summary file -> pending."""
+    have = [n for n in ('xd_summary.json', 'x_summary.json') if (RES / n).is_file()]
+    if not have:
+        return PENDING_NOT_RUN
+    return '結果ファイルあり（' + '・'.join(f'`experiments/results/{n}`' for n in have) + '）。このREADMEの集計は未対応のため、論文と結果ファイルを参照'
+
+
 def section_judge(e):
     """First screen for a busy judge: problem, what is new, three numbers in plain words, what to watch in the video."""
     lines = ['![正面では見えない火を、横へ動いて撮り直して見つけ、許可を取り消して止まる（動画から16秒、等速と3倍速の区間を含む）](docs/figures/hero_lookaround.gif)',
              '',
              '**問題**：災害時の物資配達ロボットは、在庫表と現物の食い違い（水のはずが救急箱だった・空だった）や火災に出会う。指示どおり運ぶだけでは、誤った物資や危険な場所へ届けてしまう。',
              '',
-             '**新しさ**：前回の出動の記憶は「どの拠点を先に見るか」を**提案するだけ**で、届けてよいかは必ず**その場のカメラ**で決める（記憶は提案、判断は目）。物資の陰の小さな火は正面からは見えないので、**横へ動いて撮り直す**（見回し）。',
+             '**新しさ（一本の筋：助言は厳しくすることしかできない）**',
+             '',
+             '1. **届ける前に確かめ、迷ったら止まる**。判断はその場のカメラだけで決める（判断の根拠は、答えの選択肢の確率。自由な文章は使わない）。',
+             '2. **誤りの大半は「物資の陰に隠れた火」**。だから**横へ動いて撮り直す**（見回し）。疑わしいときだけ視点を足す案（I-20）は結果待ち。',
+             '3. **ロボットが自分で見ていないもの（記憶・他のロボット・依頼文の言葉・在庫表）は「助言」**。助言は、拠点を見る順序を変えることと、判断を厳しくすることしかできず、**確認を省くことはできない**。'
+             'だから助言が悪意のあるものでも、危険な配達の確率は「確認そのものの誤許可の上限」の内側に収まる（命題2。実測：記憶は評価H、悪意のある助言は評価A）。',
+             '4. **保証の外**：画像の中に書かれた文字（評価S）と、現実との差（倉庫の世界：評価XD・X）。どちらも測るだけで、保証とは言わない。',
+             '5. **限界**：すべてシミュレーション。2つ目のAIを足す案（評価J）は採用せず、T1の「誤許可2%未満」は成立しなかった。',
              '',
              '**3つの数字**（すべてシミュレーション上。条件は結果を見る前に固定して測定）',
              '']
@@ -434,12 +449,12 @@ def section_judge(e):
         mem_in_video = any('記憶' in c.get('title', '') for c in json.loads((ROOT / 'docs/video_chapters.json').read_text(encoding='utf8')))
     except (OSError, ValueError):
         mem_in_video = False
-    mem_txt = ('記憶のデモ（前回見た拠点へ直行し、着いたら必ず確かめる）も動画に入っている。数値は[結果](#結果)と説明資料で確認できる。' if mem_in_video
+    mem_txt = ('記憶のデモ（前回見た拠点へ直行し、着いたら必ず確かめる）も動画に入っている。「偽の助言を受けても確認は省かない」場面と倉庫の世界の場面は、評価Aと倉庫の予備実験のあとで撮影して加える予定。数値は[結果](#結果)と説明資料で確認できる。' if mem_in_video
                else '記憶の効果（上の3）は動画ではなく、このREADMEの[結果](#結果)と説明資料で確認できる。')
     lines += ['',
               '**動画で見てほしい点**：「隠れた小さな火」のデモ（正面では見えない火を、横へ動いて撮り直して見つけて止まる）と、「取り違え」「欠品」のデモ（違えば別の拠点を探し、無ければ止まって日本語で報告する）。' + mem_txt,
               '',
-              '用語は[結果](#結果)の冒頭に説明がある。版名（v3.4〜v3.6）は本システムの改良段階で、v3.6が提出版。']
+              '用語は[結果](#結果)の冒頭に説明がある。版名（v3.4〜v3.6）は本システムの改良段階で、v3.6が提出版。結果待ちの研究は「結果待ち」と書き、数値は結果ファイルから自動で入る。']
     return '\n'.join(lines)
 
 
@@ -454,15 +469,26 @@ def section_novelty():
         gtxt = f'横から撮り直す能動知覚（評価G）：{PENDING}'
     return f"""## 工夫した点
 
-![記憶は提案、判断はその場の目で（出動をまたぐ記憶の原則）](docs/figures/memory_principle_ja.png)
+一本の筋で読む：確かめる → 誤りの大半（隠れた火）は横から見直す → 見ていないものは「厳しくする」だけ → 保証の外は測るだけ。
 
-* **記憶は「提案」だけ、確認は減らさない**（[I-15](docs/IMPROVEMENT_LOG.md)・[D13](docs/DESIGN_DECISIONS.md)）：前回の物資の場所は「先に行く拠点」を決めるだけで、行った先で必ず確認する。火を見た拠点は閾値を厳しくする。同じ画像なら記憶ありの許可は記憶なしの許可の部分集合になる（コードで強制）。{h_text(True)}
+![信頼できない入力は「締める」だけ：助言は順序と厳しさを変えるだけで、確認は省けない（I-19）](docs/figures/advice_principle_ja.png)
 
-  ![事例：記憶なしは隠れた火に配達（p_h=0.0346）、検証つき記憶は火を見た拠点の閾値を0.01に厳しくして停止（p_h=0.0489）。1件の事例で、統計的な主張ではない](docs/figures/memory_case_ja.png)
+* **1. 届ける前に、その場で確かめる**：VLMに文章を書かせず、答えの選択肢（A/B/C、はい/いいえ）の確率だけを読む。2問で選択肢の順序を入れ替えて合意を取り、火や煙の問いも別に立てる。1つでも失敗すれば拒否（止まる）。速度指令は別プロセスの独立したガードだけが出す。測定は[結果](#結果)の評価E（ランダムな世界）など。
+* **2. 誤りの大半は「物資の陰の小さな火」なので、横から見直す**（[I-14](docs/IMPROVEMENT_LOG.md)）：{gtxt}。表は[結果](#結果)の評価G。疑わしいときだけ視点を足す案（[I-20](docs/IMPROVEMENT_LOG.md)）は評価Wの副次解析で測る：結果待ち（事前登録済み・未実行）
+* **3. 見ていないものは「厳しくする」ことしかできない**（[I-19](docs/IMPROVEMENT_LOG.md)・[D18](docs/DESIGN_DECISIONS.md)、論文の命題2）：記憶・他のロボット・在庫・依頼文の言葉はすべて「助言」で、拠点の順序と閾値の強化にしか使えない。「安全」「確認不要」は何の効果も持たない。どんな（悪意のある）助言でも、危険な配達の確率は、確認自身の誤許可の上限 ε_any（拠点ごとの上限の和 kε 以下）の内側に収まる（相対的な保証。確認の誤りそのものは消えない）。代償は上限つき（1拠点の無駄足と、慎重な閾値による誤拒否）。
+  * 記憶は助言の一例（[I-15](docs/IMPROVEMENT_LOG.md)・[D13](docs/DESIGN_DECISIONS.md)）：前回の物資の場所は「先に行く拠点」を決めるだけで、行った先で必ず確認する。火を見た拠点は閾値を厳しくする。同じ画像なら記憶ありの許可は記憶なしの許可の部分集合になる（コードで強制）。{h_text(True)}
 
-* **横から見直す能動知覚**（[I-14](docs/IMPROVEMENT_LOG.md)）：{gtxt}。表は[結果](#結果)の評価G。
-* **信頼できない入力は「厳しくする」ことしかできない**（[I-19](docs/IMPROVEMENT_LOG.md)・[D18](docs/DESIGN_DECISIONS.md)）：記憶に限らず、他のロボット・在庫・依頼文の助言も、拠点の順序と閾値の強化にしか使えず、「安全」「確認不要」は何の効果も持たない。どんな（悪意のある）助言でも、危険な配達の確率は助言なしと同じ上限 kε。サービス妨害のコストも上限つき（1拠点の無駄足と慎重な閾値の誤拒否）。画像に映る文字は知覚なので保証の外にあり、評価Sで実測する。{a_text()}
-* **2つのAI（Jev役 Clef-Flash＋Qwen）を判断に組み込む**（[I-16](docs/IMPROVEMENT_LOG.md)）：オフラインだけだった2モデル確認を、V100 1台に載る組で閉ループに載せた。2つは系統を共有する（Clef-Flash は Qwen3.5-9B の追加学習版）ので、相関した失敗が残り得る。評価Jは[結果](#結果)の表。{l_text()}
+    ![記憶は提案、判断はその場の目で（出動をまたぐ記憶の原則）](docs/figures/memory_principle_ja.png)
+
+    ![事例：記憶なしは隠れた火に配達（p_h=0.0346）、検証つき記憶は火を見た拠点の閾値を0.01に厳しくして停止（p_h=0.0489）。1件の事例で、統計的な主張ではない](docs/figures/memory_case_ja.png)
+
+  * 悪意のある助言の閉ループ評価（評価A）：{a_text()}
+* **この安全の規則そのものを、どう試したか**（[FINDINGS](docs/FINDINGS.md) #24・#25）：規則の実装の単体テストは、実装と同じ考え方で書くので同じ見落としをする。そこで、規則を仕様から**独立に書き直した参照実装**と突き合わせ、わざと壊した実装（**変異テスト**）とでたらめな入力（ファズ）で確かめた。実際にバグが見つかった：#24 は助言の規則の実装バグ5件（不変条件の確認の見落とし、NaN の扱いなど）、#25 は追加視点の監査が「位置」ではなく「枚数」で数えていた誤り。すべて修正し、回帰テストを追加した。
+* **保証の外：画像に映る文字と、現実との差**：画像に映る文字は知覚なので構造的な保証の外にあり、評価Sで実測する。{s_text()}。現実との差は、散らかった倉庫の世界（4拠点、[I-21](docs/IMPROVEMENT_LOG.md)）で測る（評価XD・X）：{x_text()}。下の図は描画の確認用で、ロボットの結果ではない。
+
+  ![倉庫の世界の描画プレビュー（I-21）。上から 通常・煙・暗い照明と障害物、列は別のカメラ位置。描画の確認であり結果ではない](docs/figures/depot_preview_sheet.jpg)
+
+* **試したが採用しなかったもの**：2つのAI（Jev役 Clef-Flash＋Qwen）の2モデル確認（[I-16](docs/IMPROVEMENT_LOG.md)）。2つは系統を共有する（Clef-Flash は Qwen3.5-9B の追加学習版）ので失敗が相関し得て、評価Jでは単独より安全にならず、既定には採用しなかった（[結果](#結果)）。{l_text()}
 * **事前登録と時系列監査**（[論文](docs/paper/main.pdf)付録）：条件・閾値・解析を結果を見る前にコミットし、{audit_text()}。支持されなかった主張も、そのまま載せる。
 * **実用性：出動ごとに1枚の現場報告を生成**（[I-18](docs/IMPROVEMENT_LOG.md)）：依頼・判断の理由・確認に使った写真と確率・次にしてほしいことを1枚にまとめ、現場の人が結論だけ読めば動ける。生成は `scripts/make_operator_report.py`、全出動での自動生成は評価終了後に組み込む。
 
@@ -546,15 +572,18 @@ def section_k():
 def section_en(e, v):
     """English summary for international readers; every number comes from the result files (same helpers as above)."""
     L = ['## English summary', '',
-         "**Problem and approach.** A delivery robot is told which item is at a disaster-relief supply point, but the inventory can be wrong "
-         "(swapped or empty shelves) or the site can be dangerous. The robot stops at the station and checks the item on site with a local "
-         "vision-language model (Qwen3.5-9B, one V100, no cloud). The check **fails closed**: the VLM never writes free text for the decision; "
-         "we read the next-token log-probabilities of answer letters (closed-set scoring) for two multiple-choice questions with permuted options "
-         "and for a Yes/No hazard question, and approve only if both agree with sufficient confidence and no fire or smoke is seen. A wrong item "
-         "triggers a one-time search of the other station; a hazard stops the robot; an independent velocity guard keeps motion out of the VLM's reach. "
-         "**Active look-around**: before approving, the robot views the station from 0.4 m to either side. **Safety-monotone cross-mission memory**: "
-         "memory may only reorder where the robot looks and add caution, never remove a check. **Untrusted inputs may only tighten (I-19)**: the same typed interface covers every input the robot did not perceive itself (a peer's report, the inventory, hints in the operator's request); advice can reorder visits or add caution, but \"safe\" and \"skip\" advice has no effect, so the unsafe-delivery bound holds for any advice, even adversarial; text written in the scene is perception and is measured separately. An optional **two-model check** adds a second checker (the Jev role of the original plan) "
-         "(Clef-Flash) next to Qwen. All studies are pre-registered (`experiments/PREREGISTRATION_*.md`); every trial is audited against simulator ground truth and a ROS bag.",
+         "**One story: advice may only tighten.** (1) A delivery robot is told which item is at a disaster-relief supply point, but the inventory can be wrong "
+         "(swapped or empty shelves) or the site can be dangerous. So it **checks before delivering and stops when unsure**: a local "
+         "vision-language model (Qwen3.5-9B, one V100, no cloud) never writes free text for the decision; we read the next-token log-probabilities of answer letters "
+         "(closed-set scoring) for two multiple-choice questions with permuted options and for a Yes/No hazard question, and approve only if everything agrees and no fire or smoke is seen. "
+         "A wrong item triggers a one-time search of the other station; a hazard stops the robot; an independent velocity guard keeps motion out of the VLM's reach. "
+         "(2) The check's errors are dominated by **fires hidden behind the supply**, so before approving the robot **looks again from 0.4 m to either side** (study G); extra views only when a score is suspicious (I-20) are pending. "
+         "(3) **Everything the robot did not perceive itself may only reorder or tighten, never remove a check**: memory from earlier missions, a peer's report, the inventory, hints in the operator's request are typed as *advice*; "
+         "'safe' and 'skip' advice has no effect. So for any advice, even adversarial, the risk of an unsafe delivery stays within the check's own error budget eps_any (Proposition 2 of the paper; a relative guarantee). "
+         "Memory (H) is the measured example; adversarial advice (A) is pending. The rule itself was tested against an independent reference implementation, mutation tests and fuzzing, which found real bugs (FINDINGS #24, #25). "
+         "(4) **Outside the guarantee**: text written in the scene (S, pending) and realism (a cluttered four-station depot, I-21: rendering preview only, [`docs/figures/depot_preview_sheet.jpg`](docs/figures/depot_preview_sheet.jpg); XD/X pending) are measured, not claimed. "
+         "(5) **Honest limits** are listed below. All studies are pre-registered (`experiments/PREREGISTRATION_*.md`); every trial is audited against simulator ground truth and a ROS bag.",
+         '', 'Rows are ordered by that chain: [1] check, [2] where the error lives and the threshold, [3] look again, [4] advice, [5] outside the guarantee, [6] tried and not adopted.',
          '', '| Study (pre-registered) | Result |', '|---|---|']
     if e:
         E = e[1]
@@ -647,12 +676,28 @@ def section_en(e, v):
         L.append(f"| L: unseen layouts | expected {pl['expected_behaviour']}; unsafe deliveries {pl['unsafe_deliveries']}; claim {'supported' if pl['claim_supported'] else 'not supported'} |")
     except (TypeError, KeyError):
         pass   # study L not run yet: no row
+    t1p = t1_parts()
+    if t1p:
+        f1 = t1p[2]
+        L.append(f"| T1: 600 held-out images, registered rule v3.4 | false approvals {f1['false_approvals']}/{f1['n_deny']} (Wilson 95% CI {pct(f1['fa_ci95'][0])}-{pct(f1['fa_ci95'][1])}); correct approvals {f1['correct_approvals']}/{f1['n_allow']}; "
+                 f"registered claim of fewer than 2% false approvals {'supported' if f1['fa_ci95'][1] < 0.02 else 'not supported'}; the false approvals all came from partly hidden fires behind the correct supply |")
+    xj = x_text()
+    L.append('| X, XD: cluttered four-station depot (I-21) | ' + ('pre-registered, not yet run (a rendering preview exists, not a result)' if xj == PENDING_NOT_RUN else 'result files exist; see the paper') + ' |')
+    stage = {'E': 1, 'L': 1, 'Z': 1, 'T1': 2, 'K': 2, 'G': 3, 'W': 3, 'H': 4, 'V': 4, 'A': 4, 'S': 5, 'P': 5, 'R': 5, 'X, XD': 5, 'J': 6}
+    i0 = L.index('|---|---|') + 1
+    rows = L[i0:]
+    key = lambda r_: r_[2:].split(':')[0]
+    rows = sorted(rows, key=lambda r_: (stage.get(key(r_), 9)))
+    rows = [f"| [{stage[key(r_)]}] " + r_[2:] if key(r_) in stage else r_ for r_ in rows]
+    L = L[:i0] + rows
     if not (h_ok and j_ok):
         L += ['', 'Campaigns ' + ('J' if h_ok else 'H and J' if not j_ok else 'H') + ': pre-registered, running.']
     L += ['', '**Limitations.** Simulation only (no physical robot; grasping and hand-over are not simulated). '
           + (f'On real photos the hazard question raises false alarms on {fa_txt} fire-free images, so a per-site calibration is needed '
              '(false alarms only stop the robot; they never cause a delivery). ' if fa_txt else '')
-          + 'The two models of the two-model check share a lineage (Clef-Flash is a fine-tune of Qwen3.5-9B), so their failures can be correlated.',
+          + 'The guarantee is relative (it caps what advice can add to the check\'s own error eps_any; it does not remove that error, and a really burning station can still be approached), and it ends at the camera: scene text and the sim-to-real gap are measured, not claimed. '
+          'The two-model check (J) was not adopted: it was not safer than one model, and its models share a lineage (Clef-Flash is a fine-tune of Qwen3.5-9B), so their failures can be correlated. '
+          'The registered T1 claim of fewer than 2% false approvals was not supported. 8-16 pairs per closed-loop study is small, and campaign H scripts its world changes.',
           '', '**Read more.** Paper: [`docs/paper/main.pdf`](docs/paper/main.pdf) / supplement: [`docs/paper/supplement.pdf`](docs/paper/supplement.pdf) / '
           '[`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md) / pre-registrations: [`experiments/PREREGISTRATION_*.md`](experiments/) '
           '(e.g. [E](experiments/PREREGISTRATION_E.md), [G](experiments/PREREGISTRATION_G.md), [H](experiments/PREREGISTRATION_H.md), [J](experiments/PREREGISTRATION_J.md)).']
@@ -677,46 +722,62 @@ def sync_counts(txt, path):
 
 def main():
     e, d, t, v = section_e(), section_d(), t1_parts(), section_v36()
-    head = ['| 評価（事前登録） | 内容 | 結果 |', '|---|---|---|']
+    R = {}                                   # table rows by study; the table is ordered by the argument chain below
     if v:
         G = v[1]
-        head.append(f"| **評価G（v3.6）** | 新しい世界での対比較の閉ループ。許可の直前に横から撮り直す | 3視点（正面・左右0.4 m）のどれかで火が見えた{G['nf']}世界で、火があるのに配達した回数 **{G['gb']}/{G['nf']} → {G['gcw']}/{G['nf']}**（McNemar正確検定 p={G['p']:.3f}）、火の無い世界の誤った停止 **{G['fs']}/{G['nfree']}** |")
-        head.append(f"| 評価F（問い方＋切り出し） | 同じ形式の対比較 | 火があるのに配達した回数 {G['fa']}/{G['nfv']} → {G['fb']}/{G['nfv']}（p={G['fp']}、有意でない） |")
+        R['G'] = f"| **評価G（v3.6）** | 新しい世界での対比較の閉ループ。許可の直前に横から撮り直す | 3視点（正面・左右0.4 m）のどれかで火が見えた{G['nf']}世界で、火があるのに配達した回数 **{G['gb']}/{G['nf']} → {G['gcw']}/{G['nf']}**（McNemar正確検定 p={G['p']:.3f}）、火の無い世界の誤った停止 **{G['fs']}/{G['nfree']}** |"
+        R['F'] = f"| 評価F（問い方＋切り出し） | 同じ形式の対比較。見回しの前に、問い方だけで直せるかを試した | 火があるのに配達した回数 {G['fa']}/{G['nfv']} → {G['fb']}/{G['nfv']}（p={G['fp']}、有意でない） |"
     if e:
         E = e[1]
-        head.append(f"| **評価E（主結果）** v3.5 | 試行ごとにランダムな世界での閉ループ {E['n']}試行 | 期待どおり **{E['ok']}/{E['n']}**、誤配達 **{E['wrong']}/{E['n']}**（{ci_txt(E['wrong'], E['n'])}） |")
+        R['E'] = f"| **評価E（主結果）** v3.5 | 試行ごとにランダムな世界での閉ループ {E['n']}試行 | 期待どおり **{E['ok']}/{E['n']}**、誤配達 **{E['wrong']}/{E['n']}**（{ci_txt(E['wrong'], E['n'])}） |"
     if d:
         D = d[1]
-        head.append(f"| 評価D v3.4 | 固定配置の閉ループ {D['n']}試行 | 期待どおり **{D['ok']}/{D['n']}**、誤許可 **{D['fa']}件** |")
+        R['D'] = f"| 評価D v3.4 | 固定配置の閉ループ {D['n']}試行 | 期待どおり **{D['ok']}/{D['n']}**、誤許可 **{D['fa']}件** |"
     zrows, znotes = section_zpr()
+    for r_ in zrows:
+        R[r_.split('（')[0].split(' ')[1][-1]] = r_      # '| 評価Z（...' -> 'Z'
     t1_block = ''
     if t:
-        s, m, full, v35, n_img, fa_txt, ca_txt, claim, dev = t
-        head.append(f"| 未使用テスト T1（オフライン） | 開発に一度も使わない{n_img}枚（照明・位置・未知の妨害物・火災）、登録した規則（v3.4） | 誤許可 {fa_txt(full)}、正しい許可 {ca_txt(full)} |")
-        head.append(f"| 〃 v3.5（τ_h=0.05、副の事前指定） | 同じ画像・同じ保存済み確率から再計算 | 誤許可 {fa_txt(v35)}、正しい許可 {ca_txt(v35)} |")
-        t1_block = f"* T1：{claim}主な原因は下の「残る弱点」"
-    head += zrows
+        s_, m, full, v35, n_img, fa_txt, ca_txt, claim, dev = t
+        R['T1'] = f"| 未使用テスト T1（オフライン） | 開発に一度も使わない{n_img}枚（照明・位置・未知の妨害物・火災）、登録した規則（v3.4） | 誤許可 {fa_txt(full)}、正しい許可 {ca_txt(full)} |"
+        R['T1b'] = f"| 〃 v3.5（τ_h=0.05、副の事前指定） | 同じ画像・同じ保存済み確率から再計算 | 誤許可 {fa_txt(v35)}、正しい許可 {ca_txt(v35)} |"
+        t1_block = f"* T1：{claim}主な原因は下の「残る弱点」（物資の陰に隠れた火）"
     k_ja, k_en = section_k()
     if k_ja:
-        head.append(k_ja)
-    head.append(f"| 評価H（出動をまたぐ記憶） | 前回の物資の場所を「先に行く拠点」の提案だけに使う。記憶なし・素朴な記憶・検証つき記憶を対比較 | {h_text()} |")
-    head.append(f"| 評価J（2つのAI） | Jev役 Clef-Flash＋Qwen の2モデル確認を閉ループで、v3.6単独と対比較 | {j_text()} |")
-    head.append(f"| 評価V（ランダムな変化での予測検証） | 出動ごとに世界がランダムに変わる10系列×6出動で、事前登録した予測区間と実測を比較 | {v_text()} |")
-    head.append(f"| 評価A（信頼できない助言、閉ループ） | 他ロボット・在庫・依頼文の助言は順序変更と閾値の強化にしか使えない（I-19）。偽の「火は消えた」「別の拠点にある」を、助言に従う方式と対比較（114試行） | {a_text()} |")
-    head.append(f"| 評価S（画像内の文字による注入、画像レベル） | 標識・ラベル・「Cと答えよ」を置いた52世界を、標識なし・攻撃・無害の3通りで描画し、本方式・1回判定・自由記述・全体画像で比較 | {s_text()} |")
-    head.append(f"| 評価W（小さく隠れた火の見逃しと先行手法） | 画像レベル：正面のみ対見回し（150火世界＋75双子）、VAP-TAMP風の投票・KnowNo風の共形集合との誤許可の比較 | {w_text()} |")
+        R['K'] = k_ja
+    R['H'] = f"| 評価H（出動をまたぐ記憶） | 前回の物資の場所を「先に行く拠点」の提案だけに使う（助言の一例）。記憶なし・素朴な記憶・検証つき記憶を対比較 | {h_text()} |"
+    R['J'] = f"| 評価J（2つのAI）：**採用せず** | Jev役 Clef-Flash＋Qwen の2モデル確認を閉ループで、v3.6単独と対比較 | {j_text()} |"
+    R['V'] = f"| 評価V（ランダムな変化での予測検証） | 出動ごとに世界がランダムに変わる10系列×6出動で、事前登録した予測区間と実測を比較 | {v_text()} |"
+    R['A'] = f"| 評価A（信頼できない助言、閉ループ） | 他ロボット・依頼文の助言は順序変更と閾値の強化にしか使えない（I-19）。偽の「火は消えた」「別の拠点にある」を、助言に従う方式と対比較（114試行）。ε_any の操縦（真の助言で隠れた火の拠点へ誘導）は別セルで測る | {a_text()} |"
+    R['S'] = f"| 評価S（画像内の文字による注入、画像レベル） | 標識・ラベル・「Cと答えよ」を置いた52世界を、標識なし・攻撃・無害の3通りで描画し、本方式・1回判定・自由記述・全体画像で比較 | {s_text()} |"
+    R['W'] = f"| 評価W（小さく隠れた火の見逃しと先行手法、I-20の副次解析を含む） | 画像レベル：正面のみ対見回し（150火世界＋75双子）、VAP-TAMP風の投票・KnowNo風の共形集合との誤許可の比較 | {w_text()} |"
+    R['X'] = f"| 評価XD・X（倉庫の世界、4拠点） | XD：倉庫の保留画像で ε と閾値の再較正（画像レベル）。X：記憶なし対検証つき記憶を80試行の閉ループで。描画の確認は I-21（`docs/figures/depot_preview_sheet.jpg`） | {x_text()} |"
+    head = ['| 評価（事前登録） | 内容 | 結果 |', '|---|---|---|']
+    stages = [
+        ('1. 届ける前に確かめる（確認は閉集合の確率、迷えば止まる）', ['E', 'D', 'Z']),
+        ('2. 誤りはどこにあるか（隠れた火が大半）・閾値', ['T1', 'T1b', 'K']),
+        ('3. 横から見直す（誤りを小さくする）', ['F', 'G', 'W']),
+        ('4. 見ていないものは「厳しくする」だけ（記憶・他のロボット・依頼文・在庫表）', ['H', 'V', 'A']),
+        ('5. 保証の外：画像内の文字と現実との差（測るだけで、保証とは言わない）', ['S', 'P', 'R', 'X']),
+        ('6. 試したが採用しなかったもの', ['J']),
+    ]
+    tables = []
+    for title, keys in stages:
+        rows = [R[k] for k in keys if k in R]
+        if rows:
+            tables += [f'#### {title}', '', '\n'.join(head + rows), '']
     parts = ['<!-- RESULTS:START -->', '## 結果', '',
-             '事前登録した評価の一覧（D・E・F・G・T1・T2・Z・P・R・K・H・J）。Qwen3.5-9B（ローカル・V100）。条件・閾値・解析は結果を見る前に `experiments/PREREGISTRATION_*.md` に固定し、台帳は全試行を記録。', '',
-             '用語：**誤許可**＝届けてはいけない場面で「届けてよい」と判断してしまうこと（ロボットを実際に動かす評価では**誤配達**。火のある拠点から届けてしまうことは**危険な配達**）。**正しい許可**＝届けてよい場面で正しく「よい」と判断できること。**閉ループ**＝AIの判断でロボットが実際に動くところまで含めた評価。', '',
-             '\n'.join(head), '']
+             '事前登録した評価の一覧（D・E・F・G・T1・T2・Z・P・R・K・H・J、結果待ちのA・S・V・W・XD・X）を、論文と同じ**一本の筋**の順に並べる：①確かめる ②誤りの大半は隠れた火 ③横から見直す ④見ていないものは締めるだけ ⑤保証の外 ⑥採用しなかったもの。Qwen3.5-9B（ローカル・V100）。条件・閾値・解析は結果を見る前に `experiments/PREREGISTRATION_*.md` に固定し、台帳は全試行を記録。結果待ちの研究は、結果ファイルができると数値が自動で入る。', '',
+             '用語：**誤許可**＝届けてはいけない場面で「届けてよい」と判断してしまうこと（ロボットを実際に動かす評価では**誤配達**。火のある拠点から届けてしまうことは**危険な配達**）。**正しい許可**＝届けてよい場面で正しく「よい」と判断できること。**閉ループ**＝AIの判断でロボットが実際に動くところまで含めた評価。**ε**＝確認そのものが、届けてはいけない拠点を許可してしまう確率（助言の危険は、この内側に収まる）。', '',
+             '\n'.join(tables)]
     if t1_block:
         parts += [t1_block] + znotes + ['']
     if v:
-        parts += [v[0], '']
+        parts += [v[0].replace('### 火の見逃し対策：横から見直す', '### 詳細：火の見逃し対策（段3）：横から見直す', 1), '']
     if e:
-        parts += [e[0], '']
+        parts += [e[0].replace('### 評価E：主結果', '### 詳細：評価E：主結果', 1), '']
     if t:
-        fl = findings(s, m, dev)
+        fl = findings(s_, m, dev)
         if fl:
             parts += ['### 分かったこと', '', '\n'.join(fl), '']
     if d:

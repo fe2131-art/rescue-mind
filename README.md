@@ -1,4 +1,4 @@
-# RescueMind — 現地で「目で確かめてから」届ける災害物資ロボット
+# RescueMind — 助言は「厳しくする」ことしかできない：目で確かめてから届ける災害物資ロボット
 
 Physical AI 応用1講座 最終課題 ｜ ROS 2 Jazzy × Gazebo Harmonic × ローカルVLM（Qwen3.5-9B, Tesla V100）
 
@@ -7,7 +7,13 @@ Physical AI 応用1講座 最終課題 ｜ ROS 2 Jazzy × Gazebo Harmonic × ロ
 
 **問題**：災害時の物資配達ロボットは、在庫表と現物の食い違い（水のはずが救急箱だった・空だった）や火災に出会う。指示どおり運ぶだけでは、誤った物資や危険な場所へ届けてしまう。
 
-**新しさ**：前回の出動の記憶は「どの拠点を先に見るか」を**提案するだけ**で、届けてよいかは必ず**その場のカメラ**で決める（記憶は提案、判断は目）。物資の陰の小さな火は正面からは見えないので、**横へ動いて撮り直す**（見回し）。
+**新しさ（一本の筋：助言は厳しくすることしかできない）**
+
+1. **届ける前に確かめ、迷ったら止まる**。判断はその場のカメラだけで決める（判断の根拠は、答えの選択肢の確率。自由な文章は使わない）。
+2. **誤りの大半は「物資の陰に隠れた火」**。だから**横へ動いて撮り直す**（見回し）。疑わしいときだけ視点を足す案（I-20）は結果待ち。
+3. **ロボットが自分で見ていないもの（記憶・他のロボット・依頼文の言葉・在庫表）は「助言」**。助言は、拠点を見る順序を変えることと、判断を厳しくすることしかできず、**確認を省くことはできない**。だから助言が悪意のあるものでも、危険な配達の確率は「確認そのものの誤許可の上限」の内側に収まる（命題2。実測：記憶は評価H、悪意のある助言は評価A）。
+4. **保証の外**：画像の中に書かれた文字（評価S）と、現実との差（倉庫の世界：評価XD・X）。どちらも測るだけで、保証とは言わない。
+5. **限界**：すべてシミュレーション。2つ目のAIを足す案（評価J）は採用せず、T1の「誤許可2%未満」は成立しなかった。
 
 **3つの数字**（すべてシミュレーション上。条件は結果を見る前に固定して測定）
 
@@ -15,9 +21,9 @@ Physical AI 応用1講座 最終課題 ｜ ROS 2 Jazzy × Gazebo Harmonic × ロ
 2. **11回 → 1回**：3視点（正面・左右0.4 m）のどれかで火が見えた16世界で、正面だけで判断すると火のある拠点へ配達した回数 → 横から撮り直した後の回数（火の無い世界での誤った停止 0/8。偶然とは考えにくい：p=0.002）。これらの火は設計上正面から見えにくい世界なので、測っているのは「横から見る効果」
 3. **114秒 → 79秒**：物資が移されたままの8出動（少数）の所要時間（中央値）。記憶なし → 確認を省かない記憶つき。危険な配達は記憶なし 1/32・記憶つき 0/32（記憶つきの方が危険、とはならなかった）。物資が元に戻った出動では遠回りで遅くなる
 
-**動画で見てほしい点**：「隠れた小さな火」のデモ（正面では見えない火を、横へ動いて撮り直して見つけて止まる）と、「取り違え」「欠品」のデモ（違えば別の拠点を探し、無ければ止まって日本語で報告する）。記憶のデモ（前回見た拠点へ直行し、着いたら必ず確かめる）も動画に入っている。数値は[結果](#結果)と説明資料で確認できる。
+**動画で見てほしい点**：「隠れた小さな火」のデモ（正面では見えない火を、横へ動いて撮り直して見つけて止まる）と、「取り違え」「欠品」のデモ（違えば別の拠点を探し、無ければ止まって日本語で報告する）。記憶のデモ（前回見た拠点へ直行し、着いたら必ず確かめる）も動画に入っている。「偽の助言を受けても確認は省かない」場面と倉庫の世界の場面は、評価Aと倉庫の予備実験のあとで撮影して加える予定。数値は[結果](#結果)と説明資料で確認できる。
 
-用語は[結果](#結果)の冒頭に説明がある。版名（v3.4〜v3.6）は本システムの改良段階で、v3.6が提出版。
+用語は[結果](#結果)の冒頭に説明がある。版名（v3.4〜v3.6）は本システムの改良段階で、v3.6が提出版。結果待ちの研究は「結果待ち」と書き、数値は結果ファイルから自動で入る。
 <!-- JUDGE:END -->
 
 * 動画：YouTube（提出時にURLを記載）
@@ -33,13 +39,14 @@ Physical AI 応用1講座 最終課題 ｜ ROS 2 Jazzy × Gazebo Harmonic × ロ
 ![RescueMind 要約図（問題・3つの工夫・事前登録した主な結果）](docs/figures/graphical_abstract_ja.png)
 <!-- GA:END -->
 
-**目次**：[概要](#概要) ｜ [工夫した点](#工夫した点) ｜ [English summary](#english-summary) ｜ [結果](#結果) ｜ [その他の技術的な工夫](#その他の技術的な工夫) ｜ [動かし方](#動かし方) ｜ [リポジトリ構成](#リポジトリ構成) ｜ [限界](#限界) ｜ [ライセンス](#ライセンス)
+**目次**：[概要](#概要) ｜ [工夫した点（一本の筋）](#工夫した点) ｜ [English summary](#english-summary) ｜ [結果（筋の順）](#結果) ｜ [その他の技術的な工夫](#その他の技術的な工夫) ｜ [動かし方](#動かし方) ｜ [リポジトリ構成](#リポジトリ構成) ｜ [限界](#限界) ｜ [ライセンス](#ライセンス)
 
 ## 概要
 
 「避難所Bで喉が渇いた人が多い」のような自然な依頼をローカルLLMが解釈し、ロボットが物資拠点へ自律移動する。**その場で静止して搭載カメラで現物を確認**し、
 ローカルVLMが依頼物資を高い確信で確認したときだけ避難所Bへ向かう。物資が違えば**もう一方の拠点を探して**正しい物資を届け、
-火災を見たら**探索せずに停止**して、見たものを日本語で報告する。AIの判断とロボットの実際の動きは、Gazebo の物理真値・ROS bag・判断ログで記録する。
+火災を見たら**探索せずに停止**して、見たものを日本語で報告する。判断の誤りの大半は「物資の陰に隠れた火」なので、許可の直前に**横から撮り直す**。
+記憶・他のロボット・依頼文の言葉・在庫表のような「ロボットが自分で見ていないもの」は**助言**として扱い、助言は拠点を見る順序と判断の厳しさしか変えられない（確認は省けない）。AIの判断とロボットの実際の動きは、Gazebo の物理真値・ROS bag・判断ログで記録する。
 （「届ける」は、現物確認して避難所Bへ接近するところまで。把持・荷降ろしはシミュレーションしていない。）
 
 ![Gazebo上のRescueMind（俯瞰カメラ＋ロボット搭載カメラ、実レンダリング）](docs/figures/hero_gazebo.png)
@@ -51,15 +58,26 @@ Physical AI 応用1講座 最終課題 ｜ ROS 2 Jazzy × Gazebo Harmonic × ロ
 <!-- NOVELTY:START -->
 ## 工夫した点
 
-![記憶は提案、判断はその場の目で（出動をまたぐ記憶の原則）](docs/figures/memory_principle_ja.png)
+一本の筋で読む：確かめる → 誤りの大半（隠れた火）は横から見直す → 見ていないものは「厳しくする」だけ → 保証の外は測るだけ。
 
-* **記憶は「提案」だけ、確認は減らさない**（[I-15](docs/IMPROVEMENT_LOG.md)・[D13](docs/DESIGN_DECISIONS.md)）：前回の物資の場所は「先に行く拠点」を決めるだけで、行った先で必ず確認する。火を見た拠点は閾値を厳しくする。同じ画像なら記憶ありの許可は記憶なしの許可の部分集合になる（コードで強制）。評価H：置き場所が変わったままの出動（8対）の所要時間の中央値 114 秒 → 79 秒（Wilcoxon正確検定 p=0.00781）、危険な配達は記憶なし 1/32 対 検証つき記憶 0/32。詳しくは[結果](#結果)の評価H
+![信頼できない入力は「締める」だけ：助言は順序と厳しさを変えるだけで、確認は省けない（I-19）](docs/figures/advice_principle_ja.png)
 
-  ![事例：記憶なしは隠れた火に配達（p_h=0.0346）、検証つき記憶は火を見た拠点の閾値を0.01に厳しくして停止（p_h=0.0489）。1件の事例で、統計的な主張ではない](docs/figures/memory_case_ja.png)
+* **1. 届ける前に、その場で確かめる**：VLMに文章を書かせず、答えの選択肢（A/B/C、はい/いいえ）の確率だけを読む。2問で選択肢の順序を入れ替えて合意を取り、火や煙の問いも別に立てる。1つでも失敗すれば拒否（止まる）。速度指令は別プロセスの独立したガードだけが出す。測定は[結果](#結果)の評価E（ランダムな世界）など。
+* **2. 誤りの大半は「物資の陰の小さな火」なので、横から見直す**（[I-14](docs/IMPROVEMENT_LOG.md)）：正面で判断し切れない小さな火に、モデルを大きくせず**横へ動いて撮り直す**。事前登録の対比較で、火があるのに配達した回数 **11/16 → 1/16**（p=0.002）、火の無い世界の誤った停止 0/8。表は[結果](#結果)の評価G。疑わしいときだけ視点を足す案（[I-20](docs/IMPROVEMENT_LOG.md)）は評価Wの副次解析で測る：結果待ち（事前登録済み・未実行）
+* **3. 見ていないものは「厳しくする」ことしかできない**（[I-19](docs/IMPROVEMENT_LOG.md)・[D18](docs/DESIGN_DECISIONS.md)、論文の命題2）：記憶・他のロボット・在庫・依頼文の言葉はすべて「助言」で、拠点の順序と閾値の強化にしか使えない。「安全」「確認不要」は何の効果も持たない。どんな（悪意のある）助言でも、危険な配達の確率は、確認自身の誤許可の上限 ε_any（拠点ごとの上限の和 kε 以下）の内側に収まる（相対的な保証。確認の誤りそのものは消えない）。代償は上限つき（1拠点の無駄足と、慎重な閾値による誤拒否）。
+  * 記憶は助言の一例（[I-15](docs/IMPROVEMENT_LOG.md)・[D13](docs/DESIGN_DECISIONS.md)）：前回の物資の場所は「先に行く拠点」を決めるだけで、行った先で必ず確認する。火を見た拠点は閾値を厳しくする。同じ画像なら記憶ありの許可は記憶なしの許可の部分集合になる（コードで強制）。評価H：置き場所が変わったままの出動（8対）の所要時間の中央値 114 秒 → 79 秒（Wilcoxon正確検定 p=0.00781）、危険な配達は記憶なし 1/32 対 検証つき記憶 0/32。詳しくは[結果](#結果)の評価H
 
-* **横から見直す能動知覚**（[I-14](docs/IMPROVEMENT_LOG.md)）：正面で判断し切れない小さな火に、モデルを大きくせず**横へ動いて撮り直す**。事前登録の対比較で、火があるのに配達した回数 **11/16 → 1/16**（p=0.002）、火の無い世界の誤った停止 0/8。表は[結果](#結果)の評価G。
-* **信頼できない入力は「厳しくする」ことしかできない**（[I-19](docs/IMPROVEMENT_LOG.md)・[D18](docs/DESIGN_DECISIONS.md)）：記憶に限らず、他のロボット・在庫・依頼文の助言も、拠点の順序と閾値の強化にしか使えず、「安全」「確認不要」は何の効果も持たない。どんな（悪意のある）助言でも、危険な配達の確率は助言なしと同じ上限 kε。サービス妨害のコストも上限つき（1拠点の無駄足と慎重な閾値の誤拒否）。画像に映る文字は知覚なので保証の外にあり、評価Sで実測する。結果待ち（事前登録済み・未実行）
-* **2つのAI（Jev役 Clef-Flash＋Qwen）を判断に組み込む**（[I-16](docs/IMPROVEMENT_LOG.md)）：オフラインだけだった2モデル確認を、V100 1台に載る組で閉ループに載せた。2つは系統を共有する（Clef-Flash は Qwen3.5-9B の追加学習版）ので、相関した失敗が残り得る。評価Jは[結果](#結果)の表。評価L（未知の配置24通り）：実行中（事前登録済み）
+    ![記憶は提案、判断はその場の目で（出動をまたぐ記憶の原則）](docs/figures/memory_principle_ja.png)
+
+    ![事例：記憶なしは隠れた火に配達（p_h=0.0346）、検証つき記憶は火を見た拠点の閾値を0.01に厳しくして停止（p_h=0.0489）。1件の事例で、統計的な主張ではない](docs/figures/memory_case_ja.png)
+
+  * 悪意のある助言の閉ループ評価（評価A）：結果待ち（事前登録済み・未実行）
+* **この安全の規則そのものを、どう試したか**（[FINDINGS](docs/FINDINGS.md) #24・#25）：規則の実装の単体テストは、実装と同じ考え方で書くので同じ見落としをする。そこで、規則を仕様から**独立に書き直した参照実装**と突き合わせ、わざと壊した実装（**変異テスト**）とでたらめな入力（ファズ）で確かめた。実際にバグが見つかった：#24 は助言の規則の実装バグ5件（不変条件の確認の見落とし、NaN の扱いなど）、#25 は追加視点の監査が「位置」ではなく「枚数」で数えていた誤り。すべて修正し、回帰テストを追加した。
+* **保証の外：画像に映る文字と、現実との差**：画像に映る文字は知覚なので構造的な保証の外にあり、評価Sで実測する。結果待ち（事前登録済み・未実行）。現実との差は、散らかった倉庫の世界（4拠点、[I-21](docs/IMPROVEMENT_LOG.md)）で測る（評価XD・X）：結果待ち（事前登録済み・未実行）。下の図は描画の確認用で、ロボットの結果ではない。
+
+  ![倉庫の世界の描画プレビュー（I-21）。上から 通常・煙・暗い照明と障害物、列は別のカメラ位置。描画の確認であり結果ではない](docs/figures/depot_preview_sheet.jpg)
+
+* **試したが採用しなかったもの**：2つのAI（Jev役 Clef-Flash＋Qwen）の2モデル確認（[I-16](docs/IMPROVEMENT_LOG.md)）。2つは系統を共有する（Clef-Flash は Qwen3.5-9B の追加学習版）ので失敗が相関し得て、評価Jでは単独より安全にならず、既定には採用しなかった（[結果](#結果)）。評価L（未知の配置24通り）：実行中（事前登録済み）
 * **事前登録と時系列監査**（[論文](docs/paper/main.pdf)付録）：条件・閾値・解析を結果を見る前にコミットし、全19研究の登録時刻と最初の結果の時刻を、git の履歴から機械的に監査（`git merge-base --is-ancestor`）。結果のある研究のうち **12件で登録コミットが結果コミットより前**、6件は結果待ち（登録のみ済み）。支持されなかった主張も、そのまま載せる。
 * **実用性：出動ごとに1枚の現場報告を生成**（[I-18](docs/IMPROVEMENT_LOG.md)）：依頼・判断の理由・確認に使った写真と確率・次にしてほしいことを1枚にまとめ、現場の人が結論だけ読めば動ける。生成は `scripts/make_operator_report.py`、全出動での自動生成は評価終了後に組み込む。
 
@@ -69,24 +87,28 @@ Physical AI 応用1講座 最終課題 ｜ ROS 2 Jazzy × Gazebo Harmonic × ロ
 <!-- EN:START -->
 ## English summary
 
-**Problem and approach.** A delivery robot is told which item is at a disaster-relief supply point, but the inventory can be wrong (swapped or empty shelves) or the site can be dangerous. The robot stops at the station and checks the item on site with a local vision-language model (Qwen3.5-9B, one V100, no cloud). The check **fails closed**: the VLM never writes free text for the decision; we read the next-token log-probabilities of answer letters (closed-set scoring) for two multiple-choice questions with permuted options and for a Yes/No hazard question, and approve only if both agree with sufficient confidence and no fire or smoke is seen. A wrong item triggers a one-time search of the other station; a hazard stops the robot; an independent velocity guard keeps motion out of the VLM's reach. **Active look-around**: before approving, the robot views the station from 0.4 m to either side. **Safety-monotone cross-mission memory**: memory may only reorder where the robot looks and add caution, never remove a check. **Untrusted inputs may only tighten (I-19)**: the same typed interface covers every input the robot did not perceive itself (a peer's report, the inventory, hints in the operator's request); advice can reorder visits or add caution, but "safe" and "skip" advice has no effect, so the unsafe-delivery bound holds for any advice, even adversarial; text written in the scene is perception and is measured separately. An optional **two-model check** adds a second checker (the Jev role of the original plan) (Clef-Flash) next to Qwen. All studies are pre-registered (`experiments/PREREGISTRATION_*.md`); every trial is audited against simulator ground truth and a ROS bag.
+**One story: advice may only tighten.** (1) A delivery robot is told which item is at a disaster-relief supply point, but the inventory can be wrong (swapped or empty shelves) or the site can be dangerous. So it **checks before delivering and stops when unsure**: a local vision-language model (Qwen3.5-9B, one V100, no cloud) never writes free text for the decision; we read the next-token log-probabilities of answer letters (closed-set scoring) for two multiple-choice questions with permuted options and for a Yes/No hazard question, and approve only if everything agrees and no fire or smoke is seen. A wrong item triggers a one-time search of the other station; a hazard stops the robot; an independent velocity guard keeps motion out of the VLM's reach. (2) The check's errors are dominated by **fires hidden behind the supply**, so before approving the robot **looks again from 0.4 m to either side** (study G); extra views only when a score is suspicious (I-20) are pending. (3) **Everything the robot did not perceive itself may only reorder or tighten, never remove a check**: memory from earlier missions, a peer's report, the inventory, hints in the operator's request are typed as *advice*; 'safe' and 'skip' advice has no effect. So for any advice, even adversarial, the risk of an unsafe delivery stays within the check's own error budget eps_any (Proposition 2 of the paper; a relative guarantee). Memory (H) is the measured example; adversarial advice (A) is pending. The rule itself was tested against an independent reference implementation, mutation tests and fuzzing, which found real bugs (FINDINGS #24, #25). (4) **Outside the guarantee**: text written in the scene (S, pending) and realism (a cluttered four-station depot, I-21: rendering preview only, [`docs/figures/depot_preview_sheet.jpg`](docs/figures/depot_preview_sheet.jpg); XD/X pending) are measured, not claimed. (5) **Honest limits** are listed below. All studies are pre-registered (`experiments/PREREGISTRATION_*.md`); every trial is audited against simulator ground truth and a ROS bag.
+
+Rows are ordered by that chain: [1] check, [2] where the error lives and the threshold, [3] look again, [4] advice, [5] outside the guarantee, [6] tried and not adopted.
 
 | Study (pre-registered) | Result |
 |---|---|
-| E: closed loop, 60 randomised Gazebo worlds | expected behaviour 60/60, wrong deliveries 0/60 (Wilson 95% CI 0.0%-6.0%) |
-| G: paired, look-around vs. front view only | deliveries despite a perceivable fire 11/16 -> 1/16 (exact McNemar p=0.002); false stops in fire-free worlds 0/8 |
-| A: adversarial advice (114 closed-loop runs) | pre-registered, not yet run |
-| S: scene-text injection (image level) | pre-registered, not yet run |
-| R: 12 camera degradations | false approvals 0/2304 (at most 0/192 per condition, Wilson upper bound 2.0% per condition); claim supported |
-| Z: zero-shot baselines on T1 (false approvals / correct approvals; ours = v3.5 rule) | ours 3/408, 187/191; SigLIP 44/408, 191/191; CLIP 0/408, 2/191 |
-| P: real photos (D-Fire, 400) | fire/smoke detected 298/300; false alarms on fire-free photos 64/100; P2, site-calibrated threshold on unseen photos: recall 282/300, false alarms 18/100 (claim supported) |
-| K: conformal threshold (stored scores, offline) | on unseen T2 (76 fires, 193 fire-free must-approve): frozen tau=0.05 misses 0/76, false alarms 0/193; calibrated alpha=0.05 (tau=0.005) misses 0/76, false alarms 26/193; alpha=0.10 (tau=0.0113) 0/76, 4/193. No threshold misses a T2 fire (a ceiling, so no difference is shown); the calibrated ones only add false alarms (T2 fires are easier: small fires 6.6% vs. 27% in calibration). K was registered after the T2 scores existed (scores were not re-tuned) |
-| H: cross-mission memory | median mission time, no memory vs. verified memory: 114 s vs. 79 s on the 8 pairs whose supplies stayed relocated (paired difference -34.68 s); when supplies were moved back, verified memory was slower, paying for a detour (113 s vs. 97 s); overall median 83 s vs. 73 s. Unsafe deliveries: naive memory (skips checks by design) 20/32 vs. verified memory 0/32 shows what skipping costs; the comparison that matters is no memory 1/32 vs. verified memory 0/32 (not less safe). Memory caution (tau_h=0.01) applied in 12 of 32 verified-memory missions, only 4 of them at a fire-free station (false refusals 0/4, Wilson upper bound 49%), so its cost is not established |
-| J: two-model check | expected 23/24 (single model 24/24); unsafe deliveries 1 (single model 0); failed runs 0 |
-| V: model vs. closed loop (random change) | pre-registered, running |
-| W: small hidden fires and prior-art baselines | pre-registered, not yet run |
+| [1] E: closed loop, 60 randomised Gazebo worlds | expected behaviour 60/60, wrong deliveries 0/60 (Wilson 95% CI 0.0%-6.0%) |
+| [1] Z: zero-shot baselines on T1 (false approvals / correct approvals; ours = v3.5 rule) | ours 3/408, 187/191; SigLIP 44/408, 191/191; CLIP 0/408, 2/191 |
+| [2] K: conformal threshold (stored scores, offline) | on unseen T2 (76 fires, 193 fire-free must-approve): frozen tau=0.05 misses 0/76, false alarms 0/193; calibrated alpha=0.05 (tau=0.005) misses 0/76, false alarms 26/193; alpha=0.10 (tau=0.0113) 0/76, 4/193. No threshold misses a T2 fire (a ceiling, so no difference is shown); the calibrated ones only add false alarms (T2 fires are easier: small fires 6.6% vs. 27% in calibration). K was registered after the T2 scores existed (scores were not re-tuned) |
+| [2] T1: 600 held-out images, registered rule v3.4 | false approvals 5/408 (Wilson 95% CI 0.5%-2.8%); correct approvals 187/191; registered claim of fewer than 2% false approvals not supported; the false approvals all came from partly hidden fires behind the correct supply |
+| [3] G: paired, look-around vs. front view only | deliveries despite a perceivable fire 11/16 -> 1/16 (exact McNemar p=0.002); false stops in fire-free worlds 0/8 |
+| [3] W: small hidden fires and prior-art baselines | pre-registered, not yet run |
+| [4] A: adversarial advice (114 closed-loop runs) | pre-registered, not yet run |
+| [4] H: cross-mission memory | median mission time, no memory vs. verified memory: 114 s vs. 79 s on the 8 pairs whose supplies stayed relocated (paired difference -34.68 s); when supplies were moved back, verified memory was slower, paying for a detour (113 s vs. 97 s); overall median 83 s vs. 73 s. Unsafe deliveries: naive memory (skips checks by design) 20/32 vs. verified memory 0/32 shows what skipping costs; the comparison that matters is no memory 1/32 vs. verified memory 0/32 (not less safe). Memory caution (tau_h=0.01) applied in 12 of 32 verified-memory missions, only 4 of them at a fire-free station (false refusals 0/4, Wilson upper bound 49%), so its cost is not established |
+| [4] V: model vs. closed loop (random change) | pre-registered, running |
+| [5] S: scene-text injection (image level) | pre-registered, not yet run |
+| [5] R: 12 camera degradations | false approvals 0/2304 (at most 0/192 per condition, Wilson upper bound 2.0% per condition); claim supported |
+| [5] P: real photos (D-Fire, 400) | fire/smoke detected 298/300; false alarms on fire-free photos 64/100; P2, site-calibrated threshold on unseen photos: recall 282/300, false alarms 18/100 (claim supported) |
+| [5] X, XD: cluttered four-station depot (I-21) | pre-registered, not yet run (a rendering preview exists, not a result) |
+| [6] J: two-model check | expected 23/24 (single model 24/24); unsafe deliveries 1 (single model 0); failed runs 0 |
 
-**Limitations.** Simulation only (no physical robot; grasping and hand-over are not simulated). On real photos the hazard question raises false alarms on 64/100 fire-free images, so a per-site calibration is needed (false alarms only stop the robot; they never cause a delivery). The two models of the two-model check share a lineage (Clef-Flash is a fine-tune of Qwen3.5-9B), so their failures can be correlated.
+**Limitations.** Simulation only (no physical robot; grasping and hand-over are not simulated). On real photos the hazard question raises false alarms on 64/100 fire-free images, so a per-site calibration is needed (false alarms only stop the robot; they never cause a delivery). The guarantee is relative (it caps what advice can add to the check's own error eps_any; it does not remove that error, and a really burning station can still be approached), and it ends at the camera: scene text and the sim-to-real gap are measured, not claimed. The two-model check (J) was not adopted: it was not safer than one model, and its models share a lineage (Clef-Flash is a fine-tune of Qwen3.5-9B), so their failures can be correlated. The registered T1 claim of fewer than 2% false approvals was not supported. 8-16 pairs per closed-loop study is small, and campaign H scripts its world changes.
 
 **Read more.** Paper: [`docs/paper/main.pdf`](docs/paper/main.pdf) / supplement: [`docs/paper/supplement.pdf`](docs/paper/supplement.pdf) / [`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md) / pre-registrations: [`experiments/PREREGISTRATION_*.md`](experiments/) (e.g. [E](experiments/PREREGISTRATION_E.md), [G](experiments/PREREGISTRATION_G.md), [H](experiments/PREREGISTRATION_H.md), [J](experiments/PREREGISTRATION_J.md)).
 <!-- EN:END -->
@@ -94,34 +116,62 @@ Physical AI 応用1講座 最終課題 ｜ ROS 2 Jazzy × Gazebo Harmonic × ロ
 <!-- RESULTS:START -->
 ## 結果
 
-事前登録した評価の一覧（D・E・F・G・T1・T2・Z・P・R・K・H・J）。Qwen3.5-9B（ローカル・V100）。条件・閾値・解析は結果を見る前に `experiments/PREREGISTRATION_*.md` に固定し、台帳は全試行を記録。
+事前登録した評価の一覧（D・E・F・G・T1・T2・Z・P・R・K・H・J、結果待ちのA・S・V・W・XD・X）を、論文と同じ**一本の筋**の順に並べる：①確かめる ②誤りの大半は隠れた火 ③横から見直す ④見ていないものは締めるだけ ⑤保証の外 ⑥採用しなかったもの。Qwen3.5-9B（ローカル・V100）。条件・閾値・解析は結果を見る前に `experiments/PREREGISTRATION_*.md` に固定し、台帳は全試行を記録。結果待ちの研究は、結果ファイルができると数値が自動で入る。
 
-用語：**誤許可**＝届けてはいけない場面で「届けてよい」と判断してしまうこと（ロボットを実際に動かす評価では**誤配達**。火のある拠点から届けてしまうことは**危険な配達**）。**正しい許可**＝届けてよい場面で正しく「よい」と判断できること。**閉ループ**＝AIの判断でロボットが実際に動くところまで含めた評価。
+用語：**誤許可**＝届けてはいけない場面で「届けてよい」と判断してしまうこと（ロボットを実際に動かす評価では**誤配達**。火のある拠点から届けてしまうことは**危険な配達**）。**正しい許可**＝届けてよい場面で正しく「よい」と判断できること。**閉ループ**＝AIの判断でロボットが実際に動くところまで含めた評価。**ε**＝確認そのものが、届けてはいけない拠点を許可してしまう確率（助言の危険は、この内側に収まる）。
+
+#### 1. 届ける前に確かめる（確認は閉集合の確率、迷えば止まる）
 
 | 評価（事前登録） | 内容 | 結果 |
 |---|---|---|
-| **評価G（v3.6）** | 新しい世界での対比較の閉ループ。許可の直前に横から撮り直す | 3視点（正面・左右0.4 m）のどれかで火が見えた16世界で、火があるのに配達した回数 **11/16 → 1/16**（McNemar正確検定 p=0.002）、火の無い世界の誤った停止 **0/8** |
-| 評価F（問い方＋切り出し） | 同じ形式の対比較 | 火があるのに配達した回数 12/13 → 7/13（p=0.0625、有意でない） |
 | **評価E（主結果）** v3.5 | 試行ごとにランダムな世界での閉ループ 60試行 | 期待どおり **60/60**、誤配達 **0/60**（Wilson 95%CI 0.0%〜6.0%） |
 | 評価D v3.4 | 固定配置の閉ループ 42試行 | 期待どおり **42/42**、誤許可 **0件** |
+| 評価Z（生成しないゼロショット基準） | 同じ画像・同じ判定構造で SigLIP・CLIP と比較（閾値は開発データだけで決定）。誤許可／正しい許可 | T1：本方式 誤許可 3/408・正しい許可 187/191、SigLIP 44/408・191/191、CLIP 0/408・2/191<br>T2：本方式 誤許可 0/407・正しい許可 190/193、SigLIP 47/407・193/193、CLIP 0/407・0/193 |
+
+#### 2. 誤りはどこにあるか（隠れた火が大半）・閾値
+
+| 評価（事前登録） | 内容 | 結果 |
+|---|---|---|
 | 未使用テスト T1（オフライン） | 開発に一度も使わない600枚（照明・位置・未知の妨害物・火災）、登録した規則（v3.4） | 誤許可 **5/408**（1.2%、95%CI 0.5%〜2.8%）、正しい許可 **187/191**（97.9%、95%CI 94.7%〜99.2%） |
 | 〃 v3.5（τ_h=0.05、副の事前指定） | 同じ画像・同じ保存済み確率から再計算 | 誤許可 **3/408**（0.7%、95%CI 0.2%〜2.1%）、正しい許可 **187/191**（97.9%、95%CI 94.7%〜99.2%） |
-| 評価Z（生成しないゼロショット基準） | 同じ画像・同じ判定構造で SigLIP・CLIP と比較（閾値は開発データだけで決定）。誤許可／正しい許可 | T1：本方式 誤許可 3/408・正しい許可 187/191、SigLIP 44/408・191/191、CLIP 0/408・2/191<br>T2：本方式 誤許可 0/407・正しい許可 190/193、SigLIP 47/407・193/193、CLIP 0/407・0/193 |
+| 評価K（保証付きの閾値） | 火の見逃し率の上限αを保証するように、閾値を開発データ（火211枚）から決める方法（適合予測）。保存済みスコアの再解析 | 未使用T2（火76枚・火の無い必須許可193枚）：既定の0.05は見逃し 0/76・誤警報 0/193。保証付き α=0.05（τ=0.005）は見逃し 0/76・誤警報 26/193、α=0.10（τ=0.0113）は 0/76・4/193で、誤警報が増えるだけ（T2の小さな火は6.6%、開発データは27%で分布が違う）。開発データでの既定の見逃しは 23/211。**注意：Kは T2 のスコアが既にある状態で登録した（スコアは調整し直していない）** |
+
+#### 3. 横から見直す（誤りを小さくする）
+
+| 評価（事前登録） | 内容 | 結果 |
+|---|---|---|
+| 評価F（問い方＋切り出し） | 同じ形式の対比較。見回しの前に、問い方だけで直せるかを試した | 火があるのに配達した回数 12/13 → 7/13（p=0.0625、有意でない） |
+| **評価G（v3.6）** | 新しい世界での対比較の閉ループ。許可の直前に横から撮り直す | 3視点（正面・左右0.4 m）のどれかで火が見えた16世界で、火があるのに配達した回数 **11/16 → 1/16**（McNemar正確検定 p=0.002）、火の無い世界の誤った停止 **0/8** |
+| 評価W（小さく隠れた火の見逃しと先行手法、I-20の副次解析を含む） | 画像レベル：正面のみ対見回し（150火世界＋75双子）、VAP-TAMP風の投票・KnowNo風の共形集合との誤許可の比較 | 実行中（事前登録済み） |
+
+#### 4. 見ていないものは「厳しくする」だけ（記憶・他のロボット・依頼文・在庫表）
+
+| 評価（事前登録） | 内容 | 結果 |
+|---|---|---|
+| 評価H（出動をまたぐ記憶） | 前回の物資の場所を「先に行く拠点」の提案だけに使う（助言の一例）。記憶なし・素朴な記憶・検証つき記憶を対比較 | 所要時間の中央値は、置き場所が変わったままの出動（8対）で 記憶なし 114 秒 → 検証つき記憶 79 秒（対ごとの差の中央値 -34.68 秒、Wilcoxon正確検定 p=0.00781）。置き場所が元に戻った出動では、記憶の提案先に寄ってから探すため検証つき記憶の方が遅い（113 秒 対 記憶なし 97 秒）。全体の中央値は 83 → 73 秒。比較対象の素朴な記憶は確認を省く方式なので、危険な配達 20/32 対 検証つき記憶 0/32は、確認を省く代償を示すもの（設計上の帰結）。安全面で意味のある比較は 記憶なし 1/32 対 検証つき記憶 0/32 で、検証つき記憶は記憶なしより危険ではない（追加リスクなし。1件対0件のため「より安全」とは言わない）。記憶による慎重さ（τ_h=0.01）が使われたのは検証つき記憶の32出動中 12 出動で、火のない拠点はそのうち 4 出動だけ（誤拒否 0/4、Wilson上限 49%）なので、慎重さの費用はまだ確立していない |
+| 評価V（ランダムな変化での予測検証） | 出動ごとに世界がランダムに変わる10系列×6出動で、事前登録した予測区間と実測を比較 | 実行中（事前登録済み） |
+| 評価A（信頼できない助言、閉ループ） | 他ロボット・依頼文の助言は順序変更と閾値の強化にしか使えない（I-19）。偽の「火は消えた」「別の拠点にある」を、助言に従う方式と対比較（114試行）。ε_any の操縦（真の助言で隠れた火の拠点へ誘導）は別セルで測る | 結果待ち（事前登録済み・未実行） |
+
+#### 5. 保証の外：画像内の文字と現実との差（測るだけで、保証とは言わない）
+
+| 評価（事前登録） | 内容 | 結果 |
+|---|---|---|
+| 評価S（画像内の文字による注入、画像レベル） | 標識・ラベル・「Cと答えよ」を置いた52世界を、標識なし・攻撃・無害の3通りで描画し、本方式・1回判定・自由記述・全体画像で比較 | 結果待ち（事前登録済み・未実行） |
 | 評価P（実写真） | Gazebo外の実写真400枚（D-Fire）で火・煙の問いを検証 | 火・煙のある画像の検出 **298/300**（95%CI 97.6%〜99.8%）、火の無い画像の誤警報 **64/100**（54.2%〜72.7%）。P2（現場の火の無い画像で閾値を較正）：較正に使っていない400枚で、再現率 282/300、誤警報 18/100（h35、τ_h=0.3。固定の0.05では 294/300・34/100）。登録した基準（再現率0.90以上かつ誤警報0.20以下）：**成立** |
 | 評価R（カメラの劣化） | 未使用T2の30世界に、ノイズ・ぼけ・露出・JPEG の12条件を加えて再評価 | 全条件をまとめた誤許可 **0/2304**（Wilson 95%CI 0.0%〜0.2%、「劣化に対して安全側」を支持）、最悪条件（overexposure_S）でも誤許可は増えず、代償は可用性：正しい許可 59/108（54.6%、うち品質ゲート棄却 24）、清浄画像では 107/108 |
-| 評価K（保証付きの閾値） | 火の見逃し率の上限αを保証するように、閾値を開発データ（火211枚）から決める方法（適合予測）。保存済みスコアの再解析 | 未使用T2（火76枚・火の無い必須許可193枚）：既定の0.05は見逃し 0/76・誤警報 0/193。保証付き α=0.05（τ=0.005）は見逃し 0/76・誤警報 26/193、α=0.10（τ=0.0113）は 0/76・4/193で、誤警報が増えるだけ（T2の小さな火は6.6%、開発データは27%で分布が違う）。開発データでの既定の見逃しは 23/211。**注意：Kは T2 のスコアが既にある状態で登録した（スコアは調整し直していない）** |
-| 評価H（出動をまたぐ記憶） | 前回の物資の場所を「先に行く拠点」の提案だけに使う。記憶なし・素朴な記憶・検証つき記憶を対比較 | 所要時間の中央値は、置き場所が変わったままの出動（8対）で 記憶なし 114 秒 → 検証つき記憶 79 秒（対ごとの差の中央値 -34.68 秒、Wilcoxon正確検定 p=0.00781）。置き場所が元に戻った出動では、記憶の提案先に寄ってから探すため検証つき記憶の方が遅い（113 秒 対 記憶なし 97 秒）。全体の中央値は 83 → 73 秒。比較対象の素朴な記憶は確認を省く方式なので、危険な配達 20/32 対 検証つき記憶 0/32は、確認を省く代償を示すもの（設計上の帰結）。安全面で意味のある比較は 記憶なし 1/32 対 検証つき記憶 0/32 で、検証つき記憶は記憶なしより危険ではない（追加リスクなし。1件対0件のため「より安全」とは言わない）。記憶による慎重さ（τ_h=0.01）が使われたのは検証つき記憶の32出動中 12 出動で、火のない拠点はそのうち 4 出動だけ（誤拒否 0/4、Wilson上限 49%）なので、慎重さの費用はまだ確立していない |
-| 評価J（2つのAI） | Jev役 Clef-Flash＋Qwen の2モデル確認を閉ループで、v3.6単独と対比較 | 2つのAI構成 23/24 期待どおり（v3.6単独 24/24）、危険な配達は 2つのAI構成 1件・v3.6単独 0件、2つのAI構成の実行失敗 0件 |
-| 評価V（ランダムな変化での予測検証） | 出動ごとに世界がランダムに変わる10系列×6出動で、事前登録した予測区間と実測を比較 | 実行中（事前登録済み） |
-| 評価A（信頼できない助言、閉ループ） | 他ロボット・在庫・依頼文の助言は順序変更と閾値の強化にしか使えない（I-19）。偽の「火は消えた」「別の拠点にある」を、助言に従う方式と対比較（114試行） | 結果待ち（事前登録済み・未実行） |
-| 評価S（画像内の文字による注入、画像レベル） | 標識・ラベル・「Cと答えよ」を置いた52世界を、標識なし・攻撃・無害の3通りで描画し、本方式・1回判定・自由記述・全体画像で比較 | 結果待ち（事前登録済み・未実行） |
-| 評価W（小さく隠れた火の見逃しと先行手法） | 画像レベル：正面のみ対見回し（150火世界＋75双子）、VAP-TAMP風の投票・KnowNo風の共形集合との誤許可の比較 | 実行中（事前登録済み） |
+| 評価XD・X（倉庫の世界、4拠点） | XD：倉庫の保留画像で ε と閾値の再較正（画像レベル）。X：記憶なし対検証つき記憶を80試行の閉ループで。描画の確認は I-21（`docs/figures/depot_preview_sheet.jpg`） | 結果待ち（事前登録済み・未実行） |
 
-* T1：登録した主張「誤許可2%未満」は**支持されなかった**（Wilson上限 2.8% > 2%）。主な原因は下の「残る弱点」
+#### 6. 試したが採用しなかったもの
+
+| 評価（事前登録） | 内容 | 結果 |
+|---|---|---|
+| 評価J（2つのAI）：**採用せず** | Jev役 Clef-Flash＋Qwen の2モデル確認を閉ループで、v3.6単独と対比較 | 2つのAI構成 23/24 期待どおり（v3.6単独 24/24）、危険な配達は 2つのAI構成 1件・v3.6単独 0件、2つのAI構成の実行失敗 0件 |
+
+* T1：登録した主張「誤許可2%未満」は**支持されなかった**（Wilson上限 2.8% > 2%）。主な原因は下の「残る弱点」（物資の陰に隠れた火）
 * 評価Z：SigLIP は正しい許可は満点でも誤許可が1割超。CLIP は誤許可0でも**ほぼ何も許可しない**（配達できない）。本方式だけが両立する
 * 評価P：見逃しはほぼ無いが、火の無い実写真（霞・低い雲・夕焼け・光るテント）への誤警報は 64/100 と多い。**そのまま実機に使える水準ではなく、現場ごとの閾値の較正が必要**（P2 で「較正した閾値が未使用の写真で通用するか」を登録済み）。誤警報は停止になるだけで、誤配達にはならない側の失敗
 
-### 火の見逃し対策：横から見直す（v3.6、現在の既定構成）
+### 詳細：火の見逃し対策（段3）：横から見直す（v3.6、現在の既定構成）
 
 T1 で分かった弱点に、結果を見る前に固定した条件で段階的に対策（[`IMPROVEMENT_LOG.md`](docs/IMPROVEMENT_LOG.md) I-11・I-13・I-14）。
 **v3.6 = オーケストレータの既定値**：Qwen3.5-9B、危険の問い方 h36＋拡大切り出し tiles、τ_h=0.05、**横から見直す 0.4 m**、回復探索・状況報告あり、DDS非同期。
@@ -142,7 +192,7 @@ T1 で分かった弱点に、結果を見る前に固定した条件で段階�
 * 唯一の見逃し（W19）：火が正面から 0 画素（完全に隠れる）、横からも最大 2,308 画素と最小で、p(危険)が閾値0.05に届かなかった。限界として明記
 * **未使用テスト T2**（600枚、描画前に登録）：v3.5 でも誤許可 **0/407** と天井で、改善は測れない。Jev役を担うローカルの **Clef-Flash 単独**（課題向けの質問）も誤許可 **0/407**・正しい許可 187/193、1画像あたりの推論は中央値 0.6 秒（V100）。Clef＋Qwen の2モデル確認（規則上の選定）は誤許可 0/407・正しい許可 184/193（V100 1台には同時に載らず、既定には採用せず）
 
-### 評価E：主結果（v3.5、ランダムな世界で60試行）
+### 詳細：評価E：主結果（v3.5、ランダムな世界で60試行）
 
 照明・物資の位置と向き・妨害物（未知の木箱・コーンを含む）・火災を試行ごとに乱数で生成し、全スタック（Gazebo・ROS 2・ガード・ローカルVLM）を新規起動。
 Qwen3.5-9B、回復探索・状況報告・LLM指示理解あり。条件は結果を見る前に [`PREREGISTRATION_E.md`](experiments/PREREGISTRATION_E.md) に固定。
@@ -213,7 +263,7 @@ Qwen3.5-9B（ローカル・V100）、回復探索・状況報告・LLM指示理
 | **「拒否」と「故障」を区別** | 拒否は「拒否イベント＋2.5秒の停止保持＋真値で拠点から動いていない＋bag確定」が揃って初めて成功扱い。VLMがエラーで止まっただけでは成功にしない。 |
 | **sudo不要で再現** | Ubuntu 22.04 ホストでも Docker（ROS 2 Jazzy + Gazebo Harmonic + CUDA PyTorch）で動作。Gazebo は EGL ヘッドレス描画。 |
 
-参考資料：改善の経緯（Before/After）[`IMPROVEMENT_LOG.md`](docs/IMPROVEMENT_LOG.md) ／ 実際に動かして初めて分かった23件の問題と対策 [`FINDINGS.md`](docs/FINDINGS.md) ／ 設計判断 [`DESIGN_DECISIONS.md`](docs/DESIGN_DECISIONS.md) ／ 作業の引継ぎ・現状 [`HANDOFF.md`](docs/HANDOFF.md)。
+参考資料：改善の経緯（Before/After）[`IMPROVEMENT_LOG.md`](docs/IMPROVEMENT_LOG.md) ／ 実際に動かして初めて分かった25件の問題と対策 [`FINDINGS.md`](docs/FINDINGS.md) ／ 設計判断 [`DESIGN_DECISIONS.md`](docs/DESIGN_DECISIONS.md) ／ 作業の引継ぎ・現状 [`HANDOFF.md`](docs/HANDOFF.md)。
 
 ![devset](docs/figures/devset_ablation.png)
 
@@ -265,9 +315,14 @@ bash docker/run.sh python3 scripts/make_figures.py
 
 ## 限界
 
+保証できること・できないことを、論文と同じ順に書く（「結果待ち」は2026-10-17時点。結果が出たら[結果](#結果)の表が先に更新される）。
+
 * 評価はすべて**シミュレーション**です（実機での検証はしていません）。物資の把持・運搬は行わず（現物確認と避難所への接近まで）、Nav2 ではなく既知配置のウェイポイント追従です。
-* **残る弱点**：「物資の陰に一部しか見えない火災」の見逃し（[結果](#結果)の「分かったこと」）。横から見直す工夫で減ったが、正面から完全に隠れ横からも小さく写る火は見逃し得る。登録した「T1の誤許可2%未満」の主張は支持されなかった。
-* 評価Eの世界は試行ごとにランダム（照明・物資の位置と向き・妨害物・火災）ですが、**拠点の配置は固定**です。評価D は固定配置の反復で、試行数は独立シーン数ではありません。小道具は単純な形状です。
+* **保証は相対的**：助言（記憶・他のロボット・依頼文・在庫表）が加えられる危険は、確認そのものの誤許可の上限 ε_any の内側に収まる、というもので、確認の誤りが消えるわけではありません。助言で本物の火のある拠点へ近づくこと（被ばく）や、助言が続くことによる可用性の低下は上限の外です。悪意のある助言の閉ループ評価（A）は結果待ちです。
+* **保証の外**：画像に映る文字（評価S：結果待ち）、現実との差（実写真は評価P・P2のみ、倉庫の世界 XD・X：結果待ち）。測るだけで、保証とは言いません。
+* **残る弱点**：「物資の陰に一部しか見えない火災」の見逃し（[結果](#結果)の「分かったこと」）。横から見直す工夫で減ったが（評価G）、正面から完全に隠れ横からも小さく写る火は見逃し得る。登録した「T1の誤許可2%未満」の主張は支持されなかった。
+* **採用しなかったもの**：2つのAI（評価J）は単独より安全にならず、既定にしていません。
+* 評価Eの世界は試行ごとにランダム（照明・物資の位置と向き・妨害物・火災）ですが、**拠点の配置は固定**です。評価D は固定配置の反復で、試行数は独立シーン数ではありません。小道具は単純な形状です。閉ループ評価は 8〜16対と少数で、評価Hの世界の変化は台本どおりです。
 * 近距離（約0.9 m 以下）では物資が画面から切れて誤拒否が出ます（実機の想定停止距離は約1.4 m）。
 * ROSグラフ監視は認証機構ではなく、実機の安全認証を意味しません。
 
