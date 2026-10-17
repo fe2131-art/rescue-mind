@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
-"""Count the unit tests discovered by `python3 -m unittest discover -s tests` and write
-experiments/results/test_count.json.  Run inside rm-dev (needs the ROS Python environment):
+"""Count the test FUNCTIONS in tests/ (static AST count of `def test*` at module or class level; parametrised or
+subTest cases are not multiplied) and write experiments/results/test_count.json.  Pure host python3: nothing is
+imported or executed, so it is safe on a busy host:
 
-  docker exec rm-dev rescuemind-entrypoint python3 scripts/count_tests.py
+  python3 scripts/count_tests.py
+
+(--discover counts the cases unittest discovery would collect instead; that imports every test module, so run it
+inside rm-dev only.)  Documents say "test functions" for this number.
 
 Also provides n_tests() / n_findings() so that every document reads the same two generated counts.
 """
@@ -10,7 +14,7 @@ from __future__ import annotations
 import json
 import re
 import sys
-import unittest
+import ast
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -37,12 +41,29 @@ def n_findings():
     return len(rows)
 
 
+def static_count():
+    """Number of `def test*` functions/methods in tests/*.py (module level and directly inside classes)."""
+    n = 0
+    for f in sorted((ROOT / 'tests').glob('test*.py')):
+        tree = ast.parse(f.read_text(encoding='utf8'), filename=str(f))
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith('test'):
+                n += 1
+    return n
+
+
 def main():
-    sys.path.insert(0, str(ROOT))
-    n = unittest.TestLoader().discover(str(ROOT / 'tests'), top_level_dir=str(ROOT / 'tests')).countTestCases()
-    COUNT.write_text(json.dumps({'n_tests': n, 'command': 'python3 -m unittest discover -s tests',
+    if '--discover' in sys.argv:       # imports every test module: rm-dev only
+        import unittest
+        sys.path.insert(0, str(ROOT))
+        n = unittest.TestLoader().discover(str(ROOT / 'tests'), top_level_dir=str(ROOT / 'tests')).countTestCases()
+        how, cmd = 'unittest discovery cases', 'python3 -m unittest discover -s tests'
+    else:
+        n = static_count()
+        how, cmd = 'test functions (static AST count)', 'python3 scripts/count_tests.py'
+    COUNT.write_text(json.dumps({'n_tests': n, 'unit': how, 'command': cmd,
                                  'generator': 'scripts/count_tests.py'}, indent=1) + '\n', encoding='utf8')
-    print('tests discovered:', n)
+    print(f'{how}:', n)
 
 
 if __name__ == '__main__':

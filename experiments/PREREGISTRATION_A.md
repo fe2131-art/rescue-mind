@@ -280,6 +280,11 @@ If the pilot shows a bug, we fix it, record the fix as an amendment before any A
 prompts are already frozen by then (see the offline set); after the pilot the thresholds (p ≥ 0.6, caution 0.01), the scrutiny
 extra-view offsets (0.8 m, 0.3 m closer) and the A3 time-bound factor (1.5) are frozen too.
 
+**Delivery interlock (I-22) is OFF in this study.** The independent delivery interlock and the guard-side shelter geofence
+(`docs/IMPROVEMENT_LOG.md` I-22) are implemented and default to off; no trial of `campaign_a_protocol.json` or of the pilot sets
+`delivery_interlock`, so A measures the audited mission code with the independent velocity guard only. Turning the interlock on
+for A would need an amendment committed before the first A trial; none is planned (its Gazebo check is still open).
+
 **Infrastructure failures.** As in H and V:
 * A stack failure before any VLM decision may be re-run once; all attempts are kept. A run that fails again is
   excluded from the paired analyses and listed.

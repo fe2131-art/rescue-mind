@@ -319,7 +319,7 @@ expected number of checks per mission rather than their strength. The model assu
 and that supply identification is perfect (T1: no supply false approvals in 332 images).
 
 \section{Failure Analysis and Lessons}\label{sec:findings}
-Running the full stack on a GPU revealed \NFindings{} problems that \NTests{} offline unit tests and mocked ROS runs had not; the most instructive are listed here (the full table is in \texttt{docs/FINDINGS.md} in the repository).
+Running the full stack on a GPU revealed \NFindings{} problems that the \NTests{} offline test functions and mocked ROS runs had not; the most instructive are listed here (the full table is in \texttt{docs/FINDINGS.md} in the repository).
 \begin{itemize}
 \item \textbf{The auditor trusted the controller's sensor.} The wheel joint axis was expressed in the
 child-link frame after a 90$^\circ$ roll, so the wheels spun about the vertical axis. Odometry reported 1.5\,m forward motion while the
@@ -354,10 +354,11 @@ label with the rendered-mask label, after we saw fires hidden behind supplies th
 \section{Registration audit}\label{app:prereg}
 \begin{table}[h]\centering\caption{When each study was registered and when its first results entered the repository. ``Order''
 checks that the registration commit is an ancestor of the first results commit (\texttt{git merge-base --is-ancestor}).
-Registrations are also mirrored in the public repository history.}\label{tab:prereg}
+Registrations are also mirrored in the public repository history. Studies without results yet show the draft commit or ``registered at merge, pending''.}\label{tab:prereg}
 \resizebox{\linewidth}{!}{\input{tab_prereg.tex}}\end{table}
 For every study with results, the registration commit precedes the results commit (\PreregOrderOK). Campaign C's
 registration and ledger entered the repository together, so their order cannot be verified from the history.
+Studies whose text is marked ``draft'' (\PreregDrafts{}; study Q's design is still on its own branch) have no results yet: their registration is the commit that puts the frozen text on \texttt{main} (the merge of the integration branch), and no trial or inference of them is run before that. The ``Registered'' column shows the newest commit of the text in force at the first results (or of the draft, while there are none).
 
 \subsection{Threats to validity}\label{sec:threats}
 \textbf{Internal.} The studies were designed sequentially, each registered after the results of the previous ones were known, so
@@ -423,7 +424,7 @@ By the implication, $A_\theta(o_s)=1$ on the same frames. An unsafe delivery mea
 In study A the sum of the per-run bounds over the 24 monotone runs on poison\_location and poison\_hazard worlds is 1.7 expected false refusals; \texttt{scripts/a\_analysis.py} compares the observed count with the 95th percentile of the Poisson-binomial sum (4) and reports the extra seconds per attacked mission against $1.5W$. These are statements about the arena and the simulated rate, not about the rule: on real photographs the frozen $\tauh=0.05$ already gave 64/100 false alarms (P) and the calibrated threshold is 0.3 (P2), so the caution threshold should be defined relative to the site's calibrated threshold and its false-alarm rate re-measured per site.
 (iii)~\emph{Soft refusal} removes the one-shot mission kill: a caution-only refusal continues to the next station, so hazard advice costs a visit instead of the mission. Persistent advice (a peer's memory file that names every station at every mission) multiplies the per-mission cost by the number of missions; the rule does not bound that, and a provenance field with decay is the natural mitigation that we have not evaluated.
 
-\textbf{Trust base.} ``Advice may only tighten'' is a claim about one small function, so the question is what else it rests on (Table~\ref{tab:tcb}). The advice audit recomputes \texttt{advice.plan} from the logged plan with the same module and a log written by the node under test, so it finds bugs, not a compromised node or a wrong specification; the evidence for safety in study A is the \emph{outcome} audit (Gazebo ground-truth trajectory and masks), which does not depend on those logs. We therefore wrote an independent reference implementation of the rule from its specification, compared it with the implementation by differential testing over every advice set of up to four items, injected plausible bugs (skip allowed, threshold raised, view dropped, a location item deleting a station) and fuzzed raw advice files and model outputs (unknown keys, duplicates, huge numbers, NaN, bool, non-UTF-8, nested objects). This found five bugs in the implementation (an audit that missed a removed caution and NaN thresholds; a reorder that moved a naive memory's skip to an unvouched station; unexpected exceptions on non-list or deeply nested files; booleans accepted as probabilities; a NaN hazard score ignored by \texttt{max}); all were fixed and all injected bugs are now killed.
+\textbf{Trust base.} ``Advice may only tighten'' is a claim about one small function, so the question is what else it rests on (Table~\ref{tab:tcb}). The advice audit recomputes \texttt{advice.plan} from the logged plan with the same module and a log written by the node under test, so it finds bugs, not a compromised node or a wrong specification; the evidence for safety in study A is the \emph{outcome} audit (Gazebo ground-truth trajectory and masks), which does not depend on those logs. We therefore wrote an independent reference implementation of the rule from its specification, compared it with the implementation by differential testing over every advice set of up to four items, injected plausible bugs (skip allowed, threshold raised, view dropped, a location item deleting a station) and fuzzed raw advice files and model outputs (unknown keys, duplicates, huge numbers, NaN, bool, non-UTF-8, nested objects). This found five bugs in the implementation (an audit that missed a removed caution and NaN thresholds; a reorder that moved a naive memory's skip to an unvouched station; unexpected exceptions on non-list or deeply nested files; booleans accepted as probabilities; a NaN hazard score ignored by \texttt{max}); all were fixed and all injected bugs are now killed. A further hardening, the delivery interlock (I-22: the velocity guard blocks delivery legs and shelter entry without a permit recomputed independently from the saved model outputs, with a guard-side shelter geofence), is implemented and off by default; its Gazebo check is still pending and studies A and X run with it off unless a registered amendment says otherwise.
 \begin{table}[t]\centering\caption{Trust base of the advice guarantee.}\label{tab:tcb}
 \scriptsize\renewcommand{\arraystretch}{0.95}\begin{tabular}{p{2.2cm}p{2.6cm}p{2.9cm}}\toprule
 Component & Assumed of it & Not covered \\\midrule
@@ -466,7 +467,7 @@ On T2, Clef-Flash together with
 Qwen3.5-4B, the pair that fits on one 32\,GB V100, made \TTPairFA{} false approvals (\TTPairCA{} correct).
 Campaign J ran this pair on the robot, paired with v3.6 on 24 worlds with swapped, empty and small-fire stations;
 it behaved as expected in \JCorrectJ{} (v3.6: \JCorrectA, exact McNemar $p=\JMcNemarP$), with
-unsafe deliveries: \JUnsafeJ{} (v3.6: \JUnsafeA; Wilson upper bounds \JUnsafeJUpper{} and \JUnsafeAUpper); stack failures: \JFailedJ{}. Peak GPU memory was \JPeakVram\,GB, and
+unsafe deliveries: \JUnsafeJ{} (v3.6: \JUnsafeA; Wilson upper bounds \JUnsafeJUpper{} and \JUnsafeAUpper); stack failures: \JFailedJ{}. Peak GPU memory was \JPeakVram\,GiB, and
 the median check latency was \JLatJ\,s for the two-model system and \JLatA\,s for v3.6; on our host, alternating $\approx$46\,GB of weights thrashed the page cache, so both include model I/O (registered deviation note). The registered claim (two-model design on the
 simulated robot, no extra risk) is \JClaim.
 Its one unsafe delivery was a small fire behind the station reached after a search; both models missed it, the correlated
@@ -479,8 +480,8 @@ The main paper follows one chain (gate, error budget, look again, advice may onl
 
 \subsection{All registered studies}\label{sec:moved-all}
 Table~\ref{tab:studies-all} lists all registered studies; the main paper's table keeps the rows that carry the chain.
-\begin{table*}[t]\centering\caption{All registered studies. Each was registered (protocol, configuration, endpoints and
-analysis code) before its first trial or inference; studies were designed sequentially, each after the previous results, so registration is confirmatory within a study (Table~\ref{tab:prereg}). Amendments made before the first trial are published with the
+\begin{table*}[t]\centering\caption{All registered studies. Each is registered (protocol, configuration, endpoints and
+analysis code) before its first trial or inference (for A, S, X, XD and Q the registration is committed with the merge of the integration branch, before any of their trials; Table~\ref{tab:prereg}); studies were designed sequentially, each after the previous results, so registration is confirmatory within a study (Table~\ref{tab:prereg}). Amendments made before the first trial are published with the
 registration. Claim: status of the registered claim (descriptive: none registered; pending: not yet run).}\label{tab:studies-all}
 \scriptsize\renewcommand{\arraystretch}{0.92}\resizebox{\textwidth}{!}{\begin{tabular}{llllll}\toprule
 Study & Question & Data & Arms (systems) & Primary endpoint & Claim \\\midrule
