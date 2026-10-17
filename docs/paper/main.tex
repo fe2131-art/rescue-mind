@@ -58,7 +58,7 @@ says nothing about hazards, drive into a fire. Vision-language models (VLMs) can
 without task-specific training and are used to explain or detect robot failures~\cite{liu2023reflect,duan2025aha,agia2025sentinel}.
 Their outputs, however, are biased by option order and answer letters~\cite{zheng2024mcselectors,pezeshkpour2024order},
 they hallucinate objects that are not there~\cite{li2023pope}, and free-form generation can be unparseable.
-We observed all three on our own images (Supp.~Sec.~S8).
+We saw all three on our own images (Supp.~Sec.~S8).
 
 Relief robots also return to the same shelter again and again, and a robot that remembers where the water
 really was, or where it saw smoke, could be faster. Yet acting on stale memory can hurt: in a FrozenLake-style grid world with six VLMs, an agent that trusted unaudited memory failed more
@@ -87,11 +87,18 @@ on development images only; a 600-image held-out test set and the closed-loop
 campaigns D, E, F, G, H and J were registered before running~\cite{nosek2018preregistration,hofman2023preregistration}.
 Each closed-loop trial is checked against Gazebo ground truth, a ROS bag and a recomputation of the decision,
 and every attempt is kept. Twelve studies (Table~\ref{tab:studies}) include a camera-degradation
-study that probes part of the sim-to-real gap.
+study.
 \item \textbf{Lessons from running the real stack} (Supp.~Sec.~S8): \NFindings{} failure causes that unit tests and
 mocks missed, such as a wheel-axis frame error that let odometry-based audits pass a robot that never arrived.
 \end{itemize}
 
+\begin{figure*}[t]
+\centering\fig[0.68\textwidth]{fig_system.pdf}
+\caption{Processes and data flow. The mission node only requests velocities; the guard is the only
+publisher of \texttt{/cmd\_vel}. The VLM server is local; no cloud API is used.
+Ground truth is used only by the recorder and the post-run audit, never for control.}
+\label{fig:system}
+\end{figure*}
 \textbf{Terms.} \emph{v3.4} is the first registered checkpoint (hazard threshold $\tauh=0.5$); \emph{v3.5} lowers it to $0.05$;
 \emph{v3.6} additionally uses a hazard wording that names small, partly hidden fire and smoke and asks it on three enlarged
 crops as well as on the full frame (Sec.~\ref{sec:fix}). A fire is \emph{visible} at a view if a rendered fire-only mask has at
@@ -101,45 +108,28 @@ left, right). A \emph{campaign} is a closed-loop study.
 the other station, or refuse because of a wrong item or a hazard.
 
 \section{Related Work}
-\textbf{Failure detection and verification with foundation models.}
-REFLECT~\cite{liu2023reflect}, AHA~\cite{duan2025aha} and success detectors~\cite{du2023successdetectors} explain or detect manipulation failures after the fact;
+\textbf{Failure detection and verification.}
+REFLECT~\cite{liu2023reflect}, AHA~\cite{duan2025aha} and success detectors~\cite{du2023successdetectors} explain or detect failures after the fact;
 Sentinel~\cite{agia2025sentinel}, FAIL-Detect~\cite{xu2025faildetect} and Code-as-Monitor~\cite{zhou2025codeasmonitor}
-monitor learned policies at run time (more in Supp.~Sec.~S3). Our check runs \emph{before} the robot acts and is closed-set, zero-shot and audited against ground truth.
-The closest methodological relative is KnowNo~\cite{ren2023knowno}, which scores multiple-choice answers by
-next-token probability and asks a human for help with a conformal guarantee~\cite{angelopoulos2021conformal};
-SayCan~\cite{ichter2023saycan} likewise scores a fixed candidate set. We share the scoring but respond to uncertainty by
-refusing or searching, and add permuted-option agreement as a defence against letter bias~\cite{zheng2024mcselectors,pezeshkpour2024order,robinson2023mcqa}. Raw confidence needs validation~\cite{kadavath2022know,guo2017calibration,zhao2021calibrate}.
+monitor learned policies at run time (Supp.~Sec.~S3). Our check runs \emph{before} the robot acts and is closed-set, zero-shot and audited against ground truth.
+KnowNo~\cite{ren2023knowno} scores multiple-choice answers by next-token probability and asks a human for help with a conformal guarantee~\cite{angelopoulos2021conformal};
+SayCan~\cite{ichter2023saycan} likewise scores a fixed candidate set. We share the scoring but refuse or search under uncertainty, and add permuted-option agreement against letter bias~\cite{zheng2024mcselectors,pezeshkpour2024order,robinson2023mcqa}. Raw confidence needs validation~\cite{kadavath2022know,guo2017calibration,zhao2021calibrate}.
 
 \textbf{Safety architectures.} Simplex~\cite{seto1998simplex,sha2001simplicity}, shields~\cite{alshiekh2018shielding}
 and control barrier functions~\cite{ames2019cbf} keep a simple verified layer between a complex decision maker and
-the actuators. LLM-controlled robots can be manipulated into harmful actions~\cite{robey2025jailbreaking}, and
-guardrails such as RoboGuard~\cite{ravichandran2026guardrails} check plans first. Unlike vision-language-action models~\cite{zitkovich2023rt2,kim2025openvla}, our VLM never commands motion.
+the actuators. LLM-controlled robots can be manipulated into harmful actions~\cite{robey2025jailbreaking}; RoboGuard~\cite{ravichandran2026guardrails} checks plans first. Unlike vision-language-action models~\cite{zitkovich2023rt2,kim2025openvla}, our VLM never commands motion.
 
-\textbf{Memory for robots in changing environments.}
-Semantic memory~\cite{anwar2025remembr,wang2025karma} and 3D scene graphs~\cite{hughes2022hydra,gu2024conceptgraphs} are used to \emph{answer} or \emph{plan}~\cite{rana2023sayplan}, and mapping has long dealt with change~\cite{biber2005dynamic,krajnik2017fremen}. In a small grid-navigation testbed, acting on
-unaudited stale memory can be worse than having none~\cite{sun2026memorylies};
-GLOVE~\cite{yin2026glove} and VLM-DEWM~\cite{tang2026vlmdewm} check memory against fresh observations to keep it \emph{correct}.
-We instead use memory to decide \emph{where and how carefully to verify}, restrict it so that it can never
-reduce verification, and test this invariant under scripted change.
+\textbf{Memory and active perception.}
+Semantic memory~\cite{anwar2025remembr,wang2025karma} and 3D scene graphs~\cite{hughes2022hydra,gu2024conceptgraphs} \emph{answer} or \emph{plan}~\cite{rana2023sayplan}; mapping has long dealt with change~\cite{biber2005dynamic,krajnik2017fremen}. Unaudited stale memory can be worse than none~\cite{sun2026memorylies};
+GLOVE~\cite{yin2026glove} and VLM-DEWM~\cite{tang2026vlmdewm} check memory against fresh observations. We instead use memory to decide \emph{where and how carefully to verify}, never to reduce verification.
+Moving the sensor to resolve ambiguity is classic~\cite{bajcsy1988active,bajcsy2018revisiting}, and agents explore until a VLM is confident~\cite{ren2024exploreuntil}; ours is deliberately simple: two fixed side views, used only to \emph{revoke} an approval.
 
-\textbf{Active perception.} Moving the sensor to resolve ambiguity is a classic idea~\cite{bajcsy1988active,bajcsy2018revisiting};
-recent agents explore until a VLM is confident~\cite{ren2024exploreuntil}. Ours is deliberately simple:
-two fixed side views, used only to \emph{revoke} an approval.
-
-\textbf{Robustness, redundancy and evaluation.} Classifiers, detectors and vision-language models degrade under common
-corruptions~\cite{hendrycks2019benchmarking,michaelis2019benchmarking,chen2023benchmarking,schiappa2022robustness}, and
-we measure one part of the sim-to-real gap~\cite{hofer2021sim2real}, sensor degradation, and care about the \emph{direction} of errors. Agreement between independently developed versions is a classic
+\textbf{Robustness, redundancy and evaluation.} Classifiers, detectors and VLMs degrade under common
+corruptions~\cite{hendrycks2019benchmarking,michaelis2019benchmarking,chen2023benchmarking,schiappa2022robustness}; we measure one part of the sim-to-real gap~\cite{hofer2021sim2real}, sensor degradation, and care about the \emph{direction} of errors. Agreement between independent versions is a classic
 fault-tolerance technique~\cite{avizienis1985nversion} limited by correlated failures~\cite{knight1986experimental}. We follow recommendations to report conditions, metrics, uncertainty
-and failure modes~\cite{kressgazit2024empirical}, with Wilson intervals~\cite{wilson1927probable} and exact McNemar tests~\cite{mcnemar1947note}, and use domain randomisation~\cite{tobin2017domain} for the held-out \emph{test} set.
+and failure modes~\cite{kressgazit2024empirical}, with Wilson intervals~\cite{wilson1927probable}, exact McNemar tests~\cite{mcnemar1947note} and domain randomisation~\cite{tobin2017domain} for the held-out \emph{test} set.
 
 \section{System}\label{sec:system}
-\begin{figure*}[t]
-\centering\fig[0.8\textwidth]{fig_system.pdf}
-\caption{Processes and data flow. The mission node only requests velocities; the guard is the only
-publisher of \texttt{/cmd\_vel}. The VLM server listens on the loopback interface; no cloud API is used.
-Ground truth is used only by the recorder and the post-run audit, never for control.}
-\label{fig:system}
-\end{figure*}
 \textbf{Platform.} A differential-drive robot with a 2D lidar and a mast camera (640$\times$480, 1.05\,rad
 horizontal field of view) runs in Gazebo Harmonic with ROS~2 Jazzy~\cite{macenski2022ros2,koenig2004gazebo}
 (Fig.~\ref{fig:system}). The arena has two supply stations (water, medicine) and a shelter.
@@ -160,19 +150,18 @@ the platform, with permuted options:
 \item $q_1$: A drinking water / B first-aid kit / C nothing or another object;
 \item $q_2$: A neither (empty or a different object) / B first-aid kit / C drinking water.
 \end{itemize}
-It is also asked the hazard question $q_h$: ``Look at the whole image, including behind and around the objects.
-Do you see any fire, flames, or smoke? Yes/No''. Each prompt asks for the letter (or Yes/No) only.
+It is also asked (once per image) the hazard question $q_h$: ``Look at the whole image, including behind and around the objects.
+Do you see any fire, flames, or smoke? Yes/No''. 
 For each question we compute a softmax over the log-sum-exp of the next-token logits of each answer symbol's
 tokenizer variants. This gives $p_k(s)$ for $k\in\{1,2\}$ and $p_h$. The robot approves iff
 \begin{equation}
 \bigwedge_{k=1,2}\Big[\arg\max_s p_k(s)=s^\ast \;\wedge\; p_k(s^\ast)\ge\taus\Big]\;\wedge\;p_h<\tauh,
 \label{eq:rule}\end{equation}
 with $\taus=0.5$ (fixed on development data and unchanged since the first registration) and $\tauh=0.05$.
-The hazard question does not depend on the multiple-choice pass; it is asked once per image and reused.
 In v3.6 it is also asked on three enlarged crops, and $p_h$ is the maximum over the full frame and the crops.
 The hazard threshold was 0.5 up to campaign D and was lowered once (v3.5) after a pilot missed a mostly occluded fire
 (Supp.~Sec.~S8). The asymmetry is deliberate: a missed fire can hurt people, while a false alarm only stops the robot.
-Every failure mode leads to refusal: inference errors, non-finite logits (an FP16 overflow guard), unknown labels, images
+Every failure leads to refusal: inference errors, non-finite logits (FP16 overflow guard), unknown labels, images
 with different hashes, or a model not on the allow-list.
 A refusal is followed by a 2.5\,s zero-velocity hold that the audit checks.
 
@@ -194,11 +183,10 @@ the left and right of the checkpoint, perpendicular to the line of sight. At eac
 waits until stationary, captures fresh frames and asks the same questions. Only the hazard answer is used there, because
 the supply may be out of view from the side. Any side view with a hazard turns the approval into a hazard refusal, with
 no search (Fig.~\ref{fig:lookaround}). Formally, with side views $v\in V=\{L,R\}$, the approval becomes
-$A = A_{\mathrm{front}} \wedge \bigwedge_{v\in V} [\,p_{h}^{(v)} < \tauh\,]$. The audit recomputes every side decision from
-the saved outputs. In campaign G it added a median of \GLookCost\,s to a delivery without a hazard (from \GWallPlainB\,s to \GWallPlainC\,s
+$A = A_{\mathrm{front}} \wedge \bigwedge_{v\in V} [\,p_{h}^{(v)} < \tauh\,]$. The audit recomputes every side decision. In campaign G it added a median of \GLookCost\,s to a delivery without a hazard (from \GWallPlainB\,s to \GWallPlainC\,s
 over the same fire-free worlds, Sec.~\ref{sec:fix}).
 
-\begin{figure}[t]\centering\fig[0.9\linewidth]{fig_lookaround.pdf}
+\begin{figure}[t]\centering\fig[0.72\linewidth]{fig_lookaround.pdf}
 \caption{Why the robot looks again. The same small fire, from the front checkpoint and from 0.4\,m to the left (a v3.6 mission in
 a campaign-G world). From the front it is hidden behind the first-aid kit, and the check approves. From the side, the
 hazard question refuses.}\label{fig:lookaround}\end{figure}
@@ -209,7 +197,7 @@ According to its model card it is post-trained from Qwen3.5-9B, so the two model
 post-training, in model size (our on-robot pair uses Qwen3.5-4B) and in the question asked, and the correlated-failure
 caveat applies in full. The two-model rule approves only if Eq.~\eqref{eq:rule} holds for Qwen \emph{and}
 Clef-Flash agrees (thresholds: Supp.~Sec.~S1). A hazard seen by either model stops the robot, and a wrong supply seen by either
-allows the one-time search. The rule is deterministic, and the audit recomputes it. Whether the two models fit one GPU is
+allows the one-time search. Whether the two models fit one GPU is
 tested in Sec.~\ref{sec:res-jev}. The second model is a veto whose errors overlap with Qwen's. Qwen misses \JevOvQ{} of \JevOvN{} development fires, and Clef-Flash also misses \JevOvBoth{} of these (\JevOvCond, Wilson \JevOvCondCI; Supp.~Table~S9).
 
 \subsection{Safety-monotone mission memory}\label{sec:memory}
@@ -231,7 +219,7 @@ only through $A_{\theta'}$ at the delivering station.
 \textbf{Observation 1 (per-check monotonicity).} For a verification-preserving policy, $A_{\theta'}(o)\le A_\theta(o)$
 for every $o$. $A_\theta$ is a conjunction of a supply condition, which is non-increasing in $\taus$, and of hazard
 conditions $[p_h^{(v)}<\tauh]$, which are non-increasing as $\tauh$ decreases. Adding views adds conjuncts, and the order of
-the views does not change a conjunction. This is elementary by design, so it can be enforced in code and recomputed in an audit.
+the views does not change a conjunction. It is elementary by design, so code and audit can enforce it.
 
 The interesting question is what this implies for whole missions, because memory also changes \emph{which} stations are
 checked. Let $\varepsilon$ bound the probability that the memory-free check $A_\theta$ approves a must-refuse view of a
@@ -348,10 +336,9 @@ fire (\TSupplyFACI), including swapped and empty stations and unseen crates. All
 \TFireCorrectN{} images with the correct supply and a visible fire, \TFireCorrectFA{} of which were approved: the
 fire was partly hidden behind the supply, with only smoke or a flame edge in view, and detection depends on the visible
 fire area. With the v3.5 rule, the hazard question flagged \TLargeDet{} visible fires of at least 10\,000 pixels but only
-\TSmallDet{} smaller ones (together the \TvHazRecall{} above; the 10\,000-pixel cut was chosen after seeing the data and is
-not registered).
+\TSmallDet{} smaller ones (together the \TvHazRecall{} above; the 10\,000-pixel cut was chosen post hoc).
 The registered claim of fewer than 2\% false approvals is therefore \emph{not} supported: the Wilson upper bound is above 2\%.
-Since a world's five views share lighting, props and fire, a bootstrap that resamples the \TNworlds{} worlds gives \TFACluster{} for v3.4 and \TvFACluster{} for v3.5.
+A bootstrap that resamples the \TNworlds{} worlds (five views share lighting, props and fire) gives \TFACluster{} for v3.4 and \TvFACluster{} for v3.5.
 Supp.~Table~S2 isolates the parts of the rule: removing the hazard question raises false approvals to \TAblNoHazFA{} of \TNdeny{}, while the
 permuted second question and the confidence threshold matter only for weaker models (option-letter bias; Supp.~Sec.~S4).
 \emph{Free-form generation.} Free JSON (A5) gave no parse errors with Qwen3.5-9B and the
@@ -405,10 +392,10 @@ Qwen queries; Supp.~Table~S4).
 a station or no fire, and was run with v3.5 and with v3.6. In the \FPairs{} worlds where the fire
 was visible at the checkpoint in both runs, v3.5 delivered despite the fire \FWrongA{} times and v3.6 \FWrongB{} times (exact
 McNemar $p=\FMcNemarP$, not significant; \FDiscA{} discordant worlds favoured v3.6 and \FDiscB{} the other).
-Neither system stopped falsely in the fire-free runs (v3.5 \FFalseStopA{}, v3.6 \FFalseStopB{}); with so few runs this says little about the false-stop rate. Six of v3.6's seven remaining misses were small fires whose hazard probabilities overlap
+Neither system stopped falsely in the fire-free runs (v3.5 \FFalseStopA{}, v3.6 \FFalseStopB{}); with so few runs this says little. Six of v3.6's seven remaining misses were small fires whose hazard probabilities overlap
 those of fire-free views (Supp.~Sec.~S7).
 
-\begin{figure*}[t]\centering\fig[0.8\textwidth]{fig_fire_size.pdf}
+\begin{figure*}[t]\centering\fig[0.68\textwidth]{fig_fire_size.pdf}
 \caption{(a) The share of visible fires that the hazard question flags, by visible fire area (magenta-mask pixels; Wilson
 95\% CIs). Fires under 2\,000 pixels are missed by every configuration. The v3.6 wording with crops lifts the 2\,000--10\,000-pixel
 range. (b) Campaign G: front-view versus best side-view fire pixels for the 16 perceivable fires; the side view moves
@@ -433,7 +420,7 @@ Supp.~Table~S5 gives every condition. Pooled over all conditions, the check made
 approvals significantly. Correct approvals went from \RCleanCA{} on clean frames to \RWorstCA{} in the
 worst condition (\RWorstCond). The gate refused \RGateRej{} frames in total, and \RFireMissMax{} of \RNfire{} visible fires were missed in any
 condition. Under shift, refusal rather than unsafe approval is the intended failure direction of a selective classifier~\cite{geifman2017selective}.
-\begin{figure*}[t]\centering\fig[0.78\textwidth]{fig_r_examples.pdf}
+\begin{figure*}[t]\centering\fig[0.68\textwidth]{fig_r_examples.pdf}
 \caption{Study R: one held-out frame with a visible fire under the six registered degradations (severe level; the moderate
 level is milder). Over-exposure washes out the flames in this example. Frames that the acquisition gate rejects count as refusals.}\label{fig:rex}\end{figure*}
 
@@ -468,7 +455,7 @@ $\tau=\KTauTen$ already raised false alarms to \KFATen, study K), whereas memory
 in the \HPTwoN{} M2 missions this caused \HFalseReftwo{} false refusals. Every paired mission is listed in Supp.~Table~S8.
 \begin{table}[t]\centering\caption{Campaign H, missions 2--3 (paired). Unsafe = wrong supply or a perceivable fire at the
 delivering station. Time: median over all 32 missions.}\label{tab:h}\resizebox{\linewidth}{!}{\input{tab_h_arms.tex}}\end{table}
-\begin{figure}[t]\centering\fig{fig_h_change_rate.pdf}
+\begin{figure}[t]\centering\fig[0.88\linewidth]{fig_h_change_rate.pdf}
 \caption{Pre-registered model of repeated missions, from the per-check rates measured in G and H: unsafe deliveries and mean
 mission time as the world changes more often, for no memory, naive memory, a recency-gated naive memory that trusts only the previous mission (M1age), and verified memory (a model prediction, not an observation). Recency gating reduces but does not remove the risk of trusting memory; verified memory keeps the memory-free risk.}\label{fig:hrate}\end{figure}
 Fig.~\ref{fig:hrate} extends the campaign. At a change probability of
@@ -490,28 +477,24 @@ On 60 held-out utterances the hybrid parser was correct for \IntCorrect{}/\IntN{
 (TF-IDF parser: \IntTfidfCorrect{}/\IntN{}, \IntTfidfUnsafe{} unsafe); all five errors were refusals, so they fail closed.
 
 \section{Discussion}\label{sec:discussion}
-\textbf{When should a robot trust its memory?} Skipping a check that succeeded a
-few minutes ago is efficient, and its risk grows
+\textbf{When should a robot trust its memory?} Skipping a recent successful check is efficient, and its risk grows
 with how often the world changes, which the robot cannot observe without looking (campaign H, Fig.~\ref{fig:hrate}; registered headline claim:
 \HHeadline). Observation~1 and Corollary~1 make the question moot for safety: memory may decide the order and
 strictness of the checks, never their existence, and buys time in persistent worlds at the price
 of a detour when the world changes back.
 
 \textbf{Moving beats thinking harder.} The largest single safety gain came from moving 0.4\,m (G), not from
-a larger model, a better prompt or a second model (T2, whose fires were easy, cannot rank models on safety). A fire hidden behind a box carries no pixels to reason about.
+a larger model, a better prompt or a second model (T2, whose fires were easy, cannot rank models on safety). A hidden fire carries no pixels to reason about.
 
 \textbf{What pre-registration bought us.} Three registered claims failed or were not significant: false
-approvals below 2\% on T1, a closed-loop benefit of better wording and crops (F), and any detectable change on T2 (the draw was too easy). The first two exposed the hidden-fire weakness and led to the look-around;
-unregistered, each could have been rationalised away.
-
-\textbf{Cost of verification.} A check takes about \TimCheck\,s and the look-around about \GLookCost\,s, against about \TimDrive\,s of driving between
-station and shelter; where a wrong delivery costs a round trip, this is favourable, and memory recovers part of it in a persistent world.
+approvals below 2\% on T1, a closed-loop benefit of better wording and crops (F), and any detectable change on T2 (too easy a draw). The first two exposed the hidden-fire weakness and led to the look-around;
+unregistered, each could have been rationalised away. A check takes about \TimCheck\,s and the look-around about \GLookCost\,s, against about \TimDrive\,s of driving between
+station and shelter, which is favourable where a wrong delivery costs a round trip.
 
 \section{Limitations}
-All results are from simulation: simple meshes, two supply types, fixed station geometry and one robot.
-Study R covers sensor degradations, not the appearance gap of real objects or smoke, and our ``hazard'' is a stylised fire. Campaign H scripts its changes, and the change-rate model assumes
-independent changes; the memory spans three missions and two stations. Corollary~1 assumes a per-check false-approval bound that is uniform over the stations a route meets.
-Counterfactual baselines were not executed physically, barely visible fires (21--613 pixels) are excluded, and the guard is hand-written, not formally synthesised~\cite{alshiekh2018shielding,ames2019cbf}.
+All results are from simulation: simple meshes, two supply types, fixed station geometry, one robot, a stylised fire, and sensor degradations rather than the appearance gap of real objects or smoke. Campaign H scripts its changes, assumes
+independent changes, and spans three missions and two stations. Corollary~1 assumes a per-check false-approval bound uniform over the stations a route meets.
+Counterfactual baselines were not run physically, barely visible fires (21--613 pixels) are excluded, and the guard is hand-written, not formally synthesised~\cite{alshiekh2018shielding,ames2019cbf}.
 The next step is a real platform.
 
 \section{Conclusion}
