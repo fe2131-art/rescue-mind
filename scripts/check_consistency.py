@@ -145,6 +145,21 @@ def facts():
         ref = t2['results'][t2['reference']]
         add('T2 false approvals (reference)', f"{ref['false_approvals']}/{ref['n_deny']}", [f"{ref['false_approvals']}/{ref['n_deny']}"], [], [],
             {'TTRefFA': f"{ref['false_approvals']}/{ref['n_deny']}"})
+    # I-23 / I-24: machine-checked Proposition 2 and the advice-credit model (single source: scripts/advice_numbers.py -> README, report, paper macros)
+    import advice_numbers
+    sf, cf = advice_numbers.smt_facts(), advice_numbers.credit_facts()
+    if sf:
+        add('I-23 z3 unsat queries / differential cases / injected bugs caught',
+            f"{sf['unsat']} unsat of {sf['queries']}; {sf['cases']:,} cases, {sf['disagreements']} disagreements; {sf['caught']}/{sf['mutants']} caught",
+            [f"z3 の{sf['unsat']}件の問い", f"{sf['cases']:,}件で不一致 {sf['disagreements']}", f"{sf['caught']}個とも検出"], [],
+            [f"{sf['unsat']}件", f"{sf['cases']:,}件で不一致{sf['disagreements']}", f"{sf['mutants']}個を{sf['caught']}個とも"], {})
+    if cf:
+        add('I-24 advice credit (descriptive model, k=4): liar / flooding', f"{cf['liar_no']:.0f} -> {cf['liar_yes']:.0f} s; {cf['flood_no']} -> {cf['flood_yes']}",
+            [f"+{cf['liar_no']:.0f}秒 → +{cf['liar_yes']:.0f}秒", f"{cf['flood_no']}回 → {cf['flood_yes']}回"], [],
+            [f"+{cf['liar_no']:.0f} → +{cf['liar_yes']:.0f}秒", f"{cf['flood_no']} → {cf['flood_yes']}回"],
+            {'CrLiarNo': f"{cf['liar_no']:.0f}", 'CrLiarYes': f"{cf['liar_yes']:.0f}", 'CrFarmYes': f"{cf['adaptive_yes']:.0f}",
+             'CrHonest': f"{cf['honest_no']:.0f}", 'CrFloodNo': str(cf['flood_no']), 'CrFloodYes': str(cf['flood_yes']),
+             'CrFloodDelta': f"{cf['flood_delta']:.2f}", 'CrNoisyKeep': f"{cf['noisy_keep']:.0f}\\%", 'CrMissions': str(cf['missions'])})
     # run counts and study counts
     a_n = len(json.loads((ROOT / 'experiments/campaign_a_protocol.json').read_text())['trials'])
     add('A closed-loop runs (protocol file)', str(a_n), [f'({a_n} closed-loop runs)', f'（{a_n}試行）'], [], [f'閉ループ{a_n}試行'], {})
