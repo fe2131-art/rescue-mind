@@ -65,7 +65,9 @@ def all_attempts(name):
 
 FINAL = '--final' in sys.argv or os.environ.get('FINAL', '') not in ('', '0')
 PENDING_TEXT = (not FINAL) and os.environ.get('PENDING_TEXT', '1') != '0'
-TBD_DEF = (r'\providecommand{\TBD}{\textcolor{gray}{\textit{(pending)}}}' if PENDING_TEXT
+# FINAL: a \TBD that survives anywhere (a literal one in main.tex/supplement.tex, a missing figure) is a LaTeX error, so the build fails
+TBD_DEF = (r'\providecommand{\TBD}{\PackageError{rescuemind}{FINAL build: a pending (TBD) result remains}{Fill it or remove the sentence.}}' if FINAL
+           else r'\providecommand{\TBD}{\textcolor{gray}{\textit{(pending)}}}' if PENDING_TEXT
            else r'\providecommand{\TBD}{\textbf{\textcolor{red}{TBD}}}')
 
 
@@ -744,8 +746,8 @@ def main():
     ac_ = [m.lookup(k_) for k_ in ('AClaimSafety', 'AClaimTime', 'AClaimCost')]
     m['StatA'] = f"safety: {ac_[0]}; time: {ac_[1]}; cost: {ac_[2]}" if all(ac_) else 'pending'
     # abstract clause for the advice result: empty until study A has run (the abstract never shows a pending marker)
-    m['AbsAdvice'] = (f"; under adversarial advice, an advice-following baseline delivered unsafely in {m.lookup('AUnsafeNaive')} runs and ours in {m.lookup('AUnsafeOurs')}"
-                      if m.lookup('AUnsafeNaive') and m.lookup('AUnsafeOurs') else '')
+    m['AbsAdvice'] = (f"; under adversarial advice, an advice-following baseline delivered unsafely in {m.lookup('AUnsafeNaive')} runs, ours in {m.lookup('AUnsafeOurs')} and a robot without advice in {m.lookup('AUnsafeCtrl')}"
+                      if m.lookup('AUnsafeNaive') and m.lookup('AUnsafeOurs') and m.lookup('AUnsafeCtrl') else '')
     # ---- study S (scene-text injection, image level; scripts/s_analysis.py -> s_summary.json) -- absent until it ran
     sf = RES / 's_summary.json'
     if sf.is_file():
