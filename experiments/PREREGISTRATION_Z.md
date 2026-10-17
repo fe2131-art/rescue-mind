@@ -43,4 +43,7 @@ The chosen pair is written to `experiments/results/z_thresholds.json` before T1 
 * Otherwise the counts are reported as "no significant difference".
 
 ## Amendments
-(none)
+**Note on execution (no change to the rule).** After the τ_h tie-break, a tie in τ_s remained, which the registration
+did not order. The lower τ_s was taken, so both models got τ_s = 0.34 and τ_h = 0.05. This was selected on development
+data only (`z_thresholds.json`). The standard Hugging Face processors were used; CLIP's processor centre-crops to 224 px,
+which can cut off fire at the image edges.
