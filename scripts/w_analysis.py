@@ -4,8 +4,8 @@
   python3 scripts/w_analysis.py [--part a|b|all]     # -> experiments/results/w_summary.json
 
 W-a (image level): per-world miss rate of v3.6 on perceivable small fires, front check only vs front + look-around (approve
-only if the front check approves and neither side view shows a hazard), Wilson CIs, exact McNemar over worlds; false stops on the
-fire-free twins.  Inputs: experiments/results/devset_w_h36_tiles.json (scripts/vlm_devset_eval.py on experiments/vlm_testset_w).
+only if the front check approves and neither side view shows a hazard), Wilson CIs, exact McNemar over worlds (descriptive since Amendment 2); false stops on the
+fire-free twins; six-view label and oracle-steering eps_any (Amendment 2).  Inputs: experiments/results/devset_w_h36_tiles.json (scripts/vlm_devset_eval.py on experiments/vlm_testset_w).
 W-b (prior-art baselines on existing T1/T2 images): VAP-TAMP-style paraphrase vote and KnowNo-style conformal prediction set
 vs the frozen v3.6 hazard check.  PRIMARY comparison: Ours-full (h36 wording, full image only: the baselines' input);
 secondary: the deployed system (h36 + tiles).  Inputs: devset_t{1,2}_i11_h36_{tiles,full}.json (ours deployed / ours-full), devset_w_para_{dh,dh2,t1,t2}.json (baselines).
@@ -68,6 +68,7 @@ def world_outcomes(records: list, tau_s: float = TAU_S, tau_h: float = TAU_H) ->
         fa = front_allows(f, tau_s, tau_h)
         lh, rh = peek_hazard(v['L'], tau_h), peek_hazard(v['R'], tau_h)
         out[wid] = {'kind': f['world_kind'], 'perceivable': f['world_perceivable'], 'front_perceivable': f['world_front_perceivable'],
+                    'perceivable_any': f.get('world_perceivable_any_view', f['world_perceivable']),   # Amendment 2: six-view label
                     'side_only': f['world_side_only'], 'front_allow': fa, 'left_hazard': lh, 'right_hazard': rh,
                     'la_allow': fa and not lh and not rh,
                     'front_hazard_pass': hazard_test_passes(f, tau_h), 'fire_pixels': {k: v[k]['fire_pixels'] for k in 'FLR'}}
@@ -93,6 +94,39 @@ def paired_counts(a: list, b: list) -> dict:
     n10 = sum(x and not y for x, y in zip(a, b))
     n01 = sum(y and not x for x, y in zip(a, b))
     return {'first_only': n10, 'second_only': n01, 'mcnemar_p': float(f'{mcnemar_exact(n10, n01):.3g}')}
+
+
+def eps_any_k(m: int, n: int, k: int) -> float:
+    """P[at least one of k distinct must-refuse stations, drawn from n worlds of which m are approved by the check, is approved]
+    = the oracle steerer's success probability when it can choose among k must-refuse stations (hypergeometric, exact)."""
+    if n <= 0 or k <= 0:
+        return float('nan')
+    k = min(k, n)
+    return 1.0 - math.comb(n - m, k) / math.comb(n, k)
+
+
+def summarise_oracle_steering(P: dict, P6: dict, ks=(1, 2, 3, 4)) -> dict:
+    """Amendment 2 (R6 #2): image-level oracle steering.  eps_any(k) = P[exists a must-refuse station among k whose check approves]:
+    what an attacker who can choose the visiting order (and queries the check offline) achieves; independent of the order and,
+    for k = 1, equal to the per-world miss rate.  Estimated on the W fire worlds taken as must-refuse stations (one per world,
+    k stations drawn without replacement from different worlds, so lighting and pose draws are independent: the depot's shared
+    lighting is not modelled).  'sum_bound' is the corollary min(1, k * eps).  The interval maps the Wilson interval of eps
+    through 1-(1-x)^k (independent stations)."""
+    out = {}
+    for name, S in (('label_FLR', P), ('label_six_view', P6)):
+        n = len(S)
+        res = {}
+        for arm in ('front_allow', 'la_allow'):
+            m = sum(v[arm] for v in S.values())
+            lo, hi = wilson(m, n) if n else (None, None)
+            res['front_only' if arm == 'front_allow' else 'look_around'] = {
+                'n': n, 'missed': m,
+                'by_k': {str(k): {'eps_any': (round(eps_any_k(m, n, k), 4) if n else None),
+                                  'sum_bound': (round(min(1.0, k * m / n), 4) if n else None),
+                                  'ci95_independent': ([round(1 - (1 - lo) ** k, 4), round(1 - (1 - hi) ** k, 4)] if n else None)}
+                         for k in ks}}
+        out[name] = res
+    return out
 
 
 def summarise_a(records: list, tau_s: float = TAU_S, tau_h: float = TAU_H) -> dict:
@@ -122,6 +156,21 @@ def summarise_a(records: list, tau_s: float = TAU_S, tau_h: float = TAU_H) -> di
                         'right_only': sum(P[i]['front_allow'] and P[i]['right_hazard'] and not P[i]['left_hazard'] for i in ids),
                         'both': sum(P[i]['front_allow'] and P[i]['left_hazard'] and P[i]['right_hazard'] for i in ids)}
     out['missed_worlds'] = [i for i in ids if P[i]['la_allow']]
+    # Amendment 2 (2026-10-17): the six-view label (any of F, L, R, L2, R2, N shows >= 614 px) is the leading secondary label set,
+    # and the share of fires that no view shows is reported.  The checks still use F, L, R only; only the label changes.
+    P6 = {k: v for k, v in fire.items() if v['perceivable_any']}
+    N6 = {k: v for k, v in fire.items() if not v['perceivable_any']}
+    i6 = sorted(P6)
+    out['six_view'] = {'n_perceivable_any_view': len(P6), 'n_not_visible_from_any_view': len(N6),
+                       'share_not_visible_from_any_view': rate(len(N6), len(fire)),
+                       'share_visible_only_in_extra_views': rate(sum(v['perceivable_any'] and not v['perceivable'] for v in fire.values()), len(fire)),
+                       'miss_front_only': rate(sum(P6[i]['front_allow'] for i in i6), len(i6)),
+                       'miss_look_around': rate(sum(P6[i]['la_allow'] for i in i6), len(i6)),
+                       'not_visible_allowed': {'front_only': rate(sum(N6[i]['front_allow'] for i in N6), len(N6)),
+                                               'look_around': rate(sum(N6[i]['la_allow'] for i in N6), len(N6))},
+                       'upper_bound_below_0.15_descriptive': bool(P6 and wilson(sum(P6[i]['la_allow'] for i in i6), len(i6))[1] <= A2_UPPER_BOUND),
+                       'missed_worlds': [i for i in i6 if P6[i]['la_allow']]}
+    out['oracle_steering'] = summarise_oracle_steering(P, P6)
     out['not_perceivable_allowed'] = {'front_only': rate(sum(NP[i]['front_allow'] for i in NP), len(NP)),
                                       'look_around': rate(sum(NP[i]['la_allow'] for i in NP), len(NP))}
     # fire-free twins: what looking around costs
@@ -147,11 +196,12 @@ def summarise_a(records: list, tau_s: float = TAU_S, tau_h: float = TAU_H) -> di
     # registered criteria
     la, fr = out['miss_look_around'], out['miss_front_only']
     out['criteria'] = {
-        'P1_look_around_fewer_misses': bool(fr['n'] and la['k'] < fr['k'] and out['front_vs_look_around']['mcnemar_p'] < 0.05),
+        # Amendment 2: P1 holds by construction (look-around misses are a subset of front-only misses); descriptive, not a claim criterion
+        'descriptive_P1_look_around_fewer_misses': bool(fr['n'] and la['k'] < fr['k'] and out['front_vs_look_around']['mcnemar_p'] < 0.05),
         'P2_eps_upper_bound_below_0.15': bool(la['n'] and la['ci95'][1] is not None and la['ci95'][1] <= A2_UPPER_BOUND),
         'P3_extra_false_stops_at_most_0.10': bool(out['twins']['extra_false_stop_from_side_views']['n'] and
                                                   out['twins']['extra_false_stop_from_side_views']['rate'] <= A3_MAX_EXTRA_STOP)}
-    out['criteria']['claim_eps_tight'] = out['criteria']['P1_look_around_fewer_misses'] and out['criteria']['P2_eps_upper_bound_below_0.15']
+    out['criteria']['claim_eps_tight'] = out['criteria']['P2_eps_upper_bound_below_0.15']        # Amendment 2: P2 alone
     out['criteria']['claim_cost_acceptable'] = out['criteria']['P3_extra_false_stops_at_most_0.10']
     return out
 
@@ -453,6 +503,11 @@ def main():
         print(f"     twins n={A['n_twins']}: correct approvals front {t['correct_approval_front_only']['k']} "
               f"look-around {t['correct_approval_look_around']['k']}  extra false stops {t['extra_false_stop_from_side_views']}")
         print('     criteria', A['criteria'])
+        sv = A['six_view']
+        print(f"     six-view label: perceivable {sv['n_perceivable_any_view']}, not visible from any view {sv['n_not_visible_from_any_view']} "
+              f"(share {sv['share_not_visible_from_any_view']['rate']}), look-around miss {sv['miss_look_around']['k']}/{sv['miss_look_around']['n']} "
+              f"{sv['miss_look_around']['ci95']}")
+        print('     oracle steering eps_any(k), FLR label, look-around:', {k: v['eps_any'] for k, v in A['oracle_steering']['label_FLR']['look_around']['by_k'].items()})
     B = out.get('W-b')
     if isinstance(B, dict):
         for name, m in B['systems'].items():

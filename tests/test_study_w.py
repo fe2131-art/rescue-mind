@@ -128,7 +128,7 @@ class LabelsW(unittest.TestCase):
 
 
 def rec(world, view, kind='fire', perc=True, front_perc=True, side_only=False, station='water', hp=0.001, supply=0.99,
-        err=False, quality=None):
+        err=False, quality=None, any_view=None):
     """One vlm_devset_eval record with both passes."""
     other = {'water': 'medicine', 'medicine': 'water'}[station]
     passes = {}
@@ -140,6 +140,8 @@ def rec(world, view, kind='fire', perc=True, front_perc=True, side_only=False, s
          'world_front_perceivable': front_perc, 'world_side_only': side_only, 'fire_pixels': 700 if perc else 0, 'passes': passes}
     if quality is not None:
         r['quality'] = {'quality_ok': quality}
+    if any_view is not None:                 # Amendment 2: six-view label (default: same as the F/L/R label)
+        r['world_perceivable_any_view'] = any_view
     return r
 
 
@@ -192,12 +194,62 @@ class AnalysisA(unittest.TestCase):
 
     def test_criteria(self):
         c = self.out['criteria']
-        self.assertTrue(c['P1_look_around_fewer_misses'])
+        self.assertTrue(c['descriptive_P1_look_around_fewer_misses'])   # Amendment 2: holds by construction, descriptive only
+        self.assertNotIn('P1_look_around_fewer_misses', c)
         self.assertFalse(c['P2_eps_upper_bound_below_0.15'])            # 1/10 has a Wilson upper bound well above 0.15
         self.assertFalse(c['claim_eps_tight'])
         self.assertTrue(c['P3_extra_false_stops_at_most_0.10'])         # 1/11 = 9.1% <= 10%
         self.assertTrue(c['claim_cost_acceptable'])
         self.assertEqual(self.out['twins']['extra_false_stop_from_side_views']['rate'], round(1 / 11, 4))
+
+    def test_claim_eps_tight_needs_only_the_upper_bound(self):
+        # Amendment 2: 0 misses in 60 perceivable worlds (upper bound 0.06) is enough, even if look-around did not beat front-only
+        recs = []
+        for i in range(60):
+            recs += world(f'wf{i:03d}', 0.60, 0.50, 0.50)            # the front view already catches every fire
+        o = wa.summarise_a(recs)
+        self.assertFalse(o['criteria']['descriptive_P1_look_around_fewer_misses'])
+        self.assertTrue(o['criteria']['claim_eps_tight'])
+
+    def test_six_view_label_and_share_not_visible(self):
+        recs = []
+        recs += world('wf000', 0.002, 0.003, 0.004, any_view=True)                                  # perceivable in F/L/R and missed
+        recs += world('wf001', 0.60, 0.50, 0.50, any_view=True)                                     # caught
+        recs += world('wf002', 0.002, 0.003, 0.004, perc=False, front_perc=False, any_view=True)    # visible only from L2/R2/N, missed
+        recs += world('wf003', 0.002, 0.003, 0.004, perc=False, front_perc=False, any_view=False)   # visible from no view
+        recs += world('wf004', 0.60, 0.50, 0.50, perc=False, front_perc=False, any_view=False)      # visible from no view, refused
+        recs += world('wt000', 0.001, 0.001, 0.001, kind='twin', perc=False, front_perc=False, any_view=False)
+        o = wa.summarise_a(recs)
+        self.assertEqual((o['n_perceivable'], o['n_not_perceivable']), (2, 3))                       # registered F/L/R label unchanged
+        sv = o['six_view']
+        self.assertEqual((sv['n_perceivable_any_view'], sv['n_not_visible_from_any_view']), (3, 2))
+        self.assertEqual((sv['share_not_visible_from_any_view']['k'], sv['share_not_visible_from_any_view']['n']), (2, 5))
+        self.assertEqual((sv['share_visible_only_in_extra_views']['k'], sv['share_visible_only_in_extra_views']['n']), (1, 5))
+        self.assertEqual((sv['miss_look_around']['k'], sv['miss_look_around']['n']), (2, 3))
+        self.assertEqual(sv['missed_worlds'], ['wf000', 'wf002'])
+        self.assertEqual((sv['not_visible_allowed']['look_around']['k'], sv['not_visible_allowed']['look_around']['n']), (1, 2))
+        self.assertEqual((o['miss_look_around']['k'], o['miss_look_around']['n']), (1, 2))          # primary endpoint untouched
+
+    def test_six_view_label_falls_back_to_the_flr_label_when_absent(self):
+        o = wa.summarise_a(self.recs)
+        self.assertEqual(o['six_view']['n_perceivable_any_view'], o['n_perceivable'])      # records without world_perceivable_any_view use world_perceivable
+
+    def test_oracle_steering_eps_any(self):
+        self.assertAlmostEqual(wa.eps_any_k(1, 10, 1), 0.1)
+        self.assertAlmostEqual(wa.eps_any_k(1, 10, 4), 0.4)           # exactly one missed world among 10: 4 of 10 are in a random 4-set
+        self.assertAlmostEqual(wa.eps_any_k(0, 10, 4), 0.0)
+        self.assertAlmostEqual(wa.eps_any_k(10, 10, 2), 1.0)
+        self.assertLessEqual(wa.eps_any_k(3, 10, 4), 3 / 10 * 4)       # never above the sum bound
+        os_ = self.out['oracle_steering']['label_FLR']['look_around']
+        self.assertEqual((os_['missed'], os_['n']), (1, 10))
+        self.assertEqual(os_['by_k']['1']['eps_any'], 0.1)
+        self.assertEqual(os_['by_k']['4']['eps_any'], 0.4)
+        self.assertEqual(os_['by_k']['4']['sum_bound'], 0.4)
+        lo, hi = wa.wilson(1, 10)
+        self.assertEqual(os_['by_k']['2']['ci95_independent'], [round(1 - (1 - lo) ** 2, 4), round(1 - (1 - hi) ** 2, 4)])
+        fo = self.out['oracle_steering']['label_FLR']['front_only']
+        self.assertEqual(fo['missed'], 9)
+        self.assertEqual(fo['by_k']['2']['eps_any'], 1.0)
 
     def test_fail_closed_on_inference_error_and_rejected_frames(self):
         self.assertTrue(wa.peek_hazard(rec('x', 'L', err=True)))
