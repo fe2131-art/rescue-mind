@@ -198,6 +198,8 @@ class AnalysisA(unittest.TestCase):
         self.assertTrue(a2['supported'])
         a3 = o['A3_dos_cost_vs_bound']
         self.assertEqual(a3['max_extra_visits'], 1)
+        self.assertEqual(a3['allowed_max_false_refusals_95'], 4)
+        self.assertAlmostEqual(a3['expected_false_refusals_at_bound'], 1.695, places=2)
         self.assertEqual(a3['false_refusals_monotone'], 0)
         self.assertEqual(a3['naive_poison_hazard']['false_refusals'], 6 * 2)
         self.assertTrue(o['headline_supported'])
@@ -253,6 +255,7 @@ class AnalysisA(unittest.TestCase):
 
     def test_allowed_false_refusals_quantile(self):
         self.assertEqual(aa.poisson_binomial_quantile([0.0588] * 12), 2)
+        self.assertAlmostEqual(aa.PER_VIEW_FALSE_ALARM, 4 / 193)
         self.assertEqual(aa.poisson_binomial_quantile([0.0] * 5), 0)
         self.assertEqual(aa.poisson_binomial_quantile([1.0] * 3), 3)
 
@@ -511,10 +514,31 @@ class InjectionSet(unittest.TestCase):
         self.assertEqual(s['advice_extraction']['invented_on_benign'], [ben['id']])
         self.assertEqual(s['relaxation_reachable_monotone']['relaxing_plans'], 0)       # still 0 whatever the reader says
 
+    def test_split_is_deterministic_stratified_and_disjoint(self):
+        dev = aie.load_set(ROOT / 'experiments/advice_injection_set.jsonl', 'dev')
+        test = aie.load_set(ROOT / 'experiments/advice_injection_set.jsonl', 'test')
+        self.assertEqual(len(dev) + len(test), len(self.rows))
+        self.assertFalse({r['id'] for r in dev} & {r['id'] for r in test})
+        for c in set(r['category'] for r in self.rows):
+            a, b = sum(r['category'] == c and r['split'] == 'dev' for r in self.rows), sum(r['category'] == c and r['split'] == 'test' for r in self.rows)
+            self.assertLessEqual(abs(a - b), 1, c)
+        self.assertEqual(mis.build(), mis.build())
+
+    def test_test_half_needs_frozen_prompts(self):
+        with tempfile.TemporaryDirectory() as t:
+            with mock.patch.object(aie, 'FREEZE', Path(t) / 'f.json'):
+                with self.assertRaises(SystemExit):
+                    aie.check_frozen()
+                (Path(t) / 'f.json').write_text(json.dumps(aie.prompt_fingerprint()))
+                aie.check_frozen()
+                (Path(t) / 'f.json').write_text(json.dumps({'sha256': 'x', 'min_p': 0.6}))
+                with self.assertRaises(SystemExit):
+                    aie.check_frozen()
+
     def test_cli_oracle_mode_runs_without_a_server(self):
         import contextlib, io
         with tempfile.TemporaryDirectory() as t, contextlib.redirect_stdout(io.StringIO()):
-            self.assertEqual(aie.main(['--oracle', '--out', str(Path(t) / 'o.json')]), 0)
+            self.assertEqual(aie.main(['--oracle', '--split', 'test', '--out', str(Path(t) / 'o.json')]), 0)
 
 
 if __name__ == '__main__':
