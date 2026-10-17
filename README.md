@@ -11,6 +11,10 @@
 
 ![Gazebo上のRescueMind（俯瞰カメラ＋ロボット搭載カメラ、実レンダリング）](docs/figures/hero_gazebo.png)
 
+<!-- GA:START -->
+![RescueMind 要約図（問題・3つの工夫・事前登録した主な結果）](docs/figures/graphical_abstract_ja.png)
+<!-- GA:END -->
+
 **提出物**：説明資料 [`docs/report/説明資料_PAI最終課題_tetsutetsu.pdf`](docs/report/説明資料_PAI最終課題_tetsutetsu.pdf) ／ デモ動画（YouTube、3分以内、日本語ナレーション付き。実走デモ4本（言い換えた指示でも配達／取り違え → 別拠点を探索／欠品 → 両拠点を確認して停止／隠れた小さな火 → 停止）と、事前登録した結果の表3枚。走行8倍速・確認動作3倍速・AI判断の瞬間は等速で、速度は画面に常時表示）／ 本リポジトリ
 
 ![architecture](docs/figures/architecture.png)
@@ -23,7 +27,7 @@
 * **記憶は「提案」だけ、確認は減らさない**（出動をまたぐ記憶、[I-15](docs/IMPROVEMENT_LOG.md)・[D13](docs/DESIGN_DECISIONS.md)）：前回の物資の場所は「先に行く拠点」を決めるだけで、行った先で必ず確認する。火を見た拠点は閾値を厳しくする。同じ画像なら記憶ありの許可は記憶なしの許可の部分集合になる（コードで強制）。事前登録 [`PREREGISTRATION_H.md`](experiments/PREREGISTRATION_H.md)。評価H（16系列×3出動）：実行中（事前登録済み）
 * **横から見直す能動知覚**（[I-14](docs/IMPROVEMENT_LOG.md)）：正面で判断し切れない小さな火に、モデルを大きくせず**横へ動いて撮り直す**。事前登録の対比較で、火があるのに配達した回数 **11/16 → 1/16**（p=0.002）、火の無い世界の誤った停止 0/8。
 * **当初計画の2つのAI（Jev役 Clef-Flash＋Qwen）をロボットの判断に組み込んで**（[I-16](docs/IMPROVEMENT_LOG.md)）：オフライン評価だけだった2モデル確認を、V100 1台に載る組で閉ループに載せた。Clef-Flash は Qwen3.5-9B の追加学習版なので、2つは独立ではなく系統を共有する（相関した失敗が残り得ると明記）。評価J（24世界の対比較）：実行中（事前登録済み）
-* **事前登録と時系列監査**（論文 [`docs/paper/main.pdf`](docs/paper/main.pdf) 付録「Registration audit」）：条件・閾値・解析を結果を見る前にコミットし、全12研究の登録時刻と最初の結果の時刻を、git の履歴から機械的に監査（`git merge-base --is-ancestor`）。結果のある研究のうち **9件で登録コミットが結果コミットより前**、2件は結果待ち（登録のみ済み）。支持されなかった主張も、そのまま載せる。
+* **事前登録と時系列監査**（論文 [`docs/paper/main.pdf`](docs/paper/main.pdf) 付録「Registration audit」）：条件・閾値・解析を結果を見る前にコミットし、全13研究の登録時刻と最初の結果の時刻を、git の履歴から機械的に監査（`git merge-base --is-ancestor`）。結果のある研究のうち **10件で登録コミットが結果コミットより前**、2件は結果待ち（登録のみ済み）。支持されなかった主張も、そのまま載せる。
 <!-- NOVELTY:END -->
 
 <!-- EN:START -->
