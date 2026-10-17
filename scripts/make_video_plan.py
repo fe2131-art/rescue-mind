@@ -305,6 +305,9 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False):
             {'go': '拠点の裏で火災が起きているケース。「{instr}」', 'check': '物資は正しいが、画像の中に火や煙は無いか？',
              'after': '火災・煙を検知 → 拒否。危険な場所を探し回らず停止し、状況を報告します。'}, hazard_at='medicine'))
     if getattr(a, 'memory', None):
+        demos.append({'kind': 'card', 'seconds': 5, 'title': '出動をまたぐ記憶（I-15）', 'layout': 'image',
+                      'image': 'docs/figures/memory_principle_ja.png', 'sub': '記憶は提案だけ。行った先では必ず確認する',
+                      'narration': '記憶は提案だけ。行った先では必ず確認します。', 'body': []})
         demos.append(mission_part(
             a.memory, 'swapped', '出動をまたぐ記憶 → 直行',
             {'go': '前回の出動で、物資が入れ替わっていたことを覚えています。', 'check': 'それでも、着いたら必ず確認します。',
@@ -322,8 +325,9 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False):
              'check': '物資は正しい。だが物資の陰や画面の端に、小さな火や煙は無いか？',
              'peek': '正面の確認は「許可」。でも物資の陰は見えない → 左右0.4 mに回り込んで見直す。',
              'after': '横からの画像で火を検知 → 正面の許可を取り消して停止・報告。'}))
-    for i, d in enumerate(demos, 1):
-        d['index'], d['total'] = i, len(demos)
+    missions = [d for d in demos if d['kind'] == 'mission']
+    for i, d in enumerate(missions, 1):
+        d['index'], d['total'] = i, len(missions)
     parts += demos
     cards = ((evidence_card, 14),) if getattr(a, 'summary_card', True) else ((campaign_e_table, 9), (t1_card, 8), (fix_card, 11))
     for card_fn, sec in cards:
