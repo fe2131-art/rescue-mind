@@ -46,6 +46,8 @@ def query(text: str, *, url: str = DEFAULT_ADVICE_URL, model: str = PRIMARY_MODE
             resp = json.loads(f.read(16384).decode('utf8'))
     else:
         resp = transport(url, payload)
+    if not isinstance(resp, dict):
+        raise LocalInferenceError('advice response is not an object')
     if resp.get('model') != model or resp.get('real_inference') is not True or resp.get('text') != text:
         raise LocalInferenceError('advice response provenance mismatch')
     lp, hp, sp = resp.get('loc_probs'), resp.get('haz_probs'), resp.get('safe_probs')
@@ -54,7 +56,7 @@ def query(text: str, *, url: str = DEFAULT_ADVICE_URL, model: str = PRIMARY_MODE
             and isinstance(sp, dict) and set(sp) == {'yes', 'no'}):
         raise LocalInferenceError('advice response schema')
     for d in (lp, hp, sp):
-        if not all(isinstance(v, (int, float)) and 0 <= v <= 1 for v in d.values()):
+        if not all(isinstance(v, (int, float)) and not isinstance(v, bool) and 0 <= v <= 1 for v in d.values()):
             raise LocalInferenceError('advice response probabilities')
     return resp
 
@@ -70,11 +72,13 @@ def filter_query(text: str, *, url: str = DEFAULT_FILTER_URL, model: str = PRIMA
             resp = json.loads(f.read(16384).decode('utf8'))
     else:
         resp = transport(url, payload)
+    if not isinstance(resp, dict):
+        raise LocalInferenceError('advice filter response is not an object')
     if resp.get('model') != model or resp.get('real_inference') is not True or resp.get('text') != text:
         raise LocalInferenceError('advice filter response provenance mismatch')
     fp = resp.get('filter_probs')
     if not (isinstance(fp, dict) and set(fp) == {'yes', 'no'}
-            and all(isinstance(v, (int, float)) and 0 <= v <= 1 for v in fp.values())):
+            and all(isinstance(v, (int, float)) and not isinstance(v, bool) and 0 <= v <= 1 for v in fp.values())):
         raise LocalInferenceError('advice filter response schema')
     return resp
 
