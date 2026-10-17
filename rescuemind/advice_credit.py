@@ -242,3 +242,39 @@ def load(path: str | Path | None, **params) -> dict:
 def save(ledger: dict, path: str | Path) -> None:
     _check(ledger)
     Path(path).write_text(json.dumps(ledger, ensure_ascii=False, indent=1) + '\n', encoding='utf8')
+
+
+def _supply_match(cp: dict | None) -> bool | None:
+    """True: both passes saw the requested supply; False: both agree on another one / nothing; None: undecided."""
+    d = (cp or {}).get('decision') or {}
+    exp, a, b = d.get('expected'), d.get('first_supply'), d.get('second_supply')
+    if exp is None or a is None or a != b:
+        return None
+    return a == exp
+
+
+def visits_from_mission(m: dict) -> list[dict]:
+    """The settlement input, rebuilt from mission.json alone (the robot's own checks, in visiting order):
+    recovery.first_station / first_checkpoint, each recovery hop, then the final checkpoint.  A station listed in
+    'caution_refusals' was refused at the caution threshold only (refused, not refused_base)."""
+    caution_only = {r.get('station') for r in m.get('caution_refusals') or []}
+    out = []
+
+    def add(st, cp):
+        if st is None or cp is None:
+            return
+        d = cp.get('decision') or {}
+        refused = d.get('allow') is False and 'supply' not in str(d.get('reason', ''))
+        peeks = ((cp.get('look_around') or {}).get('peeks') or [])
+        out.append({'station': st, 'supply_match': _supply_match(cp), 'refused': bool(refused or st in caution_only),
+                    'refused_base': bool(refused and st not in caution_only),
+                    'scrutiny_views': len({p.get('side') for p in peeks} & {'L2', 'R2', 'N'})})
+    rec = m.get('recovery') or {}
+    add(rec.get('first_station'), rec.get('first_checkpoint'))
+    for h in rec.get('hops') or []:
+        add(h.get('station'), h.get('checkpoint'))
+    cp = m.get('checkpoint')
+    if cp is not None and isinstance(cp, dict) and 'look_around' not in cp and m.get('look_around'):
+        cp = dict(cp, look_around=m['look_around'])
+    add(m.get('checkpoint_station'), cp)
+    return out

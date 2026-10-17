@@ -893,6 +893,8 @@ def main():
                     help='I-19: JSON list of advice items (peer robot / inventory / memory claims), see rescuemind.advice.validate')
     ap.add_argument('--advice-mode',choices=['off','monotone','naive','filtered'],default='off',
                     help='I-19: monotone = advice may only reorder stations and tighten thresholds; naive = follow advice; filtered = follow advice that an LLM injection filter does not flag (baselines only)')
+    ap.add_argument('--advice-credit',default=None,
+                    help='I-24: per-source advice-credit ledger (read only here; the orchestrator settles it after the mission)')
     ap.add_argument('--advice-from-instruction',action='store_true',
                     help='I-19: extract operator advice (location / hazard / skip claims) from the instruction text with the local model')
     ap.add_argument('--delivery-interlock',action='store_true',
@@ -974,7 +976,7 @@ def main():
         mem_plan=plan_for_mission(intent.item,mem_plan,mode=a.advice_mode,advice_file=a.advice_file,
                                   from_instruction=a.advice_from_instruction,instruction=a.instruction,
                                   model=a.vlm_model,url=a.local_primary_url.replace('/v1/classify','/v1/advice'),stations=stations,
-                                  scrutiny=a.advice_scrutiny,
+                                  scrutiny=a.advice_scrutiny,credit_path=a.advice_credit,
                                   filter_url=a.local_primary_url.replace('/v1/classify','/v1/advice_filter'))
     route=route_from_config(a.config,intent.item,station=(mem_plan or {}).get('first_station'))
     order=plan_order(mem_plan,stations,intent.item) if intent.item in ('water','medicine') else None
