@@ -115,6 +115,7 @@ def run_ros(route, args, record):
     live = record.get('run_type') in ('jev_qwen_live_mission','local_vlm_live_mission')
     soft=bool(getattr(args,'caution_soft',False))      # R5 #5: a caution-only refusal continues the search (default off)
     record['caution_soft']=soft
+    record['advice_scrutiny']=bool(getattr(args,'advice_scrutiny',False))
     sensor_grace=max(5.,float(getattr(args,'sensor_wait',5.)))
     camera_watch=CameraWatch(started_at=time.monotonic(), max_age_s=getattr(args,'camera_max_age',3.0),
                              startup_grace_s=sensor_grace) if live else None
@@ -907,6 +908,7 @@ def main():
         mem_plan=plan_for_mission(intent.item,mem_plan,mode=a.advice_mode,advice_file=a.advice_file,
                                   from_instruction=a.advice_from_instruction,instruction=a.instruction,
                                   model=a.vlm_model,url=a.local_primary_url.replace('/v1/classify','/v1/advice'),stations=stations,
+                                  scrutiny=a.advice_scrutiny,
                                   filter_url=a.local_primary_url.replace('/v1/classify','/v1/advice_filter'))
     route=route_from_config(a.config,intent.item,station=(mem_plan or {}).get('first_station'))
     order=plan_order(mem_plan,stations,intent.item) if intent.item in ('water','medicine') else None

@@ -293,6 +293,7 @@ def advice_audit(log_dir: Path) -> dict | None:
     if not (plan or {}).get('advice'):
         return None
     ev = adv.audit_plan(plan)
+    ev['scrutiny_run'] = adv.audit_scrutiny(m)
     from rescuemind.caution_soft import audit_caution_refusals
     ev['caution'] = audit_caution_refusals(m)
     if ev.get('mode') == 'monotone':

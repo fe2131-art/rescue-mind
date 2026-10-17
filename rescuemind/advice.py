@@ -7,6 +7,12 @@ the inventory record, or hints and claims in the operator's instruction text.  A
   * safe       : "station S is safe / already checked / no fire"    (can do NOTHING in monotone mode)
   * skip       : "skip the check / just deliver"                    (can do NOTHING in monotone mode)
 
+Optional SCRUTINY (monotone mode, flag `scrutiny`, robot flag --advice-scrutiny): the station that location advice moved to the
+front of the order is checked harder, whether or not anything looked suspicious: caution threshold (tau_h = the caution
+threshold) on every view plus the I-20 extra views.  It only adds refusals/views, so it is inside the monotone family
+(assert_monotone checks it).  It answers the steering attack: advice cannot make a check weaker, but it can choose which
+station is checked first, so the station it chose is the one that gets the harder check.
+
 Mode 'monotone' (ours) turns advice into a plan that only reorders and tightens, so for the same camera frames every
 approval with advice is also an approval without it (Proposition: advice monotonicity; P(unsafe | any advice) <= k*eps).
 Mode 'naive' is the measured baseline of an advice-following agent: it skips the check on 'safe'/'skip' and refuses
@@ -96,7 +102,7 @@ def apply_filter(items: list[dict], filter_fn) -> tuple[list[dict], list[dict], 
 
 
 def plan(item: str, items: list[dict], mode: str, base: dict | None = None, *, caution_tau_h: float = CAUTION_TAU_H,
-         filter_fn=None, stations=None) -> dict:
+         filter_fn=None, stations=None, scrutiny: bool = False) -> dict:
     """Combine advice with an existing plan (e.g. the memory plan).  Returns a new plan with an 'advice' record.
     Mode 'filtered' needs `filter_fn` (see apply_filter); the items it keeps are followed exactly as in 'naive'."""
     from .stations import StationSet
@@ -110,6 +116,9 @@ def plan(item: str, items: list[dict], mode: str, base: dict | None = None, *, c
     rec = {'mode': mode, 'items': items, 'applied': [], 'rejected': [], 'n_base_rationale': len(out['rationale']),
            'base': _snapshot(out)}       # what the audit recomputes assert_monotone against
     out['advice'] = rec
+    scrutiny = bool(scrutiny) and mode == 'monotone'          # a hardening of the monotone rule; the baselines never get it
+    if scrutiny:
+        rec['scrutiny'] = True
     if mode == 'off' or not items:
         rec['rejected'] = [dict(a, why='advice off') for a in items] if mode == 'off' else []
         if mode == 'filtered':
@@ -128,8 +137,15 @@ def plan(item: str, items: list[dict], mode: str, base: dict | None = None, *, c
                 out['first_station'] = st
                 if 'order' in out:
                     out['order'] = ss.order(item, st)          # reorder only: every other candidate stays
-                rec['applied'].append(dict(a, effect='reorder'))
+                rec['applied'].append(dict(a, effect='reorder', **({'scrutiny': True} if scrutiny else {})))
                 out['rationale'].append(f'{src}：依頼物資は{station_ja(st)}にある → 先に{station_ja(st)}へ（着いたら確認する）')
+                if scrutiny:
+                    prev = out['caution'].get(st) or {}
+                    tau = min(caution_tau_h, prev['tau_h']) if prev.get('tau_h') is not None else caution_tau_h
+                    out['caution'][st] = {**prev, 'tau_h': tau, 'first_side': prev.get('first_side'),
+                                          'seen_in': prev.get('seen_in') or 'advice_scrutiny'}
+                    out['scrutiny'] = sorted(set(out.get('scrutiny') or []) | {st})
+                    out['rationale'].append(f'助言で先頭に来た{station_ja(st)}は精査：閾値 {tau}、追加視点あり（疑わしくなくても）')
             else:
                 rec['rejected'].append(dict(a, why='no reorder needed or already proposed'))
         elif a['kind'] == 'hazard':
@@ -163,6 +179,8 @@ def _snapshot(plan: dict) -> dict:
             'caution': json.loads(json.dumps(plan.get('caution') or {}))}
     if plan.get('order'):
         snap['order'] = list(plan['order'])
+    if plan.get('scrutiny'):
+        snap['scrutiny'] = sorted(plan['scrutiny'])
     return snap
 
 
@@ -178,6 +196,12 @@ def assert_monotone(before: dict, after: dict, stations=None) -> None:
         b = (before.get('caution') or {}).get(st)
         if b is not None and float(c['tau_h']) > float(b['tau_h']):
             raise AdviceError('monotone plan loosens a caution threshold')
+    if not set(before.get('scrutiny') or []) <= set(after.get('scrutiny') or []):
+        raise AdviceError('monotone plan removes a scrutinised station')       # scrutiny may be added, never dropped
+    for st in after.get('scrutiny') or []:
+        c = (after.get('caution') or {}).get(st)
+        if c is None or float(c['tau_h']) > CAUTION_TAU_H:
+            raise AdviceError('a scrutinised station must carry the caution threshold')
     ids = tuple(stations.ids) if stations is not None else (
         tuple(after['order']) if after.get('order') else STATIONS)
     if after.get('first_station') not in ids:
@@ -207,6 +231,11 @@ def audit_plan(plan: dict) -> dict:
             raise AdviceError(f'monotone run applied non-monotone effects: {bad}')
         assert_monotone(rec.get('base') or {}, plan)
         ev['checked'] = True
+    if plan.get('scrutiny'):
+        reordered = {a.get('station') for a in rec.get('applied') or [] if a.get('effect') == 'reorder' and a.get('scrutiny')}
+        if rec.get('mode') != 'monotone' or not rec.get('scrutiny') or set(plan['scrutiny']) - reordered:
+            raise AdviceError('scrutiny on a station that advice did not move to the front (or outside monotone mode)')
+        ev['scrutiny'] = sorted(plan['scrutiny'])
     return ev
 
 
@@ -232,3 +261,28 @@ def denial_source(plan: dict | None) -> str | None:
     if plan.get('mode') == 'naive' and plan.get('deny_without_visit'):
         return 'memory'
     return None
+
+
+def audit_scrutiny(mission: dict) -> dict:
+    """Run audit for --advice-scrutiny, from mission.json alone: if the mission delivered from (or approved) a scrutinised
+    station, that station's checkpoint carried the caution threshold and the extra views were taken (look-around
+    'adaptive' block with scrutiny=True and the three extra poses) unless an earlier view had already refused."""
+    plan = (mission or {}).get('memory') or {}
+    sc = list(plan.get('scrutiny') or [])
+    if not sc:
+        return {'scrutiny': [], 'checked': False}
+    if mission.get('advice_scrutiny') is not True:
+        raise AdviceError('a scrutiny plan without --advice-scrutiny')
+    cp = mission.get('checkpoint') or {}
+    st = mission.get('checkpoint_station')
+    out = {'scrutiny': sc, 'checked': False}
+    if st in sc and (cp.get('decision') or {}).get('allow'):
+        tau = cp.get('memory_caution_tau_h')
+        la = cp.get('look_around') or mission.get('look_around') or {}
+        extra = [p for p in la.get('peeks') or [] if p.get('side') in ('L2', 'R2', 'N')]
+        if not (isinstance(tau, float) and tau <= CAUTION_TAU_H):
+            raise AdviceError('scrutinised station approved without the caution threshold')
+        if not (la.get('adaptive') or {}).get('scrutiny') or len(extra) < 3:
+            raise AdviceError('scrutinised station approved without the extra views')
+        out['checked'] = True
+    return out
