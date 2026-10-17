@@ -56,3 +56,10 @@ latency rose from 3–7 s to 25–33 s in **both** arms, because the arms altern
 is therefore reported in two parts, J001–J006 (unloaded) and J007 onwards (loaded). Two first attempts in arm J (J003,
 J007) failed before any VLM decision with "velocity guard not ready", and both re-runs completed, as the registered
 infrastructure-retry rule allows. From the time this note was written, no other CPU-heavy work runs until J ends.
+
+**Addendum to the deviation note (same day, diagnosis).** Concurrent builds were only part of the cause. The two arms
+alternate between Qwen3.5-9B (≈18 GB) and Qwen3.5-4B + Clef-Flash (≈28 GB), about 46 GB of weight files, and the
+host's page cache (54 GB RAM) cannot hold them all. Each run therefore re-reads its weights from disk: I/O pressure
+"some" was 60–90%, with 170–190 MB/s of reads. Because weights are memory-mapped, the first inference waits on disk.
+The measured check latency therefore includes model I/O on this host for both arms. It is not a property of either
+configuration, and the paper reports latency with this caveat.
