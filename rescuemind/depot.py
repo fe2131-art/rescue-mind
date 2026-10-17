@@ -33,7 +33,8 @@ Z = {'GroundB_01': -0.090092}     # as in the original world: the floor slab's t
 # Furniture of the original world, kept where it does not enter the operating area (see OPERATING_AREA).
 FURNITURE = [
     ('ShelfF_01', -5.795, -0.957, 0.0), ('ShelfE_01', 4.732, 0.579, 0.0), ('ShelfE_01', 4.732, -4.827, 0.0),
-    ('ShelfE_01', 4.732, -8.665, 0.0), ('ShelfD_01', 4.732, -1.243, 0.0), ('ShelfD_01', 4.732, -3.039, 0.0),
+    ('ShelfE_01', 4.732, -8.665, 0.0),
+    # the two ShelfD racks at y = -1.24 / -3.04 reach x = 2.77 and would touch shelter B at (3, -2): left out
     ('ShelfD_01', 4.732, -6.751, 0.0), ('DeskC_01', -0.062, 6.136, 0.0), ('DeskC_01', -0.062, 3.6, 0.0),
     ('DeskC_01', -0.062, -6.649, 0.0), ('Bucket_01', 0.433, 9.632, -1.563), ('Bucket_01', -1.832, -6.375, -1.563),
     ('ClutteringA_01', 5.708, 8.617, 0.0), ('ClutteringA_01', 3.409, 8.617, 0.0), ('ClutteringA_01', -1.491, 5.222, -1.583),
