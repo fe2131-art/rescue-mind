@@ -269,6 +269,19 @@ Qwen3.5-9B（ローカル・V100）、回復探索・状況報告・LLM指示理
 
 ## 動かし方
 
+**最短（Makefile）**：成果物ごとに1コマンドです。`make help` で一覧、`make doctor` で docker・コンテナ（rm-dev / rm-next）・イメージの有無を確認できます。
+
+| 欲しいもの | コマンド |
+|---|---|
+| 単体テスト | `make test` |
+| 論文の数値・図・PDF | `make numbers` / `make figures` / `make paper`（`make paper FINAL=1` は未了結果があると中断） |
+| 説明資料PDF・READMEの結果欄・YouTube概要欄 | `make report` / `make readme` / `make youtube`（まとめて `make all-docs`） |
+| 全結果の再生成（キャンペーン完了後） | `make finalize` |
+| デモ動画（既存の run id から合成） | `make video-plan` → `make video` |
+| 研究ごとの実行手順（**表示のみ**。GPU と静かなホストが必要） | `make study-V`、`study-W`、`study-A`、`study-X` など（`make help` に全一覧） |
+
+`study-*` は登録済みコマンドを表示するだけで、キャンペーンを自動では始めません。以下は Makefile が包んでいる個別のコマンドです。
+
 ```bash
 # 0) 前提: NVIDIA GPU (V100で検証) + docker（nvidia-container-toolkit）。sudoは不要（dockerグループのみ）
 export RESCUEMIND_IMAGE=rescuemind:jazzy-next          # build.sh と run.sh が同じ名前を使う（未設定だと両方 rescuemind:jazzy）
