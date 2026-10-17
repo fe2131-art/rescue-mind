@@ -209,6 +209,22 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 * L と I-18 のブランチは main に追従させ、同時にマージしても衝突しないことを確認済み（main を変更したら再度の追従が必要）。
 * 第三者採点の4回目は 31.5/40、模擬査読の3回目は borderline。
 
+## ★★★ 追記（2026-10-18 0:30）— 圧縮後はまずここを読む
+
+* Sonnet の修正（#26 fail-open、#27 τ_h 未検証、#28 caution 自己固定、証明の A1〜A4）は i21-depot にマージ済み（099f7a6）。
+* **I-24 助言の信用枠（advice credit）**：完了し、i21-depot に入った（e8e5be1）。
+  * 情報源ごとの信用で、何回出動しても助言の代償に上限が付く（命題3、補足に証明・性質テスト・図）。
+  * 安全は不変（助言を捨てるだけ）。既定はオフ（`--advice-credit PATH`）。
+  * 記述モデル（k=4）：嘘つき 1533→59 秒、実写相当の危険連打 33→5 回、正直な情報源の損 0。
+  * 閉ループは未実施。X の後に事前登録する予定。
+* **研究 IF（R6 P7：依頼文で依頼物資をすり替えられるか）**：事前登録済み（051e530）。`bash scripts/if_run.sh`（GPU 約2分）。A の後、S の前に実行する。
+* 実行中の Sonnet：
+  * **I-23 機械検証**：worktree `.claude/worktrees/formal`、ブランチ `i23-formal`。z3 で命題2を証明し、実コードとの差分テストと変異体で確かめる。
+  * **I-24 の文献調査**：`docs/paper/LITERATURE_I24.md` をブランチ `i24-credit` にコミットする。
+  * 終わったら内容を確認し、i21-depot にマージする。
+* 注意：`tests/test_v07_fake_ros_direct` は単体で動かすと6件失敗する（パッチが効かない）。discover で全件を動かすと通る（L のマージ時は 650 件 OK）。after_q の検査は discover なので影響しない見込み。
+* A の後の手順：IF → S（`s_render.sh` → `s_eval.sh`）→ XD（`xd_render.sh` のスモーク画像は自分で目視し、`xd_smoke_ok` を作る）→ X（`x_run.sh`）。A・S・X・XD の事前登録は、main にコミットされた時点で成立する（a_run.sh が A を確認する）。
+
 ## ★★ 圧縮後はここから再開（2026-10-17 23:30）
 
 **自動で動いているもの（止めない・触らない）**
