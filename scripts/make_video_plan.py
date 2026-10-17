@@ -187,12 +187,13 @@ def evidence_card(seconds):
         ok = sum(r['correct'] for r in rs)
         wrong = sum(r['observed_action'] in DELIVERED and r['expected_action'] not in ('ALLOW', 'DELIVER_AFTER_SEARCH') for r in rs)
         rows.append(['閉ループ E（ランダムな世界）', [f'期待どおり {ok}/{len(rs)}・誤配達 {wrong}', G if wrong == 0 else R]])
+        say.append(f'ランダムな世界の{len(rs)}試行で、誤配達は{wrong}件。')
     g = jload(RES / 'g_summary.json')
     if g:
         pr = g['primary']
         rows.append(['閉ループ G（横から見直す）', [f"火が見えるのに配達 {pr['wrong_deliveries_B']}/{pr['n_world_pairs_fire_perceivable']} → "
                                                 f"{pr['wrong_deliveries_C']}/{pr['n_world_pairs_fire_perceivable']}（p={pr['mcnemar_p']:.3f}）", G]])
-        say.append(f"横から見直すと、火の見逃しは{pr['wrong_deliveries_B']}件から{pr['wrong_deliveries_C']}件。")
+        say.append(f"横から見直すと、火が見えるのに配達した回数は{pr['wrong_deliveries_B']}件から{pr['wrong_deliveries_C']}件。")
     h = jload(RES / 'h_summary.json')
     if h:
         p1, p2 = h['P1_efficiency_relocation_persist'], h['P2_safety_naive_vs_verified']
@@ -200,9 +201,9 @@ def evidence_card(seconds):
         speed = f"所要時間 {t0:.0f}→{t2:.0f}秒・" if t0 is not None and t2 is not None else ''
         rows.append(['閉ループ H（記憶）', [f"{speed}危険な配達 素朴 {p2['unsafe_M1']}／検証つき {p2['unsafe_M2']}",
                                                   G if h['headline_supported'] else W]])
-        say.append((f"出動をまたぐ記憶の評価では、物資の入れ替わりが続く出動の所要時間の中央値が、記憶なしの{t0:.0f}秒に対して{t2:.0f}秒。"
-                    if t0 is not None and t2 is not None else '出動をまたぐ記憶の評価では、')
-                   + f"危険な配達は、素朴な記憶の{p2['unsafe_M1']}件に対して検証つき記憶は{p2['unsafe_M2']}件。")
+        say.append((f"出動をまたぐ記憶では、入れ替わりが続く出動の所要時間の中央値が、記憶なしの{t0:.0f}秒から{t2:.0f}秒。"
+                    if t0 is not None and t2 is not None else '出動をまたぐ記憶では、')
+                   + f"危険な配達は、素朴な記憶の{p2['unsafe_M1']}件に対して、検証つき記憶は{p2['unsafe_M2']}件。")
     j = jload(RES / 'j_summary.json')
     if j:
         c = j['per_config']
@@ -216,7 +217,7 @@ def evidence_card(seconds):
     pp = jload(RES / 'p_summary.json')
     if pp:
         rows.append(['実写 P（D-Fire 400枚）', [f"火・煙を検出 {pp['recall']['k']}/{pp['recall']['n']}・火の無い写真で誤警報 {pp['false_alarm']['k']}/{pp['false_alarm']['n']}", W]])
-        say.append(f"実写でも火と煙の{pp['recall']['k']}枚を検出。ただし誤警報が多く、現場ごとの調整が必要です。")
+        say.append(f"実写でも火と煙を{pp['recall']['k']}枚検出。ただし誤警報は多く、現場ごとの調整が必要です。")
     if not rows:
         return None
     return {'kind': 'table', 'seconds': seconds, 'title': '事前登録した評価のまとめ（全試行を公開）',
@@ -263,74 +264,80 @@ def mission_part(run_id, scene, title, narration, captions, **extra):
 
 def build(a, drop_arch=False, drop_fire=False, shrink=False):
     cs = 0 if shrink else None      # shrink: result cards last exactly as long as their narration
+    mem = bool(getattr(a, 'memory', None))
+    # story arc of the first ~10 s: problem (stock list != scene, hazards hide) -> answer (look on the spot, look again from the side)
+    open_say = ('災害時、在庫表と現場は違い、危険も隠れます。だから、その場で確かめ、横から見直し'
+                + ('、記憶は提案だけにします。' if mem else 'ます。'))
     parts = [
         {'kind': 'card', 'seconds': 6, 'title': 'RescueMind', 'image': 'docs/figures/hero_gazebo.png',
-         'sub': '現地で「目で確かめてから」届ける災害物資ロボット',
-         'narration': 'レスキューマインド。届ける前に、現地で目で確かめる災害物資ロボットです。',
-         'body': ['拠点で止まり、現物をローカルVLM（Qwen3.5-9B）で確認。違えば別の拠点を探し、危険なら止まって報告。',
-                  'ROS 2 × Gazebo の実レンダリング映像（俯瞰カメラ＋ロボット搭載カメラ）。',
+         'sub': '在庫表と現場は食い違う。だから、現地で目で確かめる',
+         'narration': open_say,
+         'body': ['課題：災害時は、在庫表と現場が違う。火や煙が物資の陰に隠れていることもある。誤配達は命に関わる。',
+                  '答え：拠点でその場の目（ローカルVLM Qwen3.5-9B）で確かめる → 正面で許可でも横から見直す'
+                  + ' → 出動をまたぐ記憶は提案だけ。迷えば止まって報告。' if mem else
+                  '答え：拠点でその場の目（ローカルVLM Qwen3.5-9B）で確かめる → 正面で許可でも横から見直す。迷えば止まって報告。',
                   f'※ 走行は{FAST:g}倍速、確認動作は{CHECK:g}倍速、AI判断の瞬間は等速。速度は常に画面左上に表示します。']}]
     if not drop_arch:
         parts.append({'kind': 'card', 'seconds': 6, 'title': 'システム構成', 'sub': 'すべてローカルGPUで完結（クラウドAPI不使用）',
                       'image': 'docs/figures/architecture.png', 'layout': 'image',
-                      'narration': '推論はローカルのGPUだけ。車輪への指令は、独立した安全ガードだけが出せます。',
+                      'narration': '推論はすべてローカルのGPU。車輪を動かせるのは、独立した安全ガードだけです。',
                       'body': ['VLMは選択式2問（選択肢の順序を入替）の回答文字の確率で判断 ／ 独立した速度ガードが車輪指令を常時監視']})
     demos = []
     if a.deliver:
         demos.append(mission_part(
             a.deliver, 'nominal', '言い換えた指示でも配達',
-            {'go': '物資の名前が無い依頼も、言語モデルが解釈して出発します。', 'check': '拠点で止まり、カメラ画像をAIが確認します。',
-             'peek': '出発の前に、横からも危険がないか見直します。',
-             'after': '横からも安全を確かめたので、避難所へ向かいます。'},
-            {'go': '「{instr}」——物資名の無い指示も、ローカルLLMが依頼内容を解釈して出発。',
-             'check': '拠点で静止し、新しいカメラ画像をVLMに2つの選択式質問で確認させます。',
-             'peek': '正面で許可しても、出発前に左右0.4 mへ回り込み、物資の陰に火・煙が無いか見直します。',
-             'after': '依頼物資を確認し、横からも火・煙なし → 避難所Bへ（オレンジ線＝Gazebo真値の軌跡）。'}))
+            {'go': '物資名のない依頼でも、AIが読み取って出発します。', 'check': '拠点で止まり、現物を目で確かめます。',
+             'peek': '正面で許可が出ても、出発前に横から見直します。',
+             'after': '安全を確かめたので、避難所へ向かいます。'},
+            {'go': '「{instr}」物資名がなくても、AIが依頼を読み取って出発。',
+             'check': '着いたらまず停止。新しい画像で現物を確かめる。',
+             'peek': '正面で許可でも、出発前に左右0.4 mから見直す。物資の陰の火・煙を探す。',
+             'after': '現物も横の様子も問題なし → 避難所Bへ（橙線＝実際の軌跡）。'}))
     if a.recover:
         demos.append(mission_part(
             a.recover, 'swapped', '取り違え → 別拠点を探索',
-            {'go': '次は、水と救急箱が入れ替わっているケースです。', 'search': '依頼の物資ではありません。もう一方の拠点を確認しに行きます。',
-             'peek': '正しい物資です。念のため横からも確かめます。',
+            {'go': '在庫表と現場が違います。物資が入れ替わっています。', 'search': '依頼の物資ではありません。もう一方を見に行きます。',
+             'peek': '正しい物資です。念のため、横から見直します。',
              'after': '正しい物資を見つけたので、避難所へ届けます。'},
-            {'go': '在庫情報と現物が食い違うケース。「{instr}」', 'check': '拠点で現物を確認中……',
-             'search': '依頼の物資ではない → 止まらずに、もう一方の拠点を確認しに行きます。',
-             'peek': '正面で許可しても、出発前に左右0.4 mへ回り込み、物資の陰に火・煙が無いか見直します。',
-             'after': '別拠点で依頼物資を確認 → 許可して避難所Bへ。判断の経緯はすべて記録・監査されます。'}))
+            {'go': '在庫表と現物が違う。「{instr}」', 'check': '拠点で現物を確かめている。',
+             'search': '違う物資 → 誤配達せず、もう一方の拠点を見に行く。',
+             'peek': '正しい物資でも、出発前に横から見直す。',
+             'after': '別の拠点で正しい物資を確認 → 避難所Bへ。判断の経緯はすべて記録。'}))
     if a.empty:
         demos.append(mission_part(
             a.empty, 'empty', '欠品 → 両拠点を確認して停止',
-            {'go': 'つぎは、両方の拠点が空のケースです。', 'search': 'ここには有りません。もう一方も確認します。',
-             'after': 'どちらにも無いので、配達せず停止して報告します。'},
-            {'go': '在庫表では有るはずの物資が、どの拠点にも無いケース。「{instr}」', 'check': '拠点で現物を確認中……',
-             'search': '依頼の物資が無い → もう一方の拠点も確認しに行きます。',
-             'after': '両拠点とも依頼物資なし → 誤った物資は運ばず、その場で停止して状況を報告します。'}))
+            {'go': '次は、在庫表にあるはずの物資が、どこにも無いケースです。', 'search': 'ここには有りません。もう一方も確かめます。',
+             'after': 'どちらにも無いので、配達せず止まって報告します。'},
+            {'go': '在庫表にあるはずの物資が、どの拠点にも無い。「{instr}」', 'check': '拠点で現物を確かめている。',
+             'search': 'ここには無い → もう一方の拠点も確かめる。',
+             'after': '両拠点とも無し → 誤配達せず、その場で止まって報告。'}))
     if a.fire and not drop_fire:
         demos.append(mission_part(
             a.fire, 'nominal', '大きな火災 → 探索せず停止',
-            {'go': '続いて、拠点の裏で火災が起きているケースです。', 'after': '火と煙を検知しました。探し回らずに停止して報告します。'},
-            {'go': '拠点の裏で火災が起きているケース。「{instr}」', 'check': '物資は正しいが、画像の中に火や煙は無いか？',
-             'after': '火災・煙を検知 → 拒否。危険な場所を探し回らず停止し、状況を報告します。'}, hazard_at='medicine'))
-    if getattr(a, 'memory', None):
-        demos.append({'kind': 'card', 'seconds': 5, 'title': '出動をまたぐ記憶（I-15）', 'layout': 'image',
-                      'image': 'docs/figures/memory_principle_ja.png', 'sub': '記憶は提案だけ。行った先では必ず確認する',
-                      'narration': '記憶は提案だけ。行った先では必ず確認します。', 'body': []})
+            {'go': '続いて、拠点の裏で火災が起きているケースです。', 'after': '火と煙を見つけました。探し回らず、止まって報告します。'},
+            {'go': '拠点の裏で火災が起きている。「{instr}」', 'check': '物資は正しい。でも画像に火や煙は無いか？',
+             'after': '火・煙を検知 → 配達せず、探し回らずに止まって報告。'}, hazard_at='medicine'))
+    if mem:
+        demos.append({'kind': 'card', 'seconds': 5, 'title': '出動をまたぐ記憶', 'layout': 'image',
+                      'image': 'docs/figures/memory_principle_ja.png', 'sub': '記憶は提案だけ。着いたら必ず、その場の目で確かめる',
+                      'narration': '出動をまたぐ記憶は、提案だけ。着いたら、必ず確かめます。', 'body': []})
         demos.append(mission_part(
             a.memory, 'swapped', '出動をまたぐ記憶 → 直行',
-            {'go': '前回の出動で、物資が入れ替わっていたことを覚えています。', 'check': 'それでも、着いたら必ず確認します。',
-             'peek': '横からも確かめます。', 'after': '記憶で近道、判断はその場の目で。'},
-            {'go': '前回の記憶から、依頼物資を見た拠点へ直行（記憶は「提案」だけ）。「{instr}」',
-             'check': '記憶を信じて省略はしない：着いたら必ず現物を確認。',
-             'peek': '左右からの見直しも省略しない。',
-             'after': '探し回らずに配達 → 遠回りを省いて短縮。記憶が古くても確認で止まる（評価H）。'}))
+            {'go': '前回の出動を覚えているので、その拠点へ直行します。', 'check': 'それでも、着いたら必ず確かめます。',
+             'peek': '横からも見直します。', 'after': '記憶で近道をして、判断はその場の目で。'},
+            {'go': '前回の出動を覚えている → 依頼物資のある拠点へ直行。「{instr}」',
+             'check': '記憶は提案だけ。着いたら必ず現物を確かめる。',
+             'peek': '横からの見直しも省かない。',
+             'after': '探し回らずに配達。記憶が古ければ、確認で止まる（評価H）。'}))
     if a.hidden_fire:
         demos.append(mission_part(
             a.hidden_fire, 'nominal', '隠れた小さな火 → 停止',
-            {'go': '最後は、物資の陰に小さな火が隠れているケースです。', 'peek': '正面では見えません。横に回り込んで、もう一度見ます。',
-             'after': '横から火を見つけました。配達せずに停止して報告します。'},
-            {'go': '物資の陰に小さな火が隠れているケース。「{instr}」',
-             'check': '物資は正しい。だが物資の陰や画面の端に、小さな火や煙は無いか？',
-             'peek': '正面の確認は「許可」。でも物資の陰は見えない → 左右0.4 mに回り込んで見直す。',
-             'after': '横からの画像で火を検知 → 正面の許可を取り消して停止・報告。'}))
+            {'go': '最後は、物資の陰に小さな火が隠れているケースです。', 'peek': '正面では見えません。横に回り込んで、見直します。',
+             'after': '横から火を見つけました。配達せず、止まって報告します。'},
+            {'go': '物資の陰に小さな火。正面からは見えない。「{instr}」',
+             'check': '物資は正しい。でも陰に火や煙は無いか？',
+             'peek': '正面は「許可」。でも陰は見えない → 左右0.4 mから見直す。',
+             'after': '横から火を発見 → 正面の許可を取り消して停止・報告。'}))
     missions = [d for d in demos if d['kind'] == 'mission']
     for i, d in enumerate(missions, 1):
         d['index'], d['total'] = i, len(missions)
@@ -341,8 +348,8 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False):
         if c:
             parts.append(c)
     parts.append({'kind': 'card', 'seconds': 5, 'title': 'RescueMind', 'sub': a.repo_url, 'image': 'docs/figures/hero_gazebo.png',
-                  'narration': 'AIが間違えるとき、ロボットは動かない。コードと全試行の証拠を公開しています。',
-                  'body': ['AIが間違えるとき、ロボットは動かない。無ければ探し、危険なら止まる。',
+                  'narration': '確かめて、見直して、迷ったら止まる。全試行の証拠を公開しています。',
+                  'body': ['確かめて、見直して、迷ったら止まる。間違った配達より、止まる方がいい。',
                            'コード・事前登録・全試行の証拠・再現用Dockerを公開しています。',
                            'ナレーション：VOICEVOX:四国めたん']})
     return parts
