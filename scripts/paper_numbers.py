@@ -476,6 +476,22 @@ def main():
             m['PTwoWording'] = 'none (no feasible threshold)'
             for n_ in ('PTwoTau', 'PTwoRecall', 'PTwoRecallCI', 'PTwoFA', 'PTwoFACI', 'PTwoFrozenRecall', 'PTwoFrozenFA'):
                 m[n_] = 'n/a'
+    # ---- study K (conformal calibration of tau_h on stored scores)
+    kf = RES / 'k_summary.json'
+    if kf.is_file():
+        kk = json.loads(kf.read_text())
+        m['KNcal'] = kk['n_cal']; m['KNfire'] = kk['n_fire']; m['KNfree'] = kk['n_free']
+        m['KFrozenMiss'] = f"{kk['frozen']['heldout_miss']['k']}/{kk['n_fire']}"
+        m['KFrozenFA'] = f"{kk['frozen']['heldout_false_alarm']['k']}/{kk['n_free']}"
+        for a, an in (('0.05', 'Five'), ('0.1', 'Ten')):
+            e = kk['alphas'][a]['K_PAC']
+            m[f'KTau{an}'] = f"{e['tau']:.4f}"
+            m[f'KMiss{an}'] = f"{e['heldout_miss']['k']}/{kk['n_fire']}"
+            m[f'KMissCI{an}'] = ci(e['heldout_miss']['k'], kk['n_fire'])
+            m[f'KFA{an}'] = f"{e['heldout_false_alarm']['k']}/{kk['n_free']}"
+            m[f'KFACI{an}'] = ci(e['heldout_false_alarm']['k'], kk['n_free'])
+            m[f'KHolds{an}'] = 'held' if e['guarantee_holds_heldout'] else 'did not hold'
+        m['KSmallCal'] = f"{100 * kk['small_fire_frac']['cal']:.0f}\\%"; m['KSmallHeld'] = f"{100 * kk['small_fire_frac']['heldout']:.0f}\\%"
     # ---- registration audit: each registration commit must precede the first commit of its results
     import subprocess
 
@@ -487,7 +503,7 @@ def main():
                ('T2', 'PREREGISTRATION_T2.md', 'devset_t2_i11_h36_tiles.json'), ('F', 'PREREGISTRATION_F.md', 'campaign_F_ledger.jsonl'),
                ('G', 'PREREGISTRATION_G.md', 'campaign_G_ledger.jsonl'), ('R', 'PREREGISTRATION_R.md', 'devset_r_gaussian_noise_M.json'),
                ('H', 'PREREGISTRATION_H.md', 'campaign_H_ledger.jsonl'), ('J', 'PREREGISTRATION_J.md', 'campaign_J_ledger.jsonl'),
-               ('Z', 'PREREGISTRATION_Z.md', 'z_summary.json'), ('P', 'PREREGISTRATION_P.md', 'p_summary.json')]
+               ('Z', 'PREREGISTRATION_Z.md', 'z_summary.json'), ('K', 'PREREGISTRATION_K.md', 'k_summary.json'), ('P', 'PREREGISTRATION_P.md', 'p_summary.json')]
     rows = [r'\begin{tabular}{llllc}', r'\toprule', r'Study & Registered (commit, date) & First results (commit, date) & Amendments & Order \\', r'\midrule']
     ok_all = True
     for name, reg, res in studies:

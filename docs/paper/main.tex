@@ -86,7 +86,7 @@ which Cloudflare post-trained from Qwen3.5-9B~\cite{cloudflare2026clefcard}, req
 on development images only; a 600-image held-out test set and the closed-loop
 campaigns D, E, F, G, H and J were registered before running~\cite{nosek2018preregistration,hofman2023preregistration}.
 Each closed-loop trial is checked against Gazebo ground truth, a ROS bag and a recomputation of the decision,
-and every attempt is kept. Eleven studies (Table~\ref{tab:studies}) include a camera-degradation
+and every attempt is kept. Twelve studies (Table~\ref{tab:studies}) include a camera-degradation
 study that probes part of the sim-to-real gap.
 \item \textbf{Lessons from running the real stack} (Supp.~Sec.~S8): \NFindings{} failure causes that unit tests and
 mocks did not reveal, such as a wheel-axis frame error that made odometry-based audits pass a robot that never arrived.
@@ -327,6 +327,7 @@ R & Is the check fail-closed under camera degradation? & 300 T2 images $\times$ 
 H & Can memory speed missions up without new risk? & 16 sequences $\times$ 3 missions, changing worlds & 3 (v3.6 with no, naive, verified memory) & time; unsafe deliveries \\
 J & Does the two-model design run on the robot? & 24 worlds, paired & 2 (v3.6; Qwen3.5-4B + Clef-Flash) & completes on one GPU; unsafe deliveries \\
 Z & Is a generative VLM needed? & T1 + T2, contrastive zero-shot baselines & 3 & false and correct approvals \\
+K & Does a conformal $\tau_h$ keep a miss bound? & \KNcal{} dev fires $\to$ T2 (offline) & 2 ($\alpha=0.05,0.10$) vs frozen & held-out fire miss rate $\le\alpha$ \\
 P & Does the hazard question transfer to real photos? & 400 D-Fire test images (CC0) & 1 (v3.6 hazard question) & recall; false alarms (descriptive) \\
 \bottomrule\end{tabular}}\end{table*}
 
@@ -375,6 +376,10 @@ and CLIP~\cite{radford2021clip}, with the same decision structure and thresholds
 (exact McNemar $p<10^{-6}$). CLIP refused almost everything: it gave \ZClipTOneCA{} and \ZClipTTwoCA{} correct approvals.
 \begin{table}[t]\centering\caption{Study Z: zero-shot contrastive baselines versus our check on the held-out sets (false approvals / correct approvals).}
 \label{tab:z}\resizebox{\linewidth}{!}{\input{tab_z.tex}}\end{table}
+
+\emph{Conformal $\tau_h$ (study K, pre-registered, offline).} Split-conformal calibration of $\tau_h$ on \KNcal{} development fires (miss rate $\le\alpha$ with probability 0.9) gave $\tau_h=\KTauFive$ ($\alpha=0.05$) and \KTauTen{} ($\alpha=0.10$).
+On the \KNfire{} visible T2 fires the bound \KHoldsFive{} at $\alpha=0.05$ and \KHoldsTen{} at $0.10$ (\KMissFive{} and \KMissTen{} missed), with \KFAFive{} and \KFATen{} false alarms on \KNfree{} fire-free must-approve images, against \KFrozenMiss{} and \KFrozenFA{} for the frozen $\tau_h=0.05$.
+Exchangeability is broken by design (small fires: \KSmallCal{} of calibration, \KSmallHeld{} of T2 fires); the frozen threshold was not changed.
 
 \subsection{Closed-loop missions}
 In campaign D the system behaved as expected in \DCorrect{}/\DN{} trials (\DCorrectCI) with \DWrong{} wrong deliveries
