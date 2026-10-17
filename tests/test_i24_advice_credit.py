@@ -80,6 +80,12 @@ class Admission(unittest.TestCase):
         p = ac.plan_with_credit(led, 'water', [haz('memory', 'water')], 'monotone')
         self.assertEqual(p['caution'], {})                        # throttled: no caution until credit regenerates
 
+    def test_undecided_check_at_the_advised_station_is_charged(self):
+        led = ac.new_ledger()
+        p = ac.plan_with_credit(led, 'water', [loc('peer', 'medicine')], 'monotone')
+        ac.settle(led, p, [visit('medicine', supply_match=None), visit('water', supply_match=True)])
+        self.assertEqual(led['sources']['peer']['debit_loc'], 1.0)
+
     def test_unvisited_station_costs_nothing(self):
         led = ac.new_ledger()
         p = ac.plan_with_credit(led, 'water', [loc('peer', 'medicine')], 'monotone')
@@ -247,3 +253,17 @@ class OperatorReport(unittest.TestCase):
         lines = advice_lines({'memory': p})
         self.assertEqual(len(lines), 1)
         self.assertIn('信用を使い切って', lines[0])
+
+
+class Sybil(unittest.TestCase):
+    def test_uncertified_peer_ids_share_one_account(self):
+        led = ac.new_ledger(c_haz=1.0)
+        items = [dict(haz('peer', 'water'), peer_id='p1'), dict(haz('peer', 'medicine'), peer_id='p2')]
+        kept, thr = ac.admit(led, items)
+        self.assertEqual((len(kept), len(thr)), (1, 1))
+
+    def test_certified_peers_get_their_own_account(self):
+        led = ac.new_ledger(c_haz=1.0, certified_peers=('p1', 'p2'))
+        items = [dict(haz('peer', 'water'), peer_id='p1'), dict(haz('peer', 'medicine'), peer_id='p2')]
+        kept, thr = ac.admit(led, items)
+        self.assertEqual((len(kept), len(thr)), (2, 0))
