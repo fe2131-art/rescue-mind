@@ -510,7 +510,7 @@ def section_en(e, v):
          "and for a Yes/No hazard question, and approve only if both agree with sufficient confidence and no fire or smoke is seen. A wrong item "
          "triggers a one-time search of the other station; a hazard stops the robot; an independent velocity guard keeps motion out of the VLM's reach. "
          "**Active look-around**: before approving, the robot views the station from 0.4 m to either side. **Safety-monotone cross-mission memory**: "
-         "memory may only reorder where the robot looks and add caution, never remove a check. An optional **two-model check** adds a second checker (the "Jev" role of the original plan) "
+         "memory may only reorder where the robot looks and add caution, never remove a check. An optional **two-model check** adds a second checker (the Jev role of the original plan) "
          "(Clef-Flash) next to Qwen. All studies are pre-registered (`experiments/PREREGISTRATION_*.md`); every trial is audited against simulator ground truth and a ROS bag.",
          '', '| Study (pre-registered) | Result |', '|---|---|']
     if e:
