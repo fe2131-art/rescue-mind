@@ -82,6 +82,8 @@ def summarize(trial: dict, run_dir: Path | None, rc: int, wall_s: float) -> dict
                               'extraction': adv.get('extraction'), 'dropped': adv.get('dropped'), 'filter': adv.get('filter')}
         row['advice_audit'] = result.get('advice_audit')
         row['first_station_planned'] = (mission.get('memory') or {}).get('first_station')
+    if result.get('delivery_interlock') is not None:      # I-22: what the independent interlock decided (trial field delivery_interlock)
+        row['interlock_audit'] = result['delivery_interlock']
     row['n_stations_visited'] = (1 if mission.get('checkpoint_station') else 0) + ((1 + len(rec.get('hops') or [])) if rec else 0)
     row['caution_refusals'] = [{k: c.get(k) for k in ('station', 'where', 'p_max', 'tau_mem', 'continued')}
                                for c in mission.get('caution_refusals') or []]       # R5 #5: soft refusals (--caution-soft)
@@ -187,6 +189,8 @@ def main(argv=None):
                     mfile.parent.mkdir(parents=True, exist_ok=True)
                     mfile.write_bytes(src.read_bytes())
                 cmd += ['--memory-file', str(mfile), '--memory-mode', mem['mode']]
+            if trial.get('delivery_interlock'):
+                cmd += ['--delivery-interlock']       # I-22: independent delivery permit (trial field; default off)
             adv = trial.get('advice')
             if adv:   # study A (I-19): advice from an instruction text and/or a file, handled in monotone or naive mode
                 cmd += advice_flags(adv)
@@ -206,6 +210,8 @@ def main(argv=None):
             row['stack_args'] = (a.stack_args or common) + (trial.get('stack_args') or [])
             if trial.get('config'):
                 row['config'] = trial['config']; row['world'] = trial.get('world'); row['condition'] = trial.get('condition')
+            if trial.get('delivery_interlock'):
+                row['delivery_interlock'] = trial['delivery_interlock']
             if trial.get('advice'):
                 row['advice'] = trial['advice']
                 row['advice_condition'] = trial.get('advice_condition')

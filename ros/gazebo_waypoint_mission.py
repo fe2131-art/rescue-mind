@@ -162,6 +162,26 @@ def run_ros(route, args, record):
     if guard_required:
         subs.append(node.create_subscription(Bool,'/rescuemind/guard_ready',on_guard,
                                              control_qos(getattr(args,'control_qos','reliable'))))
+    # I-22 (default off): publish the mission phase and, before the delivery leg, the approval record; the independent
+    # interlock node decides and the velocity guard enforces.  Nothing below is trusted for safety: it only asks.
+    interlock=bool(getattr(args,'delivery_interlock',False))
+    record['delivery_interlock']={'enabled':interlock}
+    il={'phase':'search','raw':None,'last_rec':0.,'permit':None,'phase_pub':None,'record_pub':None,'String':None}
+    if interlock:
+        from std_msgs.msg import String
+        from rescuemind import delivery_permit as dp
+        q_il=control_qos('reliable')
+        il['String']=String
+        il['phase_pub']=node.create_publisher(String,dp.TOPIC_PHASE,q_il)
+        il['record_pub']=node.create_publisher(String,dp.TOPIC_RECORD,q_il)
+        def on_permit(msg):
+            il['permit']=msg.data
+        subs.append(node.create_subscription(String,dp.TOPIC_PERMIT,on_permit,q_il))
+    def interlock_heartbeat():
+        # phase every call (the guard treats a missing / stale phase as 'deliver'); the record once a second while pending
+        m=il['String'](); m.data=il['phase']; il['phase_pub'].publish(m)
+        if il['raw'] is not None and time.monotonic()-il['last_rec']>=1.0:
+            r=il['String'](); r.data=il['raw']; il['record_pub'].publish(r); il['last_rec']=time.monotonic()
     ctl=WaypointController()
     peek_ctl=WaypointController(tolerance=.08)   # I-14: side views must really be beside the station
     progress=ProgressWatch()
@@ -201,6 +221,8 @@ def run_ros(route, args, record):
                 record['events'].append({'stage':'request_gap','gap_s':round(gap,3),'phase':gap_state['phase'],
                                          't_wall_s':round(now_p-start,3)})
         gap_state['last']=now_p
+        if interlock:
+            interlock_heartbeat()
         t=Twist();t.linear.x=float(linear);t.angular.z=float(angular);pub.publish(t)
         pub_dur=time.monotonic()-now_p
         if pub_dur>0.1:
@@ -622,6 +644,38 @@ def run_ros(route, args, record):
                 return SOFT_PEEK
         raise RuntimeError('on-site checkpoint DENIED: visible_hazard_at_checkpoint (look-around '+side+')')
 
+    def request_delivery_permit():
+        """I-22: stand still, publish the approval record, wait for the interlock's permit for exactly this record."""
+        il['phase']=dp.PHASE_DELIVER
+        img=Path(args.checkpoint_image)
+        il['raw']=dp.build_record(record,image_dir=img.parent,front_name=img.name,
+                                  look_around=getattr(args,'look_around',0.),adaptive_views=getattr(args,'adaptive_views',0.))
+        h=dp.record_hash(il['raw'])
+        record['delivery_interlock'].update({'record_hash':h,'station':record.get('checkpoint_station'),
+                                             'requested_t_wall_s':round(time.monotonic()-start,3)})
+        set_phase('permit_wait')
+        t0=time.monotonic()
+        wait=float(getattr(args,'interlock_wait',10.))
+        while True:
+            spin(.08)
+            publish()
+            if watch.check(time.monotonic()):
+                raise RuntimeError('watchdog during permit wait: '+watch.latched_reason)
+            check_camera(time.monotonic())
+            check_guard(time.monotonic())
+            try:
+                p=json.loads(il['permit']) if il['permit'] else {}
+            except ValueError:
+                p={}
+            if p.get('record_hash')==h and isinstance(p.get('not_after'),(int,float)) and p['not_after']>=time.time():
+                record['delivery_interlock'].update({'permit_t_wall_s':round(time.monotonic()-start,3),'permit_received':True})
+                record['events'].append({'stage':'delivery_permit','record_hash':h,'t_wall_s':round(time.monotonic()-start,3)})
+                return
+            if time.monotonic()-t0>wait:
+                record['delivery_interlock']['permit_received']=False
+                record['events'].append({'stage':'delivery_permit_timeout','record_hash':h,'t_wall_s':round(time.monotonic()-start,3)})
+                raise RuntimeError('delivery interlock: no permit for the approval record (denied or interlock down)')
+
     try:
         set_phase('warmup')
         # Sensor warmup, no motion allowed during startup.  v3.3: a fixed 3 s
@@ -676,6 +730,10 @@ def run_ros(route, args, record):
             stage,target,goal=route[index]
             index+=1
             progress.anchor_at=None; progress.anchor_xy=None
+            if interlock:
+                il['phase']=dp.PHASE_DELIVER if stage=='shelter_approach' else dp.PHASE_SEARCH
+                if stage=='shelter_approach':
+                    request_delivery_permit()
             set_phase('drive:'+stage+':'+str(target))
             begun=time.monotonic();samples=[]
             while True:
@@ -833,6 +891,10 @@ def main():
                     help='I-19: monotone = advice may only reorder stations and tighten thresholds; naive = follow advice; filtered = follow advice that an LLM injection filter does not flag (baselines only)')
     ap.add_argument('--advice-from-instruction',action='store_true',
                     help='I-19: extract operator advice (location / hazard / skip claims) from the instruction text with the local model')
+    ap.add_argument('--delivery-interlock',action='store_true',
+                    help='I-22 (default off): publish the phase and the approval record; do not start the delivery leg without the '
+                         'independent interlock node\'s permit (the velocity guard enforces it)')
+    ap.add_argument('--interlock-wait',type=float,default=10.0,help='I-22: seconds to wait for the permit before the delivery leg')
     ap.add_argument('--control-qos',choices=['reliable','best_effort'],default='reliable',
                     help='I-12: QoS of /rescuemind/cmd_vel_request and /rescuemind/guard_ready')
     ap.add_argument('--inject-warmup-stall',type=float,default=0.0,help='I-09 fault injection (seconds); tests only')

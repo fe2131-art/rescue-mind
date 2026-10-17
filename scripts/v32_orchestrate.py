@@ -89,6 +89,7 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
                look_around: float = 0.0, memory_file: str | None = None, memory_mode: str = 'off', adaptive_views: float = 0.0,
                advice_file: str | None = None, advice_mode: str = 'off', advice_from_instruction: bool = False,
                caution_soft: bool = False, advice_scrutiny: bool = False,
+               delivery_interlock: bool = False, interlock_key: str | None = None,
                config_path: Path | None = None, centers_path: Path | None = None) -> dict:
     if scenario not in ('motion-check', 'live'):
         raise ValueError('invalid scenario')
@@ -119,6 +120,8 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
         cmd += ['--caution-soft']                            # R5 #5: caution-only refusals continue the search
     if advice_scrutiny:
         cmd += ['--advice-scrutiny']                         # I-19: advice-promoted station gets caution + extra views
+    if delivery_interlock:
+        cmd += ['--delivery-interlock']                      # I-22: ask the independent interlock before the delivery leg
     if inject_stall:
         cmd += ['--inject-warmup-stall', str(inject_stall)]
     if scenario=='live':
@@ -140,6 +143,20 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
         ManagedCommand('bridge', ('bash', str(ROOT/'scripts/bridge_direct_gazebo.sh'))),
         ManagedCommand('velocity_guard', prioritised(('bash', str(ROOT/'scripts/start_velocity_guard.sh')), -10)),
     ]
+    if delivery_interlock:
+        if scenario != 'live':
+            raise ValueError('the delivery interlock needs the live scenario')
+        # I-22: separate node, started right after the guard (which is told --delivery-interlock through RESCUEMIND_GUARD_ARGS)
+        il = ['python3', str(ROOT/'ros/delivery_interlock.py')]
+        if interlock_key:
+            il += ['--key-file', interlock_key]
+        if evidence_dir is not None:
+            il += ['--log', str(evidence_dir/'delivery_interlock.jsonl'), '--image-root', str(evidence_dir)]
+        if look_around:
+            il += ['--require-look-around']
+        if adaptive_views:
+            il += ['--require-adaptive']
+        services.append(ManagedCommand('delivery_interlock', shell_exec(il)))
     if scenario=='live':
         from rescuemind.local_vision import PRIMARY_MODEL, SECONDARY_MODEL
         services.insert(0,ManagedCommand('primary_local_vlm', shell_exec([
@@ -364,6 +381,11 @@ def main(argv=None):
     p.add_argument('--advice-scrutiny', action='store_true',
                    help='I-19: the station that advice moved to the front gets caution (tau_h = caution threshold) and the I-20 '
                         'extra views regardless of suspicion (monotone mode only; can only tighten)')
+    p.add_argument('--delivery-interlock', action='store_true',
+                   help='I-22 (default off; v3.6 unchanged): an independent node recomputes the decision from the saved model outputs '
+                        'and the velocity guard forwards motion in the delivery leg only with its permit')
+    p.add_argument('--interlock-hmac', action=argparse.BooleanOptionalAction, default=True,
+                   help='I-22: sign permits with a key generated at stack start (0600, outside the evidence directory)')
     p.add_argument('--advice-from-instruction', action='store_true',
                    help='I-19: extract operator advice from the instruction text (closed-set, fail-closed)')
     p.add_argument('--jev-local', choices=['off', 'clef'], default='off',
@@ -449,6 +471,8 @@ def main(argv=None):
     plan = build_plan(args.scenario, args.instruction, mission_timeout=args.mission_timeout, scene=args.scene,
                       evidence_dir=placeholder, capture_rosbag=args.capture_rosbag,local_mode=args.local_mode,
                       gz_mode=args.gz_mode, film=args.film, **extra,
+                      delivery_interlock=args.delivery_interlock,
+                      interlock_key='<interlock_key>' if (args.delivery_interlock and args.interlock_hmac) else None,
                       **(dict(config_path=placeholder/'waypoints.json', centers_path=placeholder/'station_centers.json')
                          if (layout is not None or depot_k4) else {}))
     import hashlib
@@ -464,6 +488,19 @@ def main(argv=None):
     run_id = uuid.uuid4().hex[:16]
     log_dir = ROOT/'outputs'/'runs'/run_id
     log_dir.mkdir(parents=True, exist_ok=False)
+    interlock_key = None
+    interlock_keydir = None
+    if args.delivery_interlock:
+        # I-22: fresh key per stack start, in a private directory (not in the evidence bundle); the guard and the interlock
+        # read it, the mission node is not given the path
+        import tempfile
+        from rescuemind import delivery_permit as _dp
+        if args.interlock_hmac:
+            interlock_keydir = tempfile.mkdtemp(prefix='rm_interlock_')
+            interlock_key = str(Path(interlock_keydir)/'permit.key')
+            _dp.generate_key(interlock_key)
+        os.environ['RESCUEMIND_GUARD_ARGS'] = (os.environ.get('RESCUEMIND_GUARD_ARGS', '') + ' --delivery-interlock'
+                                               + (f' --permit-key-file {interlock_key}' if interlock_key else '')).strip()
     run_world = make_world(log_dir)
     layout_files = layout.write_configs(log_dir) if layout is not None else (None, None)
     if depot_k4:        # I-21 phase 2: the four-station depot audits against ITS OWN waypoints (station ids + inventory)
@@ -471,6 +508,7 @@ def main(argv=None):
         layout_files = write_k4_configs(log_dir)
     plan = build_plan(args.scenario, args.instruction, mission_timeout=args.mission_timeout, scene=args.scene, evidence_dir=log_dir,
                       world=run_world, config_path=layout_files[0], centers_path=layout_files[1], **extra,
+                      delivery_interlock=args.delivery_interlock, interlock_key=interlock_key,
                       capture_rosbag=args.capture_rosbag,local_mode=args.local_mode,gz_mode=args.gz_mode,
                       film=args.film)
     summary['world_variant'] = {'lighting': args.lighting, 'hazard_at': args.hazard_at,
@@ -493,6 +531,7 @@ def main(argv=None):
     summary['advice_mode'] = args.advice_mode
     summary['caution_soft'] = args.caution_soft
     summary['advice_scrutiny'] = args.advice_scrutiny
+    summary['delivery_interlock'] = {'enabled': args.delivery_interlock, 'hmac': bool(interlock_key)}
     summary['advice_from_instruction'] = args.advice_from_instruction
     summary['jev_hazard_threshold'] = args.jev_hazard_threshold
     summary['jev_schema'] = args.jev_schema
@@ -708,6 +747,18 @@ def main(argv=None):
                 outcome['error'] = 'rosbag evidence missing/incomplete: ' + str(exc)
                 return_code = 2
     finally:
+        if args.delivery_interlock:
+            # I-22: what the interlock decided; a delivered mission without a logged permit fails the run
+            from rescuemind.delivery_interlock import summarise_log
+            outcome['delivery_interlock'] = summarise_log(log_dir/'delivery_interlock.jsonl')
+            if (str(outcome.get('state', '')).startswith('COMPLETED') and outcome['state'] != 'COMPLETED_EXPECTED_DENIAL'
+                    and outcome['delivery_interlock']['permits'] == 0):
+                outcome['state'] = 'FAILED'
+                outcome['error'] = 'delivery completed without a logged interlock permit'
+                if return_code in (0, None):
+                    return_code = 2
+            if interlock_keydir:
+                shutil.rmtree(interlock_keydir, ignore_errors=True)
         if args.advice_file or args.advice_from_instruction:
             # I-19: recompute advice monotonicity from the logged plan; a violation fails the run
             try:
