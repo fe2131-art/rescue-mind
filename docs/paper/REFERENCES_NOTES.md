@@ -109,3 +109,76 @@ Already in the bib (re-verified): robey2025jailbreaking (RoboPAIR; ICRA 2025 pp.
 - costa2025fides — Fides; arXiv 2505.23643 (v2 2025-09-03), no venue listed. Information-flow control (confidentiality/integrity labels, deterministic policy enforcement) for agent planners, evaluated on AgentDojo. Differs: software agents; the label-based integrity idea is the analogue of our untrusted-advice flag.
 - liu2026embodiedsecurity — arXiv 2608.16843 (v1 2026-08-17), survey, no venue. Twelve attack surfaces; "context and long-term memory" and multi-agent communication called underexplored; defences concentrate on action-level and runtime protection. Used only as a pointer that memory and peer channels are open surfaces.
 - Considered but dropped: surveys of agent memory poisoning (2026 arXiv preprints such as 2603.20357, 2607.06595) were seen in search listings only; their abstract pages were not read, so not cited. "RoboGuard" venue is verified above; the Goh et al. multimodal-neurons typographic attack was not checked.
+
+## 10. Literature review additions (checked 2026-10-17; see LITERATURE_REVIEW.md)
+Method: arXiv API for titles, author lists, comment and journal-reference fields; Crossref for DOI, volume, pages; PMLR, NeurIPS, AAAI and KR proceedings pages for
+venue and pages (PMLR citation metadata for Greenblatt, Kambhampati, Laroche, Antoniadis; kr.org page for SafeTap). Papers were retrieved as arXiv HTML into a scratch folder and read at
+the passages named in LITERATURE_REVIEW.md. "Full text read" means the whole paper was retrieved and the cited sections were read, not every line; "abstract only" means only the
+abstract (or a search listing) was read. IEEE Xplore and ACM pages were not opened. No existing key was changed; 44 keys were added, no duplicate key or eprint.
+
+Algorithms with predictions
+- lykouris2021competitive — JACM 68(4), 1-25, DOI 10.1145/3447579 (Crossref). Full text read (arXiv 1802.05399 v4): Sec. 1, 2.2, 3.
+- purohit2018improving — NeurIPS 2018, vol 31, pp. 9661-9670 (page range from the NeurIPS proceedings listing). Read via the extended arXiv version 2407.17712 (Sec. 1); the conference text itself was not opened.
+- mitzenmacher2020algorithms — CUP chapter pp. 646-662, DOI 10.1017/9781108637435.037 (Crossref); arXiv 2006.09123. Full text read, Sec. 1-2.
+- antoniadis2023online — ACM TALG 19(2), 1-34, DOI 10.1145/3582689 (Crossref); ICML 2020 version PMLR 119:345-355 (PMLR page). Abstract only.
+- li2022robustness — POMACS 6(1), 1-35, DOI 10.1145/3508038 (Crossref); arXiv 2106.09659. Full text read: abstract, Sec. 1, Thm 2.2.
+- dinitz2021faster — NeurIPS 2021 (vol 34); arXiv 2107.09770; the page range was not verified, so it is omitted. Full text read: abstract and Sec. 1.
+- eberle2022robustification — AAAI 36(9), 9732-9740, DOI 10.1609/aaai.v36i9.21208 (Crossref). Full text read: abstract, Sec. 1.
+- gouleakis2023learning — AAAI 37(10), 11989-11996, DOI 10.1609/aaai.v37i10.26414 (Crossref). Abstract only (search listing).
+- xu2023untrustworthy — arXiv 2309.16161, no venue found (comment and journal-reference fields empty). Full text read: abstract, Sec. 1.
+
+Safe use of untrusted priors and advice
+- laroche2019safe — SPIBB, ICML 2019 (PMLR 97:3652-3661, PMLR page); arXiv 1712.06924 comment: "accepted as a long oral at ICML2019". Abstract only.
+- wendl2026sooper — arXiv 2601.19612, no venue. Abstract only.
+- asmar2025learning — arXiv 2511.12378, no venue. Abstract read, text searched for safety terms (none found).
+- fawzi2014secure — IEEE TAC 59(6), 1454-1467, DOI 10.1109/TAC.2014.2303233 (arXiv journal-reference field). Abstract only.
+
+Runtime assurance, shielding, verification, evaluation of defences
+- mehmood2022blackbox — NASA Formal Methods 2022, pp. 231-250 (arXiv journal-reference field only; Crossref not queried); arXiv 2102.12981. Full text read: abstract, Sec. 1, 2.2.
+- ramadge1987supervisory — SIAM J. Control Optim. 25(1), 206-230, DOI 10.1137/0325013 (Crossref). Not read.
+- kambhampati2024llmmodulo — ICML 2024, PMLR 235:22895-22907 (PMLR citation metadata); arXiv 2402.01817. Full text read: Sec. 1, 3.
+- greenblatt2024control — ICML 2024, PMLR 235:16295-16336 (PMLR citation metadata); arXiv 2312.06942. Full text read: abstract, Sec. 1.
+- yang2024safetychip — ICRA 2024, pp. 14435-14442, DOI 10.1109/ICRA57147.2024.10611447 (Crossref). Text retrieved but not read; description from a search listing.
+- wang2026agentspec — arXiv 2503.18666; arXiv comment "Accepted by ... ICSE 2026", journal-reference "Proc. ICSE'26, pages 2938-2950. ACM, 2026" (taken from arXiv, the ACM page was not opened). Full text read: abstract, Sec. 1.
+- obi2026safegate — arXiv 2604.05427 (title on arXiv contains "&": rendered as \&), no venue. Full text read: abstract, Sec. 1, decision rules.
+- rodriguez2026safetap — KR 2026 (23rd Int. Conf. on Principles of KR&R), pp. 1109-1120, DOI 10.24963/kr.2026/104 (proceedings page citation metadata). Full text read: abstract, Sec. 1.
+- hafez2025safe — arXiv 2503.03911, no venue. Abstract only.
+- nasr2025attacker, wallace2024hierarchy, debenedetti2024agentdojo — arXiv 2510.09023, 2404.13208, 2406.13352; no venue taken from the arXiv records (AgentDojo is NeurIPS 2024 Datasets and Benchmarks per common knowledge, proceedings entry not checked). Abstracts only.
+
+Information-flow control, capabilities, agent security
+- denning1976lattice — CACM 19(5), 236-243, DOI 10.1145/360051.360056 (Crossref). Not read.
+- biba1977integrity — MITRE Technical Report MTR-3153, 1977 (no DOI; report number from memory of the standard citation, not machine-checked). Not read.
+- saltzer1975protection — Proc. IEEE 63(9), 1278-1308, DOI 10.1109/PROC.1975.9939 (Crossref). Not read.
+- sabelfeld2003language — IEEE JSAC 21(1), 5-19, DOI 10.1109/JSAC.2002.806121 (Crossref; published 2003, DOI carries the 2002 manuscript year). Not read.
+- birgisson2014macaroons — NDSS 2014, DOI 10.14722/ndss.2014.23212 (Crossref and NDSS programme page). Abstract read (search listing).
+- willison2023dual — blog post 2023-04-25; identified through a search listing, the page itself was not opened.
+- beurerkellner2025patterns — arXiv 2506.08837, no venue. Full text read: abstract, Sec. 1 and pattern descriptions (partly).
+
+Memory
+- louck2026tma — arXiv 2606.24322, single author, no venue. Full text read: abstract, act-gate design, theorem statements (partly).
+- karunanidhi2026utility — arXiv 2608.21230, single author, no venue. Abstract only.
+- wei2025amemguard — arXiv 2510.02373, no venue found on the arXiv record. Abstract only.
+- nguyen2026openbelief — arXiv 2608.13923, no venue. Full text read: abstract, Sec. 1, method.
+- zhang2026igvrrt — arXiv 2603.21887, no venue. Abstract only.
+
+Scene text, multi-agent robots, concurrent work
+- chang2026trustboundary — arXiv 2604.19844, no venue. Full text read: abstract, Sec. I-II, V (Table V header).
+- liu2026breaking — arXiv 2608.16806 (v1 title "Breaking Planner Integrity Boundary: Enviroment State-Text Injection..." with the typo corrected here; a mirror lists the title "When State Becomes an Attack Surface"); 10 authors from the arXiv API, no venue. Full text read: abstract, Sec. 1, future work.
+- nagaraja2026prompts — arXiv 2608.00747, no venue. Abstract only.
+- li2026devil — arXiv 2607.10269, no venue. Abstract only.
+
+Active perception, evaluation practice
+- hu2026oanbv — arXiv 2603.11072, no venue. Abstract only.
+- he2026detector — arXiv 2607.13361, single author, 12 pages, no venue. Abstract only.
+- spitale2023reproducibility — arXiv 2309.01822, no venue checked. Full text read: Sec. 3.4.2 ("Only 3.38% of the 296 manuscripts ... reported that they pre-registered their works").
+
+Re-reads of entries already in the bib (no entry changed):
+- debenedetti2025camel, costa2025fides — upgraded from abstract-level to full text read (CaMeL Sec. 1, 3, 3.1, 5, 7, 9; Fides Sec. 1, 4.1, 4.3, 4.4, 5, 8). Fides states integrity non-interference for the binary integrity lattice (Sec. 4.4) and policy P-T (Sec. 4.3).
+- ravichandran2026guardrails (RoboGuard) — full text read (abstract, Sec. I-III, V); the limitation "requires an accurate world model" is quoted in the review.
+- wang2025robosafe (RoboSafe) — full text read (Sec. 4.1-4.2, 5.2); memory items add blocking predicates (Eq. 6-7).
+- oloo2026vaptamp — see section 7; re-read Sec. II-IV for the review.
+- samarakoon2026paper, burbano2026chai, liu2026embodiedsecurity — full text read at the sections cited in the review (mitigations D1-D3; Defenses discussion; Sec. 7.2).
+- ren2023knowno — full text read (Sec. 3, appendix prompts): option randomisation and MCQA letter bias are in the appendix. Venue is CoRL 2023 (the bib already says 2023).
+- ren2024exploreuntil, sun2026memorylies, yin2026glove, tang2026vlmdewm — abstracts re-read only.
+
+Not cited (seen but unverified or not read): "VIRUS" (ICML 2026 poster on persistent memory poisoning of zero-shot object-navigation agents; no arXiv or proceedings text found), MemSentry (arXiv 2609.08747; retrieved, not read), ADMITBench (arXiv 2608.03866; industrial LLM advisories, white paper, only loosely related), Synergistic Simplex (arXiv 2605.08190; abstract only), CAPMAS (arXiv 2609.06500, capability delegation for multi-agent systems; listing only).
