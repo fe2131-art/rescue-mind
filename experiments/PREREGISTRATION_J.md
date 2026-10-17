@@ -49,3 +49,10 @@ kept. An out-of-memory failure counts against P1 even when its re-run succeeds.
 
 ## Amendments
 (none)
+
+**Deviation note (2026-10-17, during the campaign; no change to protocol, configurations or endpoints).** From trial J007
+onwards, documentation builds and unit tests ran on the same 4-core host, so the load average reached 8–10. Check
+latency rose from 3–7 s to 25–33 s in **both** arms, because the arms alternate AJ/JA. The latency endpoint (secondary)
+is therefore reported in two parts, J001–J006 (unloaded) and J007 onwards (loaded). Two first attempts in arm J (J003,
+J007) failed before any VLM decision with "velocity guard not ready", and both re-runs completed, as the registered
+infrastructure-retry rule allows. From the time this note was written, no other CPU-heavy work runs until J ends.
