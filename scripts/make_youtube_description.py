@@ -202,7 +202,7 @@ def line_h(res):
         t = (f"物資の入れ替わりが続く出動の所要時間の中央値 記憶なし {p1['time_M0_median_s']:.0f}秒・検証つき記憶 {p1['time_M2_median_s']:.0f}秒、"
              if p1['n_pairs'] else '')
         return (f"・出動をまたぐ記憶の評価H：{t}"
-                f"危険な配達は 素朴な記憶 {p2['unsafe_M1']}件 対 検証つき記憶 {p2['unsafe_M2']}件")
+                f"危険な配達は {p2['n_pairs']}出動のうち 素朴な記憶 {p2['unsafe_M1']}件 対 検証つき記憶 {p2['unsafe_M2']}件")
     except (TypeError, KeyError, ValueError):
         return None
 

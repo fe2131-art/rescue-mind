@@ -103,7 +103,7 @@ the other station, or refuse because of a wrong item or a hazard.
 \textbf{Failure detection and verification with foundation models.}
 REFLECT~\cite{liu2023reflect}, AHA~\cite{duan2025aha} and success detectors~\cite{du2023successdetectors} explain or detect manipulation failures after the fact;
 Sentinel~\cite{agia2025sentinel}, FAIL-Detect~\cite{xu2025faildetect} and Code-as-Monitor~\cite{zhou2025codeasmonitor}
-monitor learned policies at run time (more in Supp.~Sec.~S3). Our check runs \emph{before} the robot acts, is closed-set and zero-shot, and is audited against simulator ground truth.
+monitor learned policies at run time (more in Supp.~Sec.~S3). Our check runs \emph{before} the robot acts and is closed-set, zero-shot and audited against ground truth.
 The closest methodological relative is KnowNo~\cite{ren2023knowno}, which scores multiple-choice answers by
 next-token probability and asks a human for help with a conformal guarantee~\cite{angelopoulos2021conformal};
 SayCan~\cite{ichter2023saycan} likewise scores a fixed candidate set. We share the scoring but respond to uncertainty by
@@ -463,20 +463,20 @@ and \HFalseReftwo{} for M2. The registered headline claim, verified memory keepi
 delivering station.}\label{tab:h}\resizebox{\linewidth}{!}{\input{tab_h_arms.tex}}\end{table}
 \begin{figure}[t]\centering\fig{fig_h_change_rate.pdf}
 \caption{Pre-registered model of repeated missions, from the per-check rates measured in G and H: unsafe deliveries and mean
-mission time of the three policies as the world changes more often (a model prediction, not an observation).}\label{fig:hrate}\end{figure}
+mission time as the world changes more often, for no memory, naive memory, a recency-gated naive memory that trusts only the previous mission (M1age), and verified memory (a model prediction, not an observation). Recency gating reduces but does not remove the risk of trusting memory; verified memory keeps the memory-free risk.}\label{fig:hrate}\end{figure}
 Fig.~\ref{fig:hrate} extends the campaign. At a change probability of
 $q=\HModelQ$ per mission, the model predicts \HModelUnsafeone{} unsafe deliveries per 100 missions for naive memory, against
 \HModelUnsafetwo{} for verified memory and \HModelUnsafezero{} without memory; the mean mission times are \HModelTimeone,
 \HModelTimetwo{} and \HModelTimezero\,s.
 
 \subsection{Two models on one GPU (campaign J)}\label{sec:res-jev}
-The second model is only as good as the question it is asked (Sec.~\ref{sec:fix}). On T2, Clef-Flash together with
+On T2, Clef-Flash together with
 Qwen3.5-4B, the pair that fits on one 32\,GB V100, made \TTPairFA{} false approvals (\TTPairCA{} correct).
 Campaign J ran this pair on the robot, paired with v3.6 on 24 worlds with swapped, empty and small-fire stations;
 it behaved as expected in \JCorrectJ{} (v3.6: \JCorrectA, exact McNemar $p=\JMcNemarP$), with
 \JUnsafeJ{} unsafe deliveries (v3.6: \JUnsafeA) and \JFailedJ{} stack failures. Peak GPU memory was \JPeakVram\,GB, and
-the median check latency was \JLatJ\,s for the two-model system and \JLatA\,s for v3.6. The registered claim that the original two-model design runs on the
-simulated robot with no extra risk is \JClaim.
+the median check latency was \JLatJ\,s for the two-model system and \JLatA\,s for v3.6. The registered claim (two-model design on the
+simulated robot, no extra risk) is \JClaim.
 
 \textbf{Instruction parsing.}
 On 60 held-out utterances the hybrid parser was correct for \IntCorrect{}/\IntN{} with \IntUnsafe{} unsafe acceptances
@@ -484,31 +484,28 @@ On 60 held-out utterances the hybrid parser was correct for \IntCorrect{}/\IntN{
 
 \section{Discussion}\label{sec:discussion}
 \textbf{When should a robot trust its memory?} Skipping a check that succeeded a
-few minutes ago is what an efficiency-minded system would do, and its risk grows
-with how often the world changes, which the robot cannot observe without looking (campaign H and the change-rate model; registered headline claim:
-\HHeadline). Observation~1 and Corollary~1 make the question moot for safety: memory may decide the order and the
-strictness of the checks, never their existence, and can then buy time in persistent worlds at the price
+few minutes ago is efficient, and its risk grows
+with how often the world changes, which the robot cannot observe without looking (campaign H, Fig.~\ref{fig:hrate}; registered headline claim:
+\HHeadline). Observation~1 and Corollary~1 make the question moot for safety: memory may decide the order and
+strictness of the checks, never their existence, and buys time in persistent worlds at the price
 of a detour when the world changes back.
 
 \textbf{Moving beats thinking harder.} The largest single safety gain came from moving 0.4\,m (G), not from
 a larger model, a better prompt or a second model (T2, whose fires were easy, cannot rank models on safety). A fire hidden behind a box carries no pixels to reason about.
 
 \textbf{What pre-registration bought us.} Three registered claims failed or were not significant: false
-approvals below 2\% on T1, a closed-loop benefit of better wording and crops (F), and any change on T2 (a power failure: its
-easy fires left no false approvals to remove). The first two exposed the hidden-fire weakness and led to the look-around;
-without registration, each could have been rationalised away.
+approvals below 2\% on T1, a closed-loop benefit of better wording and crops (F), and any change on T2 (a power failure). The first two exposed the hidden-fire weakness and led to the look-around;
+unregistered, each could have been rationalised away.
 
 \textbf{Cost of verification.} A check takes about \TimCheck\,s and the look-around about \GLookCost\,s, against about \TimDrive\,s of driving between
 station and shelter (Supp.~Table~S4); where a wrong delivery costs a round trip, this is favourable, and memory recovers part of it in a persistent world.
 
 \section{Limitations}
 All results are from simulation: simple meshes, two supply types, fixed station geometry and one robot.
-Study R covers sensor degradations, but not the appearance gap of real objects, real smoke
-or clutter, and our ``hazard'' is a stylised fire. Campaign H scripts its changes, and the change-rate model assumes
-independent changes. The memory spans three missions and two stations. Corollary~1 assumes a per-check false-approval bound that is uniform over the stations a route meets.
-The counterfactual baselines were not executed physically. Fire labels come from pixel counts, and barely visible fires (21--613 pixels) are excluded.
-The guard is hand-written, not formally synthesised~\cite{alshiekh2018shielding,ames2019cbf}.
-The next step is a real platform with real supplies.
+Study R covers sensor degradations, not the appearance gap of real objects or smoke, and our ``hazard'' is a stylised fire. Campaign H scripts its changes, and the change-rate model assumes
+independent changes; the memory spans three missions and two stations. Corollary~1 assumes a per-check false-approval bound that is uniform over the stations a route meets.
+Counterfactual baselines were not executed physically, barely visible fires (21--613 pixels) are excluded, and the guard is hand-written, not formally synthesised~\cite{alshiekh2018shielding,ames2019cbf}.
+The next step is a real platform.
 
 \section{Conclusion}
 In simulation, a local VLM served as a pre-action gate for relief-supply delivery with few false approvals
@@ -518,8 +515,7 @@ Whether the gate stays fail-closed under camera degradation (R: \RPoolSupported)
 speed-up without a safety cost (H: \HHeadline) and whether the two-model design runs without extra risk (J: \JClaim) are
 registered claims reported in Sec.~\ref{sec:results}. Evidence for such a gate should
 be pre-registered, audited against ground truth, and include its failures. We release code, worlds,
-test sets, protocols, ledgers and per-trial evidence (one Dockerfile builds the stack, seeded test sets are hashed in the
-pre-registrations, and every number here is produced from \texttt{experiments/results} by \texttt{scripts/paper\_numbers.py}).
+test sets, protocols, ledgers and per-trial evidence; every number here is produced from \texttt{experiments/results} by \texttt{scripts/paper\_numbers.py}.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
