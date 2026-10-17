@@ -760,7 +760,8 @@ def view_env(w: str, v: dict, env: dict) -> None:
         env[f'val_{w}{i + 1}'] = z3.BoolVal(ok)
         env[f'p_{w}{i + 1}'] = rv(Fraction(raw)) if ok else rv(0)
         env[f'hz_{w}{i + 1}'] = z3.BoolVal(bool(v['hz'][i]))
-    conf_bad = any(not (isinstance(c, (int, float)) and not isinstance(c, bool)) for c in v['conf'])
+    # code (local_vision._confidence): `isinstance(x, (int, float))` -- a bool IS accepted here (FINDING F3), unlike the hazard score
+    conf_bad = any(not isinstance(c, (int, float)) for c in v['conf'])
     thr_bad = any(not alpha_thr_ok(t) for t in v['thr'])
     env[f'bad_{w}'] = z3.BoolVal(conf_bad or thr_bad)
 
@@ -773,7 +774,7 @@ def station_env(case: dict) -> dict:
     for i in (0, 1):
         env[f'sup{i + 1}'] = z3.BoolVal(f['supply'][i] == 'water')
         c = f['conf'][i]
-        isnum = isinstance(c, (int, float)) and not isinstance(c, bool)
+        isnum = isinstance(c, (int, float))
         # code: `c < 0.5` (NaN compares False -> NOT low: finding F2); a non-number aborts the check (bad)
         env[f'low{i + 1}'] = z3.BoolVal(bool(isnum and c < 0.5))
     env['LA'], env['AD'] = z3.BoolVal(case['LA']), z3.BoolVal(case['AD'])
@@ -1062,7 +1063,10 @@ def p2_plan_property(pc: dict, impl: Impl | None = None) -> list:
     """Safety properties of the REAL plan, checked independently of the model (and of assert_monotone):
     nothing relaxed, every base caution kept and not looser, candidates a permutation, scrutiny only added."""
     impl = impl or Impl.real()
-    out = real_plan(impl, pc)
+    return plan_properties(pc, real_plan(impl, pc))
+
+
+def plan_properties(pc: dict, out) -> list:
     if out is None:
         return []
     ss, item = pc['ss'], pc['item']
@@ -1369,9 +1373,12 @@ def code_mutants():
 
     plan_mut('advice_loosens_tau_h',
              [("tau = min(caution_tau_h, prev) if prev is not None else caution_tau_h\n                out['caution'][st] =",
-               "tau = caution_tau_h\n                out['caution'][st] =")], 'advice_loosens_tau_h', PLAN_MUTANTS['advice_loosens_tau_h'])
+               "tau = caution_tau_h\n                out['caution'][st] ="),
+             ("tau = min(caution_tau_h, prev['tau_h']) if prev.get('tau_h') is not None else caution_tau_h", "tau = caution_tau_h")], 'advice_loosens_tau_h', PLAN_MUTANTS['advice_loosens_tau_h'])
     plan_mut('caution_max_not_min', [("tau = min(caution_tau_h, prev) if prev is not None else caution_tau_h\n                out['caution'][st] =",
-                                       "tau = max(caution_tau_h, prev) if prev is not None else caution_tau_h\n                out['caution'][st] =")],
+                                       "tau = max(caution_tau_h, prev) if prev is not None else caution_tau_h\n                out['caution'][st] ="),
+                                      ("tau = min(caution_tau_h, prev['tau_h']) if prev.get('tau_h') is not None else caution_tau_h",
+                                       "tau = max(caution_tau_h, prev['tau_h']) if prev.get('tau_h') is not None else caution_tau_h")],
              'caution_max_not_min', PLAN_MUTANTS['caution_max_not_min'])
     plan_mut('advice_skips_check', [("            if follow:\n                out['skip_check'] = True", "            if True:\n                out['skip_check'] = True")],
              'advice_skips_check', PLAN_MUTANTS['advice_skips_check'])
@@ -1412,6 +1419,53 @@ def code_mutants():
     return out
 
 
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# necessity (supplement S10, "Necessity"): a relaxing interface has a generator law and a clairvoyant advisor above eps_any
+# ---------------------------------------------------------------------------------------------------------------------
+def necessity(rec: list | None = None, k: int = 3, n: int = 2) -> list:
+    """Two-world law: with probability q the world has a must-refuse station s* that produces the frame o*; with probability 1-q a
+    world on which the rest of the budget e0 is spent (q = 1/2 > e0 = 1/10).  The advisor is clairvoyant: it sends a* exactly in
+    the first world.  Unsafe rate = q [advice approves o*] + (1-q) e0;  eps_any = q [the check ALONE approves o*] + (1-q) e0.
+    Claim "unsafe <= eps_any": unsat for the tighten-only plan (the only-if half is the P2a proof), sat for every relaxing
+    interface, and the model is the counterexample (a*, o*, s*) of the necessity argument."""
+    q, e0 = Fraction(1, 2), Fraction(1, 10)
+    out = []
+    cases = [('tighten-only (the code)', frozenset(), frozenset())]
+    cases += [(f'relaxing: {PLAN_MUTANTS[m]}', frozenset([m]), frozenset()) for m in ('advice_skips_check', 'advice_marks_verified')]
+    cases += [(f'relaxing: {STATION_MUTANTS[m]}', frozenset(), frozenset([m])) for m in ('sides_ignored', 'invalid_score_clear')]
+    for name, pm, sm in cases:
+        b = PlanState.fresh('b', k)
+        tc, S = z3.Real('tc'), z3.Bool('S')
+        its = [(z3.Int(f'kind{i}'), z3.Int(f'st{i}')) for i in range(n)]
+        cur, assum = b, [wf_base(b, k), z3.Not(b.skip), z3.Not(b.deny), tc > 0, tc <= rv(TAU_CAUTION)]
+        for ki, si in its:
+            assum.append(item_valid(ki, si, k))
+            cur = plan_step(cur, ki, si, tc, z3.BoolVal(False), S, k, pm)
+        sidx = z3.Int('sstar')
+        o = StationVars()
+        assum += [sidx >= 0, sidx < k, o.domain()] + ([z3.Not(o.bad[w]) for w in VIEWS] if sm else [])
+        sel = lambda arr: select(arr, sidx, k, z3.BoolVal(False))
+        selr = lambda arr: select(arr, sidx, k, z3.RealVal(0))
+        A_with = station_pred_plan(o, cur.skip, cur.deny, sidx == cur.first, sel(cur.cau), selr(cur.tau), sel(cur.scr), sm)
+        A_0, _ = station_pred(o, z3.BoolVal(False), z3.RealVal(0), z3.BoolVal(False))
+        unsafe = rv(q) * z3.If(A_with, 1, 0) + rv(1 - q) * rv(e0)
+        eps_any = rv(q) * z3.If(A_0, 1, 0) + rv(1 - q) * rv(e0)
+        res = prove(f'NECESSITY {name}: unsafe <= eps_any under the two-world law', unsafe <= eps_any, assum)
+        d = {'name': res['name'], 'interface': name, 'result': res['result'], 'proved': res['result'] == ('unsat' if not (pm or sm) else 'sat'),
+             'seconds': res['seconds'], 'q': str(q), 'e0': str(e0)}
+        if res['result'] == 'sat':
+            m = res['model']
+            d['counterexample'] = {'advice': [{'kind': ['location', 'hazard', 'safe', 'skip'][mval(m, ki)], 'station': (None if mval(m, si) < 0 else mval(m, si))} for ki, si in its],
+                                   'station_s_star': mval(m, sidx), 'LA': mval(m, o.LA),
+                                   'frame_o_star': {w: {'scene_hazard': [mval(m, o.hz[(w, i)]) for i in (1, 2)], 'score_valid': [mval(m, o.val[(w, i)]) for i in (1, 2)],
+                                                        'p': [mval(m, o.p[(w, i)]) for i in (1, 2)]} for w in VIEWS},
+                                   'check_alone_approves_o_star': False, 'unsafe_rate': float(q + (1 - q) * e0), 'eps_any': float((1 - q) * e0)}
+        out.append(d)
+        if rec is not None:
+            rec.append({k_: v_ for k_, v_ in d.items() if k_ != 'counterexample'})
+    return out
 
 # ---------------------------------------------------------------------------------------------------------------------
 # non-vacuity: the assumptions are satisfiable and the interesting cases are reachable (so `unsat` is not an accident)
@@ -1497,6 +1551,26 @@ def p2_end_to_end(pc: dict, sc: dict, impl: Impl | None = None, plan_impl: Impl 
     for sid in pc['ss'].ids:
         case = dict(sc, params=[(False, None, False), station_params(pc['base'], sid), station_params(out, sid)])
         bad += [f'{sid}: {w}' for w in p2_property_case(case, impl)]
+    return bad
+
+
+def credit_case(pc: dict) -> list:
+    """I-24: advice.plan on the items a credit ledger admits (advice_credit.plan_with_credit) keeps every plan property, for ledgers
+    from empty to full (the credit layer only removes items, so it is a sub-list of the advice the invariant already covers)."""
+    from rescuemind import advice_credit as ac
+    if pc['naive_base'] or not isinstance(pc['items'], list):
+        return []
+    bad = []
+    for c in (0.0, 1.0, 2.0):
+        try:
+            out = ac.plan_with_credit(ac.new_ledger(c_loc=c, c_haz=c), pc['item'], pc['items'], 'monotone', copy.deepcopy(pc['base']),
+                                      caution_tau_h=pc['tc'], stations=pc['ss'], scrutiny=pc['S'])
+        except Exception as e:                        # noqa: BLE001
+            if type(e).__name__ in ('AdviceError', 'CreditError'):
+                continue
+            raise
+        bad += [f'credit {c}: {w}' for w in plan_properties(pc, out)]
+        bad += [f'credit {c}: relaxed' for _ in [0] if out['skip_check'] or out['deny_without_visit']]
     return bad
 
 
@@ -1624,6 +1698,7 @@ def run_all(quick: bool = False, diff_n: int = 1500, mutant_n: int = 1500, loop_
     for k in ((2, 3, 4, 5, 6) if not quick else (3, 4)):
         proofs_loop(k, rec)
     nonvacuity(rec)
+    nec = necessity(rec)
     mutants = {'plan': [], 'station': [], 'loop': []}
     for name in PLAN_MUTANTS:
         r = plan_mutant_cex(name)
@@ -1637,7 +1712,7 @@ def run_all(quick: bool = False, diff_n: int = 1500, mutant_n: int = 1500, loop_
         mutants['station'].append(r)
     for name in LOOP_MUTANTS:
         mutants['loop'].append(loop_mutant_cex(name))
-    res = {'proofs': rec, 'mutants_model': mutants}
+    res = {'proofs': rec, 'mutants_model': mutants, 'necessity': nec}
     if with_link:
         diff = {}
         for fam in ('plan', 'station', 'p2', 'p2_noassert'):
@@ -1645,6 +1720,10 @@ def run_all(quick: bool = False, diff_n: int = 1500, mutant_n: int = 1500, loop_
             diff[fam] = run_differential(fam, diff_n)
             diff[fam]['disagreements'] = 0
             diff[fam]['seconds'] = round(time.perf_counter() - t0, 1)
+        t0 = time.perf_counter()
+        r = hypo_search(credit_case, strategies()['plan_case'], diff_n)
+        assert not r['detected'], r
+        diff['credit'] = {'n': r['examples'], 'disagreements': 0, 'seconds': round(time.perf_counter() - t0, 1)}
         t0 = time.perf_counter()
         diff['loop'] = run_loop_differential(loop_n)
         diff['loop']['seconds'] = round(time.perf_counter() - t0, 1)

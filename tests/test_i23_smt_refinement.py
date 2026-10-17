@@ -67,8 +67,16 @@ class Proofs(unittest.TestCase):
 
     def test_properties_are_unsat_and_nonvacuity_sat(self):
         for p in self.res['proofs']:
-            want = 'sat' if p['name'].startswith('NONVACUITY') else 'unsat'
+            want = 'sat' if p['name'].startswith('NONVACUITY') or p['name'].startswith('NECESSITY relaxing') else 'unsat'
             self.assertEqual(p['result'], want, p['name'])
+
+    def test_necessity_counterexamples(self):
+        nec = self.res['necessity']
+        self.assertEqual(nec[0]['result'], 'unsat')                      # tighten-only: the bound holds in the two-world law
+        for d in nec[1:]:                                                # every relaxing interface: unsafe > eps_any, with (a*, o*, s*)
+            self.assertEqual(d['result'], 'sat', d['interface'])
+            self.assertFalse(d['counterexample']['check_alone_approves_o_star'])
+            self.assertGreater(d['counterexample']['unsafe_rate'], d['counterexample']['eps_any'])
 
     def test_all_model_mutants_have_a_counterexample(self):
         for group, ms in self.res['mutants_model'].items():
@@ -147,6 +155,10 @@ class Differential(unittest.TestCase):
         """The planning RULE is monotone by itself: switching assert_monotone off changes nothing."""
         c = V.run_differential('p2_noassert', N)
         self.assertGreater(c['scrutinised'], 0)
+
+    def test_plan_with_credit_keeps_the_plan_properties(self):
+        r = V.hypo_search(V.credit_case, V.strategies()['plan_case'], max(N // 2, 200))
+        self.assertFalse(r['detected'], r)
 
     def test_loop_pieces(self):
         c = V.run_loop_differential(max(N // 2, 200))
@@ -259,6 +271,15 @@ class KnownFindings(unittest.TestCase):
         call = lambda: {'backend': 'local_transformers', 'real_inference': True, 'model': PRIMARY_MODEL, 'image_sha256': 'a',
                         'result': {'supply': 'water', 'scene': 'clear'}, 'scores': {'hazard_prob': 0.0, 'supply_probs': {'water': float('nan')}}}
         self.assertTrue(local_decision('water', call(), call())['allow'])
+
+    def test_F3_bool_supply_confidence_is_accepted_as_a_number(self):
+        """local_vision._confidence uses isinstance(x, (int, float)), which accepts True / False (the hazard score path rejects bool).
+        True counts as 1.0, False as 0.0 (low confidence).  Perception-side; found by the first 1500-example run of the differential."""
+        from rescuemind.local_vision import local_decision, PRIMARY_MODEL
+        call = lambda c: {'backend': 'local_transformers', 'real_inference': True, 'model': PRIMARY_MODEL, 'image_sha256': 'a',
+                          'result': {'supply': 'water', 'scene': 'clear'}, 'scores': {'hazard_prob': 0.0, 'supply_probs': {'water': c}}}
+        self.assertTrue(local_decision('water', call(True), call(True))['allow'])
+        self.assertEqual(local_decision('water', call(False), call(True))['reason'], 'low_confidence_supply_match')
 
 
 if __name__ == '__main__':
