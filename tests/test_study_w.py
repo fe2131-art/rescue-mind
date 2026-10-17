@@ -62,8 +62,8 @@ class ProtocolW(unittest.TestCase):
     def test_views_are_front_and_sides_with_bounded_pose_error(self):
         sd = mw.POSE_SD
         for x in self.p['worlds']:
-            nom = mw.nominal_views(x['item'])
-            self.assertEqual(set(x['views']), {'F', 'L', 'R'})
+            nom = {**mw.nominal_views(x['item']), **mw.extra_views(x['item'])}
+            self.assertEqual(set(x['views']), {'F', 'L', 'R', 'L2', 'R2', 'N'})   # Amendment 1 adds three extra views
             for v, pose in x['views'].items():
                 for i in range(3):
                     self.assertLessEqual(abs(pose[i] - nom[v][i]), mw.POSE_TRUNC_SD * sd[i] + 1e-3)
@@ -111,11 +111,12 @@ class LabelsW(unittest.TestCase):
 
     def test_label_rows(self):
         p = mw.build()
-        px = {(w['id'], v): 0 for w in p['worlds'] for v in 'FLR'}
+        px = {(w['id'], v): 0 for w in p['worlds'] for v in ('F', 'L', 'R', 'L2', 'R2', 'N')}
         first = next(w for w in p['worlds'] if w['kind'] == 'fire')
         px[(first['id'], 'L')] = 2000
         rows = bw.build_labels(p, pixels=px)
-        self.assertEqual(len(rows), 675)
+        self.assertEqual(len(rows), 1350)
+        self.assertEqual(sum(not x['extra_view'] for x in rows), 675)
         r = {(x['world_id'], x['view']): x for x in rows}
         self.assertTrue(r[(first['id'], 'F')]['world_perceivable'])
         self.assertTrue(r[(first['id'], 'F')]['world_side_only'])
@@ -386,3 +387,25 @@ class ServerParaphrases(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class AdaptiveW(unittest.TestCase):
+    """Amendment 1 (I-20): suspicion-triggered extra views."""
+
+    def rec(self, wid, kind, view, ph, perc=True):
+        sc = {'hazard_prob': ph, 'supply_probs': {'water': .99, 'medicine': 0, 'other': .01}}
+        return {'world_id': wid, 'world_kind': kind, 'view': view, 'world_perceivable': perc, 'world_perceivable_any_view': perc,
+                'expected': 'ALLOW' if kind == 'twin' else 'DENY', 'station': 'water', 'truth_supply': 'water',
+                'passes': {'1': {'supply': 'water', 'scene': 'clear', 'scores': sc}, '2': {'supply': 'water', 'scene': 'clear', 'scores': sc}}}
+
+    def test_extra_views_catch_a_suspicious_miss_and_spare_clear_twins(self):
+        recs = []
+        for v, p in {'F': .01, 'L': .02, 'R': .003, 'L2': .3, 'R2': .001, 'N': .002}.items():   # suspicious, caught at L2
+            recs.append(self.rec('wf1', 'fire', v, p))
+        for v in ('F', 'L', 'R', 'L2', 'R2', 'N'):
+            recs.append(self.rec('wt1', 'twin', v, .001, perc=False))                            # clear: never triggers
+        out = wa.summarise_adaptive(recs)
+        self.assertEqual(out['perceivable_FLR']['miss_look_around']['k'], 1)
+        self.assertEqual(out['perceivable_FLR']['miss_adaptive']['k'], 0)
+        self.assertEqual(out['twins']['extra_view_trigger_rate']['k'], 0)
+

@@ -168,4 +168,23 @@ A baseline given the same crops is not part of W; adding it would be an amendmen
 Stages 2, 4 and 5 share one server start (`h36 + tiles`); 5b needs a start with `h36 --hazard-views full`, and stage 3 one with `h35 full`.
 
 ## Amendments
-(none)
+**Amendment 1 (2026-10-17 21:00, before any W image is rendered or scored; I-20).**
+* *Added views.* Every world is also rendered from three extra poses: ±0.8 m beside the waypoint (L2, R2) and 0.3 m closer
+  to the station (N). They use the same pose-error model, drawn from a separate random stream (`W-2026-extra-poses`). The
+  worlds, lighting, props, fires and the F/L/R poses are byte-identical to the registered protocol, and the generator
+  checks this.
+* *Primary endpoints and labels are unchanged.* They use F, L and R only.
+* *New secondary analysis: suspicion-triggered extra views* (`summarise_adaptive`).
+  * If a world passes the fixed look-around but some standard view is *suspicious*, the robot also looks from L2, R2 and N.
+    Suspicious means p(hazard) ≥ τ_sus = 0.005 in that view.
+  * It refuses if any extra view has p(hazard) ≥ 0.05.
+  * τ_sus was fixed on development data only (DH + DH2, h36 + tiles):
+    * it is the 90th percentile of the fire-free views (40/380 at or above 0.005);
+    * it covers 17 of the 23 visible development fires that were missed at 0.05.
+  * Reported:
+    * misses of fixed look-around vs adaptive, paired, among worlds perceivable in F/L/R and among worlds perceivable in
+      any of the six views;
+    * the trigger rate and the extra false stops on the fire-free twins.
+  * Hypothesis: adaptive misses fewer fires, with an extra-view trigger rate of about 10% on fire-free worlds.
+  * If it holds, the rule is implemented in the robot (I-20) and tested in closed loop in a separate registered study.
+* *Time.* Rendering grows to six views per world (about 2.6 h instead of 1.8 h). Scoring of W-a doubles (about 1.0 h).
