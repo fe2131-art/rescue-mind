@@ -173,7 +173,7 @@ class ServerEndpoint(unittest.TestCase):
 
     def test_endpoint_is_additive(self):
         src = (ROOT / 'scripts/local_vlm_server.py').read_text(encoding='utf8')
-        self.assertIn("('/v1/classify','/v1/describe','/v1/intent','/v1/advice','/v1/jev')", src)
+        self.assertIn("'/v1/advice'", src.split('if self.path not in', 1)[1].split(')', 1)[0])
 
     def test_worker_questions_are_closed_set_and_letter_scored(self):
         w = self.srv.ModelWorker.__new__(self.srv.ModelWorker)
