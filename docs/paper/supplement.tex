@@ -220,6 +220,17 @@ and M2 is faster than M0 at small $q$ and converges to it as $q$ grows, because 
 \HModelUnsafeone{} for M1, \HModelUnsafetwo{} for M2 and \HModelUnsafezero{} for M0, with mean mission times \HModelTimeone, \HModelTimetwo{} and \HModelTimezero\,s.
 Neither the single missed-fire delivery nor the 32 paired missions measure how often a real world changes; $q$ is a free parameter of the model.
 
+\textbf{More stations (descriptive, not registered).} Our arena has $k=2$ stations, so memory can save at most one search detour.
+Let the supply sit at one of $k$ stations and move, with probability $q$ between missions, to a uniformly chosen other station,
+so its long-run location is uniform. Without memory the robot visits stations in inventory order and needs $(k+1)/2$ visits on
+average; with verified memory it first visits the station where it last saw the supply and needs $1+qk/2$. With the detour
+$\delta=\HKDelta$\,s measured in H, the expected saving is $\delta\,((k-1)-qk)/2$ per mission and vanishes at $q^\ast=(k-1)/k$.
+For $k=2$ this reproduces the Monte-Carlo model above (\HKSaveTwo\,s at $q=0.2$); for $k=8$ it is \HKSaveEight\,s. A simulation of the same
+process agrees within 1\,s for $q>0$ (\texttt{scripts/h\_k\_scaling.py}). The safety side does not depend on $k$ in this way:
+each policy checks every station it delivers from with the same rule, so Corollary~1 applies unchanged, and memory lowers the
+expected number of checks per mission rather than their strength. The model assumes the stations are equally far apart
+and that supply identification is perfect (T1: no supply false approvals in 332 images).
+
 \section{Failure Analysis and Lessons}\label{sec:findings}
 Running the full stack on a GPU revealed \NFindings{} problems that \NTests{} offline unit tests and mocked ROS runs had not; the most instructive are listed here (the full table is in \texttt{docs/FINDINGS.md} in the repository).
 \begin{itemize}

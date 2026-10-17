@@ -463,6 +463,12 @@ def main():
         m['HModelQ'] = q[i]
         for arm, k in (('M0', 'zero'), ('M1', 'one'), ('M2', 'two')):
             m[f'HModelUnsafe{k}'] = c['policies'][arm][i]['unsafe_per_100']; m[f'HModelTime{k}'] = c['policies'][arm][i]['mean_time_s']
+    ks = RES / 'h_k_scaling.json'                     # descriptive k-station scaling of verified memory (not registered)
+    if ks.is_file():
+        s = json.loads(ks.read_text())
+        m['HKDelta'] = f"{s['delta_s']:.0f}"
+        g = {(r['k'], r['q']): r for r in s['grid']}
+        m['HKSaveTwo'] = f"{g[(2, 0.2)]['saving_s']:.0f}"; m['HKSaveEight'] = f"{g[(8, 0.2)]['saving_s']:.0f}"
     # ---- campaign J (Jev role + Qwen on the robot)
     jf = RES / 'j_summary.json'
     if jf.is_file():
