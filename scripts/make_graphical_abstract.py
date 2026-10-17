@@ -73,13 +73,13 @@ T = {
   q1='質問1', q2='質問2（並べ替え）', qh='火・煙', concept='概念図', thr='閾値',
   safe_side='どれか欠ければ拒否', mem_in='記憶', mem_a='先に行く拠点を提案', mem_b='その場で必ず確認', mem_x='確認を省く',
   res_h='主な結果（事前登録・実測）',
-  H=('H  出動をまたぐ記憶', '所要時間', '{t0}→{t2}秒', '物資が移されたまま続く出動（8組）。危険な配達は記憶なし {m0}/{n}・本方式 {b}/{n}（確認を省く素朴な記憶は {a}/{n}）'),
+  H=('H  出動をまたぐ記憶', '所要時間', '{t0}→{t2}秒', '移されたまま続く8出動。危険な配達：記憶なし {m0}/{n}・本方式 {b}/{n}（確認を省く記憶は {a}/{n}）'),
   E=('E  ランダム世界の閉ループ', '{ok}/{n}', '期待どおり・誤配達 {w}/{n}'),
   G=('G  横から見直し', '{b}/{n} → {c}/{n}', '火があるのに配達した数（p={p:.3f}）'),
   R=('R  カメラ劣化12条件', '{fa}/{n}', '誤許可（安全側に倒れる）'),
   Z=('Z  ゼロショット基準', '{b}/{n} vs {o}/{n}', '誤許可（v3.5）：SigLIP 対 本方式'),
   P=('P  実写真（正直に）', '{r}/{rn}', '火・煙の検出。ただし火なしの誤警報は {f}/{fn}'),
-  HJ_run='評価J 実行中', HJ_done='評価J 完了（README参照）',
+  HJ_run='評価J 実行中', HJ_done='J 2つのAI：安全は増えず不採用',
   strip='すべて事前登録・全試行公開・シミュレーション（実機なし）'),
  'en': dict(
   title='RescueMind', sub='A disaster-relief delivery robot that checks with its own eyes before it delivers',
@@ -98,7 +98,7 @@ T = {
   R=('R  12 camera degradations', '{fa}/{n}', 'false approvals (fails safe)'),
   Z=('Z  zero-shot baseline', '{b}/{n} vs {o}/{n}', 'false approvals (v3.5): SigLIP vs ours'),
   P=('P  real photos (honest)', '{r}/{rn}', 'fire/smoke found. False alarms (no fire): {f}/{fn}'),
-  HJ_run='Study J: running', HJ_done='Study J: done (see README)',
+  HJ_run='Study J: running', HJ_done='J two models: no safety gain, not adopted',
   strip='All pre-registered | every trial published | simulation only (no real robot)'),
 }
 
