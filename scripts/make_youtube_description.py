@@ -121,7 +121,8 @@ def line_t1(res):
     try:
         m = t['models']['Qwen3.5-9B']
         fa, n = m['rules']['full']['false_approvals'], m['rules']['full']['n_deny']
-        return (f"・未使用の画像{m['n_images']}枚（T1）：拒否すべき{n}枚のうち誤許可{fa}枚（v3.4の規則）。"
+        fa35 = m['rules']['v35_tau_h_0.05']['false_approvals']
+        return (f"・未使用の画像{m['n_images']}枚（T1）：拒否すべき{n}枚のうち誤許可 {fa}枚（登録した規則 v3.4）、{fa35}枚（v3.5の規則）。"
                 f'すべて「物資の陰に一部しか見えない火」の型で、これが残る弱点と判明')
     except (TypeError, KeyError):
         return None
@@ -199,10 +200,13 @@ def line_h(res):
     h = jload(Path(res) / 'h_summary.json')
     try:
         p1, p2 = h['P1_efficiency_relocation_persist'], h['P2_safety_naive_vs_verified']
-        t = (f"物資の入れ替わりが続く出動の所要時間の中央値 記憶なし {p1['time_M0_median_s']:.0f}秒・検証つき記憶 {p1['time_M2_median_s']:.0f}秒、"
+        pa, p3 = h['per_arm'], h['P3_no_extra_risk_vs_v36']
+        rc = {a: pa[a]['by_transition']['relocation_change']['time_median_s'] for a in ('M0', 'M2')}
+        t = (f"所要時間の中央値は、物資が移されたままの{p1['n_pairs']}出動で 記憶なし {p1['time_M0_median_s']:.0f}秒・検証つき記憶 {p1['time_M2_median_s']:.0f}秒"
+             f"（物資が元に戻った出動では {rc['M0']:.0f}秒 対 {rc['M2']:.0f}秒とわずかに遅い。全体は {pa['M0']['time_median_s']:.0f}→{pa['M2']['time_median_s']:.0f}秒）。"
              if p1['n_pairs'] else '')
         return (f"・出動をまたぐ記憶の評価H：{t}"
-                f"危険な配達は {p2['n_pairs']}出動のうち 素朴な記憶 {p2['unsafe_M1']}件 対 検証つき記憶 {p2['unsafe_M2']}件")
+                f"危険な配達は {p2['n_pairs']}出動のうち、確認を省く素朴な記憶 {p2['unsafe_M1']}件（省く代償を示す比較）、記憶なし {p3['unsafe_M0']}件、検証つき記憶 {p2['unsafe_M2']}件（記憶なしより危険ではない）")
     except (TypeError, KeyError, ValueError):
         return None
 

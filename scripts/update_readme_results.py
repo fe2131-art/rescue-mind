@@ -284,11 +284,17 @@ def h_text():
     h = jl('h_summary.json')
     try:
         p1, p2, p3 = h['P1_efficiency_relocation_persist'], h['P2_safety_naive_vs_verified'], h['P3_no_extra_risk_vs_v36']
-        t1 = ((f"置き場所が変わったままの出動で、所要時間の中央値 記憶なし {p1['time_M0_median_s']:.0f} 秒 → 検証つき記憶 {p1['time_M2_median_s']:.0f} 秒（対ごとの差の中央値 {p1['median_diff_s']} 秒、{p1['n_pairs']}対、Wilcoxon正確検定 p={p1['wilcoxon_exact_p']}）")
+        pa = h['per_arm']
+        rc = {a: pa[a]['by_transition']['relocation_change']['time_median_s'] for a in ('M0', 'M2')}
+        t1 = ((f"所要時間の中央値は、置き場所が変わったままの出動（{p1['n_pairs']}対）で 記憶なし {p1['time_M0_median_s']:.0f} 秒 → 検証つき記憶 {p1['time_M2_median_s']:.0f} 秒"
+               f"（対ごとの差の中央値 {p1['median_diff_s']} 秒、Wilcoxon正確検定 p={p1['wilcoxon_exact_p']}）。"
+               f"置き場所が元に戻った出動では検証つき記憶の方がわずかに遅い（{rc['M2']:.0f} 秒 対 記憶なし {rc['M0']:.0f} 秒）。"
+               f"全体の中央値は {pa['M0']['time_median_s']:.0f} → {pa['M2']['time_median_s']:.0f} 秒")
               if p1['n_pairs'] else '置き場所が変わったままの出動で比べられる対はなし')
-        return (f"評価H 結果：{t1}、"
-                f"危険な配達は 素朴な記憶 {p2['unsafe_M1']}/{p2['n_pairs']} 対 検証つき記憶 {p2['unsafe_M2']}/{p2['n_pairs']}（McNemar正確検定 {'p<0.001' if p2['mcnemar_p'] < 0.001 else 'p=' + str(p2['mcnemar_p'])}）、記憶なし比で追加リスク"
-                f"{'なし' if p3['supported'] else 'あり'}（危険な配達 記憶なし {p3['unsafe_M0']}/{p3['n_pairs']}、検証つき記憶 {p3['unsafe_M2']}/{p3['n_pairs']}）")
+        return (f"評価H 結果：{t1}。"
+                f"比較対象の素朴な記憶は確認を省く方式なので、危険な配達 {p2['unsafe_M1']}/{p2['n_pairs']} 対 検証つき記憶 {p2['unsafe_M2']}/{p2['n_pairs']}は、確認を省く代償を示すもの（設計上の帰結）。"
+                f"安全面で意味のある比較は 記憶なし {p3['unsafe_M0']}/{p3['n_pairs']} 対 検証つき記憶 {p3['unsafe_M2']}/{p3['n_pairs']} で、検証つき記憶は記憶なしより危険ではない"
+                f"（{'追加リスクなし' if p3['supported'] else '追加リスクあり'}。1件対0件のため「より安全」とは言わない）")
     except (TypeError, KeyError):
         return f'評価H（16系列×3出動）：{PENDING}'
 
@@ -334,9 +340,9 @@ def section_novelty():
 * **横から見直す能動知覚**（[I-14](docs/IMPROVEMENT_LOG.md)）：{gtxt}。
 * **当初計画の2つのAI（Jev役 Clef-Flash＋Qwen）をロボットの判断に組み込んで**（[I-16](docs/IMPROVEMENT_LOG.md)）：オフライン評価だけだった2モデル確認を、V100 1台に載る組で閉ループに載せた。Clef-Flash は Qwen3.5-9B の追加学習版なので、2つは独立ではなく系統を共有する（相関した失敗が残り得ると明記）。{j_text()}
 * **事前登録と時系列監査**（論文 [`docs/paper/main.pdf`](docs/paper/main.pdf) 付録「Registration audit」）：条件・閾値・解析を結果を見る前にコミットし、{audit_text()}。支持されなかった主張も、そのまま載せる。
-* **実用性：毎回の出動後に、ロボット自身の記録から1枚の現場報告を自動で作る**（[I-18](docs/IMPROVEMENT_LOG.md)）：依頼・判断の理由・確認に使った写真と確率・次にしてほしいことを1枚にまとめ、現場の人が結論だけ読めば動ける（例：物資の陰の火で停止した出動）。
+* **実用性：各出動の記録から、1枚の現場報告を生成できる**（[I-18](docs/IMPROVEMENT_LOG.md)）：依頼・判断の理由・確認に使った写真と確率・次にしてほしいことを1枚にまとめ、現場の人が結論だけ読めば動ける（例：物資の陰の火で停止した出動）。生成は `scripts/make_operator_report.py`（各出動の記録から1枚を生成）。全出動での自動生成は評価終了後に組み込む。
 
-![出動後に自動生成される1枚の現場報告（隠れた火で停止した例）](docs/figures/operator_report_hidden_fire.png)"""
+![出動の記録から生成した1枚の現場報告（隠れた火で停止した例）](docs/figures/operator_report_hidden_fire.png)"""
 
 
 def section_zpr():
@@ -442,7 +448,7 @@ def section_en(e, v):
     z = jl('z_summary.json')
     try:
         o, sb, cb = (z['models']['siglip']['t1']['ours'], z['models']['siglip']['t1']['baseline'], z['models']['clip']['t1']['baseline'])
-        L.append(f"| Z: zero-shot baselines on T1 (false approvals / correct approvals) | ours {o['FA']}/{o['n_deny']}, {o['CA']}/{o['n_allow']}; "
+        L.append(f"| Z: zero-shot baselines on T1 (false approvals / correct approvals; ours = v3.5 rule) | ours {o['FA']}/{o['n_deny']}, {o['CA']}/{o['n_allow']}; "
                  f"SigLIP {sb['FA']}/{sb['n_deny']}, {sb['CA']}/{sb['n_allow']}; CLIP {cb['FA']}/{cb['n_deny']}, {cb['CA']}/{cb['n_allow']} |")
     except (TypeError, KeyError):
         L.append('| Z: SigLIP / CLIP baselines | pre-registered, running |')
@@ -467,9 +473,12 @@ def section_en(e, v):
     h, j = jl('h_summary.json'), jl('j_summary.json')
     try:
         p1h, p2h = h['P1_efficiency_relocation_persist'], h['P2_safety_naive_vs_verified']
-        t1h = (f"median mission time, no memory vs. verified memory, {p1h['time_M0_median_s']:.0f} s vs. {p1h['time_M2_median_s']:.0f} s (paired difference {p1h['median_diff_s']} s; {p1h['n_pairs']} pairs with relocated supplies)"
+        pa, p3h = h['per_arm'], h['P3_no_extra_risk_vs_v36']
+        rch = {a: pa[a]['by_transition']['relocation_change']['time_median_s'] for a in ('M0', 'M2')}
+        t1h = (f"median mission time, no memory vs. verified memory: {p1h['time_M0_median_s']:.0f} s vs. {p1h['time_M2_median_s']:.0f} s on the {p1h['n_pairs']} pairs whose supplies stayed relocated "
+               f"(paired difference {p1h['median_diff_s']} s); when supplies were moved back, verified memory was slightly slower ({rch['M2']:.0f} s vs. {rch['M0']:.0f} s); overall median {pa['M0']['time_median_s']:.0f} s vs. {pa['M2']['time_median_s']:.0f} s"
                if p1h['n_pairs'] else 'no paired missions with relocated supplies')
-        L.append(f"| H: cross-mission memory | {t1h}; unsafe deliveries naive memory {p2h['unsafe_M1']}/{p2h['n_pairs']} vs. verified memory {p2h['unsafe_M2']}/{p2h['n_pairs']} |")
+        L.append(f"| H: cross-mission memory | {t1h}. Unsafe deliveries: naive memory (skips checks by design) {p2h['unsafe_M1']}/{p2h['n_pairs']} vs. verified memory {p2h['unsafe_M2']}/{p2h['n_pairs']} shows what skipping costs; the comparison that matters is no memory {p3h['unsafe_M0']}/{p3h['n_pairs']} vs. verified memory {p3h['unsafe_M2']}/{p3h['n_pairs']} (not less safe) |")
         h_ok = True
     except (TypeError, KeyError):
         h_ok = False
@@ -524,7 +533,7 @@ def main():
     t1_block = ''
     if t:
         s, m, full, v35, n_img, fa_txt, ca_txt, claim, dev = t
-        head.append(f"| 未使用テスト T1（オフライン） | 開発に一度も使わない{n_img}枚（照明・位置・未知の妨害物・火災）、v3.4規則 | 誤許可 {fa_txt(full)}、正しい許可 {ca_txt(full)} |")
+        head.append(f"| 未使用テスト T1（オフライン） | 開発に一度も使わない{n_img}枚（照明・位置・未知の妨害物・火災）、登録した規則（v3.4） | 誤許可 {fa_txt(full)}、正しい許可 {ca_txt(full)} |")
         head.append(f"| 〃 v3.5（τ_h=0.05、副の事前指定） | 同じ画像・同じ保存済み確率から再計算 | 誤許可 {fa_txt(v35)}、正しい許可 {ca_txt(v35)} |")
         t1_block = f"* T1：{claim}主な原因は下の「残る弱点」"
     head += zrows

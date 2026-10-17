@@ -65,12 +65,16 @@ class YoutubeDescription(unittest.TestCase):
             self.assertNotIn(absent, text)
         (self.res / 'h_summary.json').write_text(json.dumps({
             'P1_efficiency_relocation_persist': {'n_pairs': 8, 'time_M0_median_s': 120.4, 'time_M2_median_s': 80.2},
-            'P2_safety_naive_vs_verified': {'unsafe_M1': 3, 'unsafe_M2': 0}}), encoding='utf8')
+            'P2_safety_naive_vs_verified': {'n_pairs': 32, 'unsafe_M1': 3, 'unsafe_M2': 0},
+            'P3_no_extra_risk_vs_v36': {'unsafe_M0': 1},
+            'per_arm': {a: {'time_median_s': t, 'by_transition': {'relocation_change': {'time_median_s': r}}}
+                        for a, t, r in (('M0', 90.4, 100.2), ('M2', 70.2, 110.6))}}), encoding='utf8')
         (self.res / 'p_summary.json').write_text(json.dumps({
             'n': 400, 'recall': {'k': 298, 'n': 300}, 'false_alarm': {'k': 64, 'n': 100}}), encoding='utf8')
         text, _ = mk.build_description(CHAPTERS, self.res)
-        self.assertIn('評価H：物資の入れ替わりが続く出動の所要時間の中央値 記憶なし 120秒・検証つき記憶 80秒、'
-                      '危険な配達は 素朴な記憶 3件 対 検証つき記憶 0件', text)
+        self.assertIn('評価H：所要時間の中央値は、物資が移されたままの8出動で 記憶なし 120秒・検証つき記憶 80秒', text)
+        self.assertIn('物資が元に戻った出動では 100秒 対 111秒とわずかに遅い。全体は 90→70秒', text)
+        self.assertIn('危険な配達は 32出動のうち、確認を省く素朴な記憶 3件（省く代償を示す比較）、記憶なし 1件、検証つき記憶 0件', text)
         self.assertIn('検出 298/300、火の無い写真で誤警報 64/100', text)
         self.assertNotIn('評価J', text)
 
