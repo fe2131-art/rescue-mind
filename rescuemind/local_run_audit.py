@@ -44,6 +44,17 @@ def audit_local_checkpoint(checkpoint: dict, image_sha: str, *, expected: str) -
             if hazard != bool(pk.get('hazard')):
                 raise LocalReceiptError('look-around hazard flag does not match the saved side-view outputs')
             peeks.append({'side':pk['side'],'hazard':hazard})
+        ad=checkpoint['look_around'].get('adaptive')
+        if ad is not None:   # I-20: recompute whether the extra views were required, and that they were taken
+            from .adaptive_views import suspicion
+            std=[pk for pk in checkpoint['look_around'].get('peeks',[]) if pk['side'] in ('L','R')]
+            p_max=suspicion(checkpoint,std)
+            extra=[pk for pk in checkpoint['look_around'].get('peeks',[]) if pk['side'] in ('L2','R2','N')]
+            hazard_std=any(q['hazard'] for q in peeks if q['side'] in ('L','R'))
+            if abs(p_max-float(ad.get('p_max',-1)))>1e-3:
+                raise LocalReceiptError('adaptive-view suspicion does not match the saved outputs')
+            if not hazard_std and computed.get('allow') is not False and p_max>=float(ad['tau_sus']) and len(extra)<3:
+                raise LocalReceiptError('suspicious station approved without the extra views (I-20)')
         computed=combine_with_look_around(computed,peeks)
     if checkpoint.get('image_sha256')!=image_sha or checkpoint.get('decision')!=computed:
         raise LocalReceiptError('decision or image hash does not match original model outputs')

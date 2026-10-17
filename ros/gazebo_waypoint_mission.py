@@ -465,7 +465,26 @@ def run_ros(route, args, record):
             pts.reverse()     # I-15: look first from the side that revealed the remembered hazard
         la=record.setdefault('look_around',{'offset_m':d,'station':station,'points':[],'peeks':[]})
         la['points']=[{'side':sd,'xy':list(xy)} for sd,xy in pts]
+        la['waypoint']=[round(wx,3),round(wy,3)]; la['center']=[round(cx,3),round(cy,3)]
         record['events'].append({'stage':'look_around_scheduled','station':station,'points':la['points'],
+                                 't_wall_s':round(time.monotonic()-start,3)})
+        return [('peek',f'{station}:{sd}',xy) for sd,xy in pts]
+
+    def schedule_adaptive_views(station, cp, la):
+        """I-20: after the standard views all passed, if any of them was suspicious (p(hazard) >= tau_sus), look again
+        from wider side poses and closer to the station.  Can only add refusals (an extra view with a hazard revokes)."""
+        off=float(getattr(args,'adaptive_views',0) or 0)
+        if off <= 0 or la.get('adaptive') is not None or len(la['peeks']) < len(la['points']):
+            return None
+        from rescuemind.adaptive_views import suspicion, extra_points
+        p_max=suspicion(cp, la['peeks'])
+        tau=float(args.adaptive_tau_sus)
+        la['adaptive']={'p_max':p_max,'tau_sus':tau,'triggered':p_max>=tau,'offset_m':off,'near_m':float(args.adaptive_near)}
+        if p_max < tau:
+            return None
+        pts=extra_points(la['waypoint'],la['center'],off,float(args.adaptive_near))
+        la['points']+= [{'side':sd,'xy':list(xy)} for sd,xy in pts]
+        record['events'].append({'stage':'adaptive_views_scheduled','station':station,'p_max':p_max,'points':[sd for sd,_ in pts],
                                  't_wall_s':round(time.monotonic()-start,3)})
         return [('peek',f'{station}:{sd}',xy) for sd,xy in pts]
 
@@ -493,7 +512,7 @@ def run_ros(route, args, record):
         la=record['look_around']; la['peeks'].append(entry)
         cp=record['checkpoint']; cp['look_around']=la
         if not hazard:
-            return
+            return schedule_adaptive_views(station, cp, la)
         # a hazard seen from the side: the approval becomes a hazard refusal, exactly as at the front
         from rescuemind.local_vision import combine_with_look_around
         cp['decision']=combine_with_look_around(cp['decision'],[{'side':q['side'],'hazard':q['hazard']} for q in la['peeks']])
@@ -556,13 +575,17 @@ def run_ros(route, args, record):
         check_guard(time.monotonic())
         if math.hypot(ctx['pose'].x,ctx['pose'].y)>1.0:
             raise RuntimeError('Unexpected start odometry: restart test world at origin and calibrate')
-        if (record.get('memory') or {}).get('deny_without_visit'):
-            # NAIVE-MEMORY BASELINE ONLY: refuse because of a remembered hazard, without going to look
-            record['events'].append({'stage':'memory_denial','station':record['memory']['first_station'],
+        from rescuemind.advice import skip_source, denial_source
+        deny_by=denial_source(record.get('memory'))
+        if deny_by:
+            # NAIVE BASELINES ONLY: refuse because of a remembered hazard (I-15) or an advised one (I-19: peer,
+            # inventory or the operator's text) without going to look.  Never in verified / monotone mode.
+            record['events'].append({'stage':'memory_denial','station':record['memory']['first_station'],'by':deny_by,
                                      't_wall_s':round(time.monotonic()-start,3)})
             for _ in range(10):
                 publish(); spin(.1)
-            raise RuntimeError('on-site checkpoint DENIED: memory_hazard (naive memory baseline)')
+            raise RuntimeError('on-site checkpoint DENIED: '+('advice_hazard (naive advice baseline)' if deny_by=='advice'
+                                                              else 'memory_hazard (naive memory baseline)'))
         route=list(route)
         index=0
         while index < len(route):
@@ -597,19 +620,24 @@ def run_ros(route, args, record):
                                                  'duration_wall_s':round(now-begun,3),'t_wall_s':round(now-start,3),
                                                  'last_pose':list(ctx['pose'].__dict__.values())})
                         record['trace'].extend(samples)
-                        look_around_peek(target, goal)
+                        extra=look_around_peek(target, goal)
+                        if extra:
+                            route[index:index]=extra      # I-20: suspicion-triggered extra views, before leaving
                         break
                     record['events'].append({'stage':stage,'target':target,'arrived':True,
                                               'duration_wall_s':round(now-begun,3),'t_wall_s':round(now-start,3),'samples':len(samples),
                                               'last_pose':list(ctx['pose'].__dict__.values())})
                     record['trace'].extend(samples)
                     mem=record.get('memory') or {}
-                    if (stage == 'supply_station' and mem.get('mode')=='naive' and mem.get('skip_check')
+                    trust=skip_source(mem)
+                    if (stage == 'supply_station' and trust
                             and record.get('recovery') is None and target==mem.get('first_station')):
-                        # NAIVE-MEMORY BASELINE ONLY: trust the previous mission instead of looking (never in v3.6/verified)
-                        record['checkpoint']={'memory_trusted':True,'decision':{'allow':True,'reason':'memory_trusted'}}
+                        # NAIVE BASELINES ONLY: trust the previous mission (I-15) or the advice (I-19) instead of
+                        # looking (never in v3.6 / verified / monotone)
+                        record['checkpoint']={'memory_trusted':True,'trusted_by':trust,
+                                              'decision':{'allow':True,'reason':'memory_trusted' if trust=='memory' else 'advice_trusted'}}
                         record['checkpoint_station']=target
-                        record['events'].append({'stage':'checkpoint_skipped_by_memory','station':target,
+                        record['events'].append({'stage':'checkpoint_skipped_by_memory','station':target,'by':trust,
                                                  't_wall_s':round(time.monotonic()-start,3)})
                         break
                     if stage == 'supply_station' and record.get('run_type') in ('jev_qwen_mission', 'jev_qwen_live_mission','local_vlm_live_mission'):
@@ -705,6 +733,17 @@ def main():
     ap.add_argument('--memory-file',default=None,help='I-15: cross-mission memory (JSONL of what the robot saw before)')
     ap.add_argument('--memory-mode',choices=['off','verified','naive'],default='off',
                     help='I-15: verified = memory proposes, perception disposes; naive = trust memory (baseline only)')
+    ap.add_argument('--adaptive-views',type=float,default=0.0,
+                    help='I-20: if a standard view is suspicious (p(hazard) >= --adaptive-tau-sus) look again from this '
+                         'side offset (m) and from --adaptive-near closer; 0 = off')
+    ap.add_argument('--adaptive-tau-sus',type=float,default=0.005)
+    ap.add_argument('--adaptive-near',type=float,default=0.3)
+    ap.add_argument('--advice-file',default=None,
+                    help='I-19: JSON list of advice items (peer robot / inventory / memory claims), see rescuemind.advice.validate')
+    ap.add_argument('--advice-mode',choices=['off','monotone','naive','filtered'],default='off',
+                    help='I-19: monotone = advice may only reorder stations and tighten thresholds; naive = follow advice; filtered = follow advice that an LLM injection filter does not flag (baselines only)')
+    ap.add_argument('--advice-from-instruction',action='store_true',
+                    help='I-19: extract operator advice (location / hazard / skip claims) from the instruction text with the local model')
     ap.add_argument('--control-qos',choices=['reliable','best_effort'],default='reliable',
                     help='I-12: QoS of /rescuemind/cmd_vel_request and /rescuemind/guard_ready')
     ap.add_argument('--inject-warmup-stall',type=float,default=0.0,help='I-09 fault injection (seconds); tests only')
@@ -764,6 +803,14 @@ def main():
     if a.memory_mode!='off' and a.memory_file:
         from rescuemind.mission_memory import MissionMemory
         mem_plan=MissionMemory(a.memory_file).plan(intent.item,a.memory_mode)
+    if a.advice_file or a.advice_from_instruction:
+        # I-19: everything that is not the robot's own perception at the station is advice (memory, peer, inventory,
+        # operator text).  The combined plan has the memory plan's schema, so the paths below handle both.
+        from rescuemind.advice_llm import plan_for_mission
+        mem_plan=plan_for_mission(intent.item,mem_plan,mode=a.advice_mode,advice_file=a.advice_file,
+                                  from_instruction=a.advice_from_instruction,instruction=a.instruction,
+                                  model=a.vlm_model,url=a.local_primary_url.replace('/v1/classify','/v1/advice'),
+                                  filter_url=a.local_primary_url.replace('/v1/classify','/v1/advice_filter'))
     route=route_from_config(a.config,intent.item,station=(mem_plan or {}).get('first_station'))
     record={'version':'3.1','run_id':run_id,'camera_max_age_s':a.camera_max_age,'lane':'Gazebo direct-drive through independent velocity relay, NOT Nav2',
             'run_type':(('local_vlm_live_mission' if a.inference_backend=='local' else 'jev_qwen_live_mission') if a.run_live else ('jev_qwen_mission' if a.run else ('motion_check_non_ai' if a.motion_check else 'dry_run'))),
@@ -771,7 +818,7 @@ def main():
             'intent_gate':{'allow':selection.allow,'reason':selection.reason,'threshold':a.intent_min_score,
                            'backend':a.intent_backend,'llm':llm_intent},'route':route,
             'preflight':None,'checkpoint':None,'success':False,'events':[],'trace':[],
-            'physical_pickup':False,'memory':mem_plan,
+            'physical_pickup':False,'memory':mem_plan,'advice':(mem_plan or {}).get('advice'),
             'robot_runtime_verified_in_author_environment':False}
     if a.inference_backend=='local':
         record['version']='3.2-local'

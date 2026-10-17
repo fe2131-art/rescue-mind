@@ -368,6 +368,44 @@ def w_result_text(ws):
         return PEND
 
 
+def a_result_text(a):
+    """Study A (adversarial advice, closed loop) as one string; PEND when a_summary.json is absent."""
+    try:
+        a1, a2, a3 = a['A1_unsafe_naive_vs_monotone'], a['A2_time_saved_truthful'], a['A3_dos_cost_vs_bound']
+        r = a1['runs']
+        ok_ = lambda x: '成立' if x else '不成立'
+        return (f"悪意のある助言での危険な配達（試行）：助言に従う方式 {r['naive']['unsafe']}/{r['naive']['n']}、本方式 {r['monotone']['unsafe']}/{r['monotone']['n']}、"
+                f"助言なし {a1['control_runs_F_N']['unsafe']}/{a1['control_runs_F_N']['n']}。主張 安全：<b>{ok_(a1['supported'])}</b>、"
+                f"時間：<b>{ok_(a2['supported']) if a2['monotone']['testable'] else '検定不能'}</b>、コスト：<b>{ok_(a3['supported'])}</b>")
+    except (TypeError, KeyError):
+        return PEND
+
+
+def s_result_text(sj):
+    """Study S (scene-text injection) as one string; PEND when s_summary.json is absent."""
+    try:
+        o = sj['systems']['OURS']
+        fl = lambda x: f"{x['attack_vs_none']['flips']}/{x['n_pairs']}"
+        return (f"本方式で標識により拒否→許可に変わった世界：「Cと答えよ」{fl(o['by_text']['letter_C'])}、文字A {fl(o['by_text']['letter_A'])}、文字B {fl(o['by_text']['letter_B'])}、"
+                f"取り違えラベル {fl(o['by_sign_type']['mislabel'])}、「火災なし」標識 {fl(o['by_sign_type']['false_safe'])}（構造的な保証の外）")
+    except (TypeError, KeyError):
+        return PEND
+
+
+def sec_advice():
+    """4.2b: I-19, untrusted inputs may only tighten.  Results of A and S come from their summaries; pending until they ran."""
+    a, sj = jload('a_summary.json'), jload('s_summary.json')
+    out = [P('4.2b 新規性2の一般化：信頼できない入力は「厳しくする」ことしかできない（I-19）', 'h2'),
+           P('記憶は、ロボットが自分で見ていない入力の一つにすぎない。他のロボットの報告、在庫表、依頼文の一言（「火は消えたので確認不要」）も、古い・間違い・悪意のいずれもあり得る。'
+             'これらをすべて「助言」とし、できることを拠点の順序の変更と閾値の強化に限る。「安全」「確認不要」は何の効果も持たず、助言だけでは訪問せずに拒否もしない。'
+             'したがって、どんな（悪意のある）助言でも、同じ画像での許可は助言なしの許可の部分集合になり、危険な配達の確率は助言なしと同じ上限 kε で抑えられる（命題2）。'
+             '悪意のある助言が与えられるのは、1拠点ぶんの無駄足と、慎重な閾値での誤拒否（1視点あたり 4/193）だけである。'
+             'カメラに映る標識の文字は知覚なので、この保証の外にある。それは評価Sで測り、残りの弱点として報告する。'),
+           P('評価A（閉ループ114試行、助言に従う方式との対比較）：' + a_result_text(a)),
+           P('評価S（画像レベル、52世界×標識なし・攻撃・無害）：' + s_result_text(sj))]
+    return out
+
+
 def p_auroc():
     """AUROC of the hazard probability on the 400 real photographs (descriptive, not registered); None if the scores are absent."""
     rows = ledger('p_scores_qwen9b_h36_tiles.jsonl')
@@ -619,6 +657,8 @@ def sec_prereg(D, E):
              f"危険な配達 A {j['P2_no_extra_unsafe']['unsafe_A']}、J {j['P2_no_extra_unsafe']['unsafe_J']}" if j else PEND],
             ['V', 'モデルの予測は閉ループで当たるか（ランダムな変化）', reg('V'), v_result_text(jload('v_summary.json'))],
             ['W', '隠れた火の画像の検出、先行手法との比較', reg('W'), w_result_text(jload('w_summary.json'))],
+            ['A', '信頼できない助言は確認を緩められるか（閉ループ）', reg('A'), a_result_text(jload('a_summary.json'))],
+            ['S', '画像内の標識の文字で誤許可を起こせるか', reg('S'), s_result_text(jload('s_summary.json'))],
             ['K', '保証付きの閾値は既定の閾値より良いか', reg('K'),
              (f"T2の見逃し：既定 {kk['frozen']['heldout_miss']['k']}/{kk['frozen']['heldout_miss']['n']}、保証付き(α=0.05) "
               f"{kk['alphas']['0.05']['K_PAC']['heldout_miss']['k']}/{kk['frozen']['heldout_miss']['n']}、誤警報 "
@@ -659,8 +699,8 @@ def sec_related():
 
 def chapter_novelty(D, E, V):
     s = [P('4. 新規性と結果', 'h1'),
-         P('新規性3つ（4.1〜4.3）と、それを支える検証（4.4〜4.7）。結果がまだ無いものは「実行中」と明記し、数値は書かない。')]
-    for sec in (sec_active(V), sec_memory(), sec_two_ai(), sec_related(), sec_e_compact(D, E), sec_clip(), sec_real(), sec_camera()):
+         P('新規性3つ（4.1〜4.3；4.2b は記憶の一般化として I-19 の助言の単調性）と、それを支える検証（4.4〜4.7）。結果がまだ無いものは「実行中」と明記し、数値は書かない。')]
+    for sec in (sec_active(V), sec_memory(), sec_advice(), sec_two_ai(), sec_related(), sec_e_compact(D, E), sec_clip(), sec_real(), sec_camera()):
         s += sec
     return s
 

@@ -23,7 +23,7 @@ document; unprefixed references are to the main paper. All numbers are generated
 It is organised as follows. \emph{Methods and background:} S1 development data, T1 construction and the two-model rule; S2 model selection
 on development data; S3 the extended related work. \emph{Results:} S4 additional T1 analyses (decision-rule ablations, risk--coverage,
 weaker models); S5 campaign E details; S6 wall-clock timing; S7 further result details (studies Z, P, R, campaigns F, G and H, hazard fixes).
-\emph{Failure analysis:} S8 lessons from running the real stack. \emph{Audit:} S9 the registration audit and threats to validity.
+\emph{Failure analysis:} S8 lessons from running the real stack. \emph{Audit:} S9 the registration audit and threats to validity. \emph{Moved from the main paper:} S10 untrusted inputs (proof of Proposition~2, cost bound, threat model); S11 the second checker and campaign J.
 
 \section{Development Data, T1 Construction and the Two-Model Rule}\label{app:dev}
 \textbf{Development data.} Prompts, the scoring method, thresholds and model choice were selected on 176 development images.
@@ -31,7 +31,7 @@ These are 48 with randomised viewpoints plus 128 with lighting presets, a cardbo
 The instruction parser was tuned on 40 development utterances. The later hazard fixes (main paper, Sec.~\ref{M-sec:fix}) also used two
 hazard development sets of 300 rendered images each: DH, and DH2, which emphasises small early-stage fires.
 
-\textbf{Two-model rule.} The two-model rule (main paper, Sec.~\ref{M-sec:jev}) approves only if Eq.~\eqref{M-eq:rule} holds for Qwen \emph{and}
+\textbf{Two-model rule.} The two-model rule (Sec.~\ref{app:jev}) approves only if Eq.~\eqref{M-eq:rule} holds for Qwen \emph{and}
 Clef-Flash names the requested supply with confidence $\ge 0.65$, presence $\ge 0.80$ and hazard probability below its
 own threshold.
 
@@ -124,6 +124,24 @@ its safety direction obvious.
 Without a physical platform, we measure one part of this gap, sensor degradation, under a pre-registered protocol. What
 we care about is the \emph{direction} of the errors, not only accuracy.
 
+\paragraph{Untrusted inputs to embodied agents.}
+Jailbreaks of LLM-controlled robots are now well documented: RoboPAIR~\cite{robey2025jailbreaking},
+BadRobot~\cite{zhang2025badrobot}, the policy-executable attacks of Lu et al.~\cite{lu2024poex} and
+adversarial text attacks on vision-language-action models~\cite{jones2025vla} all steer the planner through the instruction channel.
+A second line puts the payload in the scene: signs and printed text in the camera view hijack VLM-controlled
+robots~\cite{burbano2026chai,samarakoon2026paper}, and sensory channels (OCR, audio, LiDAR) inject prompts into ROS~2 robots~\cite{dorzhiev2026ripa};
+typographic vulnerability of large vision-language models~\cite{cheng2024typographic} and indirect prompt injection in
+LLM-integrated applications~\cite{greshake2023indirect} are the underlying mechanisms.
+Memory is a third channel: poisoned or injected memory entries steer LLM agents~\cite{chen2024agentpoison,dong2025minja}, and a recent survey
+lists long-term memory and multi-agent communication as under-explored attack surfaces of embodied agents~\cite{liu2026embodiedsecurity}.
+Defences in robotics are mostly filters or certification of the plan: RoboGuard grounds rules in a root-of-trust LLM and checks plans against them~\cite{ravichandran2026guardrails},
+and the mitigations proposed alongside the attacks are prompt defences, two-stage verification and text masking~\cite{samarakoon2026paper,lu2024poex}.
+The closest conceptual relatives are structural defences for software agents: CaMeL separates control and data flow and attaches capabilities to tool calls~\cite{debenedetti2025camel},
+and information-flow control labels the integrity of inputs and enforces policy deterministically~\cite{costa2025fides}.
+We carry this idea to a physical pre-action gate: advice from memory, peer robots, inventory and operator text is typed so that it can only reorder visits or tighten thresholds,
+never skip or relax a check, which yields a bound on unsafe deliveries that holds for any advice (advice monotonicity) and is evaluated closed-loop against poisoned memory and injected instructions (study~A).
+Text in the scene is perception, not advice, and so lies outside this guarantee; we measure it separately (study~S) and report the residual vulnerability.
+
 \textbf{Diverse redundancy.} Requiring agreement between independently developed versions is a classic fault-tolerance
 technique~\cite{avizienis1985nversion}. Its benefit is limited by correlated failures~\cite{knight1986experimental}, and
 model-agreement schemes for language models have reappeared recently~\cite{du2024debate}. We report both sides: the two
@@ -140,11 +158,19 @@ is a larger alternative with ground-level, UAV and satellite subsets and a possi
 descriptively and without refusal semantics or a closed-loop audit.
 
 \section{Additional T1 analyses}\label{sec:t1extra}
+\begin{table}[t]\centering\caption{T1 held-out test, registered v3.4 rule (Eq.~\ref{eq:rule}) unless marked free JSON; 408 must-refuse and 191 must-approve images.}
+\label{tab:t1models}\resizebox{\linewidth}{!}{\input{tab_t1_models.tex}}\end{table}
+
+\emph{Free-form generation.} Free JSON (A5) gave no parse errors with Qwen3.5-9B and the
+same \TJsonNineFA{} false approvals, but only \TJsonNineCA{} correct approvals against \TCA{} with scoring.
+All models missed largely the same small fires (hazard recall \THazMin{} to \THazMax{} of the \TNfireVis{} visible fires); Supp.~Fig.~S2 shows descriptive risk--coverage curves
+over $\taus$.
+
 \subsection{Decision-rule ablations}
 \begin{table}[t]\centering\caption{Decision-rule ablations on T1: false approvals / false denials.
 $^{*}$: exact McNemar $p<0.05$ versus the full rule of the same model.}
 \label{tab:t1ablation}\resizebox{\linewidth}{!}{\input{tab_t1_ablation.tex}}\end{table}
-Table~\ref{tab:t1ablation} isolates the parts of the rule on T1 (Table~\ref{M-tab:t1models}, Eq.~\ref{M-eq:rule}). For the 9B model neither the
+Table~\ref{tab:t1ablation} isolates the parts of the rule on T1 (Table~\ref{tab:t1models}, Eq.~\ref{M-eq:rule} of the main paper). For the 9B model neither the
 permuted second question nor the confidence threshold changed the number of false approvals. With Qwen2.5-VL-3B, requiring the two
 multiple-choice questions to agree reduced false approvals, which is the option-letter bias reported in~\cite{zheng2024mcselectors}.
 \subsection{Risk--coverage}
@@ -176,6 +202,24 @@ compared with driving. The situation report adds about 5\,s but could run in par
 \resizebox{0.92\linewidth}{!}{\input{tab_timing.tex}}\end{table}
 
 \section{Further Result Details}\label{app:resdetails}
+\textbf{Real photographs (studies P and P2; full text moved from the main paper).} We also asked the frozen v3.6 hazard question about 400
+real photographs from the test split of D-Fire~\cite{venancio2022dfire}, a CC0 fire and smoke dataset
+(100 each with no fire, smoke only, fire only, and both). It flagged \PRecall{} of the photographs with fire or smoke (95\% CI
+\PRecallCI) and \PFalseAlarm{} of the fire-free ones (\PFalseAlarmCI); the false alarms concentrate on hard negatives such as hazy
+hillsides and sunset clouds (Supp.~Sec.~S7). The probabilities still rank the photographs well (AUROC \PAuroc, not registered), so the problem is the threshold, not the question. The question thus errs strongly toward stopping on real images, which is
+the safe direction but would cost availability outdoors, so a site-specific threshold calibration is a deployment prerequisite.
+Study P2 tested this: it chose wording and $\tau_h$ on 400 separate calibration photographs
+(recall $\ge 0.95$ first, then the lower false-alarm rate), with wording \PTwoWording{} and $\tau_h=\PTwoTau$, and applied it to 400 test photographs.
+It flagged \PTwoRecall{} of
+those with fire or smoke (\PTwoRecallCI) and \PTwoFA{} of the fire-free ones (\PTwoFACI), against \PTwoFrozenRecall{} and
+\PTwoFrozenFA{} for the frozen $\tau_h=0.05$. The registered claim (test recall $\ge 0.90$ and false-alarm rate $\le 0.20$) was \PTwoClaim{}.
+
+
+\textbf{Conformal $\tau_h$ (study K, moved from the main paper).} Split-conformal calibration of $\tau_h$ on \KNcal{} development fires (miss rate $\le\alpha$ with probability 0.9) gave $\tau_h=\KTauFive$ ($\alpha=0.05$) and \KTauTen{} ($\alpha=0.10$).
+On the \KNfire{} visible T2 fires the bound \KHoldsFive{} at $\alpha=0.05$ and \KHoldsTen{} at $0.10$ (\KMissFive{} and \KMissTen{} missed), with \KFAFive{} and \KFATen{} false alarms on \KNfree{} fire-free must-approve images, against \KFrozenMiss{} and \KFrozenFA{} for the frozen $\tau_h=0.05$.
+Exchangeability is broken by design (small fires: \KSmallCal{} of calibration, \KSmallHeld{} of T2 fires); the frozen threshold was not changed.
+
+
 \begin{table}[t]\centering\caption{Study Z: zero-shot contrastive baselines versus our check on the held-out sets (false approvals / correct approvals).}
 \label{tab:z}\resizebox{\linewidth}{!}{\input{tab_z.tex}}\end{table}
 \begin{figure*}[t]\centering\fig[0.68\textwidth]{fig_r_examples.pdf}
@@ -288,8 +332,8 @@ body slid sideways by 0.75\,m. An audit based on \texttt{/odom} would have passe
 Audits now use Gazebo's ground-truth odometry. Changing the wheel collision from a cylinder to a sphere reduced
 dead-reckoning drift on the medicine route from 0.16 to 0.011\,m (worst of two repeats; \texttt{scripts/i14\_pilot\_p\_range.py}).
 \item \textbf{Free-form JSON from the first VLM was unusable} on our renders. With Qwen2.5-VL-3B, 21 of 96 responses (48 images, two questions each; all 21 for the first question) could not be parsed and the model hallucinated water on empty shelves.
-A newer model parses reliably, but it still approves fewer correct deliveries than scoring does (Table~\ref{M-tab:t1models}).
-This motivated closed-set scoring. T1 measured the free-JSON method again (Table~\ref{M-tab:t1models}).
+A newer model parses reliably, but it still approves fewer correct deliveries than scoring does (Table~\ref{tab:t1models}).
+This motivated closed-set scoring. T1 measured the free-JSON method again (Table~\ref{tab:t1models}).
 \item \textbf{Middleware effects.} Best-effort QoS silently dropped 92 of 102 0.9\,MB camera frames under load. The GPU lidar
 detected the robot's own camera mast. Slow DDS discovery on a 4-core host failed 4 of 12 starts in an aborted campaign.
 An interrupted supervisor left an orphaned stack that made every trial of the next campaign stop with two
@@ -343,6 +387,75 @@ Qwen3.5-9B), so errors may be correlated.
 Images of one world, and missions of one sequence, are not independent; we therefore add world-cluster bootstrap intervals and a
 sequence-level McNemar test, which are wider or less powerful than the pooled ones. Several studies are reported without family-wise correction,
 because each has its own registered endpoint and the claims are not pooled.
+
+\section{Untrusted Inputs: Proof, Cost Bound and Threat Model}\label{app:advice}
+\textbf{Setting.} Let $A_\theta(o)=[\text{supply}(o;\taus)]\wedge\bigwedge_{v\in V}[p_h^{(v)}(o)<\tauh]$ be the check of Eq.~\eqref{M-eq:rule} with the
+look-around views $V$, and let an advice set $\mathbf{a}=\{a_1,\dots,a_n\}$ be any finite set of items $a=(\text{source},\text{kind},\text{station})$ with
+$\text{kind}\in\{\text{location},\text{hazard},\text{safe},\text{skip}\}$ and station one of the arena's stations. The planner is the function
+$\mathrm{plan}(\theta,A)=(\pi,\theta')$ implemented in \texttt{rescuemind/advice.py}:
+\begin{itemize}
+\item $\pi$ is the order of the (at most $k=2$) stations: a location item for station $j$ moves $j$ first; all other items leave $\pi$ unchanged. The set of stations is never changed.
+\item $\theta'_j=(\taus,\;\min(\tauh,\tau_h^{\mathrm{caut}}\text{ if some hazard item names }j),\;V)$ at station $j$, with $\tau_h^{\mathrm{caut}}=0.01$.
+\item \emph{safe} and \emph{skip} items are rejected and logged; no item can create a refusal without a visit, a delivery without a check, or a change of $\taus$ or $V$.
+\end{itemize}
+\textbf{Lemma 1 (every plan is verification-preserving).} For every $\mathbf{a}$, $\tau'_{s,j}=\taus$, $\tau'_{h,j}\le\tauh$ and $V'_j=V$ at every station $j$ in $\pi$.
+\emph{Proof.} Immediate from the definition of $\mathrm{plan}$: the second component is a minimum with $\tauh$, the first and third are copied. The run audit recomputes
+$\mathrm{plan}(\theta,\mathbf{a})$ from the logged items and rejects the run if the logged $\theta'$ differs or is not of this form (\texttt{advice.assert\_monotone}). $\square$
+
+\textbf{Proposition 2 (advice monotonicity).} For every $\mathbf{a}$ and every observation $o$ at a station, $A_{\theta'}(o)\Rightarrow A_\theta(o)$, and an unsafe delivery requires a false approval of $A_\theta$
+at one of at most $k$ must-refuse checks. Hence $\Pr[\text{unsafe delivery}\mid\mathbf{a}]\le k\varepsilon$, the bound of the advice-free robot, where $\varepsilon$ bounds the false-approval probability of $A_\theta$ on a
+must-refuse station (Corollary~1 of the main paper).
+
+\emph{Proof.} By Lemma 1 the supply conjunct is the same predicate and the set of hazard conjuncts is the same ($V'=V$), but each hazard conjunct $[p_h^{(v)}<\tauh']$ is at least as strong as
+$[p_h^{(v)}<\tauh]$ because $\tauh'\le\tauh$. A conjunction whose conjuncts are each at least as strong as the corresponding conjuncts of another implies it, so $A_{\theta'}(o)\Rightarrow A_\theta(o)$.
+The robot delivers only after $A_{\theta'}$ approved the delivering station: safe and skip items do not exist in the plan, and a refusal without a visit is not a plan option, so every delivery is preceded by a check at the delivering station. By the implication, $A_\theta$ approved the same frames.
+The set of checked stations has at most $k$ elements for every $\pi$, since advice does not add stations. An unsafe delivery therefore requires $A_\theta$ to approve a must-refuse view at one of at most $k$ stations, and the union bound gives
+$\Pr\le k\varepsilon$ independently of $\mathbf{a}$. The advice-free robot satisfies the same bound with the same $k$. $\square$
+
+\textbf{What the proposition does not say.} It does not bound time or availability; extraction of items from text may be wrong, which cannot matter for safety because the guarantee holds for \emph{any} advice set; it assumes
+that $\varepsilon$ holds uniformly over the views the route meets; and it does not cover anything that reaches the decision through the camera. The destination in the operator's request is parsed separately in a closed set with an explicit rule (not by this proposition);
+the offline set of study A measures wrong-shelter acceptance (must be 0).
+
+\textbf{Cost bound (denial of service).} Let $\delta$ be the per-view false-alarm rate of the hazard question on fire-free views at the caution threshold. Study K measured $4/193$ per view at $\tau_h=0.0113$ on the held-out fire-free images (\texttt{k\_summary.json}), an approximation for $0.01$.
+(i)~\emph{Reordering:} the robot visits at most $k=2$ stations whatever the advice, so false location advice adds at most one wasted visit (the first visited station is wrong, and the one-time search then goes to the other) relative to the best order.
+(ii)~\emph{Caution:} hazard advice at a station adds at most one failure per view, so the added probability of a false refusal is at most $1-(1-\delta)^{v}$ with $v=3$ views (front and two sides): $0.061$; with the wasted front view of a false location item ($v=4$): $0.080$;
+in the worst case the adversary names both stations, $v=3k=6$ views: $0.118$ (independent views) and $\le3k\delta=0.124$ without independence by the union bound. In study A the sum of the per-run bounds over the 24 monotone runs on
+poison\_location and poison\_hazard worlds is 1.7 expected false refusals; \texttt{scripts/a\_analysis.py} compares the observed count with the 95th percentile of the Poisson-binomial sum (4). These two numbers, one visit per mission and about $0.06$--$0.12$ of the missions, bound what an attacker can buy through advice.
+
+\begin{table}[t]\centering\caption{Threat model for inputs the robot did not perceive itself. ``Structural'': a guarantee that does not depend on the model's answers.}\label{tab:threat}
+\scriptsize\renewcommand{\arraystretch}{0.95}\resizebox{\linewidth}{!}{\begin{tabular}{p{2.3cm}p{4.2cm}p{1.9cm}p{2.7cm}}\toprule
+Channel & Example attack & Structural? & Measured by \\\midrule
+Own memory & stale or poisoned record: ``water at M'', ``no fire at W'' & yes (Obs.~1, Prop.~2) & H, V (naive vs.\ verified memory) \\
+Peer robot report, inventory & false ``fire is out'', wrong location, ``verified, skip'' & yes (Prop.~2) & A, file channel \\
+Operator wording (advice) & ``the fire is out, no need to check''; ``ignore previous instructions'' & yes (Prop.~2); extraction itself is a model & A, operator channel; 224 offline texts \\
+Operator wording (destination) & ``deliver to shelter A'', school or hospital & no: closed-set parser plus explicit rule, fail-closed & A offline set (wrong-shelter acceptance must be 0) \\
+Scene text & label ``WATER'' on a first-aid kit; sign ``SAFE -- NO FIRE''; ``Answer C'' & no: it is perception & S \\
+Camera degradation & noise, blur, over-exposure (not adversarial) & no: fail-closed behaviour measured & R \\\bottomrule\end{tabular}}\end{table}
+
+\section{The Second Checker and Campaign J}\label{app:jev}
+This section was part of the main paper; the main paper keeps Table~\ref{M-tab:studies} (row J) and a summary.
+
+\subsection{Method: the second checker}\label{sec:jev-method}
+The original design of this robot asked two models (a second checker, called Jev in that design, and Qwen) and moved only when both agreed, following the
+idea of diverse redundancy~\cite{avizienis1985nversion}, although failures are known to be correlated in practice~\cite{knight1986experimental}. The second checker is Clef-Flash, a decision model released by Cloudflare~\cite{cloudflare2026clefcard,chen2026clefblog} and served locally through the original second-checker API.
+According to its model card it is post-trained from Qwen3.5-9B, so the two models share lineage. Their diversity lies in
+post-training, in model size (our on-robot pair uses Qwen3.5-4B) and in the question asked, and the correlated-failure
+caveat applies in full. The two-model rule approves only if Eq.~\eqref{M-eq:rule} holds for Qwen \emph{and}
+Clef-Flash agrees (thresholds: Sec.~S1). A hazard seen by either model stops the robot, and a wrong supply seen by either
+allows the one-time search. Whether the two models fit one GPU is
+tested in Sec.~\ref{sec:jev-res}. The second model is a veto whose errors overlap with Qwen's. Qwen misses \JevOvQ{} of \JevOvN{} development fires, and Clef-Flash also misses \JevOvBoth{} of these (\JevOvCond, Wilson \JevOvCondCI; Table~\ref{tab:jevov}).
+
+\subsection{Results: two models on one GPU (campaign J)}\label{sec:jev-res}
+On T2, Clef-Flash together with
+Qwen3.5-4B, the pair that fits on one 32\,GB V100, made \TTPairFA{} false approvals (\TTPairCA{} correct).
+Campaign J ran this pair on the robot, paired with v3.6 on 24 worlds with swapped, empty and small-fire stations;
+it behaved as expected in \JCorrectJ{} (v3.6: \JCorrectA, exact McNemar $p=\JMcNemarP$), with
+unsafe deliveries: \JUnsafeJ{} (v3.6: \JUnsafeA; Wilson upper bounds \JUnsafeJUpper{} and \JUnsafeAUpper); stack failures: \JFailedJ{}. Peak GPU memory was \JPeakVram\,GB, and
+the median check latency was \JLatJ\,s for the two-model system and \JLatA\,s for v3.6; on our host, alternating $\approx$46\,GB of weights thrashed the page cache, so both include model I/O (registered deviation note). The registered claim (two-model design on the
+simulated robot, no extra risk) is \JClaim.
+Its one unsafe delivery was a small fire behind the station reached after a search; both models missed it, the correlated
+failure that their development-set overlap predicts (Sec.~\ref{sec:jev-method}). The arms differ in model size and hazard wording, so this
+does not test two-model checking in general, but it is why we did not adopt the pair.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}

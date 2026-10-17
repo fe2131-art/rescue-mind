@@ -70,9 +70,19 @@ def summarize(trial: dict, run_dir: Path | None, rc: int, wall_s: float) -> dict
         row['first_vlm'] = [fd.get('first_supply'), fd.get('second_supply')]
     row['intent_backend'] = (mission.get('intent_gate') or {}).get('backend')
     row['intent_item'] = (mission.get('intent') or {}).get('item')
+    row['intent_allowed'] = (mission.get('intent_gate') or {}).get('allow')      # False: the instruction itself was refused
+    row['intent_reason'] = (mission.get('intent_gate') or {}).get('reason')
     row['explanations'] = [e.get('text_ja') for e in mission.get('events', []) if e.get('stage', '').endswith('checkpoint_explanation')]
     row['memory_plan'] = result.get('memory_plan')
     row['memory_changes'] = (result.get('memory_update') or {}).get('changes')
+    adv = mission.get('advice') or (mission.get('memory') or {}).get('advice') or {}
+    if adv:      # I-19: what the robot did with each piece of advice (applied / rejected and why)
+        row['advice_plan'] = {'mode': adv.get('mode'), 'channels': adv.get('channels'),
+                              'items': adv.get('items'), 'applied': adv.get('applied'), 'rejected': adv.get('rejected'),
+                              'extraction': adv.get('extraction'), 'dropped': adv.get('dropped'), 'filter': adv.get('filter')}
+        row['advice_audit'] = result.get('advice_audit')
+        row['first_station_planned'] = (mission.get('memory') or {}).get('first_station')
+    row['n_stations_visited'] = (1 if mission.get('checkpoint_station') else 0) + (1 if rec else 0)
     t_end = [e.get('t_wall_s') for e in mission.get('events', [])
              if e.get('stage') in ('shelter_approach', 'checkpoint_denial_dwell_finished', 'memory_denial')]
     row['mission_time_s'] = max(t_end) if t_end else None     # start -> shelter arrival, or -> final refusal
@@ -80,6 +90,10 @@ def summarize(trial: dict, run_dir: Path | None, rc: int, wall_s: float) -> dict
         row['observed_action'] = 'ALLOW_MEMORY'
     elif row['state'] == 'DENIED_BY_MEMORY':
         row['observed_action'] = 'DENY_MEMORY'
+    elif row['state'] == 'COMPLETED_ADVICE_TRUSTED':   # I-19 naive advice-following baseline: delivered without looking
+        row['observed_action'] = 'ALLOW_ADVICE'
+    elif row['state'] == 'DENIED_BY_ADVICE':           # I-19 naive baseline: refused on a hazard claim without visiting
+        row['observed_action'] = 'DENY_ADVICE'
     elif row['state'] == 'COMPLETED':
         row['observed_action'] = 'ALLOW_AFTER_SEARCH' if rec else 'ALLOW'
     elif row['state'] == 'COMPLETED_EXPECTED_DENIAL':
@@ -92,11 +106,25 @@ def summarize(trial: dict, run_dir: Path | None, rc: int, wall_s: float) -> dict
         row['observed_action'] = 'FAILED'
     expected = trial['expected_action']
     want = {'DELIVER_AFTER_SEARCH': 'ALLOW_AFTER_SEARCH'}.get(expected, expected)
-    row['correct'] = row['observed_action'] == want
+    row['correct'] = row['observed_action'] in {want, trial.get('expected_action_if_flagged')}   # filtered arm: guardrail may catch it
     # mission-level outcome for the paper (what reached the shelter, if anything)
-    row['delivered'] = row['observed_action'] in ('ALLOW', 'ALLOW_AFTER_SEARCH', 'ALLOW_MEMORY')
+    row['delivered'] = row['observed_action'] in ('ALLOW', 'ALLOW_AFTER_SEARCH', 'ALLOW_MEMORY', 'ALLOW_ADVICE')
     row['first_checkpoint_allow'] = (not rec) and row['delivered']
     return row
+
+
+def advice_flags(adv: dict) -> list[str]:
+    """Trial field 'advice' {file?, mode, from_instruction} -> orchestrator flags."""
+    if adv.get('mode') not in ('off', 'monotone', 'naive', 'filtered'):
+        raise SystemExit(f'bad advice mode {adv.get("mode")!r}')
+    if not (adv.get('file') or adv.get('from_instruction')):
+        return []           # a no-advice control: the orchestrator is run exactly as without the feature
+    flags = ['--advice-mode', adv['mode']]
+    if adv.get('file'):
+        flags += ['--advice-file', str(ROOT / adv['file'])]
+    if adv.get('from_instruction'):
+        flags += ['--advice-from-instruction']
+    return flags
 
 
 def main(argv=None):
@@ -149,6 +177,9 @@ def main(argv=None):
                     mfile.parent.mkdir(parents=True, exist_ok=True)
                     mfile.write_bytes(src.read_bytes())
                 cmd += ['--memory-file', str(mfile), '--memory-mode', mem['mode']]
+            adv = trial.get('advice')
+            if adv:   # study A (I-19): advice from an instruction text and/or a file, handled in monotone or naive mode
+                cmd += advice_flags(adv)
             if not a.no_rosbag:
                 cmd.append('--capture-rosbag')
             started = time.monotonic()
@@ -165,6 +196,9 @@ def main(argv=None):
             row['stack_args'] = (a.stack_args or common) + (trial.get('stack_args') or [])
             if trial.get('config'):
                 row['config'] = trial['config']; row['world'] = trial.get('world'); row['condition'] = trial.get('condition')
+            if trial.get('advice'):
+                row['advice'] = trial['advice']
+                row['advice_condition'] = trial.get('advice_condition')
             for k in ('sequence', 'mission_index', 'transition'):
                 if k in trial:
                     row[k] = trial[k]
