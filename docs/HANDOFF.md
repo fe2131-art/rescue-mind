@@ -151,6 +151,22 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
   * 論文中の `% CHECK-AFTER-H` の文は、H の結果で必ず確認する。
 * サブエージェントは必ず Sonnet 5.5（`model: sonnet`）。同時に2つまで（ユーザー指示 2026-10-17）。常に稼働させる。
 
+**2026-10-17 13:10 時点**
+* 完了：
+  * R：12条件の誤許可は合計 0/2304 で、主張は成立。もっとも厳しいのは強い露出オーバーで、正しい許可 59/108。
+  * J の試運転：完了、GPU メモリのピークは 28.7 GB。
+  * Z、P（実写）。
+  * 論文：命題を「観察」と「1出動あたりの系」に変更、要旨を中立的に書き直し、用語を定義。
+  * 第三者採点：1回目 28.0、2回目 29.5/40。
+* 実行中：H 本番（13:03 開始、1 run 約3分、19時ごろ終了予定）→ J 本番 → `post_j_chain.sh`（記憶デモの撮影 → P2）。
+* 配置のランダム化（study L）：worktree のブランチ `worktree-agent-ac85b5ba081cc1f61` に実装済み。中身は確認済みで未マージ。
+  * 次：J の後でマージ → Gazebo で試運転 → 事前登録 → 実行。
+* 結果が出たら：
+  * `h_analysis.py` → `h_change_rate_model.py` → `paper_numbers.py` → `build_paper.sh`。
+  * `% CHECK-AFTER-H` を確認する。
+  * 動画を作り直す：`make_video_plan.py --memory <id>` に要約カード。
+  * README・説明資料・YouTube 説明文を更新し、第三者採点の3回目を行う。
+
 **次の手順**
 1. （済）予備走行2回目（HP02・HP03：記憶による経路と、素朴な記憶の確認省略の監査）を確認する → H の Amendment 1 → H を本実行（約7時間。R の終了後に）。
 2. R の解析（`r_analysis.py`。事前登録どおり）→ 論文に「センサー劣化」節、図。
