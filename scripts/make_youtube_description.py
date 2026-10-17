@@ -221,8 +221,44 @@ def line_j(res):
         return None
 
 
+def headline_block(res):
+    """First-screen summary for a busy judge: problem, what is new, three numbers in plain words, what to watch."""
+    res = Path(res)
+    out = ['【問題】災害時の物資配達ロボットは、在庫表と現物の食い違い（水のはずが救急箱・空）や火災に出会う。指示どおり運ぶだけでは、誤った物資や危険な場所へ届けてしまう。',
+           '【新しさ】前回の出動の記憶は「どの拠点を先に見るか」を提案するだけで、届けてよいかは必ずその場のカメラで決める（記憶は提案、判断は目）。物資の陰の小さな火は正面では見えないので、横へ動いて撮り直す。']
+    nums = []
+    f = res / 'campaign_E_ledger.jsonl'
+    if f.is_file():
+        rows = [json.loads(x) for x in f.read_text(encoding='utf8').splitlines() if x.strip()]
+        rows = [r for r in rows if r.get('final', True)]
+        if rows:
+            n = len(rows)
+            ok = sum(bool(r['correct']) for r in rows)
+            wrong = sum(r.get('observed_action') in DELIVERED and r['expected_action'] not in SAFE for r in rows)
+            nums.append(f'①ランダムに作った{n}個の世界で、期待どおりの行動 {ok}/{n}、誤った物資・火のある拠点からの配達 {wrong}件')
+    g = jload(res / 'g_summary.json')
+    try:
+        pr, c = g['primary'], g['per_config']['C']
+        n = pr['n_world_pairs_fire_perceivable']
+        nums.append(f"②隠れた火のある{n}世界で、正面だけで判断すると火の拠点へ配達 {pr['wrong_deliveries_B']}回、横から撮り直すと {pr['wrong_deliveries_C']}回"
+                    f"（火の無い世界での誤停止 {c['false_hazard_stops']}/{c['fire_free_trials']}、偶然とは考えにくい p={pr['mcnemar_p']:.3f}）。"
+                    f'火の多くは設計上、正面から見えにくい世界で、測っているのは「横から見る効果」')
+    except (TypeError, KeyError):
+        pass
+    h = jload(res / 'h_summary.json')
+    try:
+        p1, p3 = h['P1_efficiency_relocation_persist'], h['P3_no_extra_risk_vs_v36']
+        nums.append(f"③記憶で先に向かう拠点を決めると、物資が移されたままの{p1['n_pairs']}出動で所要時間（中央値）{p1['time_M0_median_s']:.0f}秒→{p1['time_M2_median_s']:.0f}秒。"
+                    f"確認は省かないので危険な配達は 記憶なし {p3['unsafe_M0']}/{p3['n_pairs']}・記憶つき {p3['unsafe_M2']}/{p3['n_pairs']}。物資が元に戻った出動は遠回りで遅い（この数値は動画外、README・資料に掲載）")
+    except (TypeError, KeyError):
+        pass
+    if nums:
+        out.append('【3つの数字】（すべてシミュレーション。条件は結果を見る前に固定）\n' + '\n'.join(nums))
+    return out
+
+
 def number_lines(res):
-    fns = (line_e, line_t1, line_g, line_t2, line_z, line_r, line_p, line_h, line_j)
+    fns = (line_t1, line_t2, line_z, line_r, line_p, line_h, line_j)
     return [x for x in (f(res) for f in fns) if x]
 
 
@@ -236,15 +272,14 @@ def build_description(chapters, res):
         '## タイトル\nPAI最終課題_tetsutetsu',
         '## 概要欄\n'
         'RescueMind：現地で「目で確かめてから」届ける災害物資ロボット（Physical AI 応用1講座 最終課題）\n\n'
-        '自然な言い回しの依頼をローカルLLMが解釈し、差動二輪ロボットが物資拠点へ自律移動。拠点で静止して搭載カメラの画像を最新のローカルVLM'
-        '（Qwen3.5-9B / Tesla V100）で確認し、依頼どおりと高い確信で一致したときだけ、拠点の左右からも火が無いか見直して（v3.6）避難所Bへ向かいます。'
-        '物資が違えば別の拠点を探して届け、どちらにも無ければ停止して報告し、火災を見たら探索せずに停止して日本語で状況を報告します。\n'
-        'ROS 2 Jazzy × Gazebo Harmonic。映像はすべて Gazebo の実レンダリングです。\n'
-        '※ 「届ける」は、物資を現物確認して避難所Bへ向かう（接近する）ところまでです。物資の把持・荷降ろし・受け渡しはシミュレーションしていません。']
+        '自然な言い回しの依頼をローカルLLMが解釈し、ロボットが拠点へ自律移動。その場でカメラ画像をローカルVLM（Qwen3.5-9B / V100）で確認し、'
+        '依頼どおりで火も見えないときだけ避難所Bへ向かいます。ROS 2 Jazzy × Gazebo Harmonic、映像はすべて Gazebo の実レンダリング。\n'
+        '※ 「届ける」は、現物確認して避難所Bへ向かう（接近する）ところまで。物資の把持・荷降ろしはシミュレーションしていません。']
+    paras[-1] = paras[-1].replace('\n\n自然な言い回し', '\n\n' + '\n'.join(headline_block(res)) + '\n\n【動画で見てほしい点】「隠れた小さな火」のデモ（正面では見えない火を、横へ動いて撮り直して見つけて止まる）と、「取り違え」「欠品」のデモ（違えば別の拠点を探し、無ければ止まって日本語で報告する）。\n\n自然な言い回し', 1)
     blocks = [x for x in (demo_sentence(facts), speed_sentence(facts)) if x]
     nums = number_lines(res)
     if nums:
-        blocks.append('事前登録した評価（結果を見る前に条件を固定）：\n' + '\n'.join(nums))
+        blocks.append('詳しい結果（事前登録＝結果を見る前に条件を固定。v3.4〜v3.6＝システムの版名（v3.6が提出版）。誤許可＝届けてはいけない場面で「よい」と判断すること）：\n' + '\n'.join(nums))
     blocks.append('コード：https://github.com/fe2131-art/rescue-mind\nナレーション：VOICEVOX:四国めたん')
     blocks.append('\n'.join(f"{mmss(c['start_s'])} {c['title']}" for c in facts['chapters']))
     paras[-1] += '\n\n' + '\n\n'.join(blocks)
