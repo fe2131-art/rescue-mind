@@ -336,13 +336,15 @@ class AuditOfSoftHops(unittest.TestCase):
 
 
 class MemoryOfSoftRefusals(unittest.TestCase):
-    def test_side_view_hazard_of_a_caution_refused_station_is_remembered(self):
+    def test_side_view_caution_alert_of_a_caution_refused_station_is_remembered_as_caution_not_hazard(self):
         from rescuemind.mission_memory import observations
         r, err = rr.run(SS4.order('water'), [CLEAR, SIDE_CAUT, CLEAR, SIDE_CLEAR, SIDE_CLEAR], stations=SS4, memory=mem('W1'),
                         extra_args=dict(NodeSideViews.LA, **SOFT))
         self.assertIsNone(err)
         obs = observations(r, 'r1')
-        self.assertEqual([(o['station'], o['hazard'], o['hazard_views']) for o in obs], [('W1', True, ['L']), ('W2', False, [])])
+        # I-19 fix #28: a caution-only refusal is a caution alert, not a hazard (else it renews the caution forever)
+        self.assertEqual([(o['station'], o['hazard'], o['hazard_views'], o['caution_views']) for o in obs],
+                         [('W1', False, [], ['L']), ('W2', False, [], [])])
 
 
 class OperatorReport(unittest.TestCase):
