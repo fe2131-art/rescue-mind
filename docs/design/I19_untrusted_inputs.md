@@ -46,6 +46,26 @@ Our closed-set, option-permuted scoring is expected to resist letter-targeted in
 reason is that the letter-to-item map changes between the two passes, and both must agree. Semantic mislabels are
 expected to remain a real weakness.
 
+## Trusted computing base of the guarantee
+"Advice may only tighten" is a claim about one small function, so the question is what else it rests on. Evidence for
+each component is in `tests/test_advice_independent.py` unless stated otherwise (the file is written from the SPEC block
+at its top, not from `advice.py`).
+
+| Component | What the guarantee assumes of it | How it is checked | Not covered |
+|---|---|---|---|
+| VLM server outputs as recorded (`/v1/classify`, `/v1/advice`) | the hazard scores and labels in `mission.json` are what the model returned for the saved image; the server answers `/v1/advice` with the closed-set schema | provenance fields (model, image hash, `real_inference`) are validated in `local_vision` / `advice_llm.query`; malformed, NaN, bool, out-of-range, truncated and non-UTF-8 answers are fuzzed (also over a real loopback socket) and yield NO advice | a server that lies consistently (weights, GPU, driver); scene text read by the camera (study S) |
+| `advice.plan` (about 60 lines of logic) | in `monotone` mode it only reorders and adds caution | independent reference implementation, differential test over all item sets of size <= 4 (kinds x stations x sources), all ordered sequences <= 3 against 97 base plans and memory-generated plans, random model outputs; 41 injected bugs, all killed (the 19 plan mutants also with the in-plan assertion disabled) | the reference and `plan` share the same reader of the spec (the SPEC block is the thing to review) |
+| `advice.assert_monotone` + `audit_plan` (run audit) | recomputes the invariant from the logged plan and its pre-advice snapshot | compared with a separate reference audit on genuine and tampered logs (skip/deny set, caution removed, threshold raised/NaN/out of range, bad first station, forged effects, missing base); the orchestrator's `advice_audit` is tested end to end on a monkeypatched `plan` | the log is written by the node under test: the audit detects bugs, not a compromised node; the base snapshot and the `mode` label are taken from the log |
+| mission node gating (`skip_source`, `denial_source`, `apply_memory_caution`, `peek_hazard`) | a check is skipped or an unseen station refused only for the two naive baselines; a caution threshold can only turn an approval into a refusal | exhaustive differential over plan mode x advice mode x flags x effects, and over a threshold x score grid including boundaries and NaN; 7 gate mutants killed | the ROS wiring that calls them (`ros/gazebo_waypoint_mission.py`) is reviewed, not tested here |
+| ground-truth recorder (Gazebo poses, masks) | the outcome audit (unsafe deliveries, study A1) is independent of the node's logs | separate topic recorder and `ground_truth_evidence` audit (see the V/W studies); not part of this file | simulator fidelity; the real world |
+| destination parse (shelter B) | outside the proposition: closed-set parse plus rule | offline wrong-shelter-acceptance test (must be 0) | a mis-parse of the request itself defeats everything |
+
+Findings of this exercise (fixed in the same branch): `assert_monotone` did not notice a removed caution and accepted NaN
+or out-of-range thresholds; under a naive-memory base plan a monotone location reorder could move the remembered skip to a
+station memory had not vouched for (the proposition now holds for every base plan, not only verified/off memory);
+non-list or deeply nested advice files raised `TypeError`/`RecursionError` instead of `AdviceError`; booleans were accepted
+as probabilities; a NaN hazard score was silently ignored by `max()` in the caution gate.
+
 ## Study A (closed loop, advice channels)
 * **Channels:**
   * operator instruction text: free Japanese, may contain hints or injections;
