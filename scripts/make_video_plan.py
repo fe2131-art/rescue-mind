@@ -177,6 +177,48 @@ def fix_card(seconds):
 
 
 # ------------------------------------------------------------------ duration estimate
+def evidence_card(seconds):
+    """One summary card of the pre-registered evidence (replaces the three result tables; every number from files)."""
+    rows, say = [], []
+    led = RES / 'campaign_E_ledger.jsonl'
+    if led.is_file():
+        rs = [json.loads(x) for x in led.read_text(encoding='utf8').splitlines() if x.strip()]
+        rs = [r for r in rs if r.get('final', True)]
+        ok = sum(r['correct'] for r in rs)
+        wrong = sum(r['observed_action'] in DELIVERED and r['expected_action'] not in ('ALLOW', 'DELIVER_AFTER_SEARCH') for r in rs)
+        rows.append(['閉ループ E（ランダムな世界）', [f'期待どおり {ok}/{len(rs)}・誤配達 {wrong}', G if wrong == 0 else R]])
+    g = jload(RES / 'g_summary.json')
+    if g:
+        pr = g['primary']
+        rows.append(['閉ループ G（横から見直す）', [f"火が見えるのに配達 {pr['wrong_deliveries_B']}/{pr['n_world_pairs_fire_perceivable']} → "
+                                                f"{pr['wrong_deliveries_C']}/{pr['n_world_pairs_fire_perceivable']}（p={pr['mcnemar_p']:.3f}）", G]])
+        say.append(f"横から見直すと、火の見逃しは{pr['wrong_deliveries_B']}件から{pr['wrong_deliveries_C']}件。")
+    h = jload(RES / 'h_summary.json')
+    if h:
+        p1, p2 = h['P1_efficiency_relocation_persist'], h['P2_safety_naive_vs_verified']
+        rows.append(['閉ループ H（出動をまたぐ記憶）', [f"速さ {p1['time_M0_median_s']:.0f}→{p1['time_M2_median_s']:.0f}秒・"
+                                                  f"危険な配達 素朴な記憶 {p2['unsafe_M1']} vs 本手法 {p2['unsafe_M2']}", G if h['headline_supported'] else W]])
+        say.append(f"記憶を使うと速くなり、危険な配達は素朴な記憶の{p2['unsafe_M1']}件に対して{p2['unsafe_M2']}件。")
+    j = jload(RES / 'j_summary.json')
+    if j:
+        c = j['per_config']
+        rows.append(['閉ループ J（2つのAI：Jev役＋Qwen）', [f"期待どおり {c['J']['correct']}/{c['J']['n']}・危険な配達 {c['J']['unsafe_deliveries']}", G if c['J']['unsafe_deliveries'] == 0 else R]])
+    z = jload(RES / 'z_summary.json')
+    if z:
+        sg = z['models']['siglip']['t2']['baseline']
+        rows.append(['比較 Z（CLIP系ゼロショット）', [f"SigLIP 誤許可 {sg['FA']}/{sg['n_deny']}（本手法 0）", G]])
+    pp = jload(RES / 'p_summary.json')
+    if pp:
+        rows.append(['実写 P（D-Fire 400枚）', [f"火・煙を検出 {pp['recall']['k']}/{pp['recall']['n']}・火の無い写真で誤警報 {pp['false_alarm']['k']}/{pp['false_alarm']['n']}", W]])
+        say.append(f"実写でも火と煙の{pp['recall']['k']}枚を検出。ただし誤警報が多く、現場ごとの調整が必要です。")
+    if not rows:
+        return None
+    return {'kind': 'table', 'seconds': seconds, 'title': '事前登録した評価のまとめ（全試行を公開）',
+            'sub': '結果を見る前に条件と判定方法を固定。うまくいかなかった結果もそのまま報告',
+            'narration': ''.join(say), 'header': ['評価', '結果'], 'rows': rows,
+            'notes': ['すべてシミュレーション（実機なし）。数値は結果ファイルから自動生成。']}
+
+
 def mission_seconds(spec):
     """Mission segment length, computed the way make_demo_video.mission_segment builds its speed plan
     (falls back to the ground-truth log when the run has no film frames, e.g. stand-in runs)."""
@@ -262,6 +304,15 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False):
             {'go': '続いて、拠点の裏で火災が起きているケースです。', 'after': '火と煙を検知しました。探し回らずに停止して報告します。'},
             {'go': '拠点の裏で火災が起きているケース。「{instr}」', 'check': '物資は正しいが、画像の中に火や煙は無いか？',
              'after': '火災・煙を検知 → 拒否。危険な場所を探し回らず停止し、状況を報告します。'}, hazard_at='medicine'))
+    if getattr(a, 'memory', None):
+        demos.append(mission_part(
+            a.memory, 'swapped', '出動をまたぐ記憶 → 直行',
+            {'go': '前回の出動で、物資が入れ替わっていたことを覚えています。', 'check': 'それでも、着いたら必ず確認します。',
+             'peek': '横からも確かめます。', 'after': '記憶で近道、判断はその場の目で。'},
+            {'go': '前回の記憶から、依頼物資を見た拠点へ直行（記憶は「提案」だけ）。「{instr}」',
+             'check': '記憶を信じて省略はしない：着いたら必ず現物を確認。',
+             'peek': '左右からの見直しも省略しない。',
+             'after': '探し回らずに配達 → 遠回りを省いて短縮。記憶が古くても確認で止まる（評価H）。'}))
     if a.hidden_fire:
         demos.append(mission_part(
             a.hidden_fire, 'nominal', '隠れた小さな火 → 停止',
@@ -274,7 +325,8 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False):
     for i, d in enumerate(demos, 1):
         d['index'], d['total'] = i, len(demos)
     parts += demos
-    for card_fn, sec in ((campaign_e_table, 9), (t1_card, 8), (fix_card, 11)):
+    cards = ((evidence_card, 14),) if getattr(a, 'summary_card', True) else ((campaign_e_table, 9), (t1_card, 8), (fix_card, 11))
+    for card_fn, sec in cards:
         c = card_fn(sec if cs is None else cs)
         if c:
             parts.append(c)
@@ -305,6 +357,9 @@ def main():
     ap.add_argument('--empty', help='run id: both stations empty -> check both, stop')
     ap.add_argument('--fire', help='run id: large fire -> stop without searching')
     ap.add_argument('--hidden-fire', dest='hidden_fire', help='run id: small partly hidden fire -> v3.6 check stops')
+    ap.add_argument('--memory', help='run id: verified memory (I-15) goes straight to the remembered station, still checks')
+    ap.add_argument('--three-tables', dest='summary_card', action='store_false',
+                    help='old layout: E, T1 and fix tables instead of one evidence summary card')
     ap.add_argument('--repo-url', default='github.com/fe2131-art/rescue-mind')
     ap.add_argument('--out', default=str(ROOT / 'docs/video_plan.json'))
     a = ap.parse_args()
