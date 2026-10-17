@@ -204,7 +204,7 @@ def evidence_card(seconds):
         t0, t2 = p1['time_M0_median_s'], p1['time_M2_median_s']
         speed = f"所要時間 {t0:.0f}→{t2:.0f}秒・" if t0 is not None and t2 is not None else ''
         p3 = h['P3_no_extra_risk_vs_v36']
-        rows.append(['閉ループ H（記憶）', [f"{speed}危険な配達 記憶なし {p3['unsafe_M0']}・本方式 {p3['unsafe_M2']}（素朴 {p2['unsafe_M1']}）",
+        rows.append(['閉ループ H（記憶）', [f"{speed.replace('所要時間', '移されたままの8出動の所要時間')}危険な配達 記憶なし {p3['unsafe_M0']}・本方式 {p3['unsafe_M2']}（素朴 {p2['unsafe_M1']}）",
                                                   G if h['headline_supported'] else W]])
         say.append((f"出動をまたぐ記憶では、入れ替わりが続く出動の所要時間の中央値が、記憶なしの{t0:.0f}秒から{t2:.0f}秒。"
                     if t0 is not None and t2 is not None else '出動をまたぐ記憶では、')
@@ -218,7 +218,7 @@ def evidence_card(seconds):
     z = jload(RES / 'z_summary.json')
     if z:
         sg = z['models']['siglip']['t2']['baseline']
-        rows.append(['比較 Z（CLIP系ゼロショット）', [f"SigLIP 誤許可 {sg['FA']}/{sg['n_deny']}（本手法 {z['models']['siglip']['t2']['ours']['FA']}）", G]])
+        rows.append(['比較 Z（CLIP系ゼロショット）', [f"未使用画像T2で SigLIP 誤許可 {sg['FA']}/{sg['n_deny']}（本手法 {z['models']['siglip']['t2']['ours']['FA']}）", G]])
     pp = jload(RES / 'p_summary.json')
     if pp:
         rows.append(['実写 P（D-Fire 400枚）', [f"火・煙を検出 {pp['recall']['k']}/{pp['recall']['n']}・火の無い写真で誤警報 {pp['false_alarm']['k']}/{pp['false_alarm']['n']}", W]])

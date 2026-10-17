@@ -7,7 +7,7 @@
 
 | 項目 | 内容 |
 |---|---|
-| GPU | NVIDIA V100 32GB 相当（検証環境は Tesla V100 32GB、4コア）。研究 J の 2 モデル構成のピークは約 28.7 GB（`experiments/results/j_smoke_stdout.log`、`j_smoke_vram.csv`）。 |
+| GPU | NVIDIA V100 32GB 相当（検証環境は Tesla V100 32GB、4コア）。研究 J の 2 モデル構成のピークは 28,676 MiB（約 28.0 GiB、本実行 `experiments/results/j_summary.json`；試運転は 28,674 MiB）。 |
 | ホスト | Ubuntu 22.04、Docker（`docker` グループ、nvidia-container-toolkit）。sudo は不要。ROS はホストに不要。 |
 | コンテナ | ROS 2 Jazzy + Gazebo Harmonic + CUDA PyTorch（`docker/Dockerfile`）。標準は `STACK=next`（torch 2.8.0+cu126、transformers 5.20.0）。`STACK=v33` は旧スタック（torch 2.5.1、transformers 4.53.3）。 |
 | モデル重み | Hugging Face から一度だけ取得し、以降は `HF_HUB_OFFLINE=1`（`docker/run.sh` の既定）。キャッシュはホストの `$HF_HOME`（既定 `~/.cache/huggingface`）を `/hf` に共有。 |
