@@ -246,7 +246,7 @@ def section_v36():
         cl = jl('devset_t2_clef2.json')
         lat = sorted(r['clef']['latency_s'] for r in cl['records'] if r.get('clef')) if cl else []
         t2txt = (f"\n* **未使用テスト T2**（{ref['n_deny'] + ref['n_allow']}枚、描画前に登録）：v3.5 でも誤許可 **{ref['false_approvals']}/{ref['n_deny']}** と天井で、改善は測れない。"
-                 f"Jev の役割を担うローカルの **Clef-Flash 単独**（課題向けの質問）も誤許可 **{j2['false_approvals']}/{j2['n_deny']}**・正しい許可 {j2['correct_approvals']}/{j2['n_allow']}"
+                 f"Jev役を担うローカルの **Clef-Flash 単独**（課題向けの質問）も誤許可 **{j2['false_approvals']}/{j2['n_deny']}**・正しい許可 {j2['correct_approvals']}/{j2['n_allow']}"
                  + (f"、1画像あたりの推論は中央値 {statistics.median(lat):.1f} 秒（V100）" if lat else '')
                  + f"。Clef＋Qwen の2モデル確認（規則上の選定）は誤許可 {sel['false_approvals']}/{sel['n_deny']}・正しい許可 {sel['correct_approvals']}/{sel['n_allow']}（V100 1台には同時に載らず、既定には採用せず）")
     fm = sorted(x['fire_pixels'] for x in f.get('trials', []) if x['config'] == 'B' and x['wrong_delivery'] and x.get('fire_pixels'))
@@ -256,7 +256,7 @@ def section_v36():
 T1 で分かった弱点に、結果を見る前に固定した条件で段階的に対策（[`IMPROVEMENT_LOG.md`](docs/IMPROVEMENT_LOG.md) I-11・I-13・I-14）。
 **v3.6 = オーケストレータの既定値**：Qwen3.5-9B、危険の問い方 h36＋拡大切り出し tiles、τ_h=0.05、**横から見直す 0.4 m**、回復探索・状況報告あり、DDS非同期。
 
-* 評価F（問い方＋切り出し、対比較、[`PREREGISTRATION_F.md`](experiments/PREREGISTRATION_F.md)）：小さな火が見えていた{fp['n_world_pairs_fire_visible_both']}世界で配達した回数
+* 評価F（問い方＋切り出し、対比較、[`PREREGISTRATION_F.md`](experiments/PREREGISTRATION_F.md)）：小さな火が見えていた{fp['n_world_pairs_fire_visible_both']}世界で、火があるのに配達した回数
   v3.5 **{fp['wrong_deliveries_A']}/{fp['n_world_pairs_fire_visible_both']}** → **{fp['wrong_deliveries_B']}/{fp['n_world_pairs_fire_visible_both']}**（McNemar正確検定 p={fp['mcnemar_p']}、**有意でない**）。{fpx}、閾値では分けられなかった
 * 評価G（**横から見直す**、新しい世界の対比較、[`PREREGISTRATION_G.md`](experiments/PREREGISTRATION_G.md)、{g['n_trials']}試行）：
 
@@ -318,14 +318,14 @@ def section_novelty():
         gc = g['per_config']
         nf = g['primary']['n_world_pairs_fire_perceivable']
         gtxt = (f"正面で判断し切れない小さな火に、モデルを大きくせず**横へ動いて撮り直す**。事前登録の対比較で、火があるのに配達した回数 "
-                f"**{gc['B']['wrong_deliveries']}/{nf} → {gc['C']['wrong_deliveries']}/{nf}**（p={g['primary']['mcnemar_p']:.3f}）、火の無い世界の誤停止 {gc['C']['false_hazard_stops']}/{gc['C']['fire_free_trials']}")
+                f"**{gc['B']['wrong_deliveries']}/{nf} → {gc['C']['wrong_deliveries']}/{nf}**（p={g['primary']['mcnemar_p']:.3f}）、火の無い世界の誤った停止 {gc['C']['false_hazard_stops']}/{gc['C']['fire_free_trials']}")
     except (TypeError, KeyError):
         gtxt = f'横から撮り直す能動知覚（評価G）：{PENDING}'
     return f"""## 新規性（この課題で工夫した点）
 
 * **記憶は「提案」だけ、確認は減らさない**（出動をまたぐ記憶、[I-15](docs/IMPROVEMENT_LOG.md)・[D13](docs/DESIGN_DECISIONS.md)）：前回の物資の場所は「先に行く拠点」を決めるだけで、行った先で必ず確認する。火を見た拠点は閾値を厳しくする。同じ画像なら記憶ありの許可は記憶なしの許可の部分集合になる（コードで強制）。事前登録 [`PREREGISTRATION_H.md`](experiments/PREREGISTRATION_H.md)。{h_text()}
 * **横から見直す能動知覚**（[I-14](docs/IMPROVEMENT_LOG.md)）：{gtxt}。
-* **当初計画の2つのAI（Jev役 Clef-Flash＋Qwen）を実機で**（[I-16](docs/IMPROVEMENT_LOG.md)）：オフライン評価だけだった2モデル確認を、V100 1台に載る組で閉ループに載せた。Clef-Flash は Qwen3.5-9B の追加学習版なので、2つは独立ではなく系統を共有する（相関した失敗が残り得ると明記）。{j_text()}
+* **当初計画の2つのAI（Jev役 Clef-Flash＋Qwen）をロボットの判断に組み込んで**（[I-16](docs/IMPROVEMENT_LOG.md)）：オフライン評価だけだった2モデル確認を、V100 1台に載る組で閉ループに載せた。Clef-Flash は Qwen3.5-9B の追加学習版なので、2つは独立ではなく系統を共有する（相関した失敗が残り得ると明記）。{j_text()}
 * **事前登録と時系列監査**（論文 [`docs/paper/main.pdf`](docs/paper/main.pdf) 付録「Registration audit」）：条件・閾値・解析を結果を見る前にコミットし、{audit_text()}。支持されなかった主張も、そのまま載せる。"""
 
 
@@ -398,8 +398,8 @@ def main():
     head = ['| 評価（事前登録） | 内容 | 結果 |', '|---|---|---|']
     if v:
         G = v[1]
-        head.append(f"| **評価G（v3.6）** | 新しい世界での対比較の閉ループ。許可の直前に横から撮り直す | 3視点（正面・左右0.4 m）のどれかで火が見えた{G['nf']}世界で、火があるのに配達した回数 **{G['gb']}/{G['nf']} → {G['gcw']}/{G['nf']}**（McNemar正確検定 p={G['p']:.3f}）、火の無い世界の誤停止 **{G['fs']}/{G['nfree']}** |")
-        head.append(f"| 評価F（問い方＋切り出し） | 同じ形式の対比較 | 配達した回数 {G['fa']}/{G['nfv']} → {G['fb']}/{G['nfv']}（p={G['fp']}、有意でない） |")
+        head.append(f"| **評価G（v3.6）** | 新しい世界での対比較の閉ループ。許可の直前に横から撮り直す | 3視点（正面・左右0.4 m）のどれかで火が見えた{G['nf']}世界で、火があるのに配達した回数 **{G['gb']}/{G['nf']} → {G['gcw']}/{G['nf']}**（McNemar正確検定 p={G['p']:.3f}）、火の無い世界の誤った停止 **{G['fs']}/{G['nfree']}** |")
+        head.append(f"| 評価F（問い方＋切り出し） | 同じ形式の対比較 | 火があるのに配達した回数 {G['fa']}/{G['nfv']} → {G['fb']}/{G['nfv']}（p={G['fp']}、有意でない） |")
     if e:
         E = e[1]
         head.append(f"| **評価E（主結果）** v3.5 | 試行ごとにランダムな世界での閉ループ {E['n']}試行 | 期待どおり **{E['ok']}/{E['n']}**、誤配達 **{E['wrong']}/{E['n']}**（{ci_txt(E['wrong'], E['n'])}） |")
@@ -416,6 +416,7 @@ def main():
     head += zrows
     parts = ['<!-- RESULTS:START -->', '## 結果：事前登録した評価（D・E・F・G・T1・T2・Z・P・R）', '',
              'Qwen3.5-9B（ローカル・V100）。条件・閾値・解析は結果を見る前に `experiments/PREREGISTRATION_*.md` に固定し、台帳は全試行を記録。', '',
+             '用語：**誤許可**＝届けてはいけない場面で「届けてよい」と判断してしまうこと（ロボットを実際に動かす評価では**誤配達**。火のある拠点から届けてしまうことは**危険な配達**）。**正しい許可**＝届けてよい場面で正しく「よい」と判断できること。**閉ループ**＝AIの判断でロボットが実際に動くところまで含めた評価。', '',
              '\n'.join(head), '']
     if t1_block:
         parts += [t1_block] + znotes + ['']
