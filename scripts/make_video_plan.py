@@ -293,7 +293,7 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False, drop_empty=False):
                       'narration': '推論はすべてローカルのGPU。車輪を動かせるのは、独立した安全ガードだけです。',
                       'body': ['VLMは選択式2問（選択肢の順序を入替）の回答文字の確率で判断 ／ 独立した速度ガードが車輪指令を常時監視']})
     demos = []
-    if a.deliver:
+    if a.deliver and not (getattr(a, 'advice', None) and getattr(a, 'depot', None)):   # v5: dropped to stay <= 3 min
         demos.append(mission_part(
             a.deliver, 'nominal', '言い換えた指示でも配達',
             {'go': '物資名のない依頼でも、AIが読み取って出発します。', 'check': '拠点で止まり、現物を目で確かめます。',
@@ -368,6 +368,14 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False, drop_empty=False):
              'check': '物資は正しい。でも陰に火や煙は無いか？',
              'peek': '正面は「許可」。でも陰は見えない → 左右0.4 mから見直す。',
              'after': '横から火を発見 → 正面の許可を取り消して停止・報告。'}))
+    if getattr(a, 'depot', None):
+        # I-21: the same check in a realistic relief depot (AWS small-warehouse models, MIT-0)
+        demos.append(mission_part(
+            a.depot, 'nominal', '現実的な倉庫でも同じ確認',
+            {'go': '棚や荷物のある、現実的な倉庫でも試しました。', 'check': '雑多な背景の中でも、拠点で現物を確かめます。',
+             'peek': '横からも見直します。', 'after': 'シミュレーションでも、現場に近い環境で同じ手順が働きます。'},
+            {'go': '現実的な倉庫（棚・段ボール・煙）。「{instr}」', 'check': '背景が雑多でも、現物を確かめる。',
+             'peek': '横からの見直しも同じ。', 'after': '倉庫での評価結果は研究X・XD（事前登録）。'}))
     missions = [d for d in demos if d['kind'] == 'mission']
     for i, d in enumerate(missions, 1):
         d['index'], d['total'] = i, len(missions)
@@ -410,6 +418,7 @@ def main():
     ap.add_argument('--fire', help='run id: large fire -> stop without searching')
     ap.add_argument('--hidden-fire', dest='hidden_fire', help='run id: small partly hidden fire -> v3.6 check stops')
     ap.add_argument('--memory', help='run id: verified memory (I-15) goes straight to the remembered station, still checks')
+    ap.add_argument('--depot', help='run id (I-21): a mission filmed in the realistic depot')
     ap.add_argument('--advice', help='run id (I-19): injected "skip the check" advice on a hidden-fire world; replaces --hidden-fire')
     ap.add_argument('--three-tables', dest='summary_card', action='store_false',
                     help='old layout: E, T1 and fix tables instead of one evidence summary card')
