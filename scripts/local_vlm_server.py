@@ -94,6 +94,18 @@ PROMPT_SETS={
 }
 
 
+# Study W-b (prior-art baselines): five paraphrases of the hazard question for a VAP-TAMP-style majority vote.  Q1 is the v3.5
+# wording verbatim; Q2-Q5 are generic rewordings written before any W inference (PREREGISTRATION_W.md).  A separate set, served
+# by /v1/hazard_set; it changes no existing prompt, endpoint or decision.
+PARAPHRASE_SETS={
+ 'w5':('v35',(
+    PROMPT_SETS['v35']['hazard'],
+    'Is anything in this picture on fire, or is there visible smoke? Answer Yes or No.',
+    'Does this image show flames, burning material, or smoke anywhere? Answer Yes or No.',
+    'Is there a fire hazard visible in this scene, such as flames or a smoke cloud? Answer Yes or No.',
+    'Would a rescuer need to avoid this area because of fire or smoke visible in the image? Answer Yes or No.')),
+}
+
 class ModelWorker:
     def __init__(self,model_id: str, max_pixels: int=321126, method: str='scored', prompt_set: str='v33',
                  dtype: str='float16'):
@@ -330,6 +342,15 @@ class ModelWorker:
         cache[key]=(p,views)
         return p,views,False
 
+    def hazard_set(self,image_bytes,name):
+        """Study W-b: p(Yes) of every paraphrase in PARAPHRASE_SETS[name] on the full image (one forward pass each), plus the
+        h36 wording on the full image as a reference.  Scores only; no decision is taken here."""
+        pic=self._picture(image_bytes)
+        _,questions=PARAPHRASE_SETS[name]
+        probs=[round(self._answer_probs(pic,q,('Yes','No'))['Yes'],4) for q in questions]
+        ref=round(self._answer_probs(pic,self.HAZARD_PROMPTS['h36'],('Yes','No'))['Yes'],4)
+        return {'set':name,'n_questions':len(questions),'probs':probs,'ref_h36':ref}
+
     def jev(self,request):
         """I-13: local Jev-compatible decisions (the SemIf/OpenJev pattern: typed option probabilities read
         directly from one forward pass, no generated text).  Accepts the Jev 1.14 request schema built by
@@ -372,7 +393,7 @@ def make_handler(worker):
                             'method':getattr(worker,'method','json'),'prompt_set':getattr(worker,'prompt_set',None),
                             'hazard_threshold':getattr(worker,'hazard_threshold',0.5)})
         def do_POST(self):
-            if self.path not in ('/v1/classify','/v1/describe','/v1/intent','/v1/advice','/v1/jev'):
+            if self.path not in ('/v1/classify','/v1/describe','/v1/intent','/v1/advice','/v1/jev','/v1/hazard_set'):
                 self.send_error(404);return
             n=int(self.headers.get('Content-Length','0'))
             if n<20 or n>9_000_000:
@@ -404,6 +425,13 @@ def make_handler(worker):
                 digest=hashlib.sha256(blob).hexdigest()
                 if request.get('image_sha256')!=digest:
                     raise ValueError('image hash mismatch')
+                if self.path=='/v1/hazard_set':
+                    name=request.get('set')
+                    if name not in PARAPHRASE_SETS:
+                        raise ValueError('unknown paraphrase set')
+                    self.reply(200,{'backend':'local_transformers','model':worker.model_id,'real_inference':True,
+                                    'image_sha256':digest,**worker.hazard_set(blob,name)})
+                    return
                 if self.path=='/v1/describe':
                     self.reply(200,{'backend':'local_transformers','model':worker.model_id,'real_inference':True,
                                     'image_sha256':digest,'purpose':'explanation_only_not_decision',
