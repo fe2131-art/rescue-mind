@@ -32,6 +32,7 @@ FINAL = EXP / 'q_sample_final.json'
 OUT_VLM = RES / 'q_scores_qwen9b_v35.jsonl'
 OUT_ZS = {'siglip': RES / 'q_scores_siglip.json', 'clip': RES / 'q_scores_clip.json'}
 IMAGES = Path.home() / '.cache/rescuemind/q/images'
+STAGED = EXP / 'q_images'     # ignored copy of the final images for the container (it does not mount ~/.cache)
 SEED = 'Q-2026'
 TARGET_PER_CLASS = 150
 MAX_PER_ARTIST = 8            # per (class, artist): near-duplicate series do not dominate a class
@@ -96,6 +97,26 @@ def assign_requests(images: list, seed: str = SEED) -> list:
     return out
 
 
+def images_dir() -> Path:
+    """The staged copy when it is complete, else the cache."""
+    if STAGED.is_dir() and FINAL.is_file() and all((STAGED / r['file']).is_file() for r in json.loads(FINAL.read_text())['images']):
+        return STAGED
+    return IMAGES
+
+
+def do_stage():
+    import shutil
+    STAGED.mkdir(exist_ok=True)
+    imgs = json.loads(FINAL.read_text())['images']
+    for r in imgs:
+        dst = STAGED / r['file']
+        if not dst.is_file():
+            shutil.copyfile(IMAGES / r['file'], dst)
+        if file_sha(dst) != r['sha256']:
+            sys.exit(f'{dst} does not match the recorded sha256')
+    print('staged', len(imgs), 'images in', STAGED)
+
+
 def do_sample():
     cand = json.loads(CANDIDATES.read_text())
     if any('sha256' not in r for r in cand['images']):
@@ -121,7 +142,7 @@ def do_run(port: int):
     todo = [r for r in json.loads(FINAL.read_text())['images'] if r['id'] not in done]
     url = f'http://127.0.0.1:{port}/v1/classify'
     for n, r in enumerate(todo):
-        blob = (IMAGES / r['file']).read_bytes()
+        blob = (images_dir() / r['file']).read_bytes()
         if hashlib.sha256(blob).hexdigest() != r['sha256']:
             sys.exit(f'image {r["id"]} does not match the recorded sha256')
         rec = {k: r[k] for k in ('id', 'class', 'type', 'requested', 'expected', 'refusal_kind')}
@@ -147,7 +168,7 @@ def do_run(port: int):
 def do_zeroshot():
     import zeroshot_baseline as zb      # prompts, models and the crop code are study Z's; thresholds are read from z_thresholds.json
     imgs = json.loads(FINAL.read_text())['images']
-    items = [('q', str(IMAGES), {'image': r['file'], 'id': r['id']}) for r in imgs]
+    items = [('q', str(images_dir()), {'image': r['file'], 'id': r['id']}) for r in imgs]
     for name in zb.MODELS:
         if OUT_ZS[name].is_file():
             continue
@@ -159,11 +180,13 @@ def do_zeroshot():
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('--sample', action='store_true'); ap.add_argument('--run', action='store_true')
+    ap.add_argument('--sample', action='store_true'); ap.add_argument('--stage', action='store_true'); ap.add_argument('--run', action='store_true')
     ap.add_argument('--zeroshot', action='store_true'); ap.add_argument('--port', type=int, default=8765)
     a = ap.parse_args()
     if a.sample:
         do_sample()
+    if a.stage:
+        do_stage()
     if a.run:
         do_run(a.port)
     if a.zeroshot:
