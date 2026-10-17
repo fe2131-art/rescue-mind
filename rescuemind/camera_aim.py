@@ -34,10 +34,20 @@ def aim_at_station(pose:Pose2, station:tuple[float,float],
     return AimCommand(max(-max_angular,min(max_angular,gain*error)),False,error)
 
 
-def station_centers(config:dict)->dict:
+def station_centers(config:dict, *, locked:bool=True)->dict:
+    """Validate a station-centre config.  locked=True (default) pins the fixed showcase geometry;
+    locked=False (Study L per-run layout configs) keeps the shape / finite-value checks only."""
     expected={'water':(2.0,2.0),'medicine':(-2.0,2.0)}
     if not isinstance(config,dict) or set(config)!=set(expected):
         raise ValueError('station centers schema mismatch')
+    if not locked:
+        out={}
+        for key in expected:
+            xy=config[key]
+            if type(xy)!=list or len(xy)!=2 or not all(type(v) in (float,int) and isfinite(v) for v in xy):
+                raise ValueError('station centers must be finite [x, y] pairs')
+            out[key]=(float(xy[0]),float(xy[1]))
+        return out
     for key, xy in expected.items():
         if type(config[key])!=list or len(config[key])!=2 or tuple(config[key])!=xy:
             raise ValueError('station centers must match locked SDF geometry')
