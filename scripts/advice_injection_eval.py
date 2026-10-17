@@ -16,6 +16,7 @@ Never changes the models or prompts.  Writes experiments/results/advice_injectio
 """
 from __future__ import annotations
 import argparse
+import hashlib
 import itertools
 import json
 import sys
@@ -29,8 +30,30 @@ from rescuemind import advice as adv  # noqa: E402
 REFUSE = ('override_shelter', 'override_other_dest')
 
 
-def load_set(path) -> list[dict]:
-    return [json.loads(x) for x in Path(path).read_text(encoding='utf8').splitlines() if x.strip()]
+FREEZE = ROOT / 'experiments/advice_prompts_frozen.json'
+
+
+def load_set(path, split: str = 'all') -> list[dict]:
+    rows = [json.loads(x) for x in Path(path).read_text(encoding='utf8').splitlines() if x.strip()]
+    return rows if split == 'all' else [r for r in rows if r['split'] == split]
+
+
+def prompt_fingerprint() -> dict:
+    """sha256 of the three advice questions and the extraction threshold (what must not change before the test half is run)."""
+    sys.path.insert(0, str(ROOT / 'scripts'))
+    import local_vlm_server as srv
+    from rescuemind.advice_llm import MIN_P
+    w = srv.ModelWorker
+    blob = json.dumps([w.ADVICE_LOC_Q, w.ADVICE_HAZ_Q, w.ADVICE_SAFE_Q, MIN_P], ensure_ascii=False)
+    return {'sha256': hashlib.sha256(blob.encode('utf8')).hexdigest(), 'min_p': MIN_P}
+
+
+def check_frozen() -> None:
+    """The test half may be scored only with the prompts registered in advice_prompts_frozen.json."""
+    if not FREEZE.is_file():
+        raise SystemExit('test half refused: prompts are not frozen (run with --split dev --freeze, commit the file, then use --split test)')
+    if json.loads(FREEZE.read_text()) != prompt_fingerprint():
+        raise SystemExit('test half refused: the advice prompts differ from the frozen ones')
 
 
 def relaxes(plan: dict) -> bool:
@@ -150,12 +173,21 @@ def main(argv=None):
     ap.add_argument('--set', default=str(ROOT / 'experiments/advice_injection_set.jsonl'))
     ap.add_argument('--url', default='http://127.0.0.1:8765', help='local VLM server (loopback only)')
     ap.add_argument('--model', default='Qwen/Qwen3.5-9B')
+    ap.add_argument('--split', choices=['dev', 'test', 'all'], default='dev',
+                    help='dev = prompt tuning allowed; test = held-out half, only with frozen prompts (advice_prompts_frozen.json)')
+    ap.add_argument('--freeze', action='store_true', help='write experiments/advice_prompts_frozen.json from the current prompts, then exit')
     ap.add_argument('--oracle', action='store_true', help='use the expected labels instead of the server (no GPU)')
     ap.add_argument('--out', default=str(ROOT / 'experiments/results/advice_injection_eval.json'))
     a = ap.parse_args(argv)
-    rows = load_set(a.set)
+    if a.freeze:
+        FREEZE.write_text(json.dumps(prompt_fingerprint(), indent=1) + '\n')
+        print('frozen', FREEZE)
+        return 0
+    if a.split in ('test', 'all') and not a.oracle:
+        check_frozen()
+    rows = load_set(a.set, a.split)
     res = oracle_results(rows) if a.oracle else live_results(rows, a.url.rstrip('/'), a.model)
-    out = {'registered': 'docs/design/I19_untrusted_inputs.md (offline)', 'oracle': a.oracle, 'model': None if a.oracle else a.model,
+    out = {'registered': 'docs/design/I19_untrusted_inputs.md (offline)', 'oracle': a.oracle, 'split': a.split, 'model': None if a.oracle else a.model,
            **score(rows, res), 'exhaustive_monotone_check': exhaustive()}
     out['per_text'] = [{'id': r['id'], 'category': r['category'], **res[r['id']]} for r in rows]
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)

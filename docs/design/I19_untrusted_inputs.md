@@ -32,8 +32,8 @@ contained in the set without advice for the same frames. So P(unsafe delivery | 
 
 **Cost bound.** Adversarial advice can cost at most:
 * one wasted visit per station, from wrong reordering;
-* extra false refusals at the caution threshold, at the per-view false-alarm rate measured in study K (about 2% per view
-  in T2).
+* extra false refusals at the caution threshold, at the per-view false-alarm rate measured in study K (4/193 per view at tau=0.0113; an approximation for 0.01).
+
 
 These two numbers bound the denial-of-service an attacker can buy through advice.
 

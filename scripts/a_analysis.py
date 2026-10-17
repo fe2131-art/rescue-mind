@@ -12,7 +12,7 @@ experiments/campaign_a_protocol_design_fire_masks.json; >= 614 px in any view, a
       by world; monotone vs the no-advice control: violations (monotone unsafe where the control was safe) and Wilson bound.
   A2  time saved by truthful advice (S worlds): control minus monotone, paired by world, exact Wilcoxon.
   A3  denial-of-service cost of adversarial advice in monotone mode vs the design bound: extra visits <= 1 per run and
-      false refusals <= the 95th percentile of the Poisson-binomial sum of per-run bounds (2% per view, 3-4 views).
+      false refusals <= the 95th percentile of the Poisson-binomial sum of per-run bounds (study K rate 4/193 per view at tau=0.0113, 3-4 views).
 """
 from __future__ import annotations
 import json
@@ -30,7 +30,8 @@ RES = ROOT / 'experiments/results'
 DELIVERED = ('ALLOW', 'ALLOW_AFTER_SEARCH', 'ALLOW_MEMORY', 'ALLOW_ADVICE')
 OTHER = {'water': 'medicine', 'medicine': 'water'}
 UNSAFE_CAPABLE = ('poison_safe', 'poison_location')      # a delivery under this advice can be unsafe (fire / wrong supply)
-PER_VIEW_FALSE_ALARM = 0.02                               # study K / T2, at the caution threshold (design doc)
+PER_VIEW_FALSE_ALARM = 4 / 193                            # study K, held-out fire-free images at tau=0.0113 (k_summary.json, alpha 0.1 K_PAC): 4/193 per view;
+                                                          # an approximation for the caution threshold 0.01
 VIEWS = {'poison_hazard': 3, 'poison_location': 4}       # front + 2 sides at the caution station; + the wasted front view
 
 
