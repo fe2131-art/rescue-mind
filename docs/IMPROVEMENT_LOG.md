@@ -337,3 +337,25 @@
 * **変更**：新しいフラグ `--jev-schema {jev,task}`（`scripts/v32_orchestrate.py` → `ros/gazebo_waypoint_mission.py` → `rescuemind/local_vision.py` の `verify_station_local`）。`task` で課題向けの質問を使う。
 * **計測**：事前登録した閉ループ評価J（`experiments/PREREGISTRATION_J.md`、24世界の対比較、A＝v3.6 と J）。主要な基準は、P1：V100 1台で失敗なく走る、P2：危険な配達が J ≤ A。結果：実行待ち（`scripts/final_chain.sh`）。
 * **留意点（正直な書き方）**：Clef-Flash のモデルカードは Qwen/Qwen3.5-9B からの追加学習（`base_model: Qwen/Qwen3.5-9B`、`base_model_relation: finetune`）と記している。2つのモデルは系統を共有するので、多様性は追加学習・大きさ・質問の書き方に由来し、独立開発ではない。N バージョン・プログラミングでは独立に作った版でも誤りが相関すること（Knight & Leveson, 1986）が知られており、相関した失敗が残る可能性を結果の解釈で考慮する（D11, D14）。
+
+
+---
+
+## I-18 現場の人への1枚報告（実用性）
+
+* **動機**：ロボットの判断は JSON の記録と1文の状況報告にしか残らず、現場の人が「何を見て、なぜ止まり、次に何をすればよいか」をすぐに読めなかった。第三者採点では実用性が最も低かった（6.0〜6.5/10）。
+* **仮説**：記録だけから1枚の報告を自動で作れば、判断の根拠（画像と確率）と次の行動が一目で分かり、運用で使える形になる。
+* **変更**：`rescuemind/operator_report.py`（純粋関数）と `scripts/make_operator_report.py`（PNG＋PDF の描画）。報告に載せるもの：
+  * 依頼とその解釈。
+  * 結論（色付き）。
+  * 現地で確認したすべての画像（正面・探索先・左右）と、それぞれの判定。
+  * 判断の理由と確率。
+  * 出動をまたぐ記憶の提案と、前回からの変化。
+  * 次にしてほしいこと。例：火災の確認依頼、在庫表の更新、補充依頼。
+  * ロボットの説明文（判断には使っていないと明記）。
+  * 監査済みかどうか。
+  * 単体テスト `tests/test_i18_operator_report.py`。
+* **Before/After**：
+  * Before：JSON と1文の説明だけ。
+  * After：1ページの報告（例：`docs/figures/operator_report_hidden_fire.png`、`operator_report_recover.png`）。
+* **判断**：採用する。オーケストレータから毎回自動で作る組み込みは、実行中の評価が終わってから行う（評価中は実行時コードを変更しない規則のため）。
