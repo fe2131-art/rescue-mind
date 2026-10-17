@@ -358,6 +358,10 @@ def main():
         g = json.loads(gf.read_text()); pr = g['primary']
         m['GPairs'] = pr['n_world_pairs_fire_perceivable']; m['GWrongB'] = pr['wrong_deliveries_B']
         m['GWrongC'] = pr['wrong_deliveries_C']; m['GMcNemarP'] = f"{pr['mcnemar_p']:.4f}"
+        # R5 #1: plug-in value of the per-check error budget with look-around (eps_hat = wrong_C / pairs) and k = 2
+        _lo, _hi = wilson(pr['wrong_deliveries_C'], pr['n_world_pairs_fire_perceivable'])
+        m['GEpsHat'] = f"{pr['wrong_deliveries_C'] / pr['n_world_pairs_fire_perceivable']:.3f}"; m['GEpsUpper'] = f"{_hi:.2f}"
+        m['GKEpsHat'] = f"{2 * pr['wrong_deliveries_C'] / pr['n_world_pairs_fire_perceivable']:.3f}"; m['GKEpsUpper'] = f"{2 * _hi:.2f}"
         m['GDiscB'] = pr['discordant_B_only']; m['GDiscC'] = pr['discordant_C_only']
         for cfg in ('B', 'C'):
             c = g['per_config'][cfg]
@@ -771,7 +775,7 @@ def main():
     m.pending(['DevFAvThreeFive', 'DevFAB', 'DevFireN', 'FPairs', 'FWrongA', 'FWrongB', 'FMcNemarP', 'FCorrectA', 'FCorrectB',
                'FFalseStopA', 'FFalseStopB', 'FLatA', 'FLatB', 'TTRefFA', 'TTRefCA', 'TTRefSmall', 'TTSelFA', 'TTSelCA',
                'TTSelSmall', 'TTSelP', 'TTBFA', 'TTBCA', 'TTBSmall', 'TTBP', 'TTClefFA', 'TTClefCA', 'GPairs', 'GWrongB',
-               'GWrongC', 'GMcNemarP', 'GCorrectB', 'GCorrectC', 'GFalseStopB', 'GFalseStopC', 'GWallB', 'GWallC',
+               'GWrongC', 'GEpsHat', 'GEpsUpper', 'GKEpsHat', 'GKEpsUpper', 'GMcNemarP', 'GCorrectB', 'GCorrectC', 'GFalseStopB', 'GFalseStopC', 'GWallB', 'GWallC',
                'FDiscA', 'FDiscB', 'GDiscB', 'GDiscC', 'GWallPlainB', 'GWallPlainC', 'GLookCost', 'TTPairFA', 'TTPairCA',
                'TimDrive', 'TimCheck', 'TimVlm'])
     m.pending(['RNimg', 'RNdeny', 'RNallow', 'RNfire', 'RNcond', 'RNworlds', 'RPoolFA', 'RPoolCI', 'RPoolSupported', 'RUnsafeConds',
