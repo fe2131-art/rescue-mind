@@ -353,6 +353,21 @@ def v_result_text(vs):
             f"モデルの予測：<b>{ok_(vs['claim_model_predicts'])}</b>、ランダムな変化でも安全に速い：<b>{ok_(vs['claim_memory_under_random_change'])}</b>")
 
 
+def w_result_text(ws):
+    """Study W as one string; PEND when w_summary.json (or one of its parts) is absent."""
+    try:
+        a, b = ws['W-a'], ws['W-b']
+        la, fr = a['miss_look_around'], a['miss_front_only']
+        S, nd = b['systems'], b['n_deny']
+        ok_ = lambda x: '成立' if x else '不成立'
+        base = '・'.join(f"{n.split(' (')[0]} {S[n]['false_approvals']}" for n in b['primary_baselines'])
+        return (f"小さく隠れた火の見逃し 正面のみ {fr['k']}/{fr['n']}、見回し {la['k']}/{la['n']}（Wilson 95%CI {100 * la['ci95'][0]:.0f}〜{100 * la['ci95'][1]:.0f}%）。"
+                f"同じ入力での誤許可（{nd}件中）本方式 {S[b['primary_reference']]['false_approvals']}、{base}。"
+                f"見逃しの上限：<b>{ok_(a['criteria']['claim_eps_tight'])}</b>")
+    except (TypeError, KeyError):
+        return PEND
+
+
 def p_auroc():
     """AUROC of the hazard probability on the 400 real photographs (descriptive, not registered); None if the scores are absent."""
     rows = ledger('p_scores_qwen9b_h36_tiles.jsonl')
@@ -603,7 +618,7 @@ def sec_prereg(D, E):
             ['J', '2つのAIがシミュレーションの閉ループで動くか', reg('J'),
              f"危険な配達 A {j['P2_no_extra_unsafe']['unsafe_A']}、J {j['P2_no_extra_unsafe']['unsafe_J']}" if j else PEND],
             ['V', 'モデルの予測は閉ループで当たるか（ランダムな変化）', reg('V'), v_result_text(jload('v_summary.json'))],
-            ['W', '隠れた火の画像の検出、先行手法との比較', reg('W'), '結果は w_summary.json（解析後）' if jload('w_summary.json') else PEND],
+            ['W', '隠れた火の画像の検出、先行手法との比較', reg('W'), w_result_text(jload('w_summary.json'))],
             ['K', '保証付きの閾値は既定の閾値より良いか', reg('K'),
              (f"T2の見逃し：既定 {kk['frozen']['heldout_miss']['k']}/{kk['frozen']['heldout_miss']['n']}、保証付き(α=0.05) "
               f"{kk['alphas']['0.05']['K_PAC']['heldout_miss']['k']}/{kk['frozen']['heldout_miss']['n']}、誤警報 "
@@ -732,7 +747,8 @@ def headline(D, E, V, after_fig=()):
         rows.append(['<b>P</b> 実写の火災画像', PEND, ''])
     rows.append(['<b>H</b> 出動をまたぐ記憶', h_res, '素朴な記憶は比較用。世界の変化は台本どおり。記憶なしの1件は本方式なら止まった（1件の事例）' if h else '結果が出たら資料に反映する'])
     rows.append(['<b>V</b> ランダムな変化での予測検証', v_res, '' if vs else '事前登録済み（PREREGISTRATION_V.md）、結果はこれから'])
-    rows.append(['<b>W</b> 隠れた火の画像と先行手法との比較', PEND, 'Vの後に登録（PREREGISTRATION_W.md）。正面のみ対 横から見直す、VAP-TAMP風・KnowNo風との比較'])
+    ws = jload('w_summary.json')
+    rows.append(['<b>W</b> 隠れた火の画像と先行手法との比較', w_result_text(ws), '' if ws else 'Vの後に登録（PREREGISTRATION_W.md）。正面のみ対 横から見直す、VAP-TAMP風・KnowNo風との比較'])
     rows.append(['<b>J</b> 2つのAIの閉ループ', j_res, '' if j else 'スモーク試験では V100 1台に載り、閉ループが完走した'])
     out += [Spacer(1, 4), table(rows, [42, 74, 58]), Spacer(1, 3),
             P('すべてシミュレーション上の評価で、実写で検証したのは火災判定（P）だけ。ロボットを動かす評価（E・G・H・J）は、実機でも実写でも未検証。'

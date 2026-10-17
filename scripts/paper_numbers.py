@@ -641,6 +641,26 @@ def main():
     vm_, vk_ = m.lookup('VClaimModel'), m.lookup('VClaimMemory')
     m['StatV'] = (vm_ if vm_ == vk_ else f'model: {vm_}; memory: {vk_}') if (vm_ and vk_) else 'pending'
     m['StatPtwo'] = m.lookup('PTwoClaim') or 'pending'
+    # ---- study W (look-around miss rate on small partly hidden fires; closest prior-art mechanisms) -- absent until w_analysis ran
+    wf = RES / 'w_summary.json'
+    if wf.is_file():
+        w = json.loads(wf.read_text())
+        wa, wb = w.get('W-a'), w.get('W-b')
+        if isinstance(wa, dict):
+            la, fr, tw = wa['miss_look_around'], wa['miss_front_only'], wa['twins']['extra_false_stop_from_side_views']
+            m['WNPerc'] = la['n']; m['WMissLA'] = f"{la['k']}/{la['n']}"; m['WMissFront'] = f"{fr['k']}/{fr['n']}"
+            m['WMissLARate'] = pct(la['rate']); m['WMissLACI'] = ci(la['k'], la['n'])
+            m['WExtraStop'] = f"{tw['k']}/{tw['n']}"
+            m['WClaimEps'] = sup(wa['criteria']['claim_eps_tight']); m['WClaimCost'] = sup(wa['criteria']['claim_cost_acceptable'])
+        if isinstance(wb, dict):
+            S, nd = wb['systems'], wb['n_deny']
+            fa = lambda name: f"{S[name]['false_approvals']}/{nd}"
+            m['WFAOursFull'] = fa(wb['primary_reference'])
+            for key, name in zip(('Vote', 'KnowFive', 'KnowTen'), wb['primary_baselines']):
+                m[f'WFA{key}'] = fa(name)
+            m['WNDist'] = sum(bool(S[n_].get('mechanism_matters')) for n_ in wb['primary_baselines'])
+    wce, wcc, wnd = m.lookup('WClaimEps'), m.lookup('WClaimCost'), m.lookup('WNDist')
+    m['StatW'] = f"bound: {wce}; cost: {wcc}; prior art distinguished: {wnd}/3" if (wce and wcc and wnd is not None) else 'pending'
     # ---- registration audit: each registration commit must precede the first commit of its results
     import subprocess
 
@@ -652,7 +672,7 @@ def main():
                ('T2', 'PREREGISTRATION_T2.md', 'devset_t2_i11_h36_tiles.json'), ('F', 'PREREGISTRATION_F.md', 'campaign_F_ledger.jsonl'),
                ('G', 'PREREGISTRATION_G.md', 'campaign_G_ledger.jsonl'), ('R', 'PREREGISTRATION_R.md', 'devset_r_gaussian_noise_M.json'),
                ('H', 'PREREGISTRATION_H.md', 'campaign_H_ledger.jsonl'), ('J', 'PREREGISTRATION_J.md', 'campaign_J_ledger.jsonl'),
-               ('V', 'PREREGISTRATION_V.md', 'v_summary.json'),
+               ('V', 'PREREGISTRATION_V.md', 'v_summary.json'), ('W', 'PREREGISTRATION_W.md', 'w_summary.json'),
                ('Z', 'PREREGISTRATION_Z.md', 'z_summary.json'), ('K', 'PREREGISTRATION_K.md', 'k_summary.json'), ('P', 'PREREGISTRATION_P.md', 'p_summary.json'), ('P2', 'PREREGISTRATION_P2.md', 'p2_summary.json')]
     rows = [r'\begin{tabular}{llllc}', r'\toprule', r'Study & Registered (commit, date) & First results (commit, date) & Amendments & Order \\', r'\midrule']
     ok_all = True
@@ -707,7 +727,9 @@ def main():
                'JCorrectA', 'JCorrectJ', 'JUnsafeA', 'JUnsafeJ', 'JFalseRefA', 'JFalseRefJ', 'JFailedA', 'JFailedJ', 'JLatA', 'JLatJ',
                'JPeakVram', 'JMcNemarP', 'JClaim', 'JUnsafeJUpper', 'JUnsafeAUpper',
                'VPredDiff', 'VPredDiffPI', 'VObsDiff', 'VPredUnsafezero', 'VPredUnsafeone', 'VPredUnsafetwo', 'VUnsafeMzero', 'VUnsafeMone', 'VUnsafeMtwo',
-               'VSeqP', 'VClaimModel', 'VClaimMemory', 'PRecall', 'PFalseAlarm', 'PRecallCI', 'PFalseAlarmCI', 'PAuroc',
+               'VSeqP', 'VClaimModel', 'VClaimMemory',
+               'WNPerc', 'WMissLA', 'WMissFront', 'WMissLARate', 'WMissLACI', 'WExtraStop', 'WClaimEps', 'WClaimCost',
+               'WFAOursFull', 'WFAVote', 'WFAKnowFive', 'WFAKnowTen', 'WNDist', 'PRecall', 'PFalseAlarm', 'PRecallCI', 'PFalseAlarmCI', 'PAuroc',
                'PTwoWording', 'PTwoTau', 'PTwoRecall', 'PTwoRecallCI', 'PTwoFA', 'PTwoFACI', 'PTwoClaim', 'PTwoFrozenRecall', 'PTwoFrozenFA'])
     for name in ('tab_t1_models.tex', 'tab_t1_ablation.tex', 'tab_e_strata.tex', 'tab_i13_dev.tex', 'tab_r.tex', 'tab_h_arms.tex', 'tab_h_sequences.tex'):
         tables.setdefault(name, r'\begin{tabular}{l}\TBD\end{tabular}')

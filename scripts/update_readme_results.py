@@ -334,6 +334,21 @@ def v_text():
         return PENDING
 
 
+def w_text():
+    w = jl('w_summary.json')
+    try:
+        a, b = w['W-a'], w['W-b']
+        la, fr, tw = a['miss_look_around'], a['miss_front_only'], a['twins']['extra_false_stop_from_side_views']
+        S, nd = b['systems'], b['n_deny']
+        base = '、'.join(f"{n.split(' (')[0]} {S[n]['false_approvals']}/{nd}" for n in b['primary_baselines'])
+        return (f"小さく隠れた火（{la['n']}世界）の見逃し：正面のみ {fr['k']}/{fr['n']}、見回し {la['k']}/{la['n']}（Wilson 95%CI {pct(la['ci95'][0])}〜{pct(la['ci95'][1])}）、"
+                f"火の無い双子での余計な停止 {tw['k']}/{tw['n']}。同じ入力（全体画像）での誤許可：本方式 {S[b['primary_reference']]['false_approvals']}/{nd}、{base}。"
+                f"見逃しの上限の主張 {'成立' if a['criteria']['claim_eps_tight'] else '不成立'}、先行手法と区別できた数 "
+                f"{sum(bool(S[n].get('mechanism_matters')) for n in b['primary_baselines'])}/3")
+    except (TypeError, KeyError):
+        return PENDING
+
+
 def audit_text():
     f = ROOT / 'docs/paper/tab_prereg.tex'
     if not f.is_file():
@@ -561,6 +576,15 @@ def section_en(e, v):
         L.append(f"| V: model vs. closed loop (random change) | M0-M2 time saving observed {d1['mean_M0_minus_M2_s']:.0f} s (registered 95% interval {d1['pred']['p2.5']:.0f}-{d1['pred']['p97.5']:.0f} s); unsafe deliveries M0 {av['M0']['unsafe']}, M1 {av['M1']['unsafe']}, M2 {av['M2']['unsafe']}; model-predicts claim {'supported' if v['claim_model_predicts'] else 'not supported'}, memory-under-random-change claim {'supported' if v['claim_memory_under_random_change'] else 'not supported'} |")
     except (TypeError, KeyError):
         L.append('| V: model vs. closed loop (random change) | pre-registered, running |')
+    try:
+        w = jl('w_summary.json'); wa, wb = w['W-a'], w['W-b']
+        la, fr, tw = wa['miss_look_around'], wa['miss_front_only'], wa['twins']['extra_false_stop_from_side_views']
+        Sw, nd = wb['systems'], wb['n_deny']
+        L.append(f"| W: small hidden fires (image level) and prior-art baselines | miss front-only {fr['k']}/{fr['n']}, look-around {la['k']}/{la['n']} (Wilson 95% CI {pct(la['ci95'][0])}-{pct(la['ci95'][1])}); extra false stops on fire-free twins {tw['k']}/{tw['n']}; "
+                 f"false approvals at the same input: ours-full {Sw[wb['primary_reference']]['false_approvals']}/{nd}, " + ', '.join(f"{n.split(' (')[0]} {Sw[n]['false_approvals']}/{nd}" for n in wb['primary_baselines'])
+                 + f"; bound claim {'supported' if wa['criteria']['claim_eps_tight'] else 'not supported'}, distinguished from {sum(bool(Sw[n].get('mechanism_matters')) for n in wb['primary_baselines'])} of 3 baselines |")
+    except (TypeError, KeyError):
+        L.append('| W: small hidden fires and prior-art baselines | pre-registered, not yet run |')
     if not (h_ok and j_ok):
         L += ['', 'Campaigns ' + ('J' if h_ok else 'H and J' if not j_ok else 'H') + ': pre-registered, running.']
     L += ['', '**Limitations.** Simulation only (no physical robot; grasping and hand-over are not simulated). '
@@ -616,6 +640,7 @@ def main():
     head.append(f"| 評価H（出動をまたぐ記憶） | 前回の物資の場所を「先に行く拠点」の提案だけに使う。記憶なし・素朴な記憶・検証つき記憶を対比較 | {h_text()} |")
     head.append(f"| 評価J（2つのAI） | Jev役 Clef-Flash＋Qwen の2モデル確認を閉ループで、v3.6単独と対比較 | {j_text()} |")
     head.append(f"| 評価V（ランダムな変化での予測検証） | 出動ごとに世界がランダムに変わる10系列×6出動で、事前登録した予測区間と実測を比較 | {v_text()} |")
+    head.append(f"| 評価W（小さく隠れた火の見逃しと先行手法） | 画像レベル：正面のみ対見回し（150火世界＋75双子）、VAP-TAMP風の投票・KnowNo風の共形集合との誤許可の比較 | {w_text()} |")
     parts = ['<!-- RESULTS:START -->', '## 結果', '',
              '事前登録した評価の一覧（D・E・F・G・T1・T2・Z・P・R・K・H・J）。Qwen3.5-9B（ローカル・V100）。条件・閾値・解析は結果を見る前に `experiments/PREREGISTRATION_*.md` に固定し、台帳は全試行を記録。', '',
              '用語：**誤許可**＝届けてはいけない場面で「届けてよい」と判断してしまうこと（ロボットを実際に動かす評価では**誤配達**。火のある拠点から届けてしまうことは**危険な配達**）。**正しい許可**＝届けてよい場面で正しく「よい」と判断できること。**閉ループ**＝AIの判断でロボットが実際に動くところまで含めた評価。', '',
