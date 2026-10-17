@@ -388,6 +388,14 @@ def mission_segment(run_dir: Path, spec: dict, cam: FilmCamera, emit, narr=None,
                 # after the final decision the banner's slot shows the change report (no extra height -> no overlap)
                 draw_memory_changes(d, chg_lines, (1356, y - 4, 1866, y + 62))
                 y += 66
+            elif [x for x in ((mission.get('advice') or {}).get('rejected') or []) if x.get('kind') in ('safe', 'skip')]:
+                # I-19: advice that tried to relax a check is shown as rejected (it can only reorder or add caution)
+                rej = [x for x in mission['advice']['rejected'] if x.get('kind') in ('safe', 'skip')][0]
+                rounded(d, (1356, y - 4, 1866, y + 58), (92, 58, 24), 10)
+                text(d, (1366, y), '助言（依頼文）→ 確認は省けないため不採用', 18, (255, 214, 160), True)
+                for k, ln in enumerate(wrap_lines(f"「{rej.get('text') or '確認不要'}」", 18, 490)[:1]):
+                    text(d, (1366, y + 26 + 22 * k), ln, 18, INK)
+                y += 66
             elif mem.get('mode') == 'verified' and mem.get('rationale'):
                 # I-15: what the memory proposed for this mission (it never skips a check)
                 rounded(d, (1356, y - 4, 1866, y + 58), (40, 44, 92), 10)
