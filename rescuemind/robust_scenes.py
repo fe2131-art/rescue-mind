@@ -265,6 +265,13 @@ def _apply_layout(world, lay) -> None:
         m.find('pose').text = f'{x:g} {y:g} {v[2]:g} {v[3]:g} {v[4]:g} {v[5] + yaw:g}'
 
 
+def _depot_k(depot) -> int:
+    k = int(depot.get('stations') or 2)
+    if k not in (2, 4):
+        raise ValueError("depot['stations'] must be 2 (the arena's stations) or 4")
+    return k
+
+
 def build_variant(src: Path, *, lighting: str = 'default', distractor_at: str | None = None,
                   hazard_at: str | None = None, lighting_params: dict | None = None,
                   prop_offsets: dict | None = None, hazard_geom: tuple[float, float] | None = None,
@@ -279,10 +286,10 @@ def build_variant(src: Path, *, lighting: str = 'default', distractor_at: str | 
     prop_offsets stay world-frame offsets added to the (moved) prop pose."""
     tree = ET.parse(src)
     world = tree.getroot().find('world')
-    if depot:
+    if depot and depot.get('surroundings', True):
         # I-21: realistic relief-depot surroundings (AWS small warehouse, MIT-0) around the unchanged operating area
         from .depot import add_depot
-        add_depot(world, seed=depot.get('seed'), obstacle=bool(depot.get('obstacle')))
+        add_depot(world, seed=depot.get('seed'), obstacle=bool(depot.get('obstacle')), k=_depot_k(depot))
     preset = lighting_params or LIGHTING[lighting]
     if preset:
         world.find('scene/ambient').text = preset['ambient']
@@ -292,8 +299,18 @@ def build_variant(src: Path, *, lighting: str = 'default', distractor_at: str | 
         sun.find('diffuse').text = preset['diffuse']
     # which platforms are empty is decided from the scene definition, BEFORE any prop is moved
     # (T1 amendment 1: checking after the move made every platform with a moved supply look empty)
-    empty_at = {st: _platform_empty(world, *xy) for st, xy in STATIONS.items()}
-    stations = STATIONS
+    k4 = bool(depot) and _depot_k(depot) == 4
+    if k4:
+        # I-21 phase 2: four supply pallets (ids W1 M1 W2 M2) with props per depot['supply_at']; stations / empty_at
+        # (and with them distractor_at / hazard_at, which then take these ids) follow the four pallets
+        if layout is not None:
+            raise ValueError('a Study L layout and the four-station depot cannot be combined')
+        from .depot import add_k4_stations
+        stations, supply = add_k4_stations(world, depot.get('supply_at'))
+        empty_at = {st: supply[st] is None for st in stations}
+    else:
+        empty_at = {st: _platform_empty(world, *xy) for st, xy in STATIONS.items()}
+        stations = STATIONS
     if layout is not None:
         from .layout import Layout
         lay = Layout.from_dict(layout)
@@ -356,6 +373,11 @@ def write_variant(scene_dir: Path, out_dir: Path, scene: str, **kw) -> Path:
     path = out_dir / f'rescuemind_{tag}.sdf'
     path.write_bytes(build_variant(scene_dir / f'rescuemind_{scene}.sdf', **kw))
     return path
+
+
+def truth_for_depot(supply: dict, station: str, *, hazard_at: str | None = None) -> dict:
+    """Label of one pallet of the four-station depot; `supply` = rescuemind.depot.supply_map / add_k4_stations output."""
+    return {'truth_supply': supply[station] or 'other', 'truth_hazard': hazard_at == station}
 
 
 def truth_for(scene: str, station: str, *, hazard_at: str | None = None) -> dict:
