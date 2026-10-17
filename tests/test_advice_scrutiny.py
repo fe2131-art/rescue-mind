@@ -151,6 +151,9 @@ class Audit(unittest.TestCase):
             adv.audit_scrutiny(m)
         with self.assertRaises(adv.AdviceError):
             adv.audit_scrutiny(self.mission(advice_scrutiny=False))
+        m = self.mission(); m['checkpoint']['look_around']['peeks'] = [{'side': 'L'}, {'side': 'R'}] + [{'side': 'N'}] * 3
+        with self.assertRaises(adv.AdviceError):          # three views of ONE extra pose are not the three extra poses
+            adv.audit_scrutiny(m)
 
     def test_a_refusal_or_a_run_without_scrutiny_is_not_constrained(self):
         m = self.mission(); m['checkpoint'] = {'decision': {'allow': False}}

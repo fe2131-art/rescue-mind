@@ -304,7 +304,7 @@ def audit_scrutiny(mission: dict) -> dict:
     if st in sc and (cp.get('decision') or {}).get('allow'):
         tau = cp.get('memory_caution_tau_h')
         la = cp.get('look_around') or mission.get('look_around') or {}
-        extra = [p for p in la.get('peeks') or [] if p.get('side') in ('L2', 'R2', 'N')]
+        extra = {p.get('side') for p in la.get('peeks') or []} & {'L2', 'R2', 'N'}      # each of the three poses, not 3 views of one
         if not (isinstance(tau, float) and tau <= CAUTION_TAU_H):
             raise AdviceError('scrutinised station approved without the caution threshold')
         if not (la.get('adaptive') or {}).get('scrutiny') or len(extra) < 3:
