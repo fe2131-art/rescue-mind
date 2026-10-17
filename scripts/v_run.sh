@@ -11,6 +11,12 @@ RES=experiments/results
 PROTO=experiments/campaign_v_protocol.json
 IN_NEXT=(docker exec rm-next rescuemind-entrypoint)
 
+# I-21 preview (2-3 min, before any V trial; uses the i21 worktree code, does not touch main's runtime code)
+if [ -f .claude/worktrees/i21/scripts/depot_preview.py ] && [ ! -f "$RES/depot_preview_done" ]; then
+  docker exec rm-next rescuemind-entrypoint bash -c "cd $PWD/.claude/worktrees/i21 && timeout 600 python3 scripts/depot_preview.py" \
+    > "$RES/depot_preview.log" 2>&1 && touch "$RES/depot_preview_done" || echo "depot preview failed (see $RES/depot_preview.log); V continues"
+  pkill -f "gz sim -s -r --headless-rendering -v 1 /tmp/depot_preview" 2>/dev/null || true
+fi
 # (a) pilot
 if [ ! -f "$RES/v_pilot_ok" ]; then
   "${IN_NEXT[@]}" python3 scripts/run_campaign.py --protocol experiments/campaign_v_pilot_protocol.json \

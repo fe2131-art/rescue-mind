@@ -3,6 +3,8 @@
 Physical AI 応用1講座 最終課題 ｜ ROS 2 Jazzy × Gazebo Harmonic × ローカルVLM（Qwen3.5-9B, Tesla V100）
 
 <!-- JUDGE:START -->
+![正面では見えない火を、横へ動いて撮り直して見つけ、許可を取り消して止まる（動画から16秒、等速と3倍速の区間を含む）](docs/figures/hero_lookaround.gif)
+
 **問題**：災害時の物資配達ロボットは、在庫表と現物の食い違い（水のはずが救急箱だった・空だった）や火災に出会う。指示どおり運ぶだけでは、誤った物資や危険な場所へ届けてしまう。
 
 **新しさ**：前回の出動の記憶は「どの拠点を先に見るか」を**提案するだけ**で、届けてよいかは必ず**その場のカメラ**で決める（記憶は提案、判断は目）。物資の陰の小さな火は正面からは見えないので、**横へ動いて撮り直す**（見回し）。
@@ -25,6 +27,7 @@ Physical AI 応用1講座 最終課題 ｜ ROS 2 Jazzy × Gazebo Harmonic × ロ
 * 説明資料（PDF）：[`docs/report/説明資料_PAI最終課題_tetsutetsu.pdf`](docs/report/説明資料_PAI最終課題_tetsutetsu.pdf)
 * 論文（PDF）：[`docs/paper/main.pdf`](docs/paper/main.pdf)（補足：[`supplement.pdf`](docs/paper/supplement.pdf)）
 * コード：本リポジトリ（動かし方は[下](#動かし方)）
+* 実際の現場に持っていくには：[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)（必要な機材、半日の導入手順、現場写真での閾値較正、運用中に起こること）
 
 <!-- GA:START -->
 ![RescueMind 要約図（問題・3つの工夫・事前登録した主な結果）](docs/figures/graphical_abstract_ja.png)
@@ -76,7 +79,7 @@ Physical AI 応用1講座 最終課題 ｜ ROS 2 Jazzy × Gazebo Harmonic × ロ
 | S: scene-text injection (image level) | pre-registered, not yet run |
 | R: 12 camera degradations | false approvals 0/2304 (at most 0/192 per condition, Wilson upper bound 2.0% per condition); claim supported |
 | Z: zero-shot baselines on T1 (false approvals / correct approvals; ours = v3.5 rule) | ours 3/408, 187/191; SigLIP 44/408, 191/191; CLIP 0/408, 2/191 |
-| P: real photos (D-Fire, 400) | fire/smoke detected 298/300; false alarms on fire-free photos 64/100 |
+| P: real photos (D-Fire, 400) | fire/smoke detected 298/300; false alarms on fire-free photos 64/100; P2, site-calibrated threshold on unseen photos: recall 282/300, false alarms 18/100 (claim supported) |
 | K: conformal threshold (stored scores, offline) | on unseen T2 (76 fires, 193 fire-free must-approve): frozen tau=0.05 misses 0/76, false alarms 0/193; calibrated alpha=0.05 (tau=0.005) misses 0/76, false alarms 26/193; alpha=0.10 (tau=0.0113) 0/76, 4/193. No threshold misses a T2 fire (a ceiling, so no difference is shown); the calibrated ones only add false alarms (T2 fires are easier: small fires 6.6% vs. 27% in calibration). K was registered after the T2 scores existed (scores were not re-tuned) |
 | H: cross-mission memory | median mission time, no memory vs. verified memory: 114 s vs. 79 s on the 8 pairs whose supplies stayed relocated (paired difference -34.68 s); when supplies were moved back, verified memory was slower, paying for a detour (113 s vs. 97 s); overall median 83 s vs. 73 s. Unsafe deliveries: naive memory (skips checks by design) 20/32 vs. verified memory 0/32 shows what skipping costs; the comparison that matters is no memory 1/32 vs. verified memory 0/32 (not less safe). Memory caution (tau_h=0.01) applied in 12 of 32 verified-memory missions, only 4 of them at a fire-free station (false refusals 0/4, Wilson upper bound 49%), so its cost is not established |
 | J: two-model check | expected 23/24 (single model 24/24); unsafe deliveries 1 (single model 0); failed runs 0 |
@@ -104,7 +107,7 @@ Physical AI 応用1講座 最終課題 ｜ ROS 2 Jazzy × Gazebo Harmonic × ロ
 | 未使用テスト T1（オフライン） | 開発に一度も使わない600枚（照明・位置・未知の妨害物・火災）、登録した規則（v3.4） | 誤許可 **5/408**（1.2%、95%CI 0.5%〜2.8%）、正しい許可 **187/191**（97.9%、95%CI 94.7%〜99.2%） |
 | 〃 v3.5（τ_h=0.05、副の事前指定） | 同じ画像・同じ保存済み確率から再計算 | 誤許可 **3/408**（0.7%、95%CI 0.2%〜2.1%）、正しい許可 **187/191**（97.9%、95%CI 94.7%〜99.2%） |
 | 評価Z（生成しないゼロショット基準） | 同じ画像・同じ判定構造で SigLIP・CLIP と比較（閾値は開発データだけで決定）。誤許可／正しい許可 | T1：本方式 誤許可 3/408・正しい許可 187/191、SigLIP 44/408・191/191、CLIP 0/408・2/191<br>T2：本方式 誤許可 0/407・正しい許可 190/193、SigLIP 47/407・193/193、CLIP 0/407・0/193 |
-| 評価P（実写真） | Gazebo外の実写真400枚（D-Fire）で火・煙の問いを検証 | 火・煙のある画像の検出 **298/300**（95%CI 97.6%〜99.8%）、火の無い画像の誤警報 **64/100**（54.2%〜72.7%）。P2（現場の火の無い画像で閾値を較正）：実行中（事前登録済み） |
+| 評価P（実写真） | Gazebo外の実写真400枚（D-Fire）で火・煙の問いを検証 | 火・煙のある画像の検出 **298/300**（95%CI 97.6%〜99.8%）、火の無い画像の誤警報 **64/100**（54.2%〜72.7%）。P2（現場の火の無い画像で閾値を較正）：較正に使っていない400枚で、再現率 282/300、誤警報 18/100（h35、τ_h=0.3。固定の0.05では 294/300・34/100）。登録した基準（再現率0.90以上かつ誤警報0.20以下）：**成立** |
 | 評価R（カメラの劣化） | 未使用T2の30世界に、ノイズ・ぼけ・露出・JPEG の12条件を加えて再評価 | 全条件をまとめた誤許可 **0/2304**（Wilson 95%CI 0.0%〜0.2%、「劣化に対して安全側」を支持）、最悪条件（overexposure_S）でも誤許可は増えず、代償は可用性：正しい許可 59/108（54.6%、うち品質ゲート棄却 24）、清浄画像では 107/108 |
 | 評価K（保証付きの閾値） | 火の見逃し率の上限αを保証するように、閾値を開発データ（火211枚）から決める方法（適合予測）。保存済みスコアの再解析 | 未使用T2（火76枚・火の無い必須許可193枚）：既定の0.05は見逃し 0/76・誤警報 0/193。保証付き α=0.05（τ=0.005）は見逃し 0/76・誤警報 26/193、α=0.10（τ=0.0113）は 0/76・4/193で、誤警報が増えるだけ（T2の小さな火は6.6%、開発データは27%で分布が違う）。開発データでの既定の見逃しは 23/211。**注意：Kは T2 のスコアが既にある状態で登録した（スコアは調整し直していない）** |
 | 評価H（出動をまたぐ記憶） | 前回の物資の場所を「先に行く拠点」の提案だけに使う。記憶なし・素朴な記憶・検証つき記憶を対比較 | 所要時間の中央値は、置き場所が変わったままの出動（8対）で 記憶なし 114 秒 → 検証つき記憶 79 秒（対ごとの差の中央値 -34.68 秒、Wilcoxon正確検定 p=0.00781）。置き場所が元に戻った出動では、記憶の提案先に寄ってから探すため検証つき記憶の方が遅い（113 秒 対 記憶なし 97 秒）。全体の中央値は 83 → 73 秒。比較対象の素朴な記憶は確認を省く方式なので、危険な配達 20/32 対 検証つき記憶 0/32は、確認を省く代償を示すもの（設計上の帰結）。安全面で意味のある比較は 記憶なし 1/32 対 検証つき記憶 0/32 で、検証つき記憶は記憶なしより危険ではない（追加リスクなし。1件対0件のため「より安全」とは言わない）。記憶による慎重さ（τ_h=0.01）が使われたのは検証つき記憶の32出動中 12 出動で、火のない拠点はそのうち 4 出動だけ（誤拒否 0/4、Wilson上限 49%）なので、慎重さの費用はまだ確立していない |
