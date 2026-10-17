@@ -28,9 +28,10 @@ ITEM_JA = {'water': '飲料水', 'medicine': '医療物資', 'other': '依頼物
 
 def _hazard_prob(call: dict) -> float:
     try:
-        return float(((call or {}).get('scores') or {}).get('hazard_prob') or 0.0)
+        p = float(((call or {}).get('scores') or {}).get('hazard_prob') or 0.0)
     except (TypeError, ValueError):
         return 0.0
+    return 1.0 if p != p else p      # NaN would be dropped by max(); a NaN hazard score counts as a hazard (fail-closed)
 
 
 def hazard_prob(call: dict) -> float:

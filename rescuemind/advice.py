@@ -28,6 +28,8 @@ from pathlib import Path
 
 from .mission_memory import STATIONS, CAUTION_TAU_H
 
+V36_TAU_H = 0.05          # the v3.6 hazard threshold: a caution threshold must be a finite number in (0, V36_TAU_H)
+
 KINDS = ('location', 'hazard', 'safe', 'skip')
 MODES = ('off', 'monotone', 'naive', 'filtered')
 FOLLOWING = ('naive', 'filtered')       # modes that follow advice (no monotone guarantee)
@@ -46,8 +48,12 @@ class AdviceError(ValueError):
 
 def validate(items: list[dict], stations=None) -> list[dict]:
     ids = tuple(stations.ids) if stations is not None else STATIONS
+    if items is None:
+        return []
+    if not isinstance(items, (list, tuple)):         # a file holding {} / 5 / "skip" is malformed, not 'no advice'
+        raise AdviceError(f'advice must be a list of items, got {type(items).__name__}')
     out = []
-    for a in items or []:
+    for a in items:
         if not isinstance(a, dict) or a.get('kind') not in KINDS or a.get('source') not in SOURCES:
             raise AdviceError(f'bad advice item: {a!r}')
         st = a.get('station')
@@ -62,7 +68,11 @@ def validate(items: list[dict], stations=None) -> list[dict]:
 def load(path: str | Path | None, stations=None) -> list[dict]:
     if not path:
         return []
-    return validate(json.loads(Path(path).read_text(encoding='utf8')), stations)
+    try:
+        doc = json.loads(Path(path).read_text(encoding='utf8'))
+    except RecursionError as e:                      # hostile nesting: an error (no advice), never an escaping crash type
+        raise AdviceError('advice file nested too deeply') from e
+    return validate(doc, stations)
 
 
 def base_plan(item: str, stations=None) -> dict:
@@ -133,7 +143,9 @@ def plan(item: str, items: list[dict], mode: str, base: dict | None = None, *, c
     for a in items:
         st, src = a['station'], SOURCE_JA[a['source']]
         if a['kind'] == 'location':
-            if out['first_station'] == cat and st != cat:      # own memory's proposal (if any) keeps priority
+            if out['first_station'] == cat and st != cat and not (mode == 'monotone' and out['skip_check']):
+                # own memory's proposal (if any) keeps priority.  Monotone never moves a memory-granted skip to another
+                # station: that station was not what memory vouched for (relative guarantee under a naive memory base)
                 out['first_station'] = st
                 if 'order' in out:
                     out['order'] = ss.order(item, st)          # reorder only: every other candidate stays
@@ -192,9 +204,13 @@ def assert_monotone(before: dict, after: dict, stations=None) -> None:
     if (after.get('skip_check') and not before.get('skip_check')) or (
             after.get('deny_without_visit') and not before.get('deny_without_visit')):
         raise AdviceError('monotone plan relaxes a check')
-    for st, c in (after.get('caution') or {}).items():
-        b = (before.get('caution') or {}).get(st)
-        if b is not None and float(c['tau_h']) > float(b['tau_h']):
+    b_cau, a_cau = before.get('caution') or {}, after.get('caution') or {}
+    for st in b_cau:
+        if st not in a_cau:
+            raise AdviceError('monotone plan removes a caution')
+    for st, c in a_cau.items():
+        tau = _tau(c)
+        if st in b_cau and not tau <= _tau(b_cau[st], strict=False):      # written so that NaN fails
             raise AdviceError('monotone plan loosens a caution threshold')
     if not set(before.get('scrutiny') or []) <= set(after.get('scrutiny') or []):
         raise AdviceError('monotone plan removes a scrutinised station')       # scrutiny may be added, never dropped
@@ -211,6 +227,15 @@ def assert_monotone(before: dict, after: dict, stations=None) -> None:
             raise AdviceError('monotone plan dropped or added a candidate station')
         if after['order'][0] != after.get('first_station'):
             raise AdviceError('first station is not the head of the candidate order')
+
+
+def _tau(c, strict: bool = True) -> float:
+    t = c.get('tau_h') if isinstance(c, dict) else None
+    if isinstance(t, bool) or not isinstance(t, (int, float)):
+        raise AdviceError('caution threshold is not a number')
+    if strict and not 0 < t < V36_TAU_H:             # also rejects NaN and inf
+        raise AdviceError('caution threshold must be a finite number in (0, 0.05)')
+    return float(t)
 
 
 def audit_plan(plan: dict) -> dict:
