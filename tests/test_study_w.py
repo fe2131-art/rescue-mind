@@ -282,15 +282,17 @@ class Baselines(unittest.TestCase):
         self.assertEqual([round(x, 3) for x in wa.holm([0.01, 0.04, 0.03])], [0.03, 0.06, 0.06])
 
     def test_evaluate_baselines_on_synthetic_images(self):
-        keys, ours, paras = [], {}, {}
+        keys, ours, paras, full = [], {}, {}, {}
 
-        def add(i, rec_, p):
+        def add(i, rec_, p, full_rec=None):
             k = ('t2', f'images/{i}.jpg')
-            ours[k], paras[k] = rec_, {'image': rec_['image'], 'para': p}
+            ours[k], paras[k], full[k] = rec_, {'image': rec_['image'], 'para': p}, full_rec or rec_
             keys.append(k)
         # 12 small visible fires: ours refuses all (tiles), the 5-vote @0.5 approves them (question scores far below 0.5)
+        # (the matched full-image arm of ours misses 4 of them: its single view gives p = 0.01 < tau_h)
         for i in range(12):
-            add(f'fire{i}', img_rec(f'fire{i}', 'deny', hp=0.2, vis='visible', px=800), para(.02, .02, .03, .01, .02, ref=.04))
+            add(f'fire{i}', img_rec(f'fire{i}', 'deny', hp=0.2, vis='visible', px=800), para(.02, .02, .03, .01, .02, ref=.04),
+                img_rec(f'fire{i}', 'deny', hp=0.2 if i < 8 else 0.01, vis='visible', px=800))
         # 12 clear images: everybody approves
         for i in range(12):
             add(f'ok{i}', img_rec(f'ok{i}', 'allow', hp=0.001), para(.001, .001, .001, .001, .001))
@@ -298,16 +300,24 @@ class Baselines(unittest.TestCase):
         add('wrong', img_rec('wrong', 'deny', supply=0.1), para(.001, .001, .001, .001, .001))
         dev = ([{'hazard_visibility': 'visible', 'para': para(.04 + .001 * i, 0, 0, 0, 0)} for i in range(30)] +
                [{'hazard_visibility': 'hidden', 'para': para(.001 * (i % 5), 0, 0, 0, 0)} for i in range(60)])
-        out = wa.evaluate_baselines(ours, paras, dev)
+        out = wa.evaluate_baselines(ours, paras, dev, full)
         S = out['systems']
-        o = S['ours (h36+tiles, tau_h 0.05)']
+        o = S[wa.OURS]
         self.assertEqual((o['false_approvals'], o['correct_approvals']), (0, 12))
+        of = S[wa.OURS_FULL]
+        self.assertEqual((of['false_approvals'], of['correct_approvals']), (4, 12))
         v = S['VAP vote majority@0.5']
         self.assertEqual((v['false_approvals'], v['correct_approvals']), (12, 12))
-        self.assertEqual(v['vs_ours']['false_approval'], {'ours_only': 0, 'baseline_only': 12, 'mcnemar_p': float(f'{2 * 0.5 ** 12:.3g}')})
+        # primary (matched, full image only): ours-full approves 4 fires, the vote 12
+        self.assertEqual(v['vs_ours_full']['false_approval'], {'ours_only': 0, 'baseline_only': 8, 'mcnemar_p': float(f'{2 * 0.5 ** 8:.3g}')})
+        self.assertAlmostEqual(v['primary_holm_p_false_approval'], 3 * 2 * 0.5 ** 8, places=4)
+        self.assertTrue(v['mechanism_matters'])
+        self.assertFalse(v['baseline_not_worse_than_ours_full'])
+        # secondary: the deployed system (tiles) approves none
+        self.assertEqual(v['vs_ours_deployed']['false_approval'], {'ours_only': 0, 'baseline_only': 12, 'mcnemar_p': float(f'{2 * 0.5 ** 12:.3g}')})
+        self.assertTrue(v['deployed_better'])
         self.assertEqual(v['small_fires'], {'small_fires_correct_supply': 12, 'approved': 12})
-        self.assertTrue(v['ours_better'])
-        self.assertFalse(v['baseline_not_worse_on_false_approvals'])
+        self.assertEqual(out['primary_reference'], wa.OURS_FULL)
         # KnowNo alpha=0.10 on this calibration: Yes scores are 1 - p in [0.941, 0.96], No scores p in [0, 0.004]
         k = S['KnowNo q1_h35 alpha=0.1']
         self.assertEqual(k['correct_approvals'], 12)
@@ -319,7 +329,7 @@ class Baselines(unittest.TestCase):
     def test_para_error_refuses(self):
         keys = {('t1', 'images/a.jpg'): img_rec('a', 'allow'), ('t1', 'images/b.jpg'): img_rec('b', 'deny', supply=0.1)}
         out = wa.evaluate_baselines(keys, {('t1', 'images/a.jpg'): {'para': {'error': 'x'}},
-                                           ('t1', 'images/b.jpg'): {'para': para(.1, .1, .1, .1, .1)}}, [])
+                                           ('t1', 'images/b.jpg'): {'para': para(.1, .1, .1, .1, .1)}}, [], keys)
         self.assertEqual(out['systems']['VAP vote majority@0.5']['correct_approvals'], 0)
         self.assertEqual(out['inference_errors_para'], 1)
 

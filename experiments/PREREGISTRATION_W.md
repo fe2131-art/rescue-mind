@@ -32,7 +32,8 @@ is what `combine_with_look_around` computes. W does **not** test navigation, tim
 **Labels** (generator and renders only, never a model; `scripts/build_testset_w.py --labels`).
 * Fire pixels per view come from a flat-magenta re-render of the fire at the same pose (occlusion-aware, as in T1 amendment 2).
   A view shows the fire if it has ≥ 614 pixels. (`t1.mask_label` needs ≥ 614.4, i.e. 615, but the design masks of G, H and V use
-  ≥ 614. W follows the design masks and writes the rule out in `view_label`.)
+  ≥ 614. W follows the design masks and writes the rule out in `view_label`. The two rules differ only for an image with exactly 614
+  fire pixels; the T1/T2 labels used in W-b keep their original rule, ≥ 615.)
 * A fire world is **perceivable** if any of its three views shows the fire. It is **front-perceivable** if the front view does,
   and **side-only** if only a side view does.
 * A perceivable fire world must not end in a delivery. An imperceptible fire world is reported separately and is not in any
@@ -89,13 +90,17 @@ is what `combine_with_look_around` computes. W does **not** test navigation, tim
 
 **Data.** Existing images and labels only: T1 (600), T2 (600, the held-out test sets), and the development sets DH and DH2
 (300 each). T1 and T2 are the test sets; DH and DH2 are used **only for calibration** of the conformal baseline. Scores of
-the frozen v3.6 on T2, DH and DH2 exist already; T1 has not been scored with v3.6 (`h36 + tiles`) and is scored now
-(`t1_i11_h36_tiles`). Labels are those of the files (`expected`, `hazard_visibility`, `fire_pixels`); ambiguous images are
+the frozen v3.6 on T2, DH and DH2 exist already, with `h36 + tiles` and with `h36` on the full image
+(`devset_{dh,dh2,t2}_i11_h36_{tiles,full}.json`). T1 has not been scored with either and is scored now (`t1_i11_h36_tiles`,
+`t1_i11_h36_full`). Labels are those of the files (`expected`, `hazard_visibility`, `fire_pixels`); ambiguous images are
 excluded, as in T1/T2.
 
 **Systems.** Every system keeps ours' supply check (both passes name the requested supply with probability ≥ 0.50) and
 changes only the hazard rule. A failed inference refuses.
-* **Ours:** v3.6, `h36 + tiles`, τ_h = 0.05 (the stored scores).
+* **Ours-full (matched arm):** the v3.6 hazard wording `h36`, asked on the **full image only**, τ_h = 0.05, same supply check.
+  It has the same input as the baselines (one image, no crops), so it isolates the hazard rule: a hand-written small-fire
+  wording and a low threshold chosen on development data, versus voting over paraphrases or a conformal set.
+* **Ours (deployed v3.6):** `h36 + tiles` (full image plus three enlarged crops, maximum), τ_h = 0.05.
 * **VAP-TAMP-style vote** (Oloo et al. 2026, as closely as an offline score allows): five paraphrased yes/no hazard questions
   on the full image. Each answers Yes if p(Yes) ≥ 0.5 (the model's own answer, no threshold tuned). **Refuse if ≥ 3 of 5 say Yes.**
   The questions (`PARAPHRASE_SETS['w5']` in `scripts/local_vlm_server.py`, a new set; no existing prompt, endpoint or
@@ -116,21 +121,25 @@ changes only the hazard rule. A failed inference refuses.
   * Secondary: class-conditional (Mondrian) calibration, which is study K's threshold in the same form.
 
 **Primary endpoints** (T1 and T2 pooled, non-ambiguous images; pairs are images).
+The **primary comparison is matched: Ours-full against each baseline** (same input, the full image only).
 * **W-b1 (false approvals).** For each of the three primary baselines (vote@0.5, conformal α = 0.05, conformal α = 0.10):
-  false approvals on must-refuse images with Wilson CI (and world-cluster bootstrap CI), and the exact McNemar test of ours
+  false approvals on must-refuse images with Wilson CI (and world-cluster bootstrap CI), and the exact McNemar test of Ours-full
   against the baseline on the paired false approvals. P-values are Holm-adjusted over the three comparisons.
 * **W-b2 (correct approvals).** Correct approvals on must-approve images with Wilson CI, and the paired exact McNemar test.
-* **Verdict per baseline.** *The mechanism matters* only if ours has fewer false approvals, the Holm-adjusted p < 0.05, **and**
-  ours' correct-approval rate is not lower by more than 5 points. If a baseline has no more false approvals than ours, the paper
-  says that the baseline is not distinguished (or better) on these images. Both outcomes are reported.
+* **Verdict per baseline.** *The mechanism matters* only if Ours-full has fewer false approvals, the Holm-adjusted p < 0.05,
+  **and** its correct-approval rate is not lower by more than 5 points. If a baseline has no more false approvals than Ours-full,
+  the paper says that the baseline is not distinguished (or better) on these images. Both outcomes are reported.
+
+**Secondary comparison: the deployed system (`h36 + tiles`) against the same three baselines**, with the same statistics and
+the same Holm adjustment (a separate family of three) and the same verdict rule (`deployed_better`). It answers "what does the
+whole deployed check buy over the baselines", not "which hazard rule is better", because the deployed system also sees the crops.
+A baseline given the same crops is not part of W; adding it would be an amendment recorded before any W-b inference.
 
 **Secondary (descriptive).**
-* Hazard recall on small visible fires (< 10 000 pixels), where ours is weakest and the baselines are expected to differ.
+* Hazard recall on small visible fires (< 10 000 pixels), where v3.6 is weakest and the systems are expected to differ.
+* Ours-full against the deployed system: what the tiles add.
 * All variants above, and the conformal calibration (n, q̂, empirical coverage on T1/T2, which exchangeability does not guarantee
   because small fires are 27% of the test fires and 7% of the development fires, study K).
-* The comparison is deliberately in favour of the baselines' simplicity: they see the full image only, while ours also sees three
-  enlarged crops and a hand-written small-fire wording. A baseline given the same crops is **not** part of W; adding it would be an
-  amendment recorded before any W-b inference.
 
 ## Infrastructure failures
 * An inference error (HTTP, non-finite logits) leaves an `error` in the record and counts as a refusal (fail-closed) in every
@@ -151,11 +160,12 @@ changes only the hazard rule. A failed inference refuses.
 | 3 | W-a reference, v3.5 (h35, full), 675 images × 2 passes at ≈ 0.73 s | 0.3 h |
 | 4 | W-b: T1 scored with h36 + tiles (600 images) | 0.45 h |
 | 5 | W-b: paraphrase scores, 1 800 images (DH, DH2, T1, T2) × 6 forward passes at ≈ 0.5 s | 1.45 h |
+| 5b | W-b: T1 scored with `h36` on the full image (Ours-full; 600 images × 2 passes at ≈ 0.73 s) | 0.25 h |
 | 6 | Optional stage r: about 180 images × 12 conditions × 2 passes at 1.33 s | 1.6 h |
 | 7 | Analysis (CPU) | minutes |
-| | **Total without stage r** (render 2 h + GPU scoring 2.7 h + two model loads) | **≈ 5 h** |
+| | **Total without stage r** (render 2 h + GPU scoring 2.95 h + three model loads) | **≈ 5.2 h** |
 
-Stages 2–5 share one server start; stage 3 needs a second start with the other hazard flags.
+Stages 2, 4 and 5 share one server start (`h36 + tiles`); 5b needs a start with `h36 --hazard-views full`, and stage 3 one with `h35 full`.
 
 ## Amendments
 (none)

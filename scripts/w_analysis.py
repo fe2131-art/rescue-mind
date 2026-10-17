@@ -7,7 +7,8 @@ W-a (image level): per-world miss rate of v3.6 on perceivable small fires, front
 only if the front check approves and neither side view shows a hazard), Wilson CIs, exact McNemar over worlds; false stops on the
 fire-free twins.  Inputs: experiments/results/devset_w_h36_tiles.json (scripts/vlm_devset_eval.py on experiments/vlm_testset_w).
 W-b (prior-art baselines on existing T1/T2 images): VAP-TAMP-style paraphrase vote and KnowNo-style conformal prediction set
-vs the frozen v3.6 hazard check.  Inputs: devset_t{1,2}_i11_h36_tiles.json (ours), devset_w_para_{dh,dh2,t1,t2}.json (baselines).
+vs the frozen v3.6 hazard check.  PRIMARY comparison: Ours-full (h36 wording, full image only: the baselines' input);
+secondary: the deployed system (h36 + tiles).  Inputs: devset_t{1,2}_i11_h36_{tiles,full}.json (ours deployed / ours-full), devset_w_para_{dh,dh2,t1,t2}.json (baselines).
 Ground truth is used only here.  Helpers are the ones of the earlier analyses (t1_analysis, h_analysis).
 """
 from __future__ import annotations
@@ -288,13 +289,27 @@ def small_fire_refusals(rows: list, allow: list) -> dict:
     return {'small_fires_correct_supply': len(sel), 'approved': sum(sel)}
 
 
-def evaluate_baselines(ours_recs: dict, para_recs: dict, dev_para: list) -> dict:
-    """ours_recs / para_recs: {(set, image): record} for T1 and T2; dev_para: development records with 'para'.  Returns the
-    pre-registered W-b tables.  Every decision keeps ours' supply check and swaps only the hazard rule."""
-    keys = sorted(k for k in ours_recs if k in para_recs and ours_recs[k]['expected'] != 'ambiguous')
+OURS = 'ours (h36+tiles, tau_h 0.05)'
+OURS_FULL = 'ours-full (h36, full image, tau_h 0.05)'
+PRIMARY_BASELINES = ('VAP vote majority@0.5', 'KnowNo q1_h35 alpha=0.05', 'KnowNo q1_h35 alpha=0.1')
+
+
+def _verdict(ref_m: dict, base_m: dict, holm_p: float) -> bool:
+    """Registered verdict: fewer false approvals, Holm-adjusted p < 0.05, correct approvals not lower by more than 5 points."""
+    return bool(ref_m['false_approvals'] < base_m['false_approvals'] and holm_p < 0.05
+                and ref_m['ca_rate'] - base_m['ca_rate'] >= -0.05)
+
+
+def evaluate_baselines(ours_recs: dict, para_recs: dict, dev_para: list, full_recs: dict) -> dict:
+    """ours_recs (deployed v3.6: h36 + tiles), full_recs (matched arm: h36, full image only) and para_recs: {(set, image): record}
+    for T1 and T2; dev_para: development records with 'para'.  Every system keeps the supply check and swaps only the hazard rule.
+    PRIMARY comparison: Ours-full vs each baseline (same input, the full image only).  SECONDARY: the deployed system vs the same
+    baselines."""
+    keys = sorted(k for k in ours_recs if k in para_recs and k in full_recs and ours_recs[k]['expected'] != 'ambiguous')
     rows = [dict(ours_recs[k], image=f'{k[0]}/{k[1]}') for k in keys]     # unique image key across the two test sets
     paras = [para_recs[k]['para'] for k in keys]
-    decisions = {'ours (h36+tiles, tau_h 0.05)': [decide(ours_recs[k], passes='12', tau_s=TAU_S, tau_h=TAU_H) for k in keys]}
+    decisions = {OURS: [decide(ours_recs[k], passes='12', tau_s=TAU_S, tau_h=TAU_H) for k in keys],
+                 OURS_FULL: [decide(full_recs[k], passes='12', tau_s=TAU_S, tau_h=TAU_H) for k in keys]}
     sup = [supply_ok(ours_recs[k]) for k in keys]
     for v in VAP_VARIANTS:
         decisions[f'VAP vote {v}'] = [s and not vap_refuses(p, v) for s, p in zip(sup, paras)]
@@ -308,27 +323,29 @@ def evaluate_baselines(ours_recs: dict, para_recs: dict, dev_para: list) -> dict
                 decisions[name] = [s and not knowno_refuses(p, c, score) for s, p in zip(sup, paras)]
                 calib[name] = {**{k: (None if math.isinf(v) else round(v, 4)) for k, v in c.items()}, 'n_cal': len(cal),
                                'n_cal_fire': sum(y == 'Yes' for y, _ in cal)}
-    primary = ['VAP vote majority@0.5', 'KnowNo q1_h35 alpha=0.05', 'KnowNo q1_h35 alpha=0.1']
     out = {'n_images': len(rows), 'n_deny': sum(r['expected'] == 'deny' for r in rows),
            'n_allow': sum(r['expected'] == 'allow' for r in rows), 'inference_errors_para': sum('error' in p for p in paras),
            'calibration': calib, 'systems': {}}
-    ours = decisions['ours (h36+tiles, tau_h 0.05)']
     for name, d in decisions.items():
         m = metrics(rows, d)
         m['cluster_bootstrap'] = cluster_bootstrap(rows, d)
         m['small_fires'] = small_fire_refusals(rows, d)
-        if name != 'ours (h36+tiles, tau_h 0.05)':
-            m['vs_ours'] = compare_to_ours(rows, ours, d)
+        if name not in (OURS, OURS_FULL):
+            m['vs_ours_full'] = compare_to_ours(rows, decisions[OURS_FULL], d)
+            m['vs_ours_deployed'] = compare_to_ours(rows, decisions[OURS], d)
         out['systems'][name] = m
-    ps = [out['systems'][n]['vs_ours']['false_approval']['mcnemar_p'] for n in primary]
-    for n, adj in zip(primary, holm(ps)):
-        s = out['systems'][n]
-        ours_m, base_m = out['systems']['ours (h36+tiles, tau_h 0.05)'], s
-        s['primary_holm_p_false_approval'] = round(adj, 5)
-        ca_drop = ours_m['ca_rate'] - base_m['ca_rate']
-        s['ours_better'] = bool(ours_m['false_approvals'] < base_m['false_approvals'] and adj < 0.05 and ca_drop >= -0.05)
-        s['baseline_not_worse_on_false_approvals'] = bool(base_m['false_approvals'] <= ours_m['false_approvals'])
-    out['primary_baselines'] = primary
+    S = out['systems']
+    for level, ref, key, verdict, notworse in (
+            ('primary', OURS_FULL, 'vs_ours_full', 'mechanism_matters', 'baseline_not_worse_than_ours_full'),
+            ('secondary', OURS, 'vs_ours_deployed', 'deployed_better', 'baseline_not_worse_than_deployed')):
+        ps = [S[n][key]['false_approval']['mcnemar_p'] for n in PRIMARY_BASELINES]
+        for n, adj in zip(PRIMARY_BASELINES, holm(ps)):
+            S[n][f'{level}_holm_p_false_approval'] = round(adj, 5)
+            S[n][verdict] = _verdict(S[ref], S[n], adj)
+            S[n][notworse] = bool(S[n]['false_approvals'] <= S[ref]['false_approvals'])
+    out['primary_baselines'] = list(PRIMARY_BASELINES)
+    out['primary_reference'] = OURS_FULL
+    out['secondary_reference'] = OURS
     return out
 
 
@@ -357,19 +374,20 @@ def run_part_a(out: dict):
 
 
 def run_part_b(out: dict):
-    ours, para, dev = {}, {}, []
+    ours, para, dev, full = {}, {}, [], {}
     for s in ('t1', 't2'):
-        o, p = _load(f'{s}_i11_h36_tiles'), _load(f'w_para_{s}')
-        if o is None or p is None:
+        o, p, f = _load(f'{s}_i11_h36_tiles'), _load(f'w_para_{s}'), _load(f'{s}_i11_h36_full')
+        if o is None or p is None or f is None:
             out['W-b'] = f'not run (missing {s})'; return
         ours.update({(s, r['image']): r for r in o})
+        full.update({(s, r['image']): r for r in f})
         para.update({(s, r['image']): r for r in p})
     for s in ('dh', 'dh2'):
         p = _load(f'w_para_{s}')
         if p is None:
             out['W-b'] = f'not run (missing {s})'; return
         dev += p
-    out['W-b'] = evaluate_baselines(ours, para, dev)
+    out['W-b'] = evaluate_baselines(ours, para, dev, full)
 
 
 def main():
@@ -395,7 +413,7 @@ def main():
     if isinstance(B, dict):
         for name, m in B['systems'].items():
             print(f"W-b {name:48s} FA {m['false_approvals']:3d}/{m['n_deny']} CA {m['correct_approvals']:3d}/{m['n_allow']} "
-                  f"{'' if 'vs_ours' not in m else 'McNemar FA p=' + str(m['vs_ours']['false_approval']['mcnemar_p'])}")
+                  f"{'' if 'vs_ours_full' not in m else 'McNemar FA p vs ours-full=' + str(m['vs_ours_full']['false_approval']['mcnemar_p'])}")
 
 
 if __name__ == '__main__':
