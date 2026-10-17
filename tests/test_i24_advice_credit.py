@@ -237,3 +237,13 @@ class Wiring(unittest.TestCase):
                 self.assertEqual(plan['first_station'], 'medicine' if mission < 2 else 'water')
             self.assertEqual(out['credit']['peer']['loc'], 0.0)
             self.assertEqual(ac.load(led_p)['missions'], 3)
+
+
+class OperatorReport(unittest.TestCase):
+    def test_throttled_advice_is_reported(self):
+        from rescuemind.operator_report import advice_lines
+        led = ac.new_ledger(c_loc=0.0)
+        p = ac.plan_with_credit(led, 'water', [loc('peer', 'medicine')], 'monotone')
+        lines = advice_lines({'memory': p})
+        self.assertEqual(len(lines), 1)
+        self.assertIn('信用を使い切って', lines[0])
