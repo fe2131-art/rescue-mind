@@ -345,6 +345,41 @@ def audit_text():
             f'結果のある研究のうち **{ok}件で登録コミットが結果コミットより前**、{pend}件は結果待ち（登録のみ済み）')
 
 
+def section_judge(e):
+    """First screen for a busy judge: problem, what is new, three numbers in plain words, what to watch in the video."""
+    lines = ['**問題**：災害時の物資配達ロボットは、在庫表と現物の食い違い（水のはずが救急箱だった・空だった）や火災に出会う。指示どおり運ぶだけでは、誤った物資や危険な場所へ届けてしまう。',
+             '',
+             '**新しさ**：前回の出動の記憶は「どの拠点を先に見るか」を**提案するだけ**で、届けてよいかは必ず**その場のカメラ**で決める（記憶は提案、判断は目）。物資の陰の小さな火は正面からは見えないので、**横へ動いて撮り直す**（見回し）。',
+             '',
+             '**3つの数字**（すべてシミュレーション上。条件は結果を見る前に固定して測定）',
+             '']
+    if e:
+        E = e[1]
+        lines.append(f"1. **{E['ok']}/{E['n']}**：ランダムに作った{E['n']}個の世界で、ロボットは期待どおりに動き、誤った物資・火のある拠点への配達は **{E['wrong']}件**（60試行では「誤配達率は95%信頼区間の上限6%以下」までしか言えない。停止が正解の場面は易しい）")
+    else:
+        lines.append(f'1. ランダムな世界での閉ループ（評価E）：{PENDING}')
+    g = jl('g_summary.json')
+    try:
+        nf = g['primary']['n_world_pairs_fire_perceivable']
+        gc = g['per_config']
+        lines.append(f"2. **{gc['B']['wrong_deliveries']}回 → {gc['C']['wrong_deliveries']}回**：3視点（正面・左右0.4 m）のどれかで火が見えた{nf}世界で、正面だけで判断すると火のある拠点へ配達した回数 → 横から撮り直した後の回数"
+                     f"（火の無い世界での誤った停止 {gc['C']['false_hazard_stops']}/{gc['C']['fire_free_trials']}。偶然とは考えにくい：p={g['primary']['mcnemar_p']:.3f}）。これらの火は設計上正面から見えにくい世界なので、測っているのは「横から見る効果」")
+    except (TypeError, KeyError):
+        lines.append(f'2. 横から撮り直す効果（評価G）：{PENDING}')
+    h = jl('h_summary.json')
+    try:
+        p1, p3 = h['P1_efficiency_relocation_persist'], h['P3_no_extra_risk_vs_v36']
+        lines.append(f"3. **{p1['time_M0_median_s']:.0f}秒 → {p1['time_M2_median_s']:.0f}秒**：物資が移されたままの{p1['n_pairs']}出動（少数）の所要時間（中央値）。記憶なし → 確認を省かない記憶つき。"
+                     f"危険な配達は記憶なし {p3['unsafe_M0']}/{p3['n_pairs']}・記憶つき {p3['unsafe_M2']}/{p3['n_pairs']}（記憶つきの方が危険、とはならなかった）。物資が元に戻った出動では遠回りで遅くなる")
+    except (TypeError, KeyError):
+        lines.append(f'3. 出動をまたぐ記憶（評価H）：{PENDING}')
+    lines += ['',
+              '**動画で見てほしい点**：「隠れた小さな火」のデモ（正面では見えない火を、横へ動いて撮り直して見つけて止まる）と、「取り違え」「欠品」のデモ（違えば別の拠点を探し、無ければ止まって日本語で報告する）。記憶の効果（上の3）は動画ではなく、このREADMEの[結果](#結果)と説明資料で確認できる。',
+              '',
+              '用語は[結果](#結果)の冒頭に説明がある。版名（v3.4〜v3.6）は本システムの改良段階で、v3.6が提出版。']
+    return '\n'.join(lines)
+
+
 def section_novelty():
     g = jl('g_summary.json')
     try:
@@ -597,6 +632,9 @@ def main():
     txt = readme.read_text(encoding='utf8')
     a, b = txt.index('<!-- RESULTS:START -->'), txt.index('<!-- RESULTS:END -->') + len('<!-- RESULTS:END -->')
     txt = txt[:a] + block + txt[b:]
+    if '<!-- JUDGE:START -->' in txt:       # first screen: problem, what is new, three numbers, what to watch
+        a, b = txt.index('<!-- JUDGE:START -->'), txt.index('<!-- JUDGE:END -->') + len('<!-- JUDGE:END -->')
+        txt = txt[:a] + '<!-- JUDGE:START -->\n' + section_judge(e) + '\n<!-- JUDGE:END -->' + txt[b:]
     if '<!-- NOVELTY:START -->' in txt:     # novelty section near the top, numbers from the summaries
         a, b = txt.index('<!-- NOVELTY:START -->'), txt.index('<!-- NOVELTY:END -->') + len('<!-- NOVELTY:END -->')
         txt = txt[:a] + '<!-- NOVELTY:START -->\n' + section_novelty() + '\n<!-- NOVELTY:END -->' + txt[b:]

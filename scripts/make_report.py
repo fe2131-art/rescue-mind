@@ -647,7 +647,8 @@ def headline(D, E, V, after_fig=()):
                             '<b>正しい許可</b>＝届けてよい場面で、正しく「よい」と判断できること。'
                             '<b>事前登録</b>＝結果を見る前に、条件と合格の基準を文書にして固定すること。'
                             '<b>閉ループ</b>＝AIの判断でロボットが実際に動くところまで含めた評価。'
-                            '<b>p値</b>＝偶然でこうなる確率の目安で、0.05より小さければ偶然とは考えにくい。', 'small')]
+                            '<b>p値</b>＝偶然でこうなる確率の目安で、0.05より小さければ偶然とは考えにくい。'
+                            '<b>版名（v3.4〜v3.6）</b>＝システムの改良段階で、v3.6が提出版。', 'small')]
     gloss, out = out, []
     rows = [['事前登録した研究', '結果', '読み方・限界']]
     if E:
@@ -694,6 +695,29 @@ def headline(D, E, V, after_fig=()):
               '各研究の条件・基準・解析は結果を見る前に <font name="IPAexG">experiments/PREREGISTRATION_*.md</font> に固定した。', 'small'),
             Spacer(1, 4)]
     return gloss, out
+
+
+def judge_box(D, E, V):
+    """3-minute box at the top of page 1: problem, what is new, three numbers in plain words (all read from result files)."""
+    h = jload('h_summary.json')
+    items = ['<b>問題</b>：災害時の物資配達ロボットは、在庫表と現物の食い違い（水のはずが救急箱・空）や火災に出会う。指示どおり運ぶだけでは、誤った物資や危険な場所へ届けてしまう。',
+             '<b>新しさ</b>：前回の出動の記憶は「どの拠点を先に見るか」を<b>提案するだけ</b>で、届けてよいかは必ず<b>その場のカメラ</b>で決める（記憶は提案、判断は目）。'
+             '物資の陰の小さな火は正面からは見えないので、<b>横へ動いて撮り直す</b>（見回し）。']
+    nums = []
+    if E:
+        nums.append(f"<b>{E['ok']}/{E['n']}</b>：ランダムな{E['n']}世界で期待どおりに動き、誤った物資・火のある拠点への配達は {E['fa']} 件（シミュレーション上。60試行では誤配達率の95%区間の上限は6%）")
+    if V:
+        gp, gc = V['g']['primary'], V['g']['per_config']
+        nums.append(f"<b>{gp['wrong_deliveries_B']}回 → {gp['wrong_deliveries_C']}回</b>：3視点のどれかで火が見えた{gp['n_world_pairs_fire_perceivable']}世界で、正面だけだと火のある拠点へ配達した回数 → 横から撮り直した後"
+                    f"（火の無い世界での誤停止 {gc['C']['false_hazard_stops']}/{gc['C']['fire_free_trials']}。測っているのは「横から見る効果」）")
+    if h:
+        p1, p3 = h['P1_efficiency_relocation_persist'], h['P3_no_extra_risk_vs_v36']
+        nums.append(f"<b>{p1['time_M0_median_s']:.0f}秒 → {p1['time_M2_median_s']:.0f}秒</b>：物資が移されたままの{p1['n_pairs']}出動（少数）の所要時間の中央値（記憶なし → 検証つき記憶）。"
+                    f"危険な配達は {p3['unsafe_M0']}/{p3['n_pairs']} 対 {p3['unsafe_M2']}/{p3['n_pairs']}。物資が元に戻った出動では遠回りで遅くなる")
+    out = [P(t, 'small') for t in items]
+    if nums:
+        out += [P('<b>3つの数字</b>（条件は結果を見る前に固定）', 'small')] + [P(f'{i}. {t}', 'small') for i, t in enumerate(nums, 1)]
+    return out + [Spacer(1, 3)]
 
 
 def sec_active(V):
@@ -830,6 +854,7 @@ def build(account: str, video_url: str | None, repo_url: str):
                  ['AIの活用', '① 自然言語指示の理解（ローカルLLM）② 搭載カメラ画像による現物・危険の確認（ローカルVLM、選択肢の確率で判断）③ 現場の人への日本語状況報告']],
                 [28, 146]), Spacer(1, 4)]
     gloss, _unused = headline(D, E, V, info)
+    s += judge_box(D, E, V)
     s += gloss
     crit = [['審査基準', '本作品での取り組み', '根拠（本資料の節）'],
             ['創造性', '「運ぶAI」ではなく「間違えたら動かないAI」。新規性3つ：横から見直す能動知覚、確認を減らさない出動をまたぐ記憶、当初計画の2つのAI', '要旨, 4.1–4.3章'],
