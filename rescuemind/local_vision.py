@@ -63,6 +63,14 @@ def validate_result(data: dict, model_id: str, image_sha: str, pass_id: int) -> 
     return result
 
 
+def require_valid_scores(call: dict) -> None:
+    """I-19 fix (FINDINGS #26): every model call must carry a usable p(hazard); otherwise the inference is rejected
+    (the mission aborts without a delivery) instead of the view silently counting as clear."""
+    from .mission_memory import scores_valid
+    if not scores_valid(call):
+        raise LocalInferenceError('model call without a valid hazard score (finite, in [0,1])')
+
+
 def _client_call(url: str, model: str, image_bytes: bytes, pass_id: int, *, timeout: int=120, transport=None) -> dict:
     localhost_only(url)
     if model not in ALLOWED_MODELS:
@@ -192,6 +200,8 @@ def verify_station_local(image_path: str | Path, expected: str, *,
     first=_client_call(primary_url,primary_model,raw,1,transport=transport)
     second=_client_call(secondary_url if mode=='dual' else primary_url,
                         secondary_model if mode=='dual' else primary_model,raw,2,transport=transport)
+    for call in (first,second):
+        require_valid_scores(call)
     decision=local_decision(expected,first,second,dual_model=mode=='dual')
     out={'checkpoint_type':'local_on_site_camera_supply_check',
          'image_sha256':hashlib.sha256(raw).hexdigest(),

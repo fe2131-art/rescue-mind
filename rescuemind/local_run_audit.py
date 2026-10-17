@@ -24,7 +24,9 @@ def audit_local_checkpoint(checkpoint: dict, image_sha: str, *, expected: str) -
     if 'jev_call' in checkpoint:   # I-13: recompute the two-model rule from the saved Jev-role answer
         computed=combine_with_jev(computed,checkpoint['jev_call'],expected,
                                   hazard_threshold=checkpoint.get('jev_hazard_threshold',.35))
-    from .mission_memory import apply_memory_caution, peek_hazard
+    from .mission_memory import apply_memory_caution, peek_hazard, scores_valid
+    if not (scores_valid(a) and scores_valid(b)):   # I-19 fix: the front check's hazard scores must be usable (fail closed)
+        raise LocalReceiptError('front check without valid hazard scores')
     tau_mem=checkpoint.get('memory_caution_tau_h')   # I-15: memory may only tighten the hazard threshold
     if tau_mem is not None and not (isinstance(tau_mem,float) and 0 < tau_mem < .05):
         raise LocalReceiptError('memory caution threshold must be stricter than the v3.6 threshold')
@@ -45,7 +47,7 @@ def audit_local_checkpoint(checkpoint: dict, image_sha: str, *, expected: str) -
             hazard=peek_hazard(hz,pa,pb,tau_mem)
             if hazard != bool(pk.get('hazard')):
                 raise LocalReceiptError('look-around hazard flag does not match the saved side-view outputs')
-            hard_hazard=hard_hazard or hz=='visible_hazard_at_checkpoint'
+            hard_hazard=hard_hazard or hz=='visible_hazard_at_checkpoint' or not (scores_valid(pa) and scores_valid(pb))
             peeks.append({'side':pk['side'],'hazard':hazard})
         ad=checkpoint['look_around'].get('adaptive')
         if ad is not None:   # I-20: recompute whether the extra views were required, and that they were taken

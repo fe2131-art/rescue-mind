@@ -16,6 +16,7 @@ last time, refuses without visiting where a hazard was seen) -- it exists only t
 """
 from __future__ import annotations
 import json
+import math
 import time
 from pathlib import Path
 
@@ -26,12 +27,19 @@ SIDE_JA = {'front': '正面', 'L': '左', 'R': '右'}
 ITEM_JA = {'water': '飲料水', 'medicine': '医療物資', 'other': '依頼物資以外/空', 'uncertain': '不確か'}
 
 
-def _hazard_prob(call: dict) -> float:
+def scores_valid(call) -> bool:
+    """The call carries a usable p(hazard): a finite number in [0, 1] (not a bool).  Anything else is a broken view."""
     try:
-        p = float(((call or {}).get('scores') or {}).get('hazard_prob') or 0.0)
-    except (TypeError, ValueError):
-        return 0.0
-    return 1.0 if p != p else p      # NaN would be dropped by max(); a NaN hazard score counts as a hazard (fail-closed)
+        v = ((call or {}).get('scores') or {}).get('hazard_prob')
+    except AttributeError:
+        return False
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) and 0.0 <= v <= 1.0
+
+
+def _hazard_prob(call: dict) -> float:
+    """p(hazard) of one model call.  FAIL-CLOSED (I-19 fix, FINDINGS #26): a missing, malformed, non-finite or
+    out-of-range score counts as p = 1.0, i.e. as a hazard (consistent with adaptive_views._p)."""
+    return float(call['scores']['hazard_prob']) if scores_valid(call) else 1.0
 
 
 def hazard_prob(call: dict) -> float:
@@ -51,8 +59,12 @@ def apply_memory_caution(decision: dict, first: dict, second: dict, tau_h: float
 
 
 def peek_hazard(reason: str, first: dict, second: dict, tau_h: float | None) -> bool:
-    """A side view shows a hazard if the model said so, or (under memory caution) p(hazard) >= tau_h."""
+    """A side view shows a hazard if the model said so, or (under memory caution) p(hazard) >= tau_h.
+    FAIL-CLOSED: a side view whose hazard score is missing / invalid / non-finite (or whose inference failed) is a hazard,
+    with or without a caution threshold -- a broken view never counts as clear."""
     if reason == 'visible_hazard_at_checkpoint':
+        return True
+    if not (scores_valid(first) and scores_valid(second)):
         return True
     return tau_h is not None and max(_hazard_prob(first), _hazard_prob(second)) >= tau_h
 

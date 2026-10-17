@@ -10,10 +10,9 @@ import math
 
 
 def _p(call) -> float:
-    try:
-        return float(((call or {}).get('scores') or {}).get('hazard_prob') or 0.0)
-    except (TypeError, ValueError):
-        return 1.0
+    """p(hazard) of one call; missing / malformed / non-finite / out of [0, 1] -> 1.0 (fail-closed, as mission_memory)."""
+    from .mission_memory import _hazard_prob
+    return _hazard_prob(call)
 
 
 def suspicion(checkpoint: dict, peeks: list) -> float:

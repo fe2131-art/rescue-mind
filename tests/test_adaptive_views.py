@@ -19,7 +19,7 @@ class AdaptiveViews(unittest.TestCase):
         self.assertFalse(av.required(cp, peeks[1:], 0.005))
 
     def test_missing_scores_count_as_suspicious(self):
-        self.assertEqual(av.suspicion({'model_calls': {'first': {}, 'second': None}}, []), 0.0)
+        self.assertEqual(av.suspicion({'model_calls': {'first': {}, 'second': None}}, []), 1.0)     # I-19 fix: missing = suspicious (fail-closed)
         self.assertEqual(av.suspicion({'model_calls': {'first': {'scores': {'hazard_prob': 'x'}}}}, []), 1.0)
 
     def test_extra_points_geometry(self):

@@ -372,16 +372,22 @@ def r_audit_scrutiny_ok(m):
 R_HAZARD = 'visible_hazard_at_checkpoint'
 
 
-def r_p(call):
+def r_score_ok(call):
     try:
-        p = float(((call or {}).get('scores') or {}).get('hazard_prob') or 0.0)
-    except (TypeError, ValueError):
-        return 0.0
-    return 1.0 if p != p else p
+        v = call['scores']['hazard_prob']
+    except (TypeError, KeyError, AttributeError):
+        return False
+    return not (isinstance(v, bool) or not isinstance(v, (int, float)) or v != v or v in (float('inf'), float('-inf'))
+                or not 0.0 <= v <= 1.0)
+
+
+def r_p(call):
+    """Reference p(hazard): fail-closed (I-19 fix #26): anything but a finite number in [0, 1] counts as 1.0."""
+    return float(call['scores']['hazard_prob']) if r_score_ok(call) else 1.0
 
 
 def r_classify(reason, first, second, tau):
-    if reason == R_HAZARD:
+    if reason == R_HAZARD or not (r_score_ok(first) and r_score_ok(second)):
         return 'hazard'
     if tau is not None and max(r_p(first), r_p(second)) >= tau:
         return 'caution_only'
@@ -895,8 +901,8 @@ class GateDifferential(unittest.TestCase):
             if got['allow'] and not allow:
                 bad.append(('gate turns a refusal into an approval', tau, p1, p2))
             for reason in ('on_site_supply_confirmed', 'visible_hazard_at_checkpoint'):
-                want = reason == 'visible_hazard_at_checkpoint' or (tau is not None and not (
-                    max(p1, p2) < tau) if not (math.isnan(p1) or math.isnan(p2)) else tau is not None)
+                broken = math.isnan(p1) or math.isnan(p2)      # I-19 fix #26: a broken side view is a hazard, caution or not
+                want = reason == 'visible_hazard_at_checkpoint' or broken or (tau is not None and not max(p1, p2) < tau)
                 if peek(reason, call(p1), call(p2), tau) != want:
                     bad.append(('peek', reason, tau, p1, p2))
         return bad[:3]
@@ -1489,7 +1495,7 @@ MUTANTS = [
     # ---- I-21: the k-station candidate order in the StationSet ----
 ] + [(name, 'stations', None, patch) for name, patch in STATION_MUTANTS.items()] + [
     # ---- caution_soft.py (R5 #5, soft refusal) ----
-    ('soft: a real hazard (standard reason) is classified by the caution threshold', 'soft', [("    if reason == HAZARD:\n        return 'hazard'\n", "    if False:\n        return 'hazard'\n")], None),
+    ('soft: a real hazard (standard reason) is classified by the caution threshold', 'soft', [("    if reason == HAZARD or not (scores_valid(first) and scores_valid(second)):\n        return 'hazard'", "    if False:\n        return 'hazard'")], None),
     ('soft: classify uses > instead of >=', 'soft', [("hazard_prob(second)) >= tau_mem:", "hazard_prob(second)) > tau_mem:")], None),
     ('soft: classify looks at the better pass (min)', 'soft', [("max(hazard_prob(first), hazard_prob(second)) >= tau_mem", "min(hazard_prob(first), hazard_prob(second)) >= tau_mem")], None),
     ('soft: classify looks at the first pass only', 'soft', [("max(hazard_prob(first), hazard_prob(second)) >= tau_mem", "hazard_prob(first) >= tau_mem")], None),
