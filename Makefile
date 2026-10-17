@@ -106,7 +106,7 @@ youtube: ## Regenerate docs/YOUTUBE_DESCRIPTION.md (make_youtube_description.py)
 all-docs: numbers figures paper report readme youtube ## numbers, figures, paper, report, readme, youtube (in this order)
 	@echo "all-docs done."
 
-finalize: ## After the campaigns: analyses, paper, report, README, YouTube text, unit tests (scripts/finalize_results.sh; commits nothing)
+finalize: ## After the campaigns: every result-dependent analysis (V/W/Q/A/S/X/XD gated on complete inputs), figures, paper, report, README, YouTube text, tests, consistency check (scripts/finalize_results.sh; commits nothing)
 	$(NEED_DEV)
 	$(NEED_LATEX)
 	ACCOUNT=$(ACCOUNT) $(NICE) bash scripts/finalize_results.sh
