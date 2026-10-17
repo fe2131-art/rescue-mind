@@ -32,7 +32,9 @@ Additional outputs (do not alter 'q' / 'policies'):
                  no crossing in [0, 0.5], with the sign of the difference) and unsafe deliveries / 100 missions at
                  q = 0.05, 0.1, 0.2
   bound_check  : for M0 and M2 every mission is gated by one baseline check, so P(unsafe) <= (1 - p_det) * P(fire at the
-                 delivering station); empirical rate vs bound per q (sanity check of the paper's corollary)
+                 delivering station); empirical rate vs bound per q (model-specific
+                 single-check sanity bound; the paper's Corollary 1 is the looser k*eps with k = stations checked per mission, here 2,
+                 the same as without memory)
 """
 from __future__ import annotations
 import json
