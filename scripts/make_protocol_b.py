@@ -98,8 +98,8 @@ def build(seed: str = SEED, prefix: str = 'B', advice_dir: str = ADVICE_DIR, cre
         t['id'] = f'{prefix}{n + 1:03d}'
         t['order'] = n + 1
     return {'schema': 'rescuemind_study_b_campaign' if prefix == 'B' else 'rescuemind_study_b_pilot', 'seed': seed,
-            'planned_n': len(trials), 'm': m, 'c_loc': ac.C_LOC, 'arms': list(ARMS), 'sequences': seqs, 'common_stack_args': [],
-            'note': 'common_stack_args empty = orchestrator defaults (v3.6); advice and credit flags come from each trial',
+            'planned_n': len(trials), 'm': m, 'c_loc': ac.C_LOC, 'arms': list(ARMS), 'sequences': seqs, 'common_stack_args': ['--delivery-interlock'],
+            'note': 'common_stack_args = orchestrator defaults (v3.6) plus the I-22 delivery interlock (Amendment 2); advice and credit flags come from each trial',
             'advice_files': files, 'trials': trials}
 
 

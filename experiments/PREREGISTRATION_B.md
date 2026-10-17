@@ -122,3 +122,17 @@ None of the registered predictions changes:
 * the liar is never confirmed, so it is charged 1 per admitted mission and throttled from mission 3;
 * the honest source is never charged, so its credit stays at C_LOC = 2.0 (no longer "refunds cap at C_LOC");
 * `b_analysis.py` reads the `file` account.
+
+## Amendment 2 (2026-10-18 03:20, before the pilot and any B trial)
+Both arms now run with the I-22 delivery interlock (`common_stack_args: ["--delivery-interlock"]`). The protocols were
+regenerated, and the only change is this field and its note.
+
+Why: the interlock passed its Gazebo mechanics check (4 live missions, i21 worktree, `experiments/results/i22_gazebo_check.log`):
+* nominal and swapped missions: one permit each, delivered;
+* a visible fire, and a hidden fire with an injected "no check needed": no permit, refused.
+
+B uses only the monotone rule, so the interlock cannot remove a baseline behaviour. Mock review R7 asked for the interlock
+to be on in a registered study. It stays off in A, whose naive and filtered arms deliver without approval by design.
+
+Prediction added (B5): every delivered run has exactly one interlock permit, and no refused run has a permit.
+The other predictions are unchanged.
