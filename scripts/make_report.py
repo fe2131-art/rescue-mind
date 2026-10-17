@@ -463,11 +463,12 @@ def sec_camera():
     pp, cond = r['P1_pooled'], r['conditions']
     worst = min(cond, key=lambda c: cond[c]['ca_rate'])
     nm = lambda c: f"{R_FAM.get(c.rsplit('_', 1)[0], c)}（{'中' if c.endswith('_M') else '強'}）"
-    out += [P(f"12条件をまとめた誤許可は <b>{pp['false_approvals']}/{pp['n']}（{pp['rate'] * 100:.2f} %）</b>、世界単位のブートストラップ95%区間 "
-              f"{pp['cluster_ci95'][0] * 100:.2f}–{pp['cluster_ci95'][1] * 100:.2f} %（上限が2 %未満なら「フェイルクローズ」と主張すると登録した）→ "
+    out += [P(f"12条件をまとめた誤許可は <b>{pp['false_approvals']}/{pp['n']}（{pp['rate'] * 100:.2f} %）</b>、世界単位のブートストラップ95%区間の上限 "
+              f"{pp['cluster_ci95'][1] * 100:.2f} %、Wilson 95%区間の上限 {pp['wilson_ci95'][1] * 100:.2f} %（上限が2 %未満なら「フェイルクローズ」と主張すると登録した）→ "
               f"<b>{'成立' if pp['supported'] else '不成立'}</b>。清浄な画像の誤許可は {r['clean']['false_approvals']}/{r['n_deny']}。"
               f"代償は可用性で、正しい許可が最も下がったのは<b>{nm(worst)}</b>の <b>{cond[worst]['correct_approvals']}/{r['n_allow']}</b>"
-              f"（清浄 {r['clean']['correct_approvals']}/{r['n_allow']}）。"
+              f"（清浄 {r['clean']['correct_approvals']}/{r['n_allow']}、品質ゲートによる棄却 {cond[worst]['gate_rejected']}件）。"
+              f"他の条件は {min(cond[c]['correct_approvals'] for c in cond if c != worst)}/{r['n_allow']} 以上で、可用性の低下は露出過多に集中する。"
               + ('「危険な劣化」と判定された条件：' + '、'.join(nm(c) for c in r['P2_unsafe_conditions']) + '。' if r['P2_unsafe_conditions']
                  else '清浄な画像より有意に誤許可が増えた条件はない（Holm補正）。'))]
     rows = [['劣化', '段階', '誤許可', '火の見逃し', '正しい許可', '品質ゲートで棄却']]

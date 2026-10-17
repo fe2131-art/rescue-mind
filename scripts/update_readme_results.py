@@ -367,10 +367,10 @@ def section_zpr():
         worst = min(r['conditions'].items(), key=lambda kv: kv[1]['ca_rate'])
         cl = r.get('clean', {})
         rows.append(f"| 評価R（カメラの劣化） | 未使用T2の30世界に、ノイズ・ぼけ・露出・JPEG の12条件を加えて再評価 | 全条件をまとめた誤許可 **{p1['false_approvals']}/{p1['n']}**"
-                    f"（世界単位ブートストラップ95%CI {pct(p1['cluster_ci95'][0])}〜{pct(p1['cluster_ci95'][1])}、"
+                    f"（Wilson 95%CI {pct(p1['wilson_ci95'][0])}〜{pct(p1['wilson_ci95'][1])}、世界単位ブートストラップの上限 {pct(p1['cluster_ci95'][1])}、"
                     f"{'「劣化に対して安全側」を支持' if p1['supported'] else '登録した「上限2%未満」は支持されず'}）、"
-                    f"最悪条件（{worst[0]}）の正しい許可 {worst[1]['correct_approvals']}（{pct(worst[1]['ca_rate'])}）"
-                    f"{'、清浄画像では ' + str(cl['correct_approvals']) if 'correct_approvals' in cl else ''} |")
+                    f"最悪条件（{worst[0]}）でも誤許可は増えず、代償は可用性：正しい許可 {worst[1]['correct_approvals']}/{r['n_allow']}（{pct(worst[1]['ca_rate'])}、うち品質ゲート棄却 {worst[1]['gate_rejected']}）"
+                    f"{'、清浄画像では ' + str(cl['correct_approvals']) + '/' + str(r['n_allow']) if 'correct_approvals' in cl else ''} |")
     except (TypeError, KeyError, ValueError):
         rows.append(f'| 評価R（カメラの劣化） | ノイズ・ぼけ・露出・JPEG の12条件でも安全側に倒れるか | {PENDING} |')
     return rows, notes
