@@ -349,6 +349,16 @@ def w_text():
         return PENDING
 
 
+def l_text():
+    l = jl('l_summary.json')
+    try:
+        pl = l['primary']
+        return (f"評価L 結果：未知の配置24通りで期待どおり {pl['expected_behaviour']}、危険な配達 {pl['unsafe_deliveries']}件、"
+                f"主張は{'成立' if pl['claim_supported'] else '不成立'}")
+    except (TypeError, KeyError):
+        return f'評価L（未知の配置24通り）：{PENDING}'
+
+
 def audit_text():
     f = ROOT / 'docs/paper/tab_prereg.tex'
     if not f.is_file():
@@ -419,7 +429,7 @@ def section_novelty():
   ![事例：記憶なしは隠れた火に配達（p_h=0.0346）、検証つき記憶は火を見た拠点の閾値を0.01に厳しくして停止（p_h=0.0489）。1件の事例で、統計的な主張ではない](docs/figures/memory_case_ja.png)
 
 * **横から見直す能動知覚**（[I-14](docs/IMPROVEMENT_LOG.md)）：{gtxt}。表は[結果](#結果)の評価G。
-* **2つのAI（Jev役 Clef-Flash＋Qwen）を判断に組み込む**（[I-16](docs/IMPROVEMENT_LOG.md)）：オフラインだけだった2モデル確認を、V100 1台に載る組で閉ループに載せた。2つは系統を共有する（Clef-Flash は Qwen3.5-9B の追加学習版）ので、相関した失敗が残り得る。評価Jは[結果](#結果)の表。
+* **2つのAI（Jev役 Clef-Flash＋Qwen）を判断に組み込む**（[I-16](docs/IMPROVEMENT_LOG.md)）：オフラインだけだった2モデル確認を、V100 1台に載る組で閉ループに載せた。2つは系統を共有する（Clef-Flash は Qwen3.5-9B の追加学習版）ので、相関した失敗が残り得る。評価Jは[結果](#結果)の表。{l_text()}
 * **事前登録と時系列監査**（[論文](docs/paper/main.pdf)付録）：条件・閾値・解析を結果を見る前にコミットし、{audit_text()}。支持されなかった主張も、そのまま載せる。
 * **実用性：出動ごとに1枚の現場報告を生成**（[I-18](docs/IMPROVEMENT_LOG.md)）：依頼・判断の理由・確認に使った写真と確率・次にしてほしいことを1枚にまとめ、現場の人が結論だけ読めば動ける。生成は `scripts/make_operator_report.py`、全出動での自動生成は評価終了後に組み込む。
 
@@ -510,7 +520,7 @@ def section_en(e, v):
          "and for a Yes/No hazard question, and approve only if both agree with sufficient confidence and no fire or smoke is seen. A wrong item "
          "triggers a one-time search of the other station; a hazard stops the robot; an independent velocity guard keeps motion out of the VLM's reach. "
          "**Active look-around**: before approving, the robot views the station from 0.4 m to either side. **Safety-monotone cross-mission memory**: "
-         "memory may only reorder where the robot looks and add caution, never remove a check. An optional **two-model check** adds a Jev-role model "
+         "memory may only reorder where the robot looks and add caution, never remove a check. An optional **two-model check** adds a second checker (the Jev role of the original plan) "
          "(Clef-Flash) next to Qwen. All studies are pre-registered (`experiments/PREREGISTRATION_*.md`); every trial is audited against simulator ground truth and a ROS bag.",
          '', '| Study (pre-registered) | Result |', '|---|---|']
     if e:
@@ -585,6 +595,11 @@ def section_en(e, v):
                  + f"; bound claim {'supported' if wa['criteria']['claim_eps_tight'] else 'not supported'}, distinguished from {sum(bool(Sw[n].get('mechanism_matters')) for n in wb['primary_baselines'])} of 3 baselines |")
     except (TypeError, KeyError):
         L.append('| W: small hidden fires and prior-art baselines | pre-registered, not yet run |')
+    try:
+        pl = jl('l_summary.json')['primary']
+        L.append(f"| L: unseen layouts | expected {pl['expected_behaviour']}; unsafe deliveries {pl['unsafe_deliveries']}; claim {'supported' if pl['claim_supported'] else 'not supported'} |")
+    except (TypeError, KeyError):
+        pass   # study L not run yet: no row
     if not (h_ok and j_ok):
         L += ['', 'Campaigns ' + ('J' if h_ok else 'H and J' if not j_ok else 'H') + ': pre-registered, running.']
     L += ['', '**Limitations.** Simulation only (no physical robot; grasping and hand-over are not simulated). '

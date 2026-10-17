@@ -73,7 +73,7 @@ T = {
   q1='質問1', q2='質問2（並べ替え）', qh='火・煙', concept='概念図', thr='閾値',
   safe_side='どれか欠ければ拒否', mem_in='記憶', mem_a='先に行く拠点を提案', mem_b='その場で必ず確認', mem_x='確認を省く',
   res_h='主な結果（事前登録・実測）',
-  H=('H  出動をまたぐ記憶', '危険な配達', '{a}/{n} → {b}/{n}', '確認を省く素朴な記憶 対 本方式（記憶なし {m0}/{n}）。入れ替わりが続く出動は {t0}→{t2}秒'),
+  H=('H  出動をまたぐ記憶', '所要時間', '{t0}→{t2}秒', '物資が移されたまま続く出動（8組）。危険な配達は記憶なし {m0}/{n}・本方式 {b}/{n}（確認を省く素朴な記憶は {a}/{n}）'),
   E=('E  ランダム世界の閉ループ', '{ok}/{n}', '期待どおり・誤配達 {w}/{n}'),
   G=('G  横から見直し', '{b}/{n} → {c}/{n}', '火があるのに配達した数（p={p:.3f}）'),
   R=('R  カメラ劣化12条件', '{fa}/{n}', '誤許可（安全側に倒れる）'),
@@ -92,7 +92,7 @@ T = {
   q1='Question 1', q2='Question 2 (permuted)', qh='fire / smoke', concept='schematic', thr='threshold',
   safe_side='any miss = refuse', mem_in='memory', mem_a='proposes the order', mem_b='check on site', mem_x='skip the check',
   res_h='Key results (pre-registered)',
-  H=('H  memory across missions', 'unsafe deliveries', '{a}/{n} → {b}/{n}', 'naive memory (skips checks) vs ours (no memory: {m0}/{n}); persistent relocation: {t0} → {t2} s'),
+  H=('H  memory across missions', 'mission time', '{t0} → {t2} s', 'persistent relocation (8 pairs). Unsafe deliveries: no memory {m0}/{n}, ours {b}/{n} (naive memory that skips checks: {a}/{n})'),
   E=('E  closed loop, random worlds', '{ok}/{n}', 'as expected; wrong deliveries {w}/{n}'),
   G=('G  look-around', '{b}/{n} → {c}/{n}', 'deliveries despite a fire (p={p:.3f})'),
   R=('R  12 camera degradations', '{fa}/{n}', 'false approvals (fails safe)'),
@@ -253,8 +253,8 @@ def build(lang):
     maxw = rx1 - rx0 - 50
     if n['H']:  # headline: campaign H, prominent card first
         hn, hlab, hbig, hsub = t['H']
-        hbig = hbig.format(a=n['H_naive'], b=n['H_ver'], n=n['H_n'])
-        hsub = hsub.format(t0=n['H_t0'], t2=n['H_t2'], m0=n['H_m0'], n=n['H_n'])
+        kw = dict(a=n['H_naive'], b=n['H_ver'], n=n['H_n'], t0=n['H_t0'], t2=n['H_t2'], m0=n['H_m0'])
+        hbig, hsub = hbig.format(**kw), hsub.format(**kw)
         nl = len(wrap(d, hsub, font(21), maxw))
         hh_ = 138 + 25 * nl + 12
         card(d, (rx0, y0, rx1, y0 + hh_), fill=(232, 247, 240), outline=GREEN, w=6)
