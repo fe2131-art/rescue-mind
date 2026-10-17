@@ -399,6 +399,13 @@ def main():
         tab = ROOT / 'docs/paper/tab_z.tex'
         if tab.is_file():
             tables['tab_z.tex'] = '\n'.join(l for l in tab.read_text().splitlines() if not l.startswith('% generated'))
+    # ---- study P (real photographs, D-Fire)
+    pf = RES / 'p_summary.json'
+    if pf.is_file():
+        pp = json.loads(pf.read_text())
+        m['PRecall'] = f"{pp['recall']['k']}/{pp['recall']['n']}"; m['PFalseAlarm'] = f"{pp['false_alarm']['k']}/{pp['false_alarm']['n']}"
+        m['PRecallCI'] = f"[{100 * pp['recall']['ci95'][0]:.1f}, {100 * pp['recall']['ci95'][1]:.1f}]\\%"
+        m['PFalseAlarmCI'] = f"[{100 * pp['false_alarm']['ci95'][0]:.0f}, {100 * pp['false_alarm']['ci95'][1]:.0f}]\\%"
     # ---- registration audit: each registration commit must precede the first commit of its results
     import subprocess
 
@@ -458,7 +465,7 @@ def main():
                'HModelPdet', 'HModelPdetN', 'HModelQ', 'HModelUnsafezero', 'HModelUnsafeone', 'HModelUnsafetwo',
                'HModelTimezero', 'HModelTimeone', 'HModelTimetwo',
                'JCorrectA', 'JCorrectJ', 'JUnsafeA', 'JUnsafeJ', 'JFalseRefA', 'JFalseRefJ', 'JFailedA', 'JFailedJ', 'JLatA', 'JLatJ',
-               'JPeakVram', 'JMcNemarP', 'JClaim'])
+               'JPeakVram', 'JMcNemarP', 'JClaim', 'PRecall', 'PFalseAlarm', 'PRecallCI', 'PFalseAlarmCI'])
     for name in ('tab_t1_models.tex', 'tab_t1_ablation.tex', 'tab_e_strata.tex', 'tab_i13_dev.tex', 'tab_r.tex', 'tab_h_arms.tex'):
         tables.setdefault(name, r'\begin{tabular}{l}\TBD\end{tabular}')
     (OUT / 'numbers.tex').write_text(m.text())
