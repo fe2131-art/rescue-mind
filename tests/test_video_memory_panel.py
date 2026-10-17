@@ -26,6 +26,8 @@ class MemoryPanel(unittest.TestCase):
         self.assertEqual(mdv.change_lines_ja({'memory_update': {'changes': []}}), [])
         self.assertEqual(mdv.change_lines_ja({'outcome': RESULT})[0], ls[0])
 
+    @unittest.skipUnless(os.path.exists(mdv.FONT_R) and os.path.exists(mdv.FONT_B),
+                         'Noto Sans CJK fonts (rm-dev image) not installed; pixel layout needs them')
     def test_box_fits_banner_slot_and_clear_of_verdict(self):
         img = Image.new('RGB', (1920, 1080), mdv.BG)
         d = ImageDraw.Draw(img, 'RGBA')
