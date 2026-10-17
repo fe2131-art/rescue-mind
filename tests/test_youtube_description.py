@@ -60,7 +60,7 @@ class YoutubeDescription(unittest.TestCase):
 
     def test_numbers_only_from_existing_files(self):
         text, _ = mk.build_description(CHAPTERS, self.res)
-        self.assertIn('閉ループ3試行：期待どおりの行動 3/3、誤った物資・火災のある拠点からの配達 0件', text)  # non-final row ignored
+        self.assertIn('ランダムに作った3個の世界で、期待どおりの行動 3/3、誤った物資・火のある拠点からの配達 0件', text)  # non-final row ignored
         for absent in ('評価H', '評価J', '評価Z', '評価R', '評価P', '実行中', '結果待ち'):
             self.assertNotIn(absent, text)
         (self.res / 'h_summary.json').write_text(json.dumps({
