@@ -25,7 +25,7 @@ Physical AI 応用1講座 最終課題 ｜ ROS 2 Jazzy × Gazebo Harmonic × ロ
 
 ---
 
-**目次**：[概要](#概要) ｜ [工夫した点](#工夫した点) ｜ [結果](#結果) ｜ [動かし方](#動かし方) ｜ [限界](#限界) ｜ [English summary](#english-summary)
+**目次**：[概要](#概要) ｜ [工夫した点](#工夫した点) ｜ [結果](#結果) ｜ [動かし方](#動かし方) ｜ [現場導入](#現場に持っていくには) ｜ [限界](#限界) ｜ [English summary](#english-summary)
 
 <!-- JUDGE:START -->
 **問題**：災害時の物資配達ロボットは、在庫表と現物の食い違い（水のはずが救急箱だった・空だった）や火災に出会う。指示どおり運ぶだけでは、誤った物資や危険な場所へ届けてしまう。
@@ -352,6 +352,10 @@ bash docker/run.sh python3 scripts/make_figures.py
 | `scripts/make_figures.py` / `make_report.py` / `make_demo_video.py` | 図・PDF・動画をすべて結果ファイルから再生成（数値の手入力なし） |
 
 `scripts/v0x〜v31_*` や `rescuemind/jev.py` などは引継ぎ前の開発履歴（旧クラウドAPI経路を含む）で、v3.3 の実行経路では使用していません（テストは維持）。
+
+## 現場に持っていくには
+
+[現場導入ガイド（docs/DEPLOYMENT.md）](docs/DEPLOYMENT.md)に、運用者向け（現場の較正、1枚報告の読み方、止まったときの意味、助言をどこまで信じるか、Go／No-go のチェックリスト）とロボット技術者向け（必要な GPU メモリと遅延、ROS 2 のトピックと QoS、Gazebo を実機に置き換える作業、安全インターロック）をまとめた。数値はすべて結果ファイルから取り、`scripts/check_consistency.py` が一致を確かめる。実写の火・煙の閾値は現場の写真で較正する必要があり、そのための `scripts/site_calibration.py` もある。**実機ではまだ動かしていない**（ガイドの最後に、検証していないことの一覧がある）。
 
 ## 限界
 
