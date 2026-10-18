@@ -76,11 +76,11 @@ def build(out: Path, rows=None) -> bool:
         cells.append((cs, ex))
     line_h = fs * lead / 72
     heights = []
-    for (cs, ex) in cells:
+    for r, (cs, ex) in zip(rows, cells):          # each row's own label (it used the last row's label for every row)
         n_left = max(len(v) for v in cs.values())
         lab = len(wrap(r['label'], inner[4], 6.6))
         h_right = 0.27 + lab * 6.6 * 1.3 / 72 + 0.04 + sum(len(l) for l, _ in ex) * line_h + 0.03 * len(ex)           # headline + label + notes
-        heights.append(max(n_left * line_h + 2 * pad + 0.06, h_right + pad))
+        heights.append(max(n_left * line_h + 2 * pad + 0.06, h_right + 2 * pad))
     total_h = top + head_h + 0.06 + sum(heights) + gap * len(rows) + 0.05
     fig.set_size_inches(total_w, total_h)          # 1 data unit = 1 inch, so the measured text widths are exact
     rend = fig.canvas.get_renderer()
