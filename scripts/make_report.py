@@ -5,10 +5,15 @@
 
 Output: docs/report/説明資料_PAI最終課題_<account>.pdf  (personal info must not appear;
 only the omnicampus account name is allowed by the assignment rules).
+
+  python3 scripts/make_report.py --account <name> --snapshot      # submission snapshot -> docs/snapshot/report/ (not tracked)
+
+--snapshot (or SNAPSHOT=1): the studies without results are printed as "登録済み・提出時点で未実施" instead of running / waiting / TBD.
 """
 from __future__ import annotations
 import argparse
 import json
+import os
 import statistics
 import sys
 from collections import Counter
@@ -24,6 +29,8 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import (BaseDocTemplate, CondPageBreak, Frame, Image, KeepTogether, PageBreak, PageTemplate,
                                 Paragraph, Spacer, Table, TableStyle)
 
+if '--snapshot' in sys.argv:      # submission snapshot: read before advice_numbers is imported (the wording constants below depend on it)
+    os.environ['SNAPSHOT'] = '1'
 ROOT = Path(__file__).resolve().parents[1]
 RES = ROOT / 'experiments/results'
 FIG = ROOT / 'docs/figures'
@@ -327,6 +334,10 @@ def speed_text():
 
 PEND = '実行中（事前登録済み）'
 PEND_NOT_RUN = '未実行（事前登録済み・実行待ち）'      # queued, not started: only V is running while the report is built
+WAIT_JA = '結果待ち（未実行）'
+SNAP = advice_numbers.snapshot_mode()
+if SNAP:      # submission snapshot (SNAPSHOT=1, make snapshot): one honest phrase for every study without results, no "running"/"waiting"
+    PEND = PEND_NOT_RUN = WAIT_JA = advice_numbers.PENDING_JA
 
 
 def n_runs(protocol):
@@ -516,8 +527,8 @@ def sec_new_detail():
                 P('合成した出動の結果で本物の計画と信用枠を動かした記述モデル（<font name="IPAexG">scripts/advice_credit_horizon.py</font>）で、事前登録はしていない。'
                   f"危険な配達は全条件で信用ありと信用なしが同一。代償は、7割正しい情報源の節約が {c['noisy_keep']:.0f} % に減ること（一貫性の代償）と、"
                   '正しいのに確認できない危険の警告も誤停止として課金され、いずれ締め出されること。'
-                  + ('閉ループの確認（研究B：6出動×(嘘つき3＋正直1)×(信用なし／あり)＝48試行）は結果待ち（未実行）。' if not p['B'] else '研究Bは結果あり（論文を参照）。')
-                  + ('依頼文による書き換え（研究IF：6種類×2言語×2物資×3表現＝72文）は結果待ち（未実行）。' if not p['IF'] else '研究IFは結果あり（論文を参照）。'), 'small'),
+                  + ('閉ループの確認（研究B：6出動×(嘘つき3＋正直1)×(信用なし／あり)＝48試行）は' + WAIT_JA + '。' if not p['B'] else '研究Bは結果あり（論文を参照）。')
+                  + ('依頼文による書き換え（研究IF：6種類×2言語×2物資×3表現＝72文）は' + WAIT_JA + '。' if not p['IF'] else '研究IFは結果あり（論文を参照）。'), 'small'),
                 Spacer(1, 3)]
     return out
 
@@ -909,7 +920,7 @@ def judge_box(D, E, V, compact=False):
             lines.append(f"<b>新しい成果</b>：この保証を、実装そのものに対して<b>機械検証</b>した（z3 {sf['unsat']}件、突き合わせ {sf['cases']:,}件で不一致 {sf['disagreements']}、"
                          f"バグ{sf['mutants']}個を{sf['caught']}個とも検出）。「締めるだけ」は<b>必要十分</b>でもあり、"
                          + (f"<b>信用枠</b>で、毎回嘘をつく情報源の代償にも上限がつく（記述モデル：+{cf['liar_no']:.0f}秒 → +{cf['liar_yes']:.0f}秒）。" if cf else '')
-                         + '閉ループの確認（研究B・IF）は' + ('結果あり。' if all(advice_numbers.pending_studies().values()) else '結果待ち。'))
+                         + '閉ループの確認（研究B・IF）は' + ('結果あり。' if all(advice_numbers.pending_studies().values()) else (WAIT_JA if SNAP else '結果待ち') + '。'))
         return [P(x, 'small') for x in lines] + [Spacer(1, 3)]
     h = jload('h_summary.json')
     items = ['<b>問題</b>：災害時の物資配達ロボットは、在庫表と現物の食い違い（水のはずが救急箱・空）や火災に出会う。指示どおり運ぶだけでは、誤った物資や危険な場所へ届けてしまう。',
@@ -1072,7 +1083,7 @@ def new_results_main():
                      '合成した結果の記述モデル（事前登録なし、閉ループは未確認）。報告書は不採用の助言と理由を書く'])
     done_ = [k for k in ('B', 'IF') if p[k]]
     rows.append(['<b>研究B・IF</b>', '<b>B</b>：信用枠の閉ループ確認（毎回嘘をつく情報源の系列、48試行、予測は決定的）。<b>IF</b>：依頼文で依頼物資を書き換えられるか（72文）。',
-                 '事前登録済み、' + ('B・IFとも結果あり' if len(done_) == 2 else '・'.join(k for k in ('B', 'IF') if not p[k]) + 'は<b>結果待ち（未実行）</b>')])
+                 '事前登録済み、' + ('B・IFとも結果あり' if len(done_) == 2 else '・'.join(k for k in ('B', 'IF') if not p[k]) + 'は<b>' + WAIT_JA + '</b>')])
     out = [P('<b>この保証の新しい成果</b>（機械検証・必要十分・期間の上限）', 'small'), Spacer(1, 2), table(rows, [26, 112, 36])]
     if c:
         out += fig('advice_credit.png', 128, f"図 助言の信用枠の記述モデル（{c['missions']}出動）：嘘つき・危険の連打の代償は上限で止まり、正直な情報源は何も失わない。")
@@ -1086,7 +1097,7 @@ def story_chain(D, E, V, T):
     h = jload('h_summary.json')
     hp = h['P3_no_extra_risk_vs_v36'] if h else None
     sj = jload('s_summary.json')
-    pend_va = '' if jload('a_summary.json') else '<br/>評価A：未実行'
+    pend_va = '' if jload('a_summary.json') else '<br/>評価A：' + ('提出時点で未実施（登録済み）' if SNAP else '未実行')
     g = lambda x: f"<br/><font color='#52514e'>{x}</font>"
     heads = ['① 迷ったら止まる', '② 誤りの正体', '③ 横から見直す', '④ 助言は締めるだけ', '⑤ 保証の外']
     bodies = [
@@ -1096,7 +1107,7 @@ def story_chain(D, E, V, T):
         '記憶・他のロボット・依頼文・在庫表は「助言」。確認の順番と慎重さを変えるだけで、省けない。'
         + (g(f"記憶の評価：危険な配達 記憶なし{hp['unsafe_M0']}→本方式{hp['unsafe_M2']}/{hp['n_pairs']}" + pend_va) if hp else '')
         + (g(f"実装をz3で機械検証（{advice_numbers.smt_facts()['unsat']}件）。信用枠で代償に上限") if advice_numbers.smt_facts() else ''),
-        '画像に写った文字と、現実・倉庫との差は保証できない。測って報告する。' + ('' if sj else g('画像内の文字・倉庫の評価：未実行')),
+        '画像に写った文字と、現実・倉庫との差は保証できない。測って報告する。' + ('' if sj else g('画像内の文字・倉庫の評価：' + ('提出時点で未実施（登録済み）' if SNAP else '未実行'))),
     ]
     sty = ParagraphStyle('chain', parent=S['cell'], fontSize=7.9, leading=11)
     hst = ParagraphStyle('chainh', parent=S['cellh'], fontSize=8.6, alignment=TA_CENTER)
@@ -1119,7 +1130,7 @@ def story_chain(D, E, V, T):
         if i == 4:
             st.append(('BACKGROUND', (c, 1), (c, 1), SOFT))
     t_.setStyle(TableStyle(st))
-    return [t_, Spacer(1, 2), P('橙色の枠が中心（保証の内側）、灰色の枠は保証の外側。「実行中」の研究は、結果が出てから数値を入れる。', 'cap')]
+    return [t_, Spacer(1, 2), P('橙色の枠が中心（保証の内側）、灰色の枠は保証の外側。' + ('「登録済み・提出時点で未実施」の研究は、数値を載せていない。' if SNAP else '「実行中」の研究は、結果が出てから数値を入れる。'), 'cap')]
 
 
 def story_criteria(E, V):
@@ -1271,9 +1282,13 @@ def story_limits(D, E, V, SP):
     todo = [k for k, f in STUDY_FILES if not (RES / f).is_file()]
     running = [k for k in todo if k == 'V']
     queued = [k for k in todo if k not in running]
-    s.append(P('<b>研究の状況</b>（事前登録した研究。結果ファイルがあるものだけ数値を載せている）：<b>結果あり</b> ' + '・'.join(done)
-               + ('、<b>実行中</b> ' + '・'.join(running) if running else '') + '、<b>未実行（実行待ち）</b> ' + ('・'.join(queued) or 'なし')
-               + '。', 'small'))
+    if SNAP:      # nothing is "running" or "waiting" in the submission snapshot: a study has results or it is registered and was not run
+        s.append(P('<b>研究の状況</b>（事前登録した研究。結果ファイルがあるものだけ数値を載せている）：<b>結果あり</b> ' + '・'.join(done)
+                   + '、<b>' + advice_numbers.PENDING_JA + '</b> ' + ('・'.join(todo) or 'なし') + '。', 'small'))
+    else:
+        s.append(P('<b>研究の状況</b>（事前登録した研究。結果ファイルがあるものだけ数値を載せている）：<b>結果あり</b> ' + '・'.join(done)
+                   + ('、<b>実行中</b> ' + '・'.join(running) if running else '') + '、<b>未実行（実行待ち）</b> ' + ('・'.join(queued) or 'なし')
+                   + '。', 'small'))
     items = []
     if t1:
         m = t1['models']['Qwen3.5-9B']['rules']['full']
@@ -1284,7 +1299,7 @@ def story_limits(D, E, V, SP):
                      f"{'成立' if j['P2_no_extra_unsafe']['supported'] else '不成立'}。2つのAIは同じ系統で独立ではない。")
     items += ['保証は<b>相対的</b>：助言は確認自身の誤りを超えて危険を増やさないが、その誤りは0ではない。助言で先に向かわされた拠点が本当に燃えているときの接近は、保証の範囲外。',
               '<b>すべてシミュレーション</b>（実機なし）。物資の把持・運搬は未実装。実写で検証したのは火災判定（P）だけで、閾値は現場ごとに較正が要る。',
-              '信用枠（I-24）の数値は<b>合成した結果の記述モデル</b>で、閉ループの確認（研究B）は' + ('結果あり。' if advice_numbers.pending_studies()['B'] else '結果待ち。')
+              '信用枠（I-24）の数値は<b>合成した結果の記述モデル</b>で、閉ループの確認（研究B）は' + ('結果あり。' if advice_numbers.pending_studies()['B'] else WAIT_JA + '。')
               + '機械検証（I-23）は転記したモデルとコードが対象で、同じ筆者による転記と z3・CPython を信頼している。第三者による再現はまだ無い。',
               '閉ループの評価は8〜16組と少なく、記憶の評価Hは世界の変化が台本どおり（ランダムな変化は評価Vで確かめた）。']
     _vf = advice_numbers.v_facts()
@@ -1333,7 +1348,7 @@ def build(account: str, video_url: str | None, repo_url: str):
     it = {k: (jload(f) or {}).get('summary') for k, f in (('tfidf', 'intent_tfidf.json'), ('q3b', 'intent_hybrid_qwen25vl3b.json'),
                                                           ('q9b', 'intent_hybrid_selected_qwen35_9b_i35.json'))}
     i01 = {k: jload(f'i01_drift/{k}.json') for k in ('baseline', 'sphere_wheels')}
-    out = ROOT / 'docs/report' / f'説明資料_PAI最終課題_{account}.pdf'
+    out = (advice_numbers.snapshot_dir() / 'report' if SNAP else ROOT / 'docs/report') / f'説明資料_PAI最終課題_{account}.pdf'
     out.parent.mkdir(parents=True, exist_ok=True)
     doc = BaseDocTemplate(str(out), pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm,
                           topMargin=16 * mm, bottomMargin=16 * mm,
@@ -1590,5 +1605,6 @@ if __name__ == '__main__':
     ap.add_argument('--account', required=True)
     ap.add_argument('--video-url', default=None)
     ap.add_argument('--repo-url', default='https://github.com/fe2131-art/rescue-mind')
+    ap.add_argument('--snapshot', action='store_true', help='submission snapshot: studies without results read "registered, not yet run at submission"; PDF in docs/snapshot/report/')
     a = ap.parse_args()
     build(a.account, a.video_url, a.repo_url)

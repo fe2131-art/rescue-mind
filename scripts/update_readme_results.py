@@ -1,18 +1,27 @@
 #!/usr/bin/env python3
 """Rewrite the README results block from experiments/results (no hand-typed numbers).
 
+  python3 scripts/update_readme_results.py              # rewrites README.md (and the prose counts of FINDINGS.md / HANDOFF.md)
+  python3 scripts/update_readme_results.py --snapshot   # submission snapshot -> docs/snapshot/README.md (SNAPSHOT_DIR overrides); nothing tracked is touched
+
+--snapshot (or SNAPSHOT=1): a study without results reads "登録済み・提出時点で未実施" / "registered, not yet run at submission"
+(no "running", "awaiting results" or "pending"); a study with results keeps its numbers.
+
 Pre-registered evaluations: campaigns G and F (closed loop, paired, v3.6 look-around), E (v3.5, primary
 for the broad scenarios), D (v3.4) and the held-out tests T1 and T2 (offline, 600 images each). Every number is
 computed from the result files; a part whose input file is missing is skipped.
 """
 from __future__ import annotations
 import json
+import os
 import re
 import statistics
 import sys
 from collections import Counter
 from pathlib import Path
 
+if '--snapshot' in sys.argv:      # submission snapshot (read before advice_numbers is imported)
+    os.environ['SNAPSHOT'] = '1'
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from t1_analysis import decide, wilson  # noqa: E402
@@ -272,6 +281,18 @@ T1 で分かった弱点に、結果を見る前に固定した条件で段階�
 
 PENDING = '実行中（事前登録済み）'
 PENDING_NOT_RUN = '結果待ち（事前登録済み・未実行）'
+SNAP = advice_numbers.snapshot_mode()
+PENDING_JA_SHORT = advice_numbers.PENDING_JA if SNAP else '結果待ち'
+SNAP_JA = (('結果待ちの研究は「結果待ち」と書き、数値は結果ファイルから自動で入る。', '結果のない研究は「登録済み・提出時点で未実施」と書き、数値は載せない。'),
+           ('（「結果待ち」は2026-10-17時点。結果が出たら[結果](#結果)の表が先に更新される）', '（「登録済み・提出時点で未実施」は、提出時点で結果のない研究）'),
+           ('は結果待ちです。', 'は' + advice_numbers.PENDING_JA + 'です。'), ('結果待ち', advice_numbers.PENDING_JA))
+if SNAP:      # the one wording of the submission snapshot (scripts/advice_numbers.py)
+    PENDING = PENDING_NOT_RUN = advice_numbers.PENDING_JA
+# English phrases of the README that say a study is running / waiting / pending; in the snapshot they say what is true at the freeze
+SNAP_EN = (('pre-registered, running, no results yet', advice_numbers.PENDING_EN), ('pre-registered, not yet run', advice_numbers.PENDING_EN),
+           ('pre-registered, running', advice_numbers.PENDING_EN), ('adversarial advice (A) is pending.', 'adversarial advice (A) is ' + advice_numbers.PENDING_EN + '.'),
+           ('(S, pending)', '(S, ' + advice_numbers.PENDING_EN + ')'), ('XD/X pending)', 'XD/X ' + advice_numbers.PENDING_EN + ')'),
+           (' not yet run.', ' ' + advice_numbers.PENDING_EN + '.'))
 I22_JA = advice_numbers.i22_ja()      # from experiments/results/i22_gazebo_check.log (single source, also read by the paper)
 I22_EN = advice_numbers.i22_en()
 
@@ -447,7 +468,7 @@ def audit_text():
     if not c:
         return '登録コミットが結果コミットより前にあることを付録で監査'
     return (f"論文の{c['n']}研究（と初期の評価C）の登録時刻と最初の結果の時刻を、git の履歴から機械的に監査（`git merge-base --is-ancestor`）。"
-            f"結果のある研究のうち **{c['ok']}件で登録コミットが結果コミットより前**{'（' + str(c['same']) + '件は同じコミットで順序を確認できない）' if c['same'] else ''}、{c['pending']}件は結果待ち"
+            f"結果のある研究のうち **{c['ok']}件で登録コミットが結果コミットより前**{'（' + str(c['same']) + '件は同じコミットで順序を確認できない）' if c['same'] else ''}、{c['pending']}件は{PENDING_JA_SHORT}"
             f"（登録は統合ブランチの main への統合時。B・IF・Q など、統合ブランチにしか無い登録は、結果のある研究と同列には監査できていない。統合まで「登録済み」とは書かない）")
 
 
@@ -510,7 +531,7 @@ def judge_new_lines():
                    f"嘘つきの無駄な遠回り +{c['liar_no']:.0f}秒 → +{c['liar_yes']:.0f}秒、危険の連打による誤停止 {c['flood_no']}回 → {c['flood_yes']}回、正直な情報源は何も失わない。")
     pend = [k for k, v in advice_numbers.pending_studies().items() if not v]
     out.append('   * 閉ループでの確認（研究B）と、依頼文で依頼物資を書き換えられるか（研究IF）は事前登録済み。'
-               + ('どちらも結果あり' if not pend else '・'.join(pend) + 'は結果待ち（未実行）') + '。')
+               + ('どちらも結果あり' if not pend else '・'.join(pend) + 'は' + ('結果待ち（未実行）' if not SNAP else PENDING_NOT_RUN)) + '。')
     return out
 
 
@@ -901,7 +922,7 @@ def main():
         if rows:
             tables += [f'#### {title}', '', '\n'.join(head + rows), '']
     parts = ['<!-- RESULTS:START -->', '## 結果', '',
-             '事前登録した評価の一覧（D・E・F・G・T1・T2・Z・P・R・K・H・J' + ''.join('・' + k for k in ('L', 'V') if (RES / f'{k.lower()}_summary.json').is_file()) + '、結果待ちの' + '・'.join(waiting_studies()) + '）を、論文と同じ**一本の筋**の順に並べる：①確かめる ②誤りの大半は隠れた火 ③横から見直す ④見ていないものは締めるだけ ⑤保証の外 ⑥採用しなかったもの。Qwen3.5-9B（ローカル・V100）。条件・閾値・解析は結果を見る前に `experiments/PREREGISTRATION_*.md` に固定し、台帳は全試行を記録。結果待ちの研究は、結果ファイルができると数値が自動で入る。', '',
+             '事前登録した評価の一覧（D・E・F・G・T1・T2・Z・P・R・K・H・J' + ''.join('・' + k for k in ('L', 'V') if (RES / f'{k.lower()}_summary.json').is_file()) + '、' + ('登録済み・提出時点で未実施の' if SNAP else '結果待ちの') + '・'.join(waiting_studies()) + '）を、論文と同じ**一本の筋**の順に並べる：①確かめる ②誤りの大半は隠れた火 ③横から見直す ④見ていないものは締めるだけ ⑤保証の外 ⑥採用しなかったもの。Qwen3.5-9B（ローカル・V100）。条件・閾値・解析は結果を見る前に `experiments/PREREGISTRATION_*.md` に固定し、台帳は全試行を記録。' + ('登録済み・提出時点で未実施の研究は、数値を載せていない（結果ファイルができれば自動で入る）。' if SNAP else '結果待ちの研究は、結果ファイルができると数値が自動で入る。'), '',
              '用語：**誤許可**＝届けてはいけない場面で「届けてよい」と判断してしまうこと（ロボットを実際に動かす評価では**誤配達**。火のある拠点から届けてしまうことは**危険な配達**）。**正しい許可**＝届けてよい場面で正しく「よい」と判断できること。**閉ループ**＝AIの判断でロボットが実際に動くところまで含めた評価。**ε**＝確認そのものが、届けてはいけない拠点を許可してしまう確率（助言の危険は、この内側に収まる）。', '',
              '\n'.join(tables)]
     if t1_block:
@@ -942,6 +963,14 @@ def main():
                 + (f"。{sp}（速度は画面に常時表示）" if sp else '。'))
         txt = re.sub(r'(<!-- VIDEO:START -->\n).*?(\n<!-- VIDEO:END -->)', lambda m: m.group(1) + '  * ' + desc + m.group(2), txt, count=1, flags=re.S)
     txt = sync_counts(txt, readme)
+    if SNAP:      # the submission snapshot goes next to the other snapshot documents; the tracked README.md and docs/*.md stay as they are
+        for a_, b_ in SNAP_EN + SNAP_JA:
+            txt = txt.replace(a_, b_)
+        out = advice_numbers.snapshot_dir() / 'README.md'
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(txt, encoding='utf8')
+        print('README snapshot written:', out)
+        return
     readme.write_text(txt, encoding='utf8')
     for name in ('FINDINGS.md', 'HANDOFF.md'):       # prose counts in the other docs
         f = ROOT / 'docs' / name

@@ -44,7 +44,7 @@ BUILD_LATEX = docker build -t $(LATEX_IMG) docker/latex
 NEED_DEV   = $(call REQ_CONT,$(DEV),$(START_DEV),$(BUILD_DEV))
 NEED_LATEX = $(call REQ_IMG,$(LATEX_IMG),$(BUILD_LATEX))
 
-.PHONY: help doctor test check verify-quick reproduce-help numbers figures paper report readme youtube all-docs finalize assets video-plan video \
+.PHONY: help doctor test check verify-quick reproduce-help numbers figures paper report readme youtube all-docs snapshot finalize assets video-plan video \
         study-D study-E study-F study-G study-H study-J study-V study-L study-A study-X study-W study-S study-XD \
         study-T1 study-T2 study-R study-P2 study-K
 
@@ -135,6 +135,11 @@ youtube: ## Regenerate docs/YOUTUBE_DESCRIPTION.md (make_youtube_description.py)
 
 all-docs: numbers figures paper report readme youtube ## numbers, figures, paper, report, readme, youtube (in this order)
 	@echo "all-docs done."
+
+snapshot: ## Submission snapshot (studies without results read "registered, not yet run at submission"): paper, supplement, report, README text, YouTube text in docs/snapshot/ (untracked; SKIP_PDF=1 for texts only; FINAL=1 is the strict opposite)
+	$(NEED_DEV)
+	$(NEED_LATEX)
+	$(NICE) bash scripts/build_snapshot.sh
 
 finalize: ## After the campaigns: every result-dependent analysis (V/W/Q/A/S/X/XD gated on complete inputs), figures, paper, report, README, YouTube text, tests, consistency check (scripts/finalize_results.sh; commits nothing)
 	$(NEED_DEV)
