@@ -84,13 +84,13 @@ The guide covers: (1) hardware and the ROS 2 interface a real base must provide 
 | `/odom` | `nav_msgs/Odometry` | センサー用（best effort） | `header.frame_id` が `odom` で終わり `child_frame_id` が `base_link` で終わる。クォータニオンがほぼ単位長。時刻が単調増加（同じ時刻の繰り返しは異常）。受信から 1.0 s を超えると停止 | 20 Hz |
 | `/scan` | `sensor_msgs/LaserScan` | センサー用（best effort） | 受信から 1.0 s を超えると停止。**前方の通路だけ**を見る（前方 0.26 m 以内の障害物で停止）。後退は監視できないので禁止 | 360 本、10 Hz、0.08〜10 m |
 | `/camera` | `sensor_msgs/Image`（非圧縮8ビットRGB） | **Reliable、KEEP_LAST 2** | `header.stamp` が単調増加（再生された古い画像で生存を装えない）。ガードは 2.0 s、ミッションは 3.0 s 画像が進まなければ停止 | 640x480、5 Hz |
-| `/clock` | `rosgraph_msgs/Clock` | センサー用 | **カメラの時刻が `/clock` より 1.2 s を超えて遅れるか 0.25 s を超えて進むと、その画像は使わない** | シミュレーション時刻 |
+| `/clock` | `rosgraph_msgs/Clock` | センサー用 | **カメラの時刻が `/clock` より 1.2 s を超えて遅れるか 0.25 s を超えて進むと、その画像は使わない**（実機には `/clock` が無いので、`--clock-source system` で同じ限度をホストのシステム時計に対して適用する：第7節、I-26） | シミュレーション時刻 |
 | `/rescuemind/estop` | `std_msgs/Bool` | 既定（reliable、深さ10） | `true` で即時に停止し、ガードを再起動するまで解除されない | — |
 | `/cmd_vel` | `geometry_msgs/Twist` | — | **ガード（`ros/guarded_cmd_relay.py`）だけが 10 Hz で出す。** ミッションは `/rescuemind/cmd_vel_request` に出し、ガードが制限をかけて中継する | — |
 
 QoS で実機が最初につまずく点（シミュレーションで見つけた問題：FINDINGS #5）：
 
-* 画像の購読は Reliable。**カメラドライバを best effort で出していると接続されない**（QoSが合わない）。ドライバを Reliable にするか、`rescuemind/ros_qos.py` の `image_qos()` を実機のQoSに合わせて変える。best effort のまま大きな画像を流すと、負荷時に画像が欠けて 102 枚中 10 枚しか届かず、最大 6.8 s 途絶した。
+* 画像の購読は Reliable。**カメラドライバを best effort で出していると接続されない**（QoSが合わない）。ドライバを Reliable にするか、**実機用プロファイルのときだけ `--camera-qos best_effort`（ミッションとガードの両方）で購読側を合わせる**（I-26。Best effort の購読は Reliable の発行にも best effort の発行にも接続する。鮮度・静止の検査は同じまま）。best effort のまま大きな画像を流すと、負荷時に画像が欠けて 102 枚中 10 枚しか届かず、最大 6.8 s 途絶した。
 * 制御トピック（`/rescuemind/cmd_vel_request`、`/rescuemind/guard_ready`）は既定で Reliable。`--control-qos best_effort` でも動かせるが、検証したのは既定の組み合わせ。
 
 ### 1.4 カメラの内部パラメータと取り付けの前提
@@ -114,12 +114,13 @@ QoS で実機が最初につまずく点（シミュレーションで見つけ�
 | 作業 | 内容 | 状態 |
 |---|---|---|
 | 1. 速度の出口 | 実機の駆動系が `/cmd_vel`（`geometry_msgs/Twist`、`linear.x` と `angular.z` だけ）を受けるようにし、**他に `/cmd_vel` を出すノード（遠隔操作、Nav2 など）を同時に動かさない**。複数の発行者はグラフ監視が検知して緊急停止する（FINDINGS #4・#13） | 未実機 |
-| 2. オドメトリ | フレーム名を `odom`／`base_link` にする。**拠点・避難所の座標は起動時のオドメトリ座標で書く**（ミッションは地図座標への変換や TF を持たない）。起動のたびに原点が変わるなら、起動位置を決めて測る | 未実機 |
-| 3. 時計 | ミッションは `/clock` を必要とし、画像の時刻が `/clock` に近いことを確かめる（第1.3節）。実機には `/clock` が無いので、カメラの時刻と同じ時間基準の `/clock` を出す小さなノードを足すか、この検査を実機用に置き換える。**検査をただ外してはいけない（古い画像で判断する危険を、この検査が止めている）** | 未実機 |
-| 4. 画像のQoS | 第1.3節 | 未実機 |
+| 2. オドメトリ | フレーム名を `odom`／`base_link` にする。別の名前なら `--odom-frame`／`--base-frame`（ガードとミッション。名前がその文字列で終わることを要求する）で合わせる。**拠点・避難所の座標は起動時のオドメトリ座標で書く**（ミッションは地図座標への変換や TF を持たない）。起動のたびに原点が変わるなら、起動位置を決めて測る | フレーム名はオプションで解決（I-26）。**座標系の手順は手動のまま**。未実機 |
+| 3. 時計 | ミッションは既定で `/clock` を必要とし、画像の時刻が `/clock` に近いことを確かめる（第1.3節）。実機には `/clock` が無いので `--clock-source system` を使う：カメラの `header.stamp` を、画像を受け取った時点のホストのシステム時計と同じ限度（遅れ 1.2 s、進み 0.25 s）で比べる。スタンプが無い・0・逆戻り、システム時計の逆戻りは、すべて拒否する（`rescuemind/real_profile.py`）。**検査をただ外してはいけない（古い画像で判断する危険を、この検査が止めている）** | オプションで解決（I-26）。**手動：カメラの計算機とこのホストの時刻合わせ（chrony／PTP）。ずれは補正せず拒否する**。未実機 |
+| 4. 画像のQoS | 第1.3節。ドライバが best effort なら `--camera-qos best_effort`（実機用プロファイルのときだけ許可：ミッションは `--clock-source system` と、ガードは `--real-profile` と一緒に） | オプションで解決（I-26）。**手動：ミッションとガードの両方に同じ値を渡す**。未実機 |
 | 5. 配置ファイル | `configs/gazebo_waypoints.json`（初期位置、各拠点の接近点、避難所B）と、拠点の中心のファイル（`--centers`）を現場の座標に置き換える。接近点は拠点の中心から 1.2 m 手前。検証した配置は、初期位置から拠点までの距離が 2.2〜4.0 m の24配置（拠点2つ） | 配置24で検証（シミュレーション） |
 | 6. 非常停止 | `/rescuemind/estop` を実機の非常停止回路と**並べて**つなぐ。ガードは安全認証を受けていない | 未実機 |
 | 7. センサーの確認 | 実機の LiDAR が自機のマストなどを障害物として検出しないこと（シミュレーションでは検出した：FINDINGS #7） | 未実機 |
+| 9. 閾値の一貫性 | τ_h をサーバー、ミッション、インターロックの3か所で別々に設定すると食い違う（食い違いは拒否で止まる）。**`--site-config site.json` の1ファイル**から3か所とガードが読む（第3.2節、第7節）。ミッションはその内容と SHA-256 を `mission.json` の `site_config` に記録し、実行後の監査は、記録した τ_h をすべてのモデル呼び出しの記録と照らす | オプションで解決（I-26）。未実機 |
 | 8. 起動 | `scripts/v32_orchestrate.py` は Gazebo 用の起動器。実機では、ガード、VLM サーバー、ミッションを別々に起動する（`docs/ARCHITECTURE.md`、`ros/` の各ノードの `--help`） | 未実機 |
 
 ---
@@ -181,6 +182,7 @@ QoS で実機が最初につまずく点（シミュレーションで見つけ�
    * ミッションノード：`--expected-hazard-threshold τ`
    * 配送インターロック：`--hazard-threshold τ`（これと異なる値で記録された判断は拒否される）。
    * `scripts/v32_orchestrate.py` を使う場合は `--hazard-threshold τ --hazard-prompt 文言` の1回で3か所に渡る。
+   * **（I-26、任意）1つのファイル `site.json` から3か所に渡す**：サーバー、ミッションノード、インターロック、オーケストレータのすべてが `--site-config site.json` を受け取り、τ_h（と文言）をここから読む。同じ設定を別のフラグでも指定して値が食い違うと、黙って上書きせずに**エラーで止まる**。慎重さの閾値は τ_h から導く（第7節）。
 
 注意：`scripts/site_calibration.py` は評価P2の規則を現場の写真に適用するために**今回追加した**ツールである。決定規則は合成データで検査済み（`--selftest`）。D-Fire の写真ではP2のスクリプトで測っており、このツールの採点工程（GPU）を現場の写真で通した実績は無い。初回は結果を目で確かめること。
 
@@ -316,6 +318,10 @@ QoS で実機が最初につまずく点（シミュレーションで見つけ�
 | 記憶 | `--memory-mode verified --memory-file <JSONL>`（`naive` は比較用で、運用に使わない） |
 | 助言 | `--advice-file <JSON> --advice-mode monotone`、信用枠 `--advice-credit <台帳>` |
 | 配置 | `--config <waypoints.json> --centers <centres.json>` |
+| （I-26）サイトの設定 | 全ノード `--site-config site.json`（τ_h、慎重さの閾値、文言、視点、フレーム名を1ファイルに）。ミッションは `mission.json` の `site_config` に記録 |
+| （I-26）時計 | ミッション `--clock-source {sim,system}`（既定 sim = Gazebo の `/clock`。system = ホストのシステム時計、遅れ 1.2 s／進み 0.25 s、スタンプが無い・逆戻りは拒否） |
+| （I-26）画像のQoS | ミッション `--camera-qos {reliable,best_effort}`、ガード `--camera-qos` と `--real-profile`（best_effort は実機用プロファイルのときだけ） |
+| （I-26）オドメトリのフレーム名 | ミッション・ガード `--odom-frame odom --base-frame base_footprint`（その名前で**終わる**ことを要求。既定の検査は `odom`／`base_link`） |
 
 ---
 
@@ -329,6 +335,42 @@ python3 ros/gazebo_waypoint_mission.py --run-live --instruction '避難所Bに�
 ```
 
 （`scripts/v32_orchestrate.py` が Gazebo 用に組み立てるコマンドと同じ構成。実機でこのコマンドを通した実績は無い。）
+
+### 7.1 実機用プロファイル（I-26、すべて任意。既定のコマンド行は変わらない）
+
+実機のブロッカー（時計、画像のQoS、フレーム名、τ_h の一貫性）をオプションで解決する。**どれも指定しなければ、これまでと同じコマンド行・同じ動作**（登録済みの評価はすべて既定で動いた）。
+
+`site.json`（τ_h は第3節の較正で決めた値）：
+
+```json
+{"schema": "rescuemind-site-1", "hazard_threshold": 0.30, "hazard_prompt": "h35", "hazard_views": "tiles",
+ "odom_frame": "odom", "base_frame": "base_footprint"}
+```
+
+* 使えるキー：`schema`（必須）、`hazard_threshold`（必須、0 より大きく 1 以下）、`caution_ratio`（0〜1 の手前、既定 0.2）、`hazard_prompt`、`hazard_views`、`odom_frame`、`base_frame`、`comment`。未知のキー、重複したキー、NaN、真偽値は拒否する。
+* **慎重さの閾値は τ_h から導く**：`min(0.01, caution_ratio × τ_h)`。τ_h が 0.05 より厳しいサイト（例：0.02 → 0.004）では τ_h に比例して厳しくなり、τ_h が 0.05 以上のサイト（0.30 など）では **0.01 のまま上げない**。監査と機械検証した単調性の証明が、慎重さの閾値を 0.01／0.05 で押さえているためで、緩める方向には動かさない。τ_h = 0.30 では慎重さは τ_h の 1/30 になり、記憶・助言で危険が指摘された拠点だけで拒否が増える（締めるだけ）。慎重さの閾値は実写で較正していない（第3.1節）。τ_h が 0.05 でないサイトで助言（`--advice-file`／`--advice-from-instruction`）を使う場合は、導いた慎重さが 0.01 でないとき起動時に拒否する。
+
+実機での起動（ガード、サーバー、インターロック、ミッションは別々に起動する。第1.6節の8）：
+
+```bash
+# ガード（唯一の /cmd_vel 発行者）
+python3 ros/guarded_cmd_relay.py --real-profile --camera-qos best_effort --site-config site.json
+# VLM サーバー、インターロック（τ_h と文言は site.json から）
+python3 scripts/local_vlm_server.py --model Qwen/Qwen3.5-9B --prompt-set v35 --site-config site.json
+python3 ros/delivery_interlock.py --site-config site.json --log <jsonl> --image-root <run_dir>
+# ミッション（第7節の最小の組み合わせに足す）
+python3 ros/gazebo_waypoint_mission.py --run-live ... --clock-source system --camera-qos best_effort --site-config site.json
+```
+
+実機の4つのブロッカーの状態：
+
+| ブロッカー | 状態 | 残る手動の手順 |
+|---|---|---|
+| (a) `/clock` が無い | オプションで解決：`--clock-source system`。`checkpoint_camera_system_clock_verified` を記録し、`rescuemind.real_profile.audit_system_clock_capture` で事後に確かめられる | カメラの計算機とのクロック同期。カメラのスタンプが Unix 時間でない（起動後の時間など）ドライバは拒否される（ドライバ側の設定が要る） |
+| (b) カメラが best effort | オプションで解決：`--camera-qos best_effort`（実機用プロファイルのみ）。鮮度（スタンプの前進）・静止・画像の質の検査は同じ | ミッションとガードの両方に指定する。トピック名が `/camera` と違うなら、ガードは `/camera` 固定なので `ros2 run topic_tools relay` などで `/camera` に中継する（ミッションは `--camera-topic`） |
+| (c) フレーム名 | オプションで解決：`--odom-frame`／`--base-frame`（ミッションとガード、`site.json` からも読める） | `/odom` のトピック名が違うなら中継する（ガードは `/odom` 固定） |
+| (d) τ_h の一貫性 | オプションで解決：`--site-config`。サーバー、ミッション、インターロック、オーケストレータが同じファイルを読み、食い違うフラグはエラー。ミッションは `mission.json` に記録し、監査（`run_completion`、`negative_evidence`、`recovery_evidence`）は記録した τ_h をすべてのモデル呼び出しと照らす | 閾値を変えたら、第3.3節のとおり再較正する。閉ループの安全性は τ_h ≠ 0.05 では**未測定** |
+| (e) 拠点の座標 | **解決しない（手動）** | 拠点・避難所の座標は起動時のオドメトリ座標で測って書く（第1.6節の2） |
 
 ---
 
@@ -349,6 +391,6 @@ python3 ros/gazebo_waypoint_mission.py --run-live --instruction '避難所Bに�
 * **保証は相対的**：危険な配達の確率は、確認そのものの誤りの上限の内側に収まる、という主張で、確認の誤りがなくなるわけではない。隠れた小さな火は 3/150 が残り、到着位置のぶれによる見逃しも起きる。
 * **検証した GPU は V100 32 GB の1台だけ。** 遅延は他のGPUで未測定。24 GB 級や量子化は未評価。
 * **`scripts/site_calibration.py` の採点工程は、現場の写真で実行した実績が無い。** 決定規則だけを合成データで検査した。
-* **`/clock` の検査、オドメトリのフレーム名、画像のQoSは、シミュレーション用に作られている**（第1.6節）。実機の置き換えは、これまでの評価の対象外。
+* **`/clock` の検査、オドメトリのフレーム名、画像のQoSは、シミュレーション用に作られていた**（第1.6節）。I-26 で実機用のオプション（第7.1節）を足したが、**単体テスト（偽の時計・偽のメッセージ）で確かめただけで、実機でも Gazebo の閉ループでも通していない**。実機の置き換えは、これまでの評価の対象外。
 * ガードとインターロックは安全認証を受けていない。ROS グラフ監視は認証機構ではない。
 * 拠点は2つ（水・救急箱）の評価。散らかった4拠点は描画の確認（`docs/figures/depot_preview_sheet.jpg`）だけ。把持・運搬、複数台、屋外は扱わない。

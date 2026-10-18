@@ -34,6 +34,7 @@ from rescuemind.camera_aim import aim_at_station, station_centers
 from rescuemind.stationary_gate import StationaryGate, odom_planar_twist, MotionUnstable
 from rescuemind.image_acquisition import CheckpointAcquisitionGate
 from rescuemind.camera_clock_gate import CameraClockGate, CameraClockRejected
+from rescuemind import real_profile as rp      # I-26: opt-in real-robot profile (all off by default)
 from rescuemind.stations import StationSet, next_candidate, plan_order
 
 
@@ -93,6 +94,11 @@ def fresh_image(path, max_age=120):
         raise RuntimeError(f'camera image stale/future: {f}, age={age:.1f}s')
 
 
+def SystemClockGateNow():
+    # looked up through this module's `time` at call time (the unit tests replace time.time_ns)
+    return rp.SystemClockGate(now_ns=lambda: time.time_ns())
+
+
 def run_ros(route, args, record):
     try:
         import rclpy
@@ -110,7 +116,11 @@ def run_ros(route, args, record):
     pub=node.create_publisher(Twist,args.cmd_topic,control_qos(getattr(args,'control_qos','reliable')))
     ctx={'pose':None,'pose_time':None,'odom_twist':None,'frame_msg':None,'frame_time':None, 'guard_ready':False, 'guard_time':None}
     frames=FrameSequence()
-    clock_gate=CameraClockGate()
+    # I-26 (default off): --clock-source system compares the camera stamps with the host's system clock instead of /clock
+    clock_source=getattr(args,'clock_source','sim')
+    camera_qos=getattr(args,'camera_qos','reliable')
+    odom_frame=getattr(args,'odom_frame',None); base_frame=getattr(args,'base_frame',None)
+    clock_gate=SystemClockGateNow() if clock_source=='system' else CameraClockGate()
     clock_failure={"reason":None}
     live = record.get('run_type') in ('jev_qwen_live_mission','local_vlm_live_mission')
     soft=bool(getattr(args,'caution_soft',False))      # R5 #5: a caution-only refusal continues the search (default off)
@@ -122,6 +132,10 @@ def run_ros(route, args, record):
     watch=Watchdog(started_at=time.monotonic(),min_front_m=args.min_front_m,
                    max_scan_age_s=args.scan_max_age,startup_grace_s=sensor_grace)
     def on_odom(msg):
+        if (odom_frame is not None or base_frame is not None) and not rp.odom_frames_ok(msg,odom_frame,base_frame):
+            ctx['pose']=None; ctx['odom_twist']=None      # I-26: unexpected odometry frame names -> no pose, latched stop
+            watch.latched_reason='invalid_odometry_frames'
+            return
         p=msg.pose.pose.position; q=msg.pose.pose.orientation
         try:
             ctx['pose']=Pose2(float(p.x),float(p.y),yaw_from_quaternion(float(q.x),float(q.y),float(q.z),float(q.w)))
@@ -150,6 +164,8 @@ def run_ros(route, args, record):
             camera_watch.observe(msg, now)
         ctx['frame_msg']=msg
         ctx['frame_time']=now
+        if clock_source=='system':
+            ctx['frame_sys_ns']=time.time_ns()         # I-26: system time at reception (not at the later inspection)
     guard_required=bool(getattr(args,'relay_required',False))
     def on_guard(msg):
         ctx['guard_ready']=bool(msg.data)
@@ -157,8 +173,10 @@ def run_ros(route, args, record):
     subs=[node.create_subscription(Odometry,args.odom_topic,on_odom,qos_profile_sensor_data),
           node.create_subscription(LaserScan,args.scan_topic,on_scan,qos_profile_sensor_data),
           node.create_subscription(Bool,args.estop_topic,on_estop,10),
-          node.create_subscription(Image,args.camera_topic,on_camera,image_qos()),
-          node.create_subscription(Clock,'/clock',on_clock,qos_profile_sensor_data)]
+          node.create_subscription(Image,args.camera_topic,on_camera,
+                                   image_qos() if camera_qos=='reliable' else image_qos(reliability=camera_qos))]
+    if clock_source=='sim':
+        subs.append(node.create_subscription(Clock,'/clock',on_clock,qos_profile_sensor_data))
     if guard_required:
         subs.append(node.create_subscription(Bool,'/rescuemind/guard_ready',on_guard,
                                              control_qos(getattr(args,'control_qos','reliable'))))
@@ -383,7 +401,11 @@ def run_ros(route, args, record):
                 # The camera stamp must be near the *current* simulated time,
                 # not merely newer than the previous stamp. Delayed queued
                 # frames are not a proof of new on-site observation.
-                last_clock_proof=clock_gate.check_frame(ctx['frame_msg'],ctx['frame_time'])
+                if clock_source=='system':
+                    last_clock_proof=clock_gate.check_frame(ctx['frame_msg'],ctx['frame_time'],
+                                                            received_ns=ctx.get('frame_sys_ns'))
+                else:
+                    last_clock_proof=clock_gate.check_frame(ctx['frame_msg'],ctx['frame_time'])
                 if image_gate.observe(ctx['frame_msg'],ctx['frame_time']):
                     break
         else:
@@ -394,7 +416,7 @@ def run_ros(route, args, record):
         record['events'].append({'stage':'checkpoint_image_quality_verified',
                                  't_wall_s':round(time.monotonic()-start,3),
                                  **image_gate.report()})
-        record['events'].append({'stage':'checkpoint_camera_sim_clock_verified',
+        record['events'].append({'stage':rp.SYSTEM_CLOCK_STAGE if clock_source=='system' else 'checkpoint_camera_sim_clock_verified',
                                  't_wall_s':round(time.monotonic()-start,3),
                                  **last_clock_proof})
         record['checkpoint_image_path']=(str(f.relative_to(ROOT)) if f.is_relative_to(ROOT) else f.name)
@@ -848,9 +870,10 @@ def main():
     ap.add_argument('--inference-backend',choices=['local','cloud'],default='cloud',
                     help='local=on-device Transformers vision; cloud=legacy Jev/Qwen APIs')
     ap.add_argument('--local-mode',choices=['single','dual'],default='single')
-    ap.add_argument('--expected-hazard-threshold',type=float,default=0.05,
+    ap.add_argument('--expected-hazard-threshold',type=float,default=None,
                     help='the VLM server tau_h (--hazard-threshold) this run must have been started with; every model call is '
-                         'checked against it and the mission aborts otherwise (v3.6: 0.05; the server default 0.5 is refused)')
+                         'checked against it and the mission aborts otherwise (default 0.05 = v3.6; the server default 0.5 is '
+                         'refused; with --site-config the site value, and a conflicting flag is an error)')
     ap.add_argument('--local-primary-url',default='http://127.0.0.1:8765/v1/classify')
     ap.add_argument('--local-secondary-url',default='http://127.0.0.1:8766/v1/classify')
     ap.add_argument('--qwen-model',default='qwen3.8-omni-flash')
@@ -913,7 +936,35 @@ def main():
                     help='max seconds (from start) to wait for first odom/scan/camera/guard messages')
     ap.add_argument('--stage-timeout',type=float,default=130.)
     ap.add_argument('--out',default=None,help='Mission JSON path; defaults to per-run outputs/runs/<ID>/mission.json')
+    # I-26: opt-in real-robot profile.  Every default below reproduces the simulation behaviour exactly.
+    ap.add_argument('--clock-source',choices=list(rp.CLOCK_SOURCES),default='sim',
+                    help='I-26: sim (default) = camera stamps vs Gazebo /clock; system = vs this host\'s system clock (a real robot has '
+                         'no /clock; same 1.2 s lag / 0.25 s lead limits, fail closed on absent or non-monotonic stamps; the camera '
+                         'computer\'s clock must be synchronised)')
+    ap.add_argument('--camera-qos',choices=list(rp.CAMERA_QOS),default='reliable',
+                    help='I-26: camera subscription QoS; best_effort (for drivers that publish best effort) only with --clock-source system')
+    ap.add_argument('--odom-frame',default=None,help='I-26: header.frame_id of /odom must end with this (default: not checked here; the guard checks odom)')
+    ap.add_argument('--base-frame',default=None,help='I-26: child_frame_id of /odom must end with this (default: not checked here; the guard checks base_link)')
+    ap.add_argument('--site-config',default=None,
+                    help='I-26: site.json (schema rescuemind-site-1) with the site tau_h, the caution threshold derived from it and '
+                         'optionally the odometry frame names; recorded in mission.json; the same file goes to the server, the interlock and the guard')
     a=ap.parse_args()
+    site=None
+    try:
+        rp.check_profile(a.clock_source,a.camera_qos)
+        if a.site_config:
+            site=rp.load_site_config(a.site_config)
+        a.expected_hazard_threshold=rp.resolve('expected-hazard-threshold',a.expected_hazard_threshold,
+                                                site.hazard_threshold if site else None,0.05)
+        a.odom_frame=rp.resolve('odom-frame',a.odom_frame,site.odom_frame if site else None,None)
+        a.base_frame=rp.resolve('base-frame',a.base_frame,site.base_frame if site else None,None)
+        for nm,fr in (('--odom-frame',a.odom_frame),('--base-frame',a.base_frame)):
+            if fr is not None: rp.check_frame_name(fr,nm)
+    except rp.SiteConfigError as e:
+        ap.error(str(e))
+    if site is not None and site.caution_tau_h!=rp.CAUTION_TAU_H and (a.advice_file or a.advice_from_instruction):
+        ap.error('advice with a site tau_h whose derived caution threshold is not 0.01 is not supported '
+                 '(the advice audits assume 0.01); use tau_h >= 0.05 or no advice')
     if a.inference_backend == 'local':
         from rescuemind.local_vision import localhost_only
         localhost_only(a.local_primary_url)
@@ -968,7 +1019,8 @@ def main():
             ap.error(str(e))
     if a.memory_mode!='off' and a.memory_file:
         from rescuemind.mission_memory import MissionMemory
-        mem_plan=MissionMemory(a.memory_file).plan(intent.item,a.memory_mode,stations=stations)
+        mem_plan=MissionMemory(a.memory_file).plan(intent.item,a.memory_mode,stations=stations,
+                                                   **({'caution_tau_h':site.caution_tau_h} if site is not None else {}))
     if a.advice_file or a.advice_from_instruction:
         # I-19: everything that is not the robot's own perception at the station is advice (memory, peer, inventory,
         # operator text).  The combined plan has the memory plan's schema, so the paths below handle both.
@@ -988,6 +1040,11 @@ def main():
             'preflight':None,'checkpoint':None,'success':False,'events':[],'trace':[],
             'physical_pickup':False,'memory':mem_plan,'advice':(mem_plan or {}).get('advice'),
             'robot_runtime_verified_in_author_environment':False}
+    if site is not None:
+        record['site_config']=site.block()       # I-26: the audits take tau_h from here and compare it with every model call
+    if a.clock_source!='sim' or a.camera_qos!='reliable' or a.odom_frame is not None or a.base_frame is not None:
+        record['real_profile']={'clock_source':a.clock_source,'camera_qos':a.camera_qos,
+                                'odom_frame':a.odom_frame,'base_frame':a.base_frame}
     if not stations.is_legacy():
         # I-21: k > 2 stations: the inventory, and the candidate order the recovery search follows (memory / advice may
         # have reordered it; the audit checks that no candidate was skipped)
