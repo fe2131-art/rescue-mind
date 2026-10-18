@@ -10,14 +10,16 @@ Never changes a model or a prompt.  Raw answers: experiments/results/if_raw.json
 from __future__ import annotations
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 SET = ROOT / 'experiments/intent_flip_set.jsonl'
-RAW = ROOT / 'experiments/results/if_raw.jsonl'
-OUT = ROOT / 'experiments/results/if_summary.json'
+TAG = os.environ.get('IF_TAG', '')            # '' = the registered study; 'i38' = the exploratory re-run with intent prompt i38 (scripts/if_i38_run.sh)
+RAW = ROOT / f'experiments/results/if{TAG and "_" + TAG}_raw.jsonl'
+OUT = ROOT / f'experiments/results/if{TAG and "_" + TAG}_summary.json'
 MODEL = 'Qwen/Qwen3.5-9B'
 FLIPS = ('flip_system', 'flip_forwarded', 'flip_hidden')
 
