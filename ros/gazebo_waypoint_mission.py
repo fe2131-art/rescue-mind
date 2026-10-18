@@ -891,6 +891,8 @@ def main():
     ap.add_argument('--settle-timeout',type=float,default=7.0)
     ap.add_argument('--checkpoint-timeout',type=float,default=155.0)
     ap.add_argument('--intent-backend',choices=['tfidf','llm'],default='tfidf',help='I-04: llm = local model closed-set parse + shelter guard')
+    ap.add_argument('--intent-conflict-check',action='store_true',
+                    help='I-27 (default off): a request naming both supplies, or whose other supply keeps p >= 0.05, is not acted on (ask back)')
     ap.add_argument('--vlm-model',default='Qwen/Qwen2.5-VL-3B-Instruct',help='model id served on the local endpoint')
     ap.add_argument('--recovery',action='store_true',help='I-02: if the supply is missing/wrong, check the other station once')
     ap.add_argument('--explain',action='store_true',help='I-03: one-sentence Japanese report after each checkpoint (not used for decisions)')
@@ -1001,7 +1003,8 @@ def main():
         from rescuemind.intent import Intent
         from rescuemind.mission_policy import IntentGate
         llm_intent=decide_intent_hybrid(a.instruction,model=a.vlm_model,
-                                        url=a.local_primary_url.replace('/v1/classify','/v1/intent'))
+                                        url=a.local_primary_url.replace('/v1/classify','/v1/intent'),
+                                        **({'conflict_check':True} if getattr(a,'intent_conflict_check',False) else {}))
         item=llm_intent['item'] or 'water'
         conf=(llm_intent.get('probs') or {}).get('item',{}).get(item,0.0)
         selection=IntentGate(bool(llm_intent['accept']),llm_intent['reason'],
