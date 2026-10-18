@@ -178,6 +178,22 @@ def text(draw, xy, s, size, fill=INK, bold=False, anchor='la'):
     draw.text(xy, s, font=font(size, bold), fill=fill, anchor=anchor)
 
 
+def instruction_box(d, s, xy, width_px):
+    """The operator's instruction in the header panel: one line at 28 px if it fits, else up to two lines at 21 px, never
+    silently cut in the middle of the advice (the full request is the point of the advice demo); a longer text ends in '…'."""
+    if font(28, True).getlength(s) <= width_px:
+        text(d, (xy[0], xy[1] + 8), s, 28, INK, True)
+        return
+    lines = wrap_lines(s, 21, width_px, True)
+    if len(lines) > 2:
+        lines = lines[:2]
+        while lines[1] and font(21, True).getlength(lines[1] + '…') > width_px:
+            lines[1] = lines[1][:-1]
+        lines[1] += '…'
+    for k, line in enumerate(lines):
+        text(d, (xy[0], xy[1] + k * 27), line, 21, INK, True)
+
+
 def wrap_lines(s, size, width_px, bold=False):
     f = font(size, bold)
     lines, cur = [], ''
@@ -346,7 +362,7 @@ def mission_segment(run_dir: Path, spec: dict, cam: FilmCamera, emit, narr=None,
             text(d, (40, 26), 'RescueMind', 40, ACCENT, True)
             text(d, (318, 36), f'デモ {spec["index"]}/{total} ｜ {spec.get("title") or SCENE_JA[spec["scene"]]}', 28, INK, True)
             rounded(d, (1150, 20, 1880, 84), PANEL, 16)
-            text(d, (1172, 34), f'指示：「{instr}」'[:30], 28, INK, True)
+            instruction_box(d, f'指示：「{instr}」', (1172, 26), 690)
             main = Image.open(nearest(run['film'], t)).convert('RGB').resize((1280, 720), Image.BILINEAR)
             md = ImageDraw.Draw(main, 'RGBA')
             pts = [cam.project((x, y, 0.02)) for (tt, x, y) in run['truth'] if tt <= t]
