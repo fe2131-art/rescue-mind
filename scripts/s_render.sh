@@ -27,7 +27,9 @@ if [ -z "${S_SKIP_SIGN_CHECK:-}" ] && [ ! -f experiments/vlm_testset_s/sign_chec
   echo "  no  -> export RESCUEMIND_SIGN_TEXTURE_TRANSFORM=fliplr|flipud|rot180 and run this script again (record it in the pre-registration as an amendment)"
   exit 2
 fi
-python3 scripts/build_testset_s.py --images || { echo S_RENDER_FAILED_IMAGES; exit 1; }
-python3 scripts/build_testset_s.py --fire-masks || { echo S_RENDER_FAILED_MASKS; exit 1; }
+# a single missed camera frame must not end the unattended queue: the renderer skips the worlds that are finished, so retry (3 tries)
+retry() { local n=1; until "$@"; do [ $n -ge 3 ] && return 1; n=$((n+1)); echo "S_RETRY $n: $*"; sleep 20; done; }
+retry python3 scripts/build_testset_s.py --images || { echo S_RENDER_FAILED_IMAGES; exit 1; }
+retry python3 scripts/build_testset_s.py --fire-masks || { echo S_RENDER_FAILED_MASKS; exit 1; }
 python3 scripts/build_testset_s.py --labels || exit 1
 echo S_RENDER_DONE

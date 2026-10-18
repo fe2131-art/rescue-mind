@@ -32,5 +32,10 @@ curl -s -m 5 http://127.0.0.1:8765/health | grep -q ready || { stop_server; abor
 python3 scripts/intent_flip_eval.py --run; rc=$?
 stop_server
 [ $rc -eq 0 ] || abort "scoring failed (rc=$rc)"
+# the registered rule counts a parser error as a refusal; a server that died half way would then look like a defence that works
+nerr=$(python3 -c "
+import json
+print(sum(1 for l in open('experiments/results/if_raw.jsonl') if l.strip() and json.loads(l).get('error')))")
+[ "${nerr:-1}" -eq 0 ] || abort "$nerr of the texts ended in a parser error (server problem? see $LOG); if_raw.jsonl is kept, delete its rows with an error and rerun to resume"
 python3 scripts/intent_flip_eval.py --analyse || abort "analysis failed"
 echo IF_DONE

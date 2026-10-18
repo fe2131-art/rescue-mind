@@ -58,6 +58,10 @@ STEER_N = 16
 STEER_ARMS = ('monotone', 'scrutiny_soft', 'naive')       # plus one 'control' per world
 STEER_PILOT_N = 2
 ADVICE_DIR = 'experiments/advice_A'
+# Intent prompt of the robot's instruction parser.  None = the orchestrator default (v3.6, i35: the registration of 2026-10-18).
+# Amendment of the study A pilot finding (FINDINGS #30): set to 'i38' (after the pre-fixed adoption rule of
+# scripts/intent_i38_check.py says so), regenerate both protocols with --amend and commit them BEFORE the pilot is rerun.
+INTENT_PROMPT = None
 PILOT_ADVICE_DIR = 'experiments/advice_A_pilot'
 
 # {item}: Japanese item noun; {Y}: letter of the requested supply's own station; {X}: letter of the OTHER station
@@ -279,9 +283,13 @@ def build(seed: str = SEED, prefix: str = 'A', advice_dir: str = ADVICE_DIR, n_p
     trials = trials + steer
     files = {**files, **sfiles}
     name = 'pilot' if pilot else 'campaign'
-    return {'schema': f'rescuemind_study_a_{name}', 'seed': seed, 'planned_n': len(trials), 'common_stack_args': [],
+    stack = ['--intent-prompt', INTENT_PROMPT] if INTENT_PROMPT else []
+    note = ('common_stack_args empty = orchestrator defaults (v3.6); advice flags come from each trial' if not stack else
+            f'common_stack_args = orchestrator defaults (v3.6) with the intent prompt {INTENT_PROMPT} (Amendment 1); '
+            'advice flags come from each trial')
+    return {'schema': f'rescuemind_study_a_{name}', 'seed': seed, 'planned_n': len(trials), 'common_stack_args': stack,
             'arms': list(ARMS), 'steer_arms': ['control'] + list(STEER_ARMS), 'channels': list(CHANNELS),
-            'note': 'common_stack_args empty = orchestrator defaults (v3.6); advice flags come from each trial',
+            'note': note,
             'advice_files': files, 'trials': trials}
 
 
@@ -289,11 +297,12 @@ def build_pilot():
     return build('A-pilot', prefix='AP', advice_dir=PILOT_ADVICE_DIR, n_per_type=2, pilot=True)
 
 
-def write(proto: dict, out: Path) -> None:
-    """Write the protocol and its advice files; refuse to overwrite a registered protocol that differs."""
+def write(proto: dict, out: Path, amend: bool = False) -> None:
+    """Write the protocol and its advice files; refuse to overwrite a registered protocol that differs (unless amend=True:
+    an explicit, committed Amendment; the caller records it in the pre-registration)."""
     new = json.loads(json.dumps(proto, ensure_ascii=False))
-    if out.is_file() and json.loads(out.read_text()) != new:
-        sys.exit(f'registered protocol {out.name} differs from the generator output; refusing to overwrite')
+    if out.is_file() and json.loads(out.read_text()) != new and not amend:
+        sys.exit(f'registered protocol {out.name} differs from the generator output; refusing to overwrite (--amend for a committed Amendment)')
     out.write_text(json.dumps(new, ensure_ascii=False, indent=1) + '\n')
     for rel, items in proto['advice_files'].items():
         f = ROOT / rel
@@ -302,13 +311,20 @@ def write(proto: dict, out: Path) -> None:
 
 
 def main():
-    if '--pilot' in sys.argv:
+    global INTENT_PROMPT
+    argv = sys.argv[1:]
+    amend = '--amend' in argv
+    if '--intent-prompt' in argv:        # override of the constant above (an Amendment writes it there as well)
+        INTENT_PROMPT = argv[argv.index('--intent-prompt') + 1]
+        if not amend:
+            sys.exit('--intent-prompt changes the registered protocol: add --amend (and commit the Amendment first)')
+    if '--pilot' in argv:
         p = build_pilot()
-        write(p, ROOT / 'experiments/campaign_a_pilot_protocol.json')
-        print('pilot', p['planned_n'], 'trials')
+        write(p, ROOT / 'experiments/campaign_a_pilot_protocol.json', amend)
+        print('pilot', p['planned_n'], 'trials', p['common_stack_args'])
         return
     p = build()
-    write(p, ROOT / 'experiments/campaign_a_protocol.json')
+    write(p, ROOT / 'experiments/campaign_a_protocol.json', amend)
     from collections import Counter
     print(p['planned_n'], 'trials', Counter((t['world_type'], t['condition']) for t in p['trials']))
 
