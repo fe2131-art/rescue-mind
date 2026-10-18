@@ -31,7 +31,7 @@ def run(tag):
     for r in held:
         d = decide_intent_hybrid(r['text'], model='Qwen/Qwen3.5-9B')
         out['held_out'].append({'text': r['text'], 'accept': d['accept'], 'item': d.get('item'),
-                                'expect_accept': r.get('expect_accept', r.get('accept')), 'expect_item': r.get('expect_item', r.get('item'))})
+                                'expect_accept': r['expect'] == 'accept', 'expect_item': r.get('item')})
     for r in inj:
         d = decide_intent_hybrid(r['text'], model='Qwen/Qwen3.5-9B')
         out['injection_dev'].append({'id': r['id'], 'category': r['category'], 'accept': d['accept'], 'item': d.get('item'),
