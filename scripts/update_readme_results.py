@@ -518,6 +518,9 @@ def x_text():
     have = [n for n in ('xd_summary.json', 'x_summary.json') if (RES / n).is_file()]
     if not have:
         return PENDING_NOT_RUN + ('。' + advice_numbers.xdr_ja() if advice_numbers.xdr_facts() else '')
+    xd = advice_numbers.xd_ja()
+    if xd:
+        return xd + ('' if (RES / 'x_summary.json').is_file() else '。閉ループの評価X（記憶の転移・助言の方向づけ）は' + PENDING_NOT_RUN) + ('。' + advice_numbers.xdr_ja() if advice_numbers.xdr_facts() and not (RES / 'xd_real_summary.json').is_file() else '')
     return '結果ファイルあり（' + '・'.join(f'`experiments/results/{n}`' for n in have) + '）。このREADMEの集計は未対応のため、論文と結果ファイルを参照'
 
 
@@ -855,7 +858,7 @@ def section_en(e, v):
     L.append('| IF: request text switching the supply (72 texts) | ' + (advice_numbers.if_en() if advice_numbers.if_facts() else 'pre-registered, not yet run') + ' |')
     L.append('| IF2: ask back on a supply conflict (I-27; 72 new texts) | ' + ('result file exists; see the paper' if advice_numbers.if2_done() else 'pre-registered, not yet run') + ' |')
     xj = x_text()
-    L.append('| X, XD: cluttered four-station depot (I-21) | ' + ('pre-registered, not yet run (a rendering preview exists, not a result; the XD-R photographs are frozen, not scored)' if xj.startswith(PENDING_NOT_RUN) else 'result files exist; see the paper') + ' |')
+    L.append('| X, XD: cluttered four-station depot (I-21) | ' + ('pre-registered, not yet run (a rendering preview exists, not a result; the XD-R photographs are frozen, not scored)' if xj.startswith(PENDING_NOT_RUN) else ((advice_numbers.xd_en() + '; the closed-loop study X ' + ('has results (see the paper)' if (RES / 'x_summary.json').is_file() else 'is ' + advice_numbers.PENDING_EN)) if advice_numbers.xd_en() else 'result files exist; see the paper')) + ' |')
     stage = {'E': 1, 'L': 1, 'Z': 1, 'T1': 2, 'K': 2, 'G': 3, 'W': 3, 'H': 4, 'V': 4, 'A': 4, 'S': 5, 'P': 5, 'R': 5, 'X, XD': 5, 'J': 6, 'I-23': 4, 'I-24': 4, 'B': 4, 'IF': 4, 'IF2': 4}
     i0 = L.index('|---|---|') + 1
     rows = L[i0:]
