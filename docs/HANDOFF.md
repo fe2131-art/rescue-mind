@@ -9,6 +9,15 @@
 
 ## 現在地（2026-10-18 10:00）— 圧縮後はここから
 
+### 0. 最新の状態（2026-10-18 14:30）
+* **GPU の順番**（すべて自動。scratchpad の nohup スクリプトで動かしていて、通知は来ない）：
+  1. `queue_chain.sh`（ログは `queue.log`）：A（11:11 に開始、22:40 ごろ終了）→ IF → S → B → XD → X → Q → `QUEUE_DONE`。
+  2. `after_queue.sh`（`after_queue.log`）：XD のステージ r（実写 258 枚）。
+  3. `after_xdr.sh`（`after_xdr.log`）：i21 を main にマージ → `scripts/film_depot.sh`（倉庫の場面の撮影）。
+* **A が終わったら**：`python3 scripts/a_checklist.py --runs-dir ~/work/rescue-mind/outputs/runs` で C0〜C9 を判定する。続いて `a_analysis` → 論文・説明資料・README に反映する（Sonnet に依頼してよい）。
+* **動画の最終版**：撮影が終わったら `make_video_plan.py --recover b4fcd9d164444db7 --memory b93040decbf04ca4 --advice 076f3cb047064fae --depot <run>` → `make_demo_video.py --narrate 2`（3分以内）→ `update_submission_facts.py`。
+* 締切前の保険：`make snapshot`（結果の出ていない研究は「登録済み・提出時点で未実施」と表記される）。
+
 ### A. ユーザーの方針（必ず守る）
 
 * **サブエージェントはちょうど1つ（Sonnet 5.5、`model: sonnet`）を常に動かす。** 同時に2つにしない。終わったら次を起動する。止まったら SendMessage で続きから再開させる。
