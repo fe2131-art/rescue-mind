@@ -26,7 +26,7 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import (BaseDocTemplate, CondPageBreak, Frame, Image, KeepTogether, PageBreak, PageTemplate,
+from reportlab.platypus import (BaseDocTemplate, Flowable, CondPageBreak, Frame, Image, KeepTogether, PageBreak, PageTemplate,
                                 Paragraph, Spacer, Table, TableStyle)
 
 if '--snapshot' in sys.argv:      # submission snapshot: read before advice_numbers is imported (the wording constants below depend on it)
@@ -39,6 +39,7 @@ REPORT_FIG = ROOT / 'docs/report/figures'   # PNGs rasterised from the paper's v
 sys.path.insert(0, str(ROOT / 'scripts'))
 import count_tests  # noqa: E402  (generated test / findings counts)
 import advice_numbers  # noqa: E402  (I-23 z3 numbers, I-24 advice-credit model numbers; single source shared with the README)
+import make_storyline_figure  # noqa: E402  (the storyline figure; its text and numbers come from advice_numbers.storyline())
 from t1_analysis import wilson  # noqa: E402  (Wilson 95% CI, shared with the T1 analysis)
 
 pdfmetrics.registerFont(TTFont('IPAexG', '/usr/share/fonts/opentype/ipaexfont-gothic/ipaexg.ttf'))
@@ -1133,6 +1134,43 @@ def story_chain(D, E, V, T):
     return [t_, Spacer(1, 2), P('橙色の枠が中心（保証の内側）、灰色の枠は保証の外側。' + ('「登録済み・提出時点で未実施」の研究は、数値を載せていない。' if SNAP else '「実行中」の研究は、結果が出てから数値を入れる。'), 'cap')]
 
 
+class _PageMark(Flowable):
+    """Zero-size flowable that records the page it lands on (the first page of the appendix -> number of pages of the main part)."""
+    page = None
+
+    def wrap(self, aw, ah):
+        return 0, 0
+
+    def draw(self):
+        _PageMark.page = self.canv.getPageNumber()
+
+
+def story_storyline():
+    """One figure + a short text: 攻撃 -> 発見 -> 対策 -> 再測定, four real episodes (advice_numbers.storyline(); pending studies marked)."""
+    rows = advice_numbers.storyline()
+    if not rows:
+        return []
+    out_png = make_storyline_figure.default_out()
+    if not make_storyline_figure.build(out_png, rows) and not out_png.is_file():
+        return []
+    for w in make_storyline_figure.WARN:
+        print('WARNING (storyline figure):', w)
+    from PIL import Image as PI
+    with PI.open(out_png) as im:
+        w_, h_ = im.size
+    fnd, vf = advice_numbers.findings_found(), advice_numbers.v_facts()
+    pend = [r for r in rows if r.get('pending')]
+    txt = ('上の筋は、設計の理屈だけでなく、<b>攻撃して弱点を見つけ、直し、同じ測り方で測り直す</b>ことを繰り返して作った。'
+           '次の4つは、コミット済みの結果ファイルにある実際の記録である（数値はすべてそこから生成）。'
+           + (f'4つ目は、攻撃の相手が自分たちの実装で、変異テスト・証明の見直し・予備走行で見つけた{fnd[2]}件（FINDINGS #{fnd[0]}–{fnd[1]}）の一部。' if fnd else '')
+           + ('評価Aは' + advice_numbers.pending_word() + 'のため、数値を載せていない。' if pend else '')
+           + (f"うまくいかなかった点も残した（評価Vで検証つき記憶にも危険な配達が{vf['unsafe']['M2']}件残り、登録した主張は{'成立' if vf['memory_claim'] else '不成立'}）。" if vf else ''))
+    wmm = 174
+    return [P('攻撃 → 発見 → 対策 → 再測定：実際に起きた4つの記録', 'h2'), P(txt, 'small'),
+            KeepTogether([Image(str(out_png), width=wmm * mm, height=wmm * mm * h_ / w_),
+                          P('図 攻撃（または自分たちの検査）→ 見つかった弱点 → 対策 → 同じ測り方での再測定。左の濃色が出来事、右端の緑が再測定の数値（赤：対策前、緑：対策後）。', 'cap')])]
+
+
 def story_criteria(E, V):
     mut = findings_mutants()
     jw = jload('j_summary.json')
@@ -1370,6 +1408,7 @@ def build(account: str, video_url: str | None, repo_url: str):
     s += gloss[:1] + judge_box(D, E, V, compact=True) + info
     # pages 2-7: one story (the paper's chain), figures first; everything else is in the appendix
     s += [PageBreak(), P('ひとつの話：確認は「迷ったら止まる」、助言は「締めるだけ」', 'h1')] + story_chain(D, E, V, T) + [Spacer(1, 4)]
+    s += story_storyline()
     s += story_criteria(E, V)
     s += [P('1. 課題と狙い', 'h1'),
           P('災害時の物資配送では、在庫表では水のはずの棚に救急箱が置かれていた・空だった、という<b>情報と現物の食い違い</b>や、<b>現場の火災</b>が起こる。'
@@ -1382,7 +1421,7 @@ def build(account: str, video_url: str | None, repo_url: str):
     s += story_outside(sj)
     s += story_limits(D, E, V, SP)
     M = s
-    s = [PageBreak(), P('付録（詳細・証明・過去の評価・失敗の一覧）', 'h1'),
+    s = [PageBreak(), _PageMark(), P('付録（詳細・証明・過去の評価・失敗の一覧）', 'h1'),
          P('本文で省いた記号の説明、表、証明、経緯。数値はすべて結果ファイルから生成している。'
            'すべてシミュレーション上の評価で、実写で検証したのは火災判定（P）だけであり、ロボットを動かす評価（E・G・H・A・V）は実機でも実写でも未検証。', 'small'),
          P('A. 用語集と、事前登録した主な結果', 'h2')] + glossary() + tab_main
@@ -1596,7 +1635,7 @@ def build(account: str, video_url: str | None, repo_url: str):
                      (c['speed'] or '') + (f"（run {c['run_id']}）" if c.get('run_id') else '')] for c in ch], [24, 90, 60])]
     s += fig('video_frame_decision.png', 75, '図2 動画の一場面（取り違え）：拠点Wで救急箱を確認して拒否し、もう一方の拠点を確認しに向かう。下段はロボットの日本語報告。')
     doc.build(M + s)
-    print(out)
+    print(out, f'(main part: {_PageMark.page - 1} pages, total {doc.page})')
     return out
 
 

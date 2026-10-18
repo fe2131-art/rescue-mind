@@ -535,11 +535,21 @@ def judge_new_lines():
     return out
 
 
+def storyline_lines():
+    """攻撃 -> 発見 -> 対策 -> 再測定: four real episodes as short bullets (same source as the report figure: advice_numbers.storyline())."""
+    rows = advice_numbers.storyline()
+    if not rows:
+        return []
+    return ['**攻撃 → 発見 → 対策 → 再測定**（実際に起きた4つの記録。数値はすべて結果ファイルから' + ('' if SNAP else '。図：[`docs/figures/storyline_ja.png`](docs/figures/storyline_ja.png)、説明資料の本文にも載せている') + '）', ''] + [f"* {r['bullet']}" for r in rows]
+
+
 def section_judge(e):
     """First screen for a busy judge: problem, what is new, three numbers in plain words, what to watch in the video."""
     lines = ['![正面では見えない火を、横へ動いて撮り直して見つけ、許可を取り消して止まる（動画から16秒、等速と3倍速の区間を含む）](docs/figures/hero_lookaround.gif)',
              '',
              '**問題**：災害時の物資配達ロボットは、在庫表と現物の食い違い（水のはずが救急箱だった・空だった）や火災に出会う。指示どおり運ぶだけでは、誤った物資や危険な場所へ届けてしまう。',
+             '',
+             *storyline_lines(),
              '',
              '**新しさ（一本の筋：助言は厳しくすることしかできない）**',
              '',
