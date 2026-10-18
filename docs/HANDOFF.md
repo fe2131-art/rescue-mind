@@ -29,7 +29,7 @@
 * **IF は不成立**：すり替えの受理 12/36（#32）。→ I-27（聞き返し）を IF2 として登録し、実行待ち。
 * その他：V はモデルの主張が成立し、記憶の主張は不成立。W は ε の上限 5.7% で成立、W-b は不成立。I-20 は v3.7 に採用（元に戻す規則つき）。
 * 不成立の主張は7件（T1・F・T2・J・V4・W-b・IF1）。
-* 第三者採点：第10回 35.5/40。模擬査読は R8 で、R9 は実行中（最後のサブエージェント）。
+* 第三者採点：第10回 35.5/40。模擬査読 R9 は完了し（`docs/paper/REVIEW_NOTES_R9.md`、採択見込み RA-L 約50%・ICRA 約33%）、文章の指摘は I-28 で反映済み。残り：A のオフライン224文の採点（連鎖の最後）、停止後も探索を続ける腕（設計の選択で、実装は大きいので今回は見送り）、XD の ε 上限（15% 以下か）が分かれ目。
 
 **GPU の自動の連鎖**（scratchpad、nohup、通知なし。ログは scratchpad の *.log）
 1. `queue_chain.sh`（`queue.log`）：S（評価中、19:00 開始）→ B → XD → X → Q → `QUEUE_DONE`
@@ -37,6 +37,7 @@
 3. `after_xdr.sh`：i21 を main にマージ → `scripts/film_depot.sh`（倉庫の場面の撮影）
 4. `after_film.sh`：i21 をマージ → `if2_run.sh`（IF2）
 5. `after_if2.sh`：i21 をマージ → `a_offline_run.sh`（A のオフライン集合の test 半分。C1 の残り）
+6. `after_aoff.sh`：i21 をマージ → `if_i38_run.sh`（IF の文を i38 で再実行する探索的な実験。登録した主張ではない。結果は `if_i38_summary.json`。R9 の指摘：IF は i35 だけだった）
 * 確認：`grep -E "^=== |DONE|ABORT|FAILED" <scratchpad>/queue.log`。スクリプトが消えていたら、上の順で作り直す。
 
 **各段が終わったら（自分で行う）**
