@@ -257,6 +257,20 @@ def memory_denied(log_dir: Path) -> bool:
         e.get('stage') == 'memory_denial' for e in m.get('events', []))
 
 
+def ai_denial_held(log_dir: Path) -> bool:
+    """X pilot finding (Amendment 1 of study X): in the depot an empty or swapped world is made by the world spec, so --scene stays
+    'nominal'.  A run that ends in an explicit Jev+Qwen denial followed by the completed hold (the stage the controller writes only after
+    a denial) is routed to the same strict negative-run classification (classify_negative_run: hold >= 2 s, zero commands, independent
+    ROS evidence of staying at the station); a run without that stage is still FAILED."""
+    try:
+        m = json.loads((log_dir/'mission.json').read_text(encoding='utf8'))
+    except (OSError, ValueError):
+        return False
+    ev = [e for e in m.get('events', []) if isinstance(e, dict)]
+    return (sum(e.get('stage') == 'checkpoint_denial_dwell_finished' for e in ev) == 1
+            and any(e.get('stage') == 'checkpoint_decision' and e.get('allow') is False for e in ev))
+
+
 def caution_refused(log_dir: Path) -> bool:
     """R5 #5: the run contains a recorded caution-only refusal (soft refusal, --caution-soft): its end is an expected denial."""
     try:
@@ -637,7 +651,7 @@ def main(argv=None):
             try:
                 sup.run_mission(plan['mission'], plan['mission_timeout'])
             except StackFailure as mission_error:
-                if (args.scenario == 'live' and (args.scene in ('swapped', 'empty') or args.hazard_at or memory_denied(log_dir) or caution_refused(log_dir))
+                if (args.scenario == 'live' and (args.scene in ('swapped', 'empty') or args.hazard_at or memory_denied(log_dir) or caution_refused(log_dir) or ai_denial_held(log_dir))
                         and str(mission_error).startswith('mission failed (exit=')):
                     deferred_denial = mission_error
                 else:
@@ -735,7 +749,7 @@ def main(argv=None):
                 return_code=0
             except (ValueError,OSError,KeyError,TypeError,RuntimeError) as denial_error:
                 outcome['negative_evidence_failure']=str(denial_error)
-        elif (args.scenario=='live' and (args.scene in ('swapped','empty') or args.hazard_at or caution_refused(log_dir))
+        elif (args.scenario=='live' and (args.scene in ('swapped','empty') or args.hazard_at or caution_refused(log_dir) or ai_denial_held(log_dir))
                 and isinstance(e,StackFailure)
                 and str(e).startswith('mission failed (exit=')):
             try:

@@ -166,5 +166,16 @@ runs the core only; the steer cell can follow.
 * The advice in X-s is one truthful peer item; adversarial advice is study A's, not repeated.
 
 ## Amendments
-None. (Before registration, draft revision: the steer selection by design masks, the 4 clean twins that price scrutiny, and the explicit
-stale-proposal row were added in response to review R5 items 2 and 4.)
+**Amendment 1 (2026-10-19 05:00, after the first mechanics pilot and before any registered X trial).** The pilot stopped the study as designed
+(`X_ABORT: pilot did not behave as designed`): run XP-E (an empty depot, expected `DENY`) ended `FAILED` / `DENY_UNVERIFIED` although the robot had
+denied at all four stations and held for 2.5 s. Cause: the orchestrator classified a failed mission as an expected denial only when `--scene` is
+`swapped` or `empty`, a hazard was configured, or a soft caution refusal / memory denial was logged; in the depot an empty or swapped world is made
+by the world spec and `--scene` stays `nominal`, so the denial was never audited. The four `empty` trials of X (expected `DENY`) would have failed
+the same way. Fix (`ai_denial_held` in `scripts/v32_orchestrate.py`, test `tests/test_ai_denial_held.py`): a run with exactly one completed
+denial hold and an explicit denying `checkpoint_decision` is routed to the same strict `classify_negative_run` (hold of at least 2 s, zero commands,
+independent ROS evidence of staying at the station); a run without that stage is still `FAILED`. Nothing else changes: protocol, worlds, thresholds, arms
+and claims are as registered. The first pilot ledger is kept as `experiments/results/campaign_X_pilot1_ledger.jsonl`; the pilot is run again from an
+empty ledger, as the pilot clause requires.
+
+Before registration (draft revision): the steer selection by design masks, the 4 clean twins that price scrutiny, and the explicit
+stale-proposal row were added in response to review R5 items 2 and 4.
