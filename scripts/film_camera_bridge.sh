@@ -4,7 +4,11 @@
 set -Eeuo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 set +u; source /opt/ros/jazzy/setup.bash; set -u
-SDF="$ROOT/worlds/film/film_camera_overview.sdf"
+# FILM_CAMERA_SDF (relative to the repository root, or absolute): another static camera pose, e.g. the depot's (scripts/film_depot.sh);
+# the model name and the topic stay the same, so the recorder and the bridge below are unchanged.
+SDF="${FILM_CAMERA_SDF:-worlds/film/film_camera_overview.sdf}"
+case "$SDF" in /*) ;; *) SDF="$ROOT/$SDF";; esac
+[ -f "$SDF" ] || { echo "film camera SDF not found: $SDF" >&2; exit 1; }
 for attempt in $(seq 1 60); do
   if gz service -s /world/rescuemind_arena/create --reqtype gz.msgs.EntityFactory \
        --reptype gz.msgs.Boolean --timeout 3000 \

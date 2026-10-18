@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Write docs/video_plan.json (storyboard for make_demo_video.py) from real results — v3.6, <= 175 s.
 
-  python3 scripts/make_video_plan.py --deliver <id> --recover <id> --empty <id> --fire <id> --hidden-fire <id>
+  python3 scripts/make_video_plan.py --recover <id> --memory <id> --advice <id> --depot <id>        # v5 (docs/design/video_v5_plan.md)
+  (older storyboards: --deliver <id> --empty <id> --fire <id> --hidden-fire <id>; demo 1 "paraphrased instruction" is only built when --deliver is given)
 
 Demo runs are separate `--film` recordings.  Every number on the result cards is computed here from the
 result files (campaign E ledger, T1 / T2 / F summaries, I-13 selection); a missing file drops that card or line.
@@ -181,9 +182,22 @@ def fix_card(seconds):
 
 
 # ------------------------------------------------------------------ duration estimate
+_WARNED = set()
+EVIDENCE_ROWS_MAX = 8        # the table card holds 8 rows of 74 px plus one note line (make_demo_video.table_card)
+EVIDENCE_CELL_PX = 1130      # width left for the result column at 38 px (1806 - 114 - 560)
+EVIDENCE_S = 12              # v5: ~12 s (EVAL 9); the narration (<= 72 characters at 6.4 characters/s) keeps it there
+
+
+def cell_px(text, size=38):
+    """Width estimate of a result cell without the CJK fonts: full-width characters take one em, ASCII about 0.55 em."""
+    return sum(size if ord(c) > 0x2e80 else 0.55 * size for c in text)
+
+
 def evidence_card(seconds):
-    """One summary card of the pre-registered evidence (replaces the three result tables; every number from files)."""
-    rows, say = [], []
+    """One summary card of the pre-registered evidence (replaces the three result tables; every number from files).
+    v5 (EVAL 9): ~12 s, rows E, G, W, H, A, (X), J (not adopted), z3, P2.  Rows L and V are not on the card (they stay in the
+    paper); the memory row's narration and the note say that V did not support the memory safety claim."""
+    rows, say, notes = [], [], ['すべてシミュレーション（実機なし）。数値は結果ファイルから自動生成。']
     led = RES / 'campaign_E_ledger.jsonl'
     if led.is_file():
         rs = [json.loads(x) for x in led.read_text(encoding='utf8').splitlines() if x.strip()]
@@ -192,45 +206,58 @@ def evidence_card(seconds):
         wrong = sum(r['observed_action'] in DELIVERED and r['expected_action'] not in ('ALLOW', 'DELIVER_AFTER_SEARCH') for r in rs)
         rows.append(['閉ループ E（ランダムな世界）', [f'期待どおり {ok}/{len(rs)}・誤配達 {wrong}', G if wrong == 0 else R]])
         say.append(f'ランダムな{len(rs)}世界で誤配達{wrong}件。')
-    lj = jload(RES / 'l_summary.json')
-    if lj and lj.get('primary'):
-        pl = lj['primary']
-        rows.append(['閉ループ L（未知の配置24通り）', [f"期待どおり {pl['expected_behaviour']}・危険な配達 {pl['unsafe_deliveries']}", G if pl['claim_supported'] else W]])
-        pass                                     # (row only; the narration is kept under the 3-minute limit)
     g = jload(RES / 'g_summary.json')
     if g:
         pr = g['primary']
         rows.append(['閉ループ G（横から見直す）', [f"火が見えるのに配達 {pr['wrong_deliveries_B']}/{pr['n_world_pairs_fire_perceivable']} → "
                                                 f"{pr['wrong_deliveries_C']}/{pr['n_world_pairs_fire_perceivable']}（p={pr['mcnemar_p']:.3f}）", G]])
-        say.append(f"横から見直すと、火の見落としは{pr['wrong_deliveries_B']}件から{pr['wrong_deliveries_C']}件に。")
+        say.append(f"横から見直すと、見落としは{pr['wrong_deliveries_B']}件から{pr['wrong_deliveries_C']}件。")
+    wj = (jload(RES / 'w_summary.json') or {}).get('W-a')
+    if wj:
+        f, la = wj['miss_front_only'], wj['miss_look_around']
+        rows.append([f"画像 W（火のある{f['n']}世界）", [f"正面だけ見落とし {f['k']}/{f['n']} → 見直し後 {la['k']}/{la['n']}", G if la['k'] < f['k'] else W]])
     h = jload(RES / 'h_summary.json')
+    v = jload(RES / 'v_summary.json')
     if h:
         p1, p2 = h['P1_efficiency_relocation_persist'], h['P2_safety_naive_vs_verified']
         t0, t2 = p1['time_M0_median_s'], p1['time_M2_median_s']
-        speed = f"所要時間 {t0:.0f}→{t2:.0f}秒・" if t0 is not None and t2 is not None else ''
+        speed = f"移されたまま {t0:.0f}→{t2:.0f}秒・" if t0 is not None and t2 is not None else ''
         p3 = h['P3_no_extra_risk_vs_v36']
-        rows.append(['閉ループ H（記憶）', [f"{speed.replace('所要時間 ', '移されたまま8出動 ')}危険 記憶なし{p3['unsafe_M0']}・本方式{p3['unsafe_M2']}（素朴{p2['unsafe_M1']}）",
-                                                  G if h['headline_supported'] else W]])
-        say.append('記憶の近道は、台本どおりの変化では危険を増やさず、')
+        rows.append(['閉ループ H（記憶）', [f"{speed}危険 記憶なし{p3['unsafe_M0']}・本方式{p3['unsafe_M2']}（素朴{p2['unsafe_M1']}）",
+                                          G if h['headline_supported'] else W]])
+    if v and v.get('complete') and not v.get('claim_memory_under_random_change'):
+        a_ = v['arms']
+        say.append('記憶の安全の主張は示せず。')
+        notes = [f"記憶の安全の主張は、評価Vで不成立（危険 本方式{a_['M2']['unsafe']}対なし{a_['M0']['unsafe']}）。全部シミュレーション。"]
+    elif h:
+        say.append('記憶は近道の提案だけ。')
+    aj = jload(RES / 'a_summary.json')
+    if aj and aj.get('n_trials') and aj.get('n_trials') == aj.get('n_planned'):
+        r = aj['A1_unsafe_naive_vs_monotone']['runs']
+        rows.append(['閉ループ A（助言の注入）', [f"危険な配達 素朴{r['naive']['unsafe']}/{r['naive']['n']}・本方式{r['monotone']['unsafe']}/{r['monotone']['n']}",
+                                              G if aj.get('headline_supported') else W]])
+        say.append(f"助言の注入で、危険な配達は素朴{r['naive']['unsafe']}件、本方式{r['monotone']['unsafe']}件。")
+    else:
+        if 'a_pending' not in _WARNED:
+            _WARNED.add('a_pending')
+            print('WARNING: study A is not complete (no a_summary.json or n_trials < n_planned): the card says "running"', file=sys.stderr)
+        rows.append(['閉ループ A（助言の注入）', ['事前登録済み・実行中（結果なし）', W]])
+        say.append('助言の評価は実行中。')
+    xj = jload(RES / 'x_summary.json')
+    if xj and (xj.get('hazard_cells_unsafe') or {}).get('n'):
+        hz = xj['hazard_cells_unsafe']
+        rows.append(['閉ループ X（4拠点の倉庫）', [f"火の4種で危険な配達 {hz['k']}/{hz['n']}", G if hz['k'] == 0 else R]])
     j = jload(RES / 'j_summary.json')
     if j:
         c = j['per_config']
         j_ok = j['P1_runs_on_one_v100']['supported'] and j['P2_no_extra_unsafe']['supported'] and c['J']['unsafe_deliveries'] == 0
-        rows.append(['閉ループ J（2つのAI）', [f"期待どおり {c['J']['correct']}/{c['J']['n']}（v3.6単独 {c['A']['correct']}/{c['A']['n']}）・危険な配達 {c['J']['unsafe_deliveries']}",
-                                                      G if j_ok else R if c['J']['unsafe_deliveries'] > c['A']['unsafe_deliveries'] else W]])
-    v = jload(RES / 'v_summary.json')
-    if v and v.get('complete'):
-        a = v['arms']; d = v['V1_time_diff']
-        rows.append(['閉ループ V（ランダムな変化）', [f"{d['mean_M0_minus_M2_s']:.0f}秒短縮（予測{d['pred']['p2.5']:.0f}〜{d['pred']['p97.5']:.0f}）・"
-                                                      f"安全の主張は不成立（危険 {a['M2']['unsafe']}対{a['M0']['unsafe']}）",
-                                                      G if v.get('claim_memory_under_random_change') else W]])
-        say.append('ランダムな変化でも予測どおり速くなりましたが、安全の主張は示せず、そのまま報告します。')
+        rows.append(['閉ループ J（2つのAI）', [f"{'' if j_ok else '不採用：'}危険な配達 J {c['J']['unsafe_deliveries']}対単独 {c['A']['unsafe_deliveries']}"
+                                           f"・期待どおり {c['J']['correct']}/{c['J']['n']}",
+                                           G if j_ok else R if c['J']['unsafe_deliveries'] > c['A']['unsafe_deliveries'] else W]])
     smt = jload(RES / 'smt_advice_proof.json')
-    if smt:
-        n_unsat = sum(1 for q in smt['proofs'] if q.get('result') == 'unsat')
+    if smt and len(rows) < EVIDENCE_ROWS_MAX - 1:
         mut = smt.get('code_mutants') or []
         rows.append(['機械検証（z3）', [f"締めるだけを実装で証明・注入バグ {len(mut)}/{len(mut)} 検出", G]])
-        say.append('助言は締めるだけ、を実装で機械的に証明。')
     pp = jload(RES / 'p_summary.json')
     if pp:
         p2 = jload(RES / 'p2_summary.json')
@@ -238,16 +265,14 @@ def evidence_card(seconds):
             ct = p2['chosen_test']
             rows.append(['実写 P・P2（D-Fire）', [f"誤警報 {pp['false_alarm']['k']}→{ct['false_alarm']['k']}/{ct['false_alarm']['n']}（較正後・検出 {ct['recall']['k']}/{ct['recall']['n']}）",
                                                 G if p2.get('claim_supported') else W]])
-            say.append('実写は較正で誤警報が減りました。')
         else:
             rows.append(['実写 P（D-Fire 400枚）', [f"火・煙を検出 {pp['recall']['k']}/{pp['recall']['n']}・火の無い写真で誤警報 {pp['false_alarm']['k']}/{pp['false_alarm']['n']}", W]])
-            say.append(f"実写でも火と煙を{pp['recall']['k']}枚検出。ただし誤警報は多く、現場ごとの調整が必要です。")
     if not rows:
         return None
+    rows = rows[:EVIDENCE_ROWS_MAX]
     return {'kind': 'table', 'seconds': seconds, 'title': '事前登録した評価のまとめ（全試行を公開）',
             'sub': '結果を見る前に条件と判定方法を固定。うまくいかなかった結果もそのまま報告',
-            'narration': ''.join(say), 'header': ['評価', '結果'], 'rows': rows,
-            'notes': ['すべてシミュレーション（実機なし）。数値は結果ファイルから自動生成。']}
+            'narration': ''.join(say), 'header': ['評価', '結果'], 'rows': rows, 'notes': notes}
 
 
 def mission_seconds(spec):
@@ -286,6 +311,58 @@ def mission_part(run_id, scene, title, narration, captions, **extra):
             'narration': narration, 'captions': cap, **extra}
 
 
+DEPOT_CAMERA = 'worlds/film/film_camera_depot.sdf'
+
+
+def depot_camera(run_id, override=None):
+    """Overview camera of a depot run: --depot-camera, else the sidecar film_camera.txt that scripts/film_depot.sh writes, else the depot camera."""
+    if override:
+        return override
+    side = ROOT / 'outputs/runs' / run_id / 'film_camera.txt'
+    if side.is_file() and side.read_text(encoding='utf8').strip():
+        return side.read_text(encoding='utf8').strip()
+    return DEPOT_CAMERA
+
+
+def depot_kind(run_id):
+    """What the filmed depot run shows (scripts/film_depot_worlds.py classify): side_fire | search_deliver | other."""
+    try:
+        sys.path.insert(0, str(ROOT / 'scripts'))
+        sys.path.insert(0, str(ROOT))
+        from film_depot_worlds import classify
+        return classify(ROOT / 'outputs/runs' / run_id)['kind']
+    except Exception as exc:    # noqa: BLE001 - only the wording depends on it
+        print(f'WARNING: cannot classify depot run {run_id}: {exc}; generic wording', file=sys.stderr)
+        return 'other'
+
+
+def depot_texts(run_id):
+    """(title, narration, captions) of the depot segment, worded for what the run shows (the video must not claim an event that did not happen)."""
+    kind = depot_kind(run_id)
+    if kind == 'side_fire':
+        return ('倉庫でも：横から小さな火を見つけて停止',
+                {'go': '棚や荷物のある、現実的な倉庫です。拠点は4つ。', 'check': '雑多な背景の中でも、拠点で現物を確かめます。',
+                 'peek': '正面では見えません。横から見直します。',
+                 'after': '横から小さな火を見つけました。許可を取り消して、止まって報告します。'},
+                {'go': '現実的な倉庫（棚・荷物・煙・4つの拠点）。「{instr}」', 'check': '背景が雑多でも、現物を確かめる。',
+                 'peek': '正面は「許可」。でも陰は見えない → 左右0.4 mから見直す。',
+                 'after': '横から火を発見 → 正面の許可を取り消して停止・報告。'})
+    if kind == 'search_deliver':
+        return ('倉庫でも：取り違えを見つけて別の拠点へ',
+                {'go': '棚や荷物のある、現実的な倉庫です。拠点は4つ。', 'check': '拠点で、現物を確かめます。',
+                 'search': '依頼の物資ではありません。別の拠点を確かめに行きます。',
+                 'peek': '正しい物資です。念のため、横から見直します。', 'after': '安全を確かめたので、避難所へ届けます。'},
+                {'go': '現実的な倉庫（棚・荷物・4つの拠点）。「{instr}」', 'check': '最初の拠点で現物を確かめている。',
+                 'search': '違う物資 → 誤配達せず、別の拠点を見に行く。',
+                 'peek': '正しい物資でも、出発前に横から見直す。',
+                 'after': '別の拠点で正しい物資を確認 → 避難所Bへ。'})
+    return ('現実的な倉庫でも同じ確認',
+            {'go': '棚や荷物のある、現実的な倉庫でも試しました。', 'check': '雑多な背景の中でも、拠点で現物を確かめます。',
+             'peek': '横からも見直します。', 'after': 'シミュレーションでも、現場に近い環境で同じ手順が働きます。'},
+            {'go': '現実的な倉庫（棚・荷物・4つの拠点）。「{instr}」', 'check': '背景が雑多でも、現物を確かめる。',
+             'peek': '横からの見直しも同じ。', 'after': '倉庫での評価結果は研究X・XD（事前登録）。'})
+
+
 def build(a, drop_arch=False, drop_fire=False, shrink=False, drop_empty=False):
     cs = 0 if shrink else None      # shrink: result cards last exactly as long as their narration
     mem = bool(getattr(a, 'memory', None))
@@ -307,7 +384,7 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False, drop_empty=False):
                       'narration': '推論はすべてローカルのGPU。車輪を動かせるのは、独立した安全ガードだけです。',
                       'body': ['VLMは選択式2問（選択肢の順序を入替）の回答文字の確率で判断 ／ 独立した速度ガードが車輪指令を常時監視']})
     demos = []
-    if a.deliver and not (getattr(a, 'advice', None) and getattr(a, 'depot', None)):   # v5: dropped to stay <= 3 min
+    if a.deliver:        # v5: not passed (dropped to stay <= 3 min; EVAL 9)
         demos.append(mission_part(
             a.deliver, 'nominal', '言い換えた指示でも配達',
             {'go': '物資名のない依頼でも、AIが読み取って出発します。', 'check': '拠点で止まり、現物を目で確かめます。',
@@ -383,18 +460,15 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False, drop_empty=False):
              'peek': '正面は「許可」。でも陰は見えない → 左右0.4 mから見直す。',
              'after': '横から火を発見 → 正面の許可を取り消して停止・報告。'}))
     if getattr(a, 'depot', None):
-        # I-21: the same check in a realistic relief depot (AWS small-warehouse models, MIT-0)
-        demos.append(mission_part(
-            a.depot, 'nominal', '現実的な倉庫でも同じ確認',
-            {'go': '棚や荷物のある、現実的な倉庫でも試しました。', 'check': '雑多な背景の中でも、拠点で現物を確かめます。',
-             'peek': '横からも見直します。', 'after': 'シミュレーションでも、現場に近い環境で同じ手順が働きます。'},
-            {'go': '現実的な倉庫（棚・段ボール・煙）。「{instr}」', 'check': '背景が雑多でも、現物を確かめる。',
-             'peek': '横からの見直しも同じ。', 'after': '倉庫での評価結果は研究X・XD（事前登録）。'}))
+        # I-21: the same check in a realistic relief depot (AWS small-warehouse models, MIT-0; four bays)
+        title, narration, captions = depot_texts(a.depot)
+        demos.append(mission_part(a.depot, 'nominal', title, narration, captions,
+                                  film_camera=depot_camera(a.depot, getattr(a, 'depot_camera', None))))
     missions = [d for d in demos if d['kind'] == 'mission']
     for i, d in enumerate(missions, 1):
         d['index'], d['total'] = i, len(missions)
     parts += demos
-    cards = ((evidence_card, 14),) if getattr(a, 'summary_card', True) else ((campaign_e_table, 9), (t1_card, 8), (fix_card, 11))
+    cards = ((evidence_card, EVIDENCE_S),) if getattr(a, 'summary_card', True) else ((campaign_e_table, 9), (t1_card, 8), (fix_card, 11))
     for card_fn, sec in cards:
         c = card_fn(sec if cs is None else cs)
         if c:
@@ -426,13 +500,15 @@ def fit_budget(a):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--deliver', required=True, help='run id: paraphrased instruction -> delivery')
+    ap.add_argument('--deliver', help='run id: paraphrased instruction -> delivery (v5: omitted, EVAL 9; the point is made in segment 1\'s caption)')
     ap.add_argument('--recover', required=True, help='run id: swapped supplies -> search other station -> delivery')
     ap.add_argument('--empty', help='run id: both stations empty -> check both, stop')
     ap.add_argument('--fire', help='run id: large fire -> stop without searching')
     ap.add_argument('--hidden-fire', dest='hidden_fire', help='run id: small partly hidden fire -> v3.6 check stops')
     ap.add_argument('--memory', help='run id: verified memory (I-15) goes straight to the remembered station, still checks')
-    ap.add_argument('--depot', help='run id (I-21): a mission filmed in the realistic depot')
+    ap.add_argument('--depot', help='run id (I-21): a mission filmed in the realistic depot (scripts/film_depot.sh -> experiments/results/film_depot_runs.txt)')
+    ap.add_argument('--depot-camera', default=None, help='overview camera SDF of the depot run (default: outputs/runs/<id>/film_camera.txt, written by film_depot.sh, else '
+                    f'{DEPOT_CAMERA})')
     ap.add_argument('--advice', help='run id (I-19): injected "skip the check" advice on a hidden-fire world; replaces --hidden-fire')
     ap.add_argument('--three-tables', dest='summary_card', action='store_false',
                     help='old layout: E, T1 and fix tables instead of one evidence summary card')
