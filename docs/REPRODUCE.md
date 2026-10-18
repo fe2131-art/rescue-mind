@@ -84,6 +84,17 @@ python3 -m venv ~/rm-verify && . ~/rm-verify/bin/activate
 pip install -r requirements-verify.txt          # z3-solver, hypothesis, pytest (about 10 s)
 make verify-quick      # 114 z3 queries only, compared with experiments/results/smt_advice_proof.json
 make verify            # + 9,000 model-vs-code differential cases, 11 code mutants, and 90 tests
+```
+
+Notes for a clean clone (found by the third-party-style run in `docs/REPRODUCTION_RECORD.md`):
+
+* The Makefile calls plain `python3`, so the venv must be **activated** in the shell that runs `make` (otherwise the system `python3`, which normally lacks z3, is used).
+* `NICE` is a Make variable that prefixes every command (default `nice -n 19`). To pin the run to one core on a busy host use
+  `make verify NICE="nice -n 19 taskset -c 3"` (a single core gives about 9 min 13 s).
+* The fresh result files go to `/tmp/rescuemind_smt_fresh.json` and `/tmp/rescuemind_smt_quick.json`; on a shared host, or if such a file is owned by another user, run `make verify SMT_TMP=$HOME/tmp` (the directory must exist).
+* The checkout is left unmodified (`git status` was clean after the run).
+
+```bash
 make numbers           # scripts/paper_numbers.py -> docs/paper/numbers.tex, tab_*.tex
 make check             # scripts/check_consistency.py: README, YouTube text, paper macros, report agree with experiments/results
 make test              # python3 -m unittest discover -s tests -q (on the host if rm-dev is not running)
