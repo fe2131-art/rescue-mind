@@ -112,6 +112,18 @@ def facts():
             [f"期待どおり{pl['expected_behaviour']}"], {'LCorrect': pl['expected_behaviour'], 'LUnsafe': str(pl['unsafe_deliveries']),
                                                        'LClaim': 'supported' if pl['claim_supported'] else 'not supported'})
     import advice_numbers
+    pf_ = advice_numbers.a_pilot_facts()
+    if pf_:
+        add('A mechanics pilot (i35) and Amendment 1 (i38)', f"{pf_['op_exact']}/{pf_['op_n']} operator runs extracted, {pf_['op_refused']} refused at intent; i38 held-out {pf_['held38']}/{pf_['held_n']}, injection {pf_['inj35']}->{pf_['inj38']}/{pf_['inj_n']}",
+            [f"{pf_['op_exact']} of {pf_['op_n']} runs", f"{pf_['inj35']} to {pf_['inj38']} of {pf_['inj_n']}"],
+            [], [],
+            {'APilotRuns': str(pf_['runs']), 'APilotOpN': str(pf_['op_n']), 'APilotOpExact': str(pf_['op_exact']), 'APilotOpRefused': str(pf_['op_refused']),
+             'AIntHeldOut': str(pf_['held38']), 'AIntHeldN': str(pf_['held_n']), 'AIntInjOld': str(pf_['inj35']), 'AIntInjNew': str(pf_['inj38']), 'AIntInjN': str(pf_['inj_n']),
+             'AIntWrong': str(pf_['wrong38'])})
+    xr_ = advice_numbers.xdr_facts()
+    if xr_:
+        add('XD-R frozen photographs (kept / candidates)', f"{xr_['kept']}/{xr_['cand']}", [], [], [],
+            {'XDRKept': str(xr_['kept']), 'XDRCand': str(xr_['cand']), 'XDRExcl': str(xr_['excl'])})
     vf = advice_numbers.v_facts()
     if vf:
         d, u, ok = vf['diff'], vf['unsafe'], lambda x: '成立' if x else '不成立'
