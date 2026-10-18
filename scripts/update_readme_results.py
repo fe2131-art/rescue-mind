@@ -413,7 +413,7 @@ def a_text():
                 f"（世界で対にした McNemar p={a1['mcnemar_p']}）。正しい助言での時間短縮の中央値 {ts if ts is None else round(ts)} 秒。サービス妨害のコスト：追加訪問 最大 {a3['max_extra_visits']}、誤拒否 {a3['false_refusals_monotone']}（許容 {a3['allowed_max_false_refusals_95']}）。"
                 f"主張は 安全：{'成立' if a1['supported'] else '不成立'}、時間：{'成立' if a2['supported'] else ('不成立' if a2['monotone']['testable'] else '検定不能')}、コスト：{'成立' if a3['supported'] else '不成立'}")
     except (TypeError, KeyError):
-        return PENDING_NOT_RUN
+        return PENDING_NOT_RUN + ('。' + advice_numbers.a_pilot_ja() if advice_numbers.a_pilot_facts() else '')
 
 
 def s_text():
@@ -491,7 +491,7 @@ def x_text():
     """Depot studies XD (image level) and X (closed loop) -> Japanese text; no summary file -> pending."""
     have = [n for n in ('xd_summary.json', 'x_summary.json') if (RES / n).is_file()]
     if not have:
-        return PENDING_NOT_RUN
+        return PENDING_NOT_RUN + ('。' + advice_numbers.xdr_ja() if advice_numbers.xdr_facts() else '')
     return '結果ファイルあり（' + '・'.join(f'`experiments/results/{n}`' for n in have) + '）。このREADMEの集計は未対応のため、論文と結果ファイルを参照'
 
 
@@ -728,7 +728,7 @@ def section_en(e, v):
         L.append(f"| A: adversarial advice ({A_RUNS} closed-loop runs) | unsafe-delivery runs under false advice: advice-following {rr['naive']['unsafe']}/{rr['naive']['n']}, ours {rr['monotone']['unsafe']}/{rr['monotone']['n']}, no advice {a1['control_runs_F_N']['unsafe']}/{a1['control_runs_F_N']['n']} (exact McNemar p={a1['mcnemar_p']}); "
                  f"truthful advice saved a median {a2['monotone']['median_saved_s']} s; denial-of-service cost: at most {a3['max_extra_visits']} extra visit, {a3['false_refusals_monotone']} false refusals (allowed {a3['allowed_max_false_refusals_95']}) |")
     except (TypeError, KeyError):
-        L.append(f'| A: adversarial advice ({A_RUNS} closed-loop runs) | pre-registered, not yet run |')
+        L.append(f'| A: adversarial advice ({A_RUNS} closed-loop runs) | pre-registered, not yet run. ' + advice_numbers.a_pilot_en() + ' |')
     try:
         so = s_['systems']['OURS']
         fl = lambda x: f"{x['attack_vs_none']['flips']}/{x['n_pairs']}"
@@ -812,7 +812,7 @@ def section_en(e, v):
     for k_, what_ in (('B', 'B: advice credit in the closed loop (48 runs)'), ('IF', 'IF: request text switching the supply (72 texts)')):
         L.append(f"| {what_} | " + ('result file exists; see the paper' if advice_numbers.pending_studies()[k_] else 'pre-registered, not yet run') + ' |')
     xj = x_text()
-    L.append('| X, XD: cluttered four-station depot (I-21) | ' + ('pre-registered, not yet run (a rendering preview exists, not a result)' if xj == PENDING_NOT_RUN else 'result files exist; see the paper') + ' |')
+    L.append('| X, XD: cluttered four-station depot (I-21) | ' + ('pre-registered, not yet run (a rendering preview exists, not a result; the XD-R photographs are frozen, not scored)' if xj.startswith(PENDING_NOT_RUN) else 'result files exist; see the paper') + ' |')
     stage = {'E': 1, 'L': 1, 'Z': 1, 'T1': 2, 'K': 2, 'G': 3, 'W': 3, 'H': 4, 'V': 4, 'A': 4, 'S': 5, 'P': 5, 'R': 5, 'X, XD': 5, 'J': 6, 'I-23': 4, 'I-24': 4, 'B': 4, 'IF': 4}
     i0 = L.index('|---|---|') + 1
     rows = L[i0:]

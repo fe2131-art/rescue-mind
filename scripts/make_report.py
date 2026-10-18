@@ -397,7 +397,7 @@ def a_result_text(a):
                 f"助言なし {a1['control_runs_F_N']['unsafe']}/{a1['control_runs_F_N']['n']}。主張 安全：<b>{ok_(a1['supported'])}</b>、"
                 f"時間：<b>{ok_(a2['supported']) if a2['monotone']['testable'] else '検定不能'}</b>、コスト：<b>{ok_(a3['supported'])}</b>")
     except (TypeError, KeyError):
-        return PEND_NOT_RUN
+        return PEND_NOT_RUN + ('。' + advice_numbers.a_pilot_ja() if advice_numbers.a_pilot_facts() else '')
 
 
 def s_result_text(sj):
@@ -751,7 +751,7 @@ def sec_prereg(D, E):
             ['L', '未知の配置24通りでも期待どおり動くか', reg('L'),
              (lambda pl: f"期待どおり {pl['expected_behaviour']}、危険な配達 {pl['unsafe_deliveries']}、主張 {'成立' if pl['claim_supported'] else '不成立'}")(jload('l_summary.json')['primary'])
              if jload('l_summary.json') else PEND],
-            ['XD・X', '倉庫（4拠点）の画像と閉ループでも成り立つか', 'XD・X（草稿）', PEND_NOT_RUN],
+            ['XD・X', '倉庫（4拠点）の画像と閉ループでも成り立つか', 'XD・X（草稿）', PEND_NOT_RUN + ('。' + advice_numbers.xdr_ja() if advice_numbers.xdr_facts() else '')],
             ['Q', '実物の写真（Commons 405枚）で物資の確認は通用するか', reg('Q'), PEND_NOT_RUN],
             ['B', '助言の信用枠は、毎回嘘をつく情報源の代償を閉ループで抑えるか（機構の確認）', reg('B'), PEND if jload('b_summary.json') else PEND_NOT_RUN],
             ['IF', '依頼文で、頼まれた物資をすり替えられるか（査読 R6 の P7）', reg('IF'), PEND if jload('if_summary.json') else PEND_NOT_RUN],
@@ -1217,7 +1217,7 @@ def story_advice(h):
     vs, aj = jload('v_summary.json'), jload('a_summary.json')
     s += [Spacer(1, 2),
           P('<b>評価V</b>（モデルの予測を先に登録し、ランダムに変わる世界で確かめる）：' + (v_result_text(vs) if vs else PEND + '。'), 'small'),
-          P('<b>評価A</b>（悪意のある助言：「火は消えた、確認不要」「水は別の拠点」。助言に従う方式との対比較）：' + (a_result_text(aj) if aj else PEND_NOT_RUN + '。'), 'small'), Spacer(1, 3)]
+          P('<b>評価A</b>（悪意のある助言：「火は消えた、確認不要」「水は別の拠点」。助言に従う方式との対比較）：' + a_result_text(aj), 'small'), Spacer(1, 3)]
     s += fig('memory_principle_ja.png', 108, '図 記憶の場合：前回の記憶は拠点の順番を提案するだけ。行った先では必ず確認し、最近火を見た拠点では判定を厳しくする。')
     return s
 

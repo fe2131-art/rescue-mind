@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 import statistics
 import sys
 from collections import Counter, defaultdict
@@ -873,12 +874,24 @@ def main():
             m['SClaim'] = sup(hyp_[0] and hyp_[1] and lg_)      # registered claim: the permuted check is not fooled by a letter written for one option order (H1, H2, S0)
             m['SHyp'] = f"{sum(hyp_)}/7"
     m['StatS'] = f"letters: {m.lookup('SClaim')}; {m.lookup('SHyp')} hypotheses" if m.lookup('SClaim') else 'pending'
+    # ---- study A: first mechanics pilot (i35) and Amendment 1 (i38); XD-R photographs (advice_numbers.a_pilot_facts / xdr_facts read the files)
+    pf_ = advice_numbers.a_pilot_facts()
+    if pf_:
+        m['APilotRuns'], m['APilotOpN'], m['APilotOpExact'], m['APilotOpRefused'] = pf_['runs'], pf_['op_n'], pf_['op_exact'], pf_['op_refused']
+        m['APilotFileOK'] = f"{pf_['file_as_designed']}/{pf_['file_n']}"
+        m['AIntHeldOut'], m['AIntHeldN'] = pf_['held38'], pf_['held_n']
+        m['AIntUnsafe'] = max(pf_['unsafe35'], pf_['unsafe38'])
+        m['AIntInjOld'], m['AIntInjNew'], m['AIntInjN'], m['AIntWrong'] = pf_['inj35'], pf_['inj38'], pf_['inj_n'], pf_['wrong38']
+    xr_ = advice_numbers.xdr_facts()
+    if xr_:
+        m['XDRCand'], m['XDRKept'], m['XDRExcl'] = xr_['cand'], xr_['kept'], xr_['excl']
     # ---- registration audit: each registration commit must precede the first commit of its results
     import subprocess
 
     def git(*a):
         r = subprocess.run(['git', *a], cwd=ROOT, capture_output=True, text=True)
         return r.stdout.strip(), r.returncode
+    AMEND_RX = re.compile(r'^(?:\*\*|## )Amendment (\d+)[^\n(]*\(', re.M)    # headings only; a cross-reference ('Amendment 2 of W') is not an amendment
     studies = [('C (v3.3)', 'PREREGISTRATION_v33.md', 'campaign_ledger.jsonl'), ('D (v3.4)', 'PREREGISTRATION_v34.md', 'campaign_D_ledger.jsonl'),
                ('T1', 'PREREGISTRATION_T1.md', 'devset_t1_qwen35_9b.json'), ('E', 'PREREGISTRATION_E.md', 'campaign_E_ledger.jsonl'),
                ('T2', 'PREREGISTRATION_T2.md', 'devset_t2_i11_h36_tiles.json'), ('F', 'PREREGISTRATION_F.md', 'campaign_F_ledger.jsonl'),
@@ -916,7 +929,7 @@ def main():
             rc = rc or first_commit(rel)
         else:    # no result yet: the newest commit of the text that will be run
             rc = hist[0] if hist else ''
-        n_am = (ROOT / rel).read_text().count('**Amendment')
+        n_am = len(AMEND_RX.findall((ROOT / rel).read_text()))
         on_main = git('show', f'{main_ref}:{rel}')[0] == (ROOT / rel).read_text().strip()      # the text in this checkout is the text on main
         if rc and sc and rc.split()[0] == sc.split()[0]:
             order = 'same commit'          # cannot be verified from history (recorded before this audit existed)
@@ -931,6 +944,36 @@ def main():
         rows.append(f"{name} & {reg_cell} & \\texttt{{{sc or 'pending'}}} & {n_am} & {order} \\\\")
     rows += [r'\bottomrule', r'\end{tabular}']
     tables['tab_prereg.tex'] = '\n'.join(rows)
+    # ---- amendments: one row per amendment heading, the commit that introduced it (git -G, oldest) against the first results commit of its study
+    arows = [r'\begin{tabular}{llllc}', r'\toprule', r'Study & Amendment (text date) & Commit (git time) & First results & Order \\', r'\midrule']
+    am_a = None
+    for name, reg, res in studies:
+        rel = f'experiments/{reg}'
+        if not (ROOT / rel).is_file():
+            continue
+        txt = (ROOT / rel).read_text()
+        sc = first_commit(f'experiments/results/{res}')
+        for mm in re.finditer(r'^(?:\*\*|## )Amendment (\d+)[^\n(]*\(([0-9-]+)?(?: ([0-9:]+))?', txt, re.M):
+            k_, d_, t_ = mm.group(1), mm.group(2), mm.group(3)
+            o_, _ = git('log', '--reverse', '--full-history', '--no-merges', '--format=%h %cd', '--date=format:%Y-%m-%d %H:%M', '-G', rf'^(\*\*|## )Amendment {k_} \(', '--', rel)
+            c_ = o_.splitlines()[0] if o_ else ''
+            if not c_:
+                continue
+            if not sc:
+                order_ = 'no results yet'
+            elif c_.split()[0] == sc.split()[0]:
+                order_ = 'same commit'
+            else:
+                ok_ = git('merge-base', '--is-ancestor', c_.split()[0], sc.split()[0])[1] == 0
+                order_ = r'$\checkmark$' if ok_ else 'NO'
+            arows.append(f"{name.split()[0]} & {k_} ({(d_ or '--') + (' ' + t_ if t_ else '')}) & \\texttt{{{c_.split()[0]}}} {' '.join(c_.split()[1:])} & \\texttt{{{sc.split()[0] if sc else 'pending'}}} & {order_} \\\\")
+            if name == 'A' and k_ == '1':
+                am_a = c_
+    arows += [r'\bottomrule', r'\end{tabular}']
+    tables['tab_amend.tex'] = '\n'.join(arows)
+    if am_a:
+        m['AAmendCommit'], m['AAmendTime'] = am_a.split()[0], ' '.join(am_a.split()[1:])
+    m['NAmend'] = len(arows) - 5
     # the one definition of "number of studies" (README, report, paper and check_consistency read it back through advice_numbers.study_counts):
     # every row of Table S9 except C, the initial evaluation (23 = the studies of Supp. Table S12); 'checked' = registration commit
     # verified to precede the first results commit
