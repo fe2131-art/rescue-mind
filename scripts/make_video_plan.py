@@ -20,6 +20,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RES = ROOT / 'experiments/results'
+sys.path.insert(0, str(ROOT / 'scripts'))
+import advice_numbers  # noqa: E402  (study A wording: one reader for README, report, YouTube and this card)
 G, R, W = (60, 200, 120), (240, 80, 80), (236, 241, 248)
 LIMIT_S = 175.0      # assignment: 1-3 min
 FAST, CHECK = 8.0, 3.0   # playback speed while driving / during the check motion (shown on screen per segment)
@@ -234,9 +236,18 @@ def evidence_card(seconds):
     aj = jload(RES / 'a_summary.json')
     if aj and aj.get('n_trials') and aj.get('n_trials') == aj.get('n_planned'):
         r = aj['A1_unsafe_naive_vs_monotone']['runs']
-        rows.append(['閉ループ A（助言の注入）', [f"危険な配達 素朴{r['naive']['unsafe']}/{r['naive']['n']}・本方式{r['monotone']['unsafe']}/{r['monotone']['n']}",
-                                              G if aj.get('headline_supported') else W]])
-        say.append(f"助言の注入で、危険な配達は素朴{r['naive']['unsafe']}件、本方式{r['monotone']['unsafe']}件。")
+        af = advice_numbers.a_facts()
+        if af and af['worlds']['naive'] and af['worlds']['filtered'] and af['worlds']['monotone']:
+            w = af['worlds']
+            rows.append(['閉ループ A（助言の注入）', [f"危険な世界 素朴{w['naive'][0]}/{w['naive'][1]}・ガードレール{w['filtered'][0]}/{w['filtered'][1]}・本方式{w['monotone'][0]}/{w['monotone'][1]}",
+                                                  G if aj.get('headline_supported') else W]])
+            say.append(f"嘘の助言で危険な世界は、本方式{w['monotone'][0]}、素朴{w['naive'][0]}。")
+            st = af['steer']
+            notes[0] = f"助言の誘導では配達できない世界が{st['ours']['lost']}/{st['n']}（保証は相対的）。" + notes[0]       # the steering cost stays on the card (one note, two lines at most)
+        else:
+            rows.append(['閉ループ A（助言の注入）', [f"危険な配達 素朴{r['naive']['unsafe']}/{r['naive']['n']}・本方式{r['monotone']['unsafe']}/{r['monotone']['n']}",
+                                                  G if aj.get('headline_supported') else W]])
+            say.append(f"助言の注入で、危険な配達は素朴{r['naive']['unsafe']}件、本方式{r['monotone']['unsafe']}件。")
     else:
         if 'a_pending' not in _WARNED:
             _WARNED.add('a_pending')

@@ -31,13 +31,14 @@ Verify any row: `git log 587f033^1 --first-parent --format='%h %cI' --diff-filte
 | K | `3a21238` 2026-10-17T16:06 | `2f31f46703d0d092` | `9b2086f` 2026-10-17T16:07 | `2f31f46703d0d092` | yes | `3a21238` 2026-10-17T16:06 | `2f31f46703d0d092` (= bound) |
 | P | `e6bde02` 2026-10-17T11:32 | `b4b6d195df0be8bf` | `00795a8` 2026-10-17T11:54 | `b4b6d195df0be8bf` | yes | `e6bde02` 2026-10-17T11:32 | `b4b6d195df0be8bf` (= bound) |
 | P2 | `72f0309` 2026-10-17T11:54 | `8a0b01ae3097ab1d` | `f96af5f` 2026-10-17T20:10 | `5bb954f894fba52c` | yes | `2910b2e` 2026-10-17T12:09 | `5bb954f894fba52c` |
-| A | `587f033` 2026-10-18T09:08 | `1532940eadc11b24` | -- | -- | no results yet | `1163eee` 2026-10-18T10:38 | `9c94888b22023d7b` + erratum |
+| A | `587f033` 2026-10-18T09:08 | `1532940eadc11b24` | `d540165` 2026-10-18T18:01 | `5ab9d23743ba3c30` | yes | `1163eee` 2026-10-18T10:38 | `9c94888b22023d7b` + erratum |
 | S | `587f033` 2026-10-18T09:08 | `d322457d6cafff4a` | -- | -- | no results yet | `5535660` 2026-10-17T22:43 | `d322457d6cafff4a` (= bound) |
 | X | `587f033` 2026-10-18T09:08 | `d283f926675fcb86` | -- | -- | no results yet | `2e8972d` 2026-10-17T23:13 | `d283f926675fcb86` (= bound) |
 | XD | `587f033` 2026-10-18T09:08 | `5cd006c872c61619` | -- | -- | no results yet | `5535660` 2026-10-17T22:43 | `5cd006c872c61619` (= bound) |
 | Q | `587f033` 2026-10-18T09:08 | `7af0a5ac72d46fd4` | -- | -- | no results yet | `c7d06b3` 2026-10-17T20:58 | `7af0a5ac72d46fd4` (= bound) |
 | B | `587f033` 2026-10-18T09:08 | `7416ff27901695cf` | -- | -- | no results yet | `1c04256` 2026-10-18T03:10 | `1fdb07115f3c5501` + erratum |
 | IF | `587f033` 2026-10-18T09:08 | `38e510bfab955f30` | -- | -- | no results yet | `051e530` 2026-10-17T23:59 | `38e510bfab955f30` (= bound) |
+| IF2 | `878cbc7` 2026-10-18T18:04 | `5c14671d2358568a` | -- | -- | no results yet | `878cbc7` 2026-10-18T18:04 | `5c14671d2358568a` (= bound) |
 
 ## Amendments
 
@@ -57,8 +58,8 @@ One row per `Amendment` heading in a registration file (the rows of the amendmen
 | W | 1 | `ea88687` 2026-10-17T20:46 | 2026-10-17 21:00 | later than the commit; the commit time is binding | `c3cb9bd` 2026-10-18T09:07 | yes |
 | W | 2 | `d1c33f9` 2026-10-17T22:33 | 2026-10-17 22:40 | later than the commit; the commit time is binding | `c3cb9bd` 2026-10-18T09:07 | yes |
 | P2 | 1 | `2910b2e` 2026-10-17T12:09 | -- | -- | `f96af5f` 2026-10-17T20:10 | yes |
-| A | 1 | `2a1bab0` 2026-10-18T10:09 | 2026-10-18 10:30 | later than the commit; the commit time is binding | none yet | no results yet |
-| A | 2 | `1163eee` 2026-10-18T10:38 | 2026-10-18 10:55 | later than the commit; the commit time is binding | none yet | no results yet |
+| A | 1 | `2a1bab0` 2026-10-18T10:09 | 2026-10-18 10:30 | later than the commit; the commit time is binding | `d540165` 2026-10-18T18:01 | yes |
+| A | 2 | `1163eee` 2026-10-18T10:38 | 2026-10-18 10:55 | later than the commit; the commit time is binding | `d540165` 2026-10-18T18:01 | yes |
 | B | 1 | `ed8e48b` 2026-10-18T01:38 | 2026-10-18 | no | none yet | no results yet |
 | B | 2 | `1c04256` 2026-10-18T03:10 | 2026-10-18 03:20 | later than the commit; the commit time is binding | none yet | no results yet |
 

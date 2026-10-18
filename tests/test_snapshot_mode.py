@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
 import advice_numbers  # noqa: E402
 
-ALL = 'A,S,X,XD,B,IF,Q'
+ALL = 'S,X,XD,B,IF,Q'                                        # the studies without a result file (study A has its results since 2026-10-18 18:00)
 TEX = [ROOT / 'docs/paper' / f for f in ('main.tex', 'supplement.tex', 'sec_formal.tex')]
 
 
@@ -56,12 +56,13 @@ class TestSnapshotNumbers(unittest.TestCase):
         for f in sorted(self.out.glob('tab_*.tex')):
             self.assertNotIn('\\TBD', f.read_text(encoding='utf8'), f.name)
         # the pending studies' claim column and the study table say "registered, not run"
-        self.assertIn('\\newcommand{\\StatA}{registered, not run}', self.num)
+        self.assertNotIn('\\newcommand{\\StatA}{registered, not run}', self.num)      # A has results: its claim column is the result
         self.assertIn('\\newcommand{\\StatX}{registered, not run}', self.num)
         prereg = (self.out / 'tab_prereg.tex').read_text(encoding='utf8')
         self.assertNotIn('pending', prereg)
         rows = {ln.split(' & ')[0]: ln for ln in prereg.splitlines() if ' & ' in ln}
-        for k in ('A', 'S', 'X', 'XD', 'Q', 'B', 'IF'):
+        self.assertNotIn('not run', rows['A'].split(' & ')[2])                         # A: first-results commit is shown
+        for k in ('S', 'X', 'XD', 'Q', 'B', 'IF'):
             self.assertIn('not run', rows[k].split(' & ')[2], k)               # first-results cell
             self.assertRegex(rows[k].split(' & ')[1], r'\\texttt\{[0-9a-f]{7} \d{4}-\d\d-\d\d\}')   # registered (commit, date)
 
@@ -74,7 +75,7 @@ class TestSnapshotNumbers(unittest.TestCase):
         c = advice_numbers.study_counts_from_rows(rows)
         self.assertEqual(c['pending'], len(ALL.split(',')))
         self.assertIn(f"\\newcommand{{\\NStudiesPending}}{{{c['pending']}}}", self.num)
-        self.assertIn('\\newcommand{\\PendList}{A, S, X, XD, B, IF, Q}', self.num)
+        self.assertIn('\\newcommand{\\PendList}{S, X, XD, B, IF, Q}', self.num)
 
     def test_default_build_prints_the_normal_form(self):
         with tempfile.TemporaryDirectory() as td:
@@ -131,7 +132,7 @@ class TestPendingSentence(unittest.TestCase):
     def test_pending_study_a_gets_the_pending_form(self):
         t = self.expand({'A'})
         self.assertRegex(t, r'Study A\} \(registered: \\RegA\) was not run at submission')
-        self.assertNotIn('Unsafe-delivery runs:', t)                 # the sentence that needs the numbers of A is gone
+        self.assertNotIn('Worlds with an unsafe delivery', t)       # the sentence that needs the numbers of A is gone (forced pending form, results exist)
         self.assertNotIn('\\AUnsafeNaive', t)
         abstract = t.split('\\begin{abstract}')[1].split('\\end{abstract}')[0]
         self.assertIn('Not run at submission: \\PendList{}', abstract)
@@ -139,7 +140,7 @@ class TestPendingSentence(unittest.TestCase):
 
     def test_a_study_with_results_keeps_its_sentence(self):
         t = self.expand({'S'})                                      # only S pending: A keeps its normal sentence
-        self.assertIn('Unsafe-delivery runs:', t)
+        self.assertIn('Worlds with an unsafe delivery', t)
         self.assertRegex(t, r'Study S \(registered: \\RegS; image level, 64 worlds')      # S itself is pending
         self.assertNotIn('Study S (image level, \\SNPairs', t)
         t_s = self.expand({'A'})                                    # only A pending: S keeps its normal sentence
@@ -195,7 +196,7 @@ class TestSnapshotDocuments(unittest.TestCase):
             self.assertIn('登録済み・提出時点で未実施', t)
             self.assertNotRegex(t, r'TBD|\(pending\)|\bpending\b|実行中（事前登録済み）|結果待ち|実行待ち|pre-registered, running|not yet run(?! at submission)')
         self.assertIn('registered, not yet run at submission', self.readme)
-        self.assertIn('A・S・X・XD・B・IF・Q', self.yt)
+        self.assertIn('S・X・XD・B・IF・Q', self.yt)
         self.assertLessEqual(len(self.yt.split('## 概要欄\n', 1)[1].split('\n\n## 公開設定', 1)[0]), 4900)
 
     def test_tracked_documents_are_untouched(self):
@@ -224,7 +225,7 @@ class TestSnapshotDocuments(unittest.TestCase):
 
     def test_check_consistency_catches_a_stale_snapshot(self):
         # a snapshot built for another pending set than the result files say: the Table S9 count differs
-        r = run(['scripts/check_consistency.py', '--snapshot', '--no-report'], env={**self.env, 'SNAPSHOT_PENDING': 'A'})
+        r = run(['scripts/check_consistency.py', '--snapshot', '--no-report'], env={**self.env, 'SNAPSHOT_PENDING': 'A,' + ALL})
         self.assertEqual(r.returncode, 1)
         self.assertTrue(any(ln.startswith('MISMATCH') and 'Table S9' in ln for ln in r.stdout.splitlines()), r.stdout[-800:])
 

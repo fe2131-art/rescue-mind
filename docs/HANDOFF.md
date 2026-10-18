@@ -11,10 +11,10 @@
 
 ### 0. 最新の状態（2026-10-18 14:30）
 * **GPU の順番**（すべて自動。scratchpad の nohup スクリプトで動かしていて、通知は来ない）：
-  1. `queue_chain.sh`（ログは `queue.log`）：A（11:11 に開始、22:40 ごろ終了）→ IF → S → B → XD → X → Q → `QUEUE_DONE`。
+  1. `queue_chain.sh`（ログは `queue.log`）：A（11:11 に開始、18:00 に完了：判定 HEADLINE_HOLDS）→ IF → S → B → XD → X → Q → `QUEUE_DONE`。
   2. `after_queue.sh`（`after_queue.log`）：XD のステージ r（実写 258 枚）。
   3. `after_xdr.sh`（`after_xdr.log`）：i21 を main にマージ → `scripts/film_depot.sh`（倉庫の場面の撮影）。
-* **A が終わったら**：`python3 scripts/a_checklist.py --runs-dir ~/work/rescue-mind/outputs/runs` で C0〜C9 を判定する。続いて `a_analysis` → 論文・説明資料・README に反映する（Sonnet に依頼してよい）。
+* **A は完了し、論文・補遺・説明資料・README・YouTube 説明・動画の証拠カード・図（graphical abstract）・IMPROVEMENT_LOG I-19・FINDINGS #33・#34 に反映済み**（コミットの接頭辞 `study A:`）。残り：登録した224件のオフライン注入セット（`scripts/advice_injection_eval.py --split test`、GPU）の採点は**未実施**で、論文は「採点していない」と書いている。採点したら `experiments/results/advice_injection_eval.json` ができ、`a_checklist.py` の C1 が PASS_RUNS_OFFLINE_PENDING から変わる。
 * **動画の最終版**：撮影が終わったら `make_video_plan.py --recover b4fcd9d164444db7 --memory b93040decbf04ca4 --advice 076f3cb047064fae --depot <run>` → `make_demo_video.py --narrate 2`（3分以内）→ `update_submission_facts.py`。
 * **提出の手順（ご本人用）**：[`SUBMISSION_CHECKLIST.md`](SUBMISSION_CHECKLIST.md)（最終確認 → YouTube → `scripts/set_video_url.py` → public 化 → フォーム）。動画の URL の差し込みは `python3 scripts/set_video_url.py <URL> --apply`、公開前の検査は `python3 scripts/secret_scan.py --history`。
 * 締切前の保険：`make snapshot`（結果の出ていない研究は「登録済み・提出時点で未実施」と表記される）。
@@ -68,7 +68,7 @@
 | W（小さく隠れた火 150＋双子 75、画像） | 見回しの取りこぼし上限と先行手法 | **完了**。見逃し 見回し 3/150（Wilson 上限 5.7% ≤ 15%、**成立**）、正面のみ 76/150（横からしか見えない火 23 件のうち 22 件）、双子の余計な停止 0/75（**成立**）。先行手法（同じ全体画像）：本方式 3/815、投票 9/815（Holm p=0.094）、KnowNo 風 α=0.05 は 1/815 で正しい許可が 303/384 に低下 → 判定規則そのものが優れる主張は**不成立（0/3）**。I-20（疑わしいとき視点を増やす）：見逃し 2/150、双子の損失 0/75 → 事前の規則を満たし v3.7 の既定にした |
 | I-22 Gazebo 確認 | 配送インターロックの実機（シミュレーション）確認 | **合格**（4 ミッション。許可証は承認時のみ、隠れた火＋「確認不要」の助言は拒否・停止）。動画の素材にした |
 | I-23 / I-24 | 命題 2 の z3 検証／助言の信用枠 | I-23：99 件が unsat、実関数との突き合わせ 9,000 件で不一致 0、変異 11/11 検出（F1〜F3 を修正）。I-24：命題 3、閉ループは B で測る |
-| **A（226 run、予備走行 27 run）** | 助言は検査を緩められるか、攻撃者が買えるもの | **予備走行は失敗**（2026-10-18 09:14〜）。依頼文で助言する経路（operator）の run がすべて意図ゲートで拒否された（v3.6 の意図プロンプト i35 が、拠点を「避難所 B 以外の届け先」と読む）→ **FINDINGS #30**。i38 は事前に固定した規則（I-25）で採用済み（`experiments/results/intent_i38_check.json`：保留 55/60 で両方同じ・危険 0、dev の注入で正しい受理 86→92/94・取り違え 0）。**Amendment 1**（`experiments/PREREGISTRATION_A.md`、コミット 2a1bab0）で A の全試行を i38 にし、最初のパイロット台帳は `campaign_A_pilot1_ledger.jsonl` に残した（27 試行：依頼文チャネル 12 件中 0 件が意図どおり、うち 6 件は意図の段で拒否、残りは取れた項目が設計と違った）。**Amendment 2**（コミット 1163eee、10:38）で予備走行の合格条件を「依頼文チャネルの意図の受理 9/12 以上」に変え、正確な取り出し（FINDINGS #31：最初の予備走行で 0/6）は報告項目にした。新しい台帳でやり直した予備走行は合格した（`A_PILOT_OK` 10:56：意図の受理 12/12、ファイルチャネル 12/12、正確な取り出し 0/12）。**本走行（226 試行）は 11:11 に開始し、実行中**（結果はまだ無い）。論文・補遺・README・報告に反映済み（`tab_amend.tex`、マクロ `APilot*` `AInt*` `ARerun*`）。v3.6 の既定は i35 のまま、IF は i35 を測る |
+| **A（226 run、予備走行 27 run）** | 助言は検査を緩められるか、攻撃者が買えるもの | **予備走行は失敗**（2026-10-18 09:14〜）。依頼文で助言する経路（operator）の run がすべて意図ゲートで拒否された（v3.6 の意図プロンプト i35 が、拠点を「避難所 B 以外の届け先」と読む）→ **FINDINGS #30**。i38 は事前に固定した規則（I-25）で採用済み（`experiments/results/intent_i38_check.json`：保留 55/60 で両方同じ・危険 0、dev の注入で正しい受理 86→92/94・取り違え 0）。**Amendment 1**（`experiments/PREREGISTRATION_A.md`、コミット 2a1bab0）で A の全試行を i38 にし、最初のパイロット台帳は `campaign_A_pilot1_ledger.jsonl` に残した（27 試行：依頼文チャネル 12 件中 0 件が意図どおり、うち 6 件は意図の段で拒否、残りは取れた項目が設計と違った）。**Amendment 2**（コミット 1163eee、10:38）で予備走行の合格条件を「依頼文チャネルの意図の受理 9/12 以上」に変え、正確な取り出し（FINDINGS #31：最初の予備走行で 0/6）は報告項目にした。新しい台帳でやり直した予備走行は合格した（`A_PILOT_OK` 10:56：意図の受理 12/12、ファイルチャネル 12/12、正確な取り出し 0/12）。**本走行（226 試行、11:11 開始、失敗 0）は完了し、登録した主張は成立**（`a_checklist.md`：C0〜C6 合格、判定 HEADLINE_HOLDS）：悪意のある助言の12世界で危険な配達が起きた世界は 素朴 12/12・LLM ガードレール 12/12・本方式 0/12（McNemar p=0.0005）、本方式の配達 43/43 は助言なしの確認でも許可、正しい助言の時間短縮 中央値 27.1 秒（6/6、p=0.031）、代償は上限内（最大 +41.7 秒 ≤ 50.6 秒、取りこぼし 0）。A-steer は記述的：本方式の危険な配達 2/16（確認の誤り、有意でなく ε_any の区間内）、**配達できない世界 14/16**（FINDINGS #33）。ガードレールは助言ファイルでは 0/12 しか止めなかった（FINDINGS #34）。依頼文チャネルの正確な取り出しは 36/72（報告項目）。**未了：オフライン注入セットの採点**。論文・補遺・README・報告・YouTube・動画の証拠カードに反映済み（マクロ `AWorlds*` `ASteer*` など。生成は `advice_numbers.a_facts()`）。v3.6 の既定は i35 のまま、IF は i35 を測る |
 | IF（72 文） | 依頼文で依頼物資を書き換えられるか | 登録済み・**未実行**（GPU 約 2 分） |
 | S（64 世界、276 画像） | 場面内の文字（貼り紙・看板）による注入 | 登録済み・**未実行**（約 2.4 時間。看板の確認 `sign_check_ok` は済み） |
 | B（48 run＋予備走行 6） | 信用枠（I-24）の閉ループ | 登録済み・**未実行**（約 1.5 時間。Amendment 2：両アームでインターロックを有効にする） |
@@ -77,7 +77,7 @@
 | Q（Wikimedia Commons 405 枚） | 実写の物資確認 | 登録済み・**未実行**（GPU 約 40 分。W の後の連鎖が .gitignore の衝突で止まり、一度も走っていない） |
 
 * 登録済み 7 本（A・B・IF・Q・S・X・XD）は統合マージ 09:08 で main に載り、A の予備走行が 09:14 に始まった時点で、IF・S・B・XD・X・Q は試行も推論もしていない。これらの登録ファイルには「DRAFT」の行が残るが、拘束力のある版は `docs/REGISTRATIONS.md` の表の版（ファイルは変えない。変更は日付とコミットつきの Amendment で追記する）。
-* テスト関数は 1394 件（`python3 scripts/count_tests.py` の静的な数え方）。FINDINGS は 31 件。
+* テスト関数は 1398 件（`python3 scripts/count_tests.py` の静的な数え方）。FINDINGS は 34 件。
 
 ### D. GPU の順番と、その動かし方
 
@@ -134,7 +134,7 @@ docker exec rm-dev rescuemind-entrypoint python3 scripts/make_video_plan.py ... 
 ### G. 成果物の状態と整合性
 
 * 論文：`docs/paper/main.pdf` 10 頁（本文は 8 頁以内、参考文献は 8 頁目から）、補足 `supplement.pdf` 22 頁。未実行の研究の結果欄は灰色の「(pending)」（`make paper FINAL=1` は pending が残ると失敗する）。説明資料 `docs/report/説明資料_PAI最終課題_tetsutetsu.pdf` は **20 頁**（旧版の HANDOFF は 18 頁と書いていた）。
-* `python3 scripts/check_consistency.py`：**0 mismatch**（2026-10-18 09:43 に確認）。A・S・X の README の行は「実行中」、V・W は結果ありで検査する。結果が出るたびに、検査の「結果待ち」の期待も更新する。
+* `python3 scripts/check_consistency.py`：**0 mismatch**（2026-10-18 09:43 に確認）。S・X の README の行は「実行中」、A・V・W は結果ありで検査する（A は 18:00 に完了）。結果が出るたびに、検査の「結果待ち」の期待も更新する。
 * 整合性検査を通し、`make paper FINAL=1` が通る状態を締切（11/02 10:00）の数日前までに作る。結果が出ない研究があっても、登録どおり「未実行」と書いた版で確定できるようにしておく。
 
 ---
@@ -221,7 +221,7 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 ## 7. 主要ファイルの地図
 
 * 現在地・履歴：このファイル。旧版の全文：`docs/HANDOFF_ARCHIVE.md`。
-* `docs/ARCHITECTURE.md`（全体フロー図）、`docs/DESIGN_DECISIONS.md`（D1–D15）、`docs/IMPROVEMENT_LOG.md`（I-01–I-24）、`docs/FINDINGS.md`（実行で見つけた31件）、`docs/REVIEW_AND_PLAN.md`（審査基準別レビュー）。
+* `docs/ARCHITECTURE.md`（全体フロー図）、`docs/DESIGN_DECISIONS.md`（D1–D15）、`docs/IMPROVEMENT_LOG.md`（I-01–I-24）、`docs/FINDINGS.md`（実行で見つけた34件）、`docs/REVIEW_AND_PLAN.md`（審査基準別レビュー）。
 * `docs/REGISTRATIONS.md`（事前登録の台帳：main に載った最初のコミットと sha256）、`docs/REPRODUCE.md`（クリーンな Ubuntu＋NVIDIA 環境での 3 段階の再現手順）、`docs/REPRODUCIBILITY.md`。
 * `docs/evaluations/`（第三者採点、第1〜8回と固定の指示文）、`docs/paper/`（論文・補足・`REVIEW_NOTES*.md`・`LITERATURE_*.md`・`PROOF_REVIEW.md`）、`docs/report/`（説明資料）、`docs/design/`（I-19〜I-24 の設計、動画 v5 の計画）。
 * `experiments/`（事前登録 `PREREGISTRATION_*.md`・プロトコル・開発セット・台帳 `results/campaign_*_ledger.jsonl`・要約 `results/*_summary.json`）。

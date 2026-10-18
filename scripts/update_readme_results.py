@@ -428,11 +428,11 @@ def a_text():
     a = jl('a_summary.json')
     try:
         a1, a2, a3 = a['A1_unsafe_naive_vs_monotone'], a['A2_time_saved_truthful'], a['A3_dos_cost_vs_bound']
-        r = a1['runs']
-        ts = a2['monotone']['median_saved_s']
-        return (f"悪意のある助言での危険な配達（試行）：助言に従う方式 {r['naive']['unsafe']}/{r['naive']['n']}、本方式 {r['monotone']['unsafe']}/{r['monotone']['n']}、助言なし {a1['control_runs_F_N']['unsafe']}/{a1['control_runs_F_N']['n']}"
-                f"（世界で対にした McNemar p={a1['mcnemar_p']}）。正しい助言での時間短縮の中央値 {ts if ts is None else round(ts)} 秒。サービス妨害のコスト：追加訪問 最大 {a3['max_extra_visits']}、誤拒否 {a3['false_refusals_monotone']}（許容 {a3['allowed_max_false_refusals_95']}）。"
-                f"主張は 安全：{'成立' if a1['supported'] else '不成立'}、時間：{'成立' if a2['supported'] else ('不成立' if a2['monotone']['testable'] else '検定不能')}、コスト：{'成立' if a3['supported'] else '不成立'}")
+        txt = advice_numbers.a_ja()
+        if not txt:
+            raise KeyError('a_facts')
+        return (txt + f" 登録した主張は 安全：{'成立' if a1['supported'] else '不成立'}、時間：{'成立' if a2['supported'] else ('不成立' if a2['monotone']['testable'] else '検定不能')}、"
+                f"コスト：{'成立' if a3['supported'] else '不成立'}（予備走行と Amendment 1・2 の経緯は FINDINGS #30・#31、操縦の代償とガードレールの限界は #33・#34）")
     except (TypeError, KeyError):
         pf_ = advice_numbers.a_pilot_facts()
         return ((PENDING_NOT_RUN.replace('未実行', '実行中') if (pf_ or {}).get('rerun') else PENDING_NOT_RUN) + ('。' + advice_numbers.a_pilot_ja() if pf_ else ''))
@@ -560,7 +560,10 @@ def section_key(e, t):
     try:
         a1 = a['A1_unsafe_naive_vs_monotone']
         r_ = a1['runs']
-        rows.append(f"| 悪意のある助言でも危険にならない（評価A、閉ループ） | 危険な配達：助言に従う方式 {r_['naive']['unsafe']}/{r_['naive']['n']}、本方式 {r_['monotone']['unsafe']}/{r_['monotone']['n']} | **{'支持' if a1['supported'] else '不成立'}** |")
+        af_ = advice_numbers.a_facts()
+        wtxt_ = f"（{af_['worlds']['naive'][1]}世界で危険な配達が起きた世界は 素朴 {af_['worlds']['naive'][0]}・ガードレール {af_['worlds']['filtered'][0]}・本方式 {af_['worlds']['monotone'][0]}）" if af_ and af_['worlds']['naive'] else ''
+        steer_ = (f"。操縦の16世界では本方式の危険な配達 {af_['steer']['ours']['unsafe']}/{af_['steer']['n']}（確認の誤り、有意でない）、配達の取りこぼし {af_['steer']['ours']['lost']}/{af_['steer']['n']}（相対的な保証で、被ばくと可用性は上限の外）" if af_ else '')
+        rows.append(f"| 悪意のある助言でも危険にならない（評価A、閉ループ） | 危険な配達（試行）：助言に従う方式 {r_['naive']['unsafe']}/{r_['naive']['n']}、本方式 {r_['monotone']['unsafe']}/{r_['monotone']['n']}{wtxt_}{steer_} | **{'支持' if a1['supported'] else '不成立'}** |")
     except (TypeError, KeyError):
         auto = '' if SNAP else '。結果ファイルができると数値が自動で入る'
         rows.append(f'| 悪意のある助言でも危険にならない（評価A、閉ループ） | 本走行 {A_RUNS} 試行を事前登録済み{auto} | {PENDING_JA_SHORT} |')
@@ -735,7 +738,7 @@ def section_en(e, v):
          "(2) The check's errors come mostly from **small fires partly hidden behind the supply**, so before approving the robot **looks again from 0.4 m to either side** (study G); " + advice_numbers.i20_en() + ". "
          "(3) **Everything the robot did not perceive itself may only reorder or tighten, never remove a check**: memory from earlier missions, a peer's report, the inventory, hints in the operator's request are typed as *advice*; "
          "'safe' and 'skip' advice has no effect. So for any advice, even adversarial, the risk of an unsafe delivery stays within the check's own error budget eps_any (Proposition 2 of the paper; a relative guarantee). "
-         "Memory (H, V) is the measured example (" + advice_numbers.pooled_memory_en() + "); adversarial advice (A) is pending. "
+         "Memory (H, V) is the measured example (" + advice_numbers.pooled_memory_en() + "); " + (f"for adversarial advice (A, 226 closed-loop runs) {advice_numbers.a_short_en()}" if advice_numbers.a_short_en() else "adversarial advice (A) is pending") + ". "
          + en_new() + I22_EN + " The rule itself was tested with " + advice_numbers.SECOND_IMPL_EN + ", mutation tests and fuzzing, which found real bugs (FINDINGS #24, #25); the proof itself is machine-checked with z3 against a transcription of the implementation. "
          "(4) **Outside the guarantee**: text written in the scene (S, pending) and realism (a cluttered four-station depot, I-21: rendering preview only, [`docs/figures/depot_preview_sheet.jpg`](docs/figures/depot_preview_sheet.jpg); XD/X pending) are measured, not claimed. "
          "(5) **Honest limits** are listed below. " + advice_numbers.study_phrase_en() + " (`experiments/PREREGISTRATION_*.md`); every trial is audited against simulator ground truth and a ROS bag.",
@@ -749,10 +752,10 @@ def section_en(e, v):
         L.append(f"| G: paired, look-around vs. front view only | deliveries despite a perceivable fire {G['gb']}/{G['nf']} -> {G['gcw']}/{G['nf']} (exact McNemar p={G['p']:.3f}); false stops in fire-free worlds {G['fs']}/{G['nfree']} |")
     a_, s_ = jl('a_summary.json'), jl('s_summary.json')
     try:
-        a1, a2, a3 = a_['A1_unsafe_naive_vs_monotone'], a_['A2_time_saved_truthful'], a_['A3_dos_cost_vs_bound']
-        rr = a1['runs']
-        L.append(f"| A: adversarial advice ({A_RUNS} closed-loop runs) | unsafe-delivery runs under false advice: advice-following {rr['naive']['unsafe']}/{rr['naive']['n']}, ours {rr['monotone']['unsafe']}/{rr['monotone']['n']}, no advice {a1['control_runs_F_N']['unsafe']}/{a1['control_runs_F_N']['n']} (exact McNemar p={a1['mcnemar_p']}); "
-                 f"truthful advice saved a median {a2['monotone']['median_saved_s']} s; denial-of-service cost: at most {a3['max_extra_visits']} extra visit, {a3['false_refusals_monotone']} false refusals (allowed {a3['allowed_max_false_refusals_95']}) |")
+        txt_ = advice_numbers.a_en()
+        if not txt_:
+            raise KeyError('a_facts')
+        L.append(f"| A: adversarial advice ({A_RUNS} closed-loop runs) | {txt_} {advice_numbers.a_pilot_en()} |")
     except (TypeError, KeyError):
         L.append(f'| A: adversarial advice ({A_RUNS} closed-loop runs) | pre-registered, ' + ('running, no results yet' if (advice_numbers.a_pilot_facts() or {}).get('rerun') else 'not yet run') + '. ' + advice_numbers.a_pilot_en() + ' |')
     try:
