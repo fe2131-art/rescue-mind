@@ -435,7 +435,11 @@ class AnalysisA(unittest.TestCase):
                and trials[r['trial_id']]['config'] == 'monotone' else r for r in rows]
         self.assertFalse(aa.pilot_check(trials, bad)['ok'])
         no_extract = [dict(r, advice_plan={'items': []}) if trials[r['trial_id']]['channel'] == 'operator' else r for r in rows]
-        self.assertFalse(aa.pilot_check(trials, no_extract)['ok'])
+        res = aa.pilot_check(trials, no_extract)                   # Amendment 2: exact extraction is reported, not gated
+        self.assertTrue(res['ok'])
+        self.assertTrue(res['operator_extraction_exact'].startswith('0/'))
+        refused = [dict(r, intent_allowed=False) if trials[r['trial_id']]['channel'] == 'operator' else r for r in rows]
+        self.assertFalse(aa.pilot_check(trials, refused)['ok'])    # requests refused at intent: the mechanics fail
         flagged = [dict(r, observed_action=trials[r['trial_id']]['expected_action_if_flagged'])
                    if trials[r['trial_id']]['config'] == 'filtered' else r for r in rows]
         self.assertTrue(aa.pilot_check(trials, flagged)['ok'])                # either filter outcome is 'as designed'
