@@ -76,7 +76,8 @@ class AConfigurationWording(unittest.TestCase):
         main = (ROOT / 'docs/paper/main.tex').read_text(encoding='utf8')
         self.assertIn('intent prompt i38', main)
         self.assertIn('submitted default is i35', main)
-        self.assertIn('does not see the file channel', main)
+        self.assertIn("read every item's text", main)           # R9: the guardrail READ the peer items and flagged none (not 'does not see the file channel')
+        self.assertNotIn('does not see the file channel', main)
         self.assertIn('fig_a_results.pdf', (ROOT / 'docs/paper/supplement.tex').read_text(encoding='utf8'))
 
     def test_checklist_c9_line_is_plain(self):
