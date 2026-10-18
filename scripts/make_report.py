@@ -383,18 +383,8 @@ def v_result_text(vs):
 
 
 def w_result_text(ws):
-    """Study W as one string; PEND when w_summary.json (or one of its parts) is absent."""
-    try:
-        a, b = ws['W-a'], ws['W-b']
-        la, fr = a['miss_look_around'], a['miss_front_only']
-        S, nd = b['systems'], b['n_deny']
-        ok_ = lambda x: '成立' if x else '不成立'
-        base = '・'.join(f"{n.split(' (')[0]} {S[n]['false_approvals']}" for n in b['primary_baselines'])
-        return (f"小さく隠れた火の見逃し 正面のみ {fr['k']}/{fr['n']}、見回し {la['k']}/{la['n']}（Wilson 95%CI {100 * la['ci95'][0]:.0f}〜{100 * la['ci95'][1]:.0f}%）。"
-                f"同じ入力での誤許可（{nd}件中）本方式 {S[b['primary_reference']]['false_approvals']}、{base}。"
-                f"見逃しの上限：<b>{ok_(a['criteria']['claim_eps_tight'])}</b>")
-    except (TypeError, KeyError):
-        return PEND_NOT_RUN
+    """Study W as one string (all registered claims, failures included); PEND when w_summary.json (or one of its parts) is absent."""
+    return advice_numbers.w_claims_ja(advice_numbers.w_facts()) or PEND_NOT_RUN
 
 
 def a_result_text(a):

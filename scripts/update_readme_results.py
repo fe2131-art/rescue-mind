@@ -400,18 +400,7 @@ def v_idea_text():
 
 
 def w_text():
-    w = jl('w_summary.json')
-    try:
-        a, b = w['W-a'], w['W-b']
-        la, fr, tw = a['miss_look_around'], a['miss_front_only'], a['twins']['extra_false_stop_from_side_views']
-        S, nd = b['systems'], b['n_deny']
-        base = '、'.join(f"{n.split(' (')[0]} {S[n]['false_approvals']}/{nd}" for n in b['primary_baselines'])
-        return (f"小さく隠れた火（{la['n']}世界）の見逃し：正面のみ {fr['k']}/{fr['n']}、見回し {la['k']}/{la['n']}（Wilson 95%CI {pct(la['ci95'][0])}〜{pct(la['ci95'][1])}）、"
-                f"火の無い双子での余計な停止 {tw['k']}/{tw['n']}。同じ入力（全体画像）での誤許可：本方式 {S[b['primary_reference']]['false_approvals']}/{nd}、{base}。"
-                f"見逃しの上限の主張 {'成立' if a['criteria']['claim_eps_tight'] else '不成立'}、先行手法と区別できた数 "
-                f"{sum(bool(S[n].get('mechanism_matters')) for n in b['primary_baselines'])}/3")
-    except (TypeError, KeyError):
-        return PENDING_NOT_RUN
+    return advice_numbers.w_claims_ja(advice_numbers.w_facts(), bold='m') or PENDING_NOT_RUN
 
 
 def a_text():
@@ -804,15 +793,8 @@ def section_en(e, v):
         L.append(f"| V: model vs. closed loop (random change) | M0-M2 time saving observed {d1['mean_M0_minus_M2_s']:.0f} s (registered 95% interval {d1['pred']['p2.5']:.0f}-{d1['pred']['p97.5']:.0f} s); unsafe deliveries M0 {av['M0']['unsafe']}, M1 {av['M1']['unsafe']}, M2 {av['M2']['unsafe']}; {advice_numbers.v_claims_en()} |")
     except (TypeError, KeyError):
         L.append('| V: model vs. closed loop (random change) | pre-registered, running |')
-    try:
-        w = jl('w_summary.json'); wa, wb = w['W-a'], w['W-b']
-        la, fr, tw = wa['miss_look_around'], wa['miss_front_only'], wa['twins']['extra_false_stop_from_side_views']
-        Sw, nd = wb['systems'], wb['n_deny']
-        L.append(f"| W: small hidden fires (image level) and prior-art baselines | miss front-only {fr['k']}/{fr['n']}, look-around {la['k']}/{la['n']} (Wilson 95% CI {pct(la['ci95'][0])}-{pct(la['ci95'][1])}); extra false stops on fire-free twins {tw['k']}/{tw['n']}; "
-                 f"false approvals at the same input: ours-full {Sw[wb['primary_reference']]['false_approvals']}/{nd}, " + ', '.join(f"{n.split(' (')[0]} {Sw[n]['false_approvals']}/{nd}" for n in wb['primary_baselines'])
-                 + f"; bound claim {'supported' if wa['criteria']['claim_eps_tight'] else 'not supported'}, distinguished from {sum(bool(Sw[n].get('mechanism_matters')) for n in wb['primary_baselines'])} of 3 baselines |")
-    except (TypeError, KeyError):
-        L.append('| W: small hidden fires and prior-art baselines | pre-registered, not yet run |')
+    wen = advice_numbers.w_claims_en()
+    L.append(f"| W: small hidden fires (image level) and prior-art baselines | {wen} |" if wen else '| W: small hidden fires and prior-art baselines | pre-registered, not yet run |')
     try:
         pl = jl('l_summary.json')['primary']
         L.append(f"| L: unseen layouts | expected {pl['expected_behaviour']}; unsafe deliveries {pl['unsafe_deliveries']}; claim {'supported' if pl['claim_supported'] else 'not supported'} |")

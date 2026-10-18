@@ -314,6 +314,23 @@ def main():
                 ok_ = any('不成立' in t[i:i + 900] for i in seg)
                 extra.append((f'{doc}: the failed memory claim of study V is stated', 'ok' if ok_ else 'MISMATCH', ''))
 
+    # study W has results: no document may still call it pending; the failed prior-art claim and the I-20 decision stay visible in every document
+    wf_ = advice_numbers.w_facts() if (RES / 'w_summary.json').is_file() else None
+    if wf_:
+        for doc, rx in (('readme', r'W: small hidden fires[^\n]*(pre-registered, not yet run)'), ('report', r'評価W[^\n]{0,60}結果待ち'), ('yt', r'画像評価W[^\n]*結果待ち')):
+            t = docs.get(doc)
+            if t is not None:
+                extra.append((f'{doc}: study W is not called pending', 'MISMATCH' if re.search(rx, t) else 'ok', ''))
+        for doc, needle_ja, needle_en in (('readme', '不成立', 'not supported'), ('yt', '不成立', 'not supported'), ('report', '不成立', 'not supported')):
+            t = docs.get(doc)
+            if t is None:
+                continue
+            seg = [m.start() for m in re.finditer('評価W|W: small hidden fires|画像評価W', t)]
+            ok_ = (wf_['n_dist'] > 0) or any(needle_ja in t[i:i + 1200] or needle_en in t[i:i + 1200] for i in seg)
+            extra.append((f'{doc}: the failed prior-art claim of study W is stated', 'ok' if ok_ else 'MISMATCH', ''))
+            adopt_ok = any(('v3.7' in t[i:i + 1400] or 'I-20' in t[i:i + 1400]) for i in seg)
+            extra.append((f'{doc}: the I-20 decision after study W is stated', 'ok' if adopt_ok else 'MISMATCH', ''))
+
     # numbers.tex is what scripts/paper_numbers.py generates now
     try:
         import paper_numbers as pn

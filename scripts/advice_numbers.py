@@ -134,6 +134,70 @@ def v_claims_en(f=None):
     return s
 
 
+def w_facts():
+    """Study W (image level) as plain facts + registered claims, or None while w_summary.json is missing or incomplete."""
+    w = _load('w_summary.json')
+    try:
+        a, b, ad = w['W-a'], w['W-b'], w['W-a_adaptive']
+        S, nd, nal = b['systems'], b['n_deny'], b['n_allow']
+        ref, dep = S[b['primary_reference']], S[b['secondary_reference']]
+        vote, kf, kt = (S[n] for n in b['primary_baselines'])
+        pr, tw = ad['perceivable_FLR']['paired'], ad['twins']
+        r1 = pr['second_only'] == 0 and pr['first_only'] >= 1                       # I-20 adoption rule, fixed before the scores (docs/IMPROVEMENT_LOG.md)
+        r2 = tw['correct_approval_look_around']['k'] - tw['correct_approval_adaptive']['k'] <= 3
+        return {
+            'n': a['n_perceivable'], 'n_side_only': a['n_side_only'], 'twins': a['n_twins'],
+            'front': a['miss_front_only'], 'la': a['miss_look_around'], 'false_stops': a['twins']['extra_false_stop_from_side_views'],
+            'not_visible': a['six_view']['n_not_visible_from_any_view'], 'missed': a['missed_worlds'],
+            'eps2': a['oracle_steering']['label_FLR']['look_around']['by_k']['2']['eps_any'],
+            'eps4': a['oracle_steering']['label_FLR']['look_around']['by_k']['4']['eps_any'],
+            'eps2_front': a['oracle_steering']['label_FLR']['front_only']['by_k']['2']['eps_any'],
+            'claim_eps': bool(a['criteria']['claim_eps_tight']), 'claim_cost': bool(a['criteria']['claim_cost_acceptable']),
+            'adapt_miss': ad['perceivable_FLR']['miss_adaptive']['k'], 'adapt_pair': (pr['first_only'], pr['second_only']),
+            'adapt_trig_twin': tw['extra_view_trigger_rate']['k'], 'adapt_lost': tw['correct_approval_look_around']['k'] - tw['correct_approval_adaptive']['k'],
+            'adopt': bool(r1 and r2), 'rule1': bool(r1), 'rule2': bool(r2),
+            'nd': nd, 'nal': nal, 'fa_ref': ref['false_approvals'], 'fa_dep': dep['false_approvals'], 'fa_vote': vote['false_approvals'],
+            'fa_kf': kf['false_approvals'], 'fa_kt': kt['false_approvals'], 'ca_ref': ref['correct_approvals'], 'ca_kf': kf['correct_approvals'],
+            'vote_holm': vote['primary_holm_p_false_approval'], 'vote_dep_holm': vote['secondary_holm_p_false_approval'],
+            'n_dist': sum(bool(S[n].get('mechanism_matters')) for n in b['primary_baselines']),
+            'dep_better': bool(vote['deployed_better']),
+        }
+    except (TypeError, KeyError):
+        return None
+
+
+def w_claims_ja(f=None, bold='b'):
+    f = f or w_facts()
+    if not f:
+        return None
+    ok = lambda x: '成立' if x else '不成立'
+    B = (lambda t: f'<b>{t}</b>') if bold == 'b' else (lambda t: f'**{t}**')
+    la, fr = f['la'], f['front']
+    return (f"小さく隠れた火 {f['n']} 世界（画像レベル、新しい世界）の見逃し：正面のみ {fr['k']}/{fr['n']}、見回し {la['k']}/{la['n']}"
+            f"（Wilson 95%CI {100 * la['ci95'][0]:.1f}〜{100 * la['ci95'][1]:.1f}%）。{B('見逃しの上限15%以下：' + ok(f['claim_eps']))}、"
+            f"火の無い双子での余計な停止 {f['false_stops']['k']}/{f['false_stops']['n']}（{B('許容できる代償：' + ok(f['claim_cost']))}）。"
+            f"拠点2か所のとき、少なくとも1か所で見逃す確率 ε_any(2) は見回しで {100 * f['eps2']:.1f}%（正面のみ {100 * f['eps2_front']:.1f}%）。"
+            f"同じ入力（全体画像）での誤許可（{f['nd']}件中）：本方式 {f['fa_ref']}、5問の言い換え投票 {f['fa_vote']}、KnowNo風α=0.05 {f['fa_kf']}（ただし正しい許可は {f['ca_kf']}/{f['nal']} で本方式の {f['ca_ref']}/{f['nal']} より低い）、α=0.10 {f['fa_kt']}（本方式と同じ判定）。"
+            f"{B('先行手法より危険判定の規則そのものが優れる：' + ok(f['n_dist'] > 0))}（区別できたのは3つ中 {f['n_dist']}、投票とは Holm補正後 p={f['vote_holm']:.3f}）。"
+            f"切り出しを含む実際の方式は投票より誤許可が少ない（{f['fa_dep']} 対 {f['fa_vote']}、Holm補正後 p={f['vote_dep_holm']:.3f}）。"
+            f"疑わしいときだけ視点を増やす案（I-20）：見逃し {f['adapt_miss']}/{la['n']}（見回しとの差は {f['adapt_pair'][0]} 世界だけ）、双子で失った許可 {f['adapt_lost']} 件。"
+            f"事前に決めた採用規則を{'満たしたので v3.7 の既定にする' if f['adopt'] else '満たさなかったので既定にしない'}")
+
+
+def w_claims_en(f=None):
+    f = f or w_facts()
+    if not f:
+        return None
+    ok = lambda x: 'supported' if x else 'not supported'
+    la, fr = f['la'], f['front']
+    return (f"{f['n']} new small partly hidden fires (image level): front-only missed {fr['k']}/{fr['n']}, look-around {la['k']}/{la['n']} (Wilson 95% CI {100 * la['ci95'][0]:.1f}-{100 * la['ci95'][1]:.1f}%); "
+            f"bound claim (upper <= 15%) {ok(f['claim_eps'])}; extra false stops on fire-free twins {f['false_stops']['k']}/{f['false_stops']['n']} (cost claim {ok(f['claim_cost'])}); "
+            f"eps_any(2) = {100 * f['eps2']:.1f}% with look-around vs. {100 * f['eps2_front']:.1f}% front-only. "
+            f"At the same full-image input, false approvals of {f['nd']} must-refuse images: ours {f['fa_ref']}, paraphrase vote {f['fa_vote']}, conformal alpha=0.05 {f['fa_kf']} (but {f['ca_kf']}/{f['nal']} correct approvals vs. {f['ca_ref']}/{f['nal']}), alpha=0.10 {f['fa_kt']} (identical decisions); "
+            f"claim that the hazard rule alone beats prior mechanisms {ok(f['n_dist'] > 0)} ({f['n_dist']} of 3; vs. the vote Holm p={f['vote_holm']:.3f}); the deployed check with crops beats the vote ({f['fa_dep']} vs. {f['fa_vote']}, Holm p={f['vote_dep_holm']:.3f}). "
+            f"Suspicion-triggered extra views (I-20): {f['adapt_miss']}/{la['n']} misses (one world fewer than look-around), {f['adapt_lost']} correct approvals lost on twins; the adoption rule fixed beforehand was {'met: default of v3.7' if f['adopt'] else 'not met: not the default'}")
+
+
 def pending_studies():
     return {k: (RES / f).is_file() for k, f in (('IF', 'if_summary.json'), ('B', 'b_summary.json'))}
 
