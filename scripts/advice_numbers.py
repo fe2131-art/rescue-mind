@@ -664,12 +664,12 @@ def storyline():
             a_pend = None
         except (TypeError, KeyError):
             a_txt, a_pend = f"評価A（本測定）：{P}", P
-        notes = [f"z3 {smt['unsat']}/{smt['queries']}件が反例なし。わざと入れたバグ {smt['caught']}/{smt['mutants']}個を検出（I-23）",
-                 f"実走 run {demo['run']}：「確認は不要です」を却下し、許可証 {demo['permits']}件で停止", a_txt]
+        notes = [f"z3 証明 {smt['unsat']}件・注入バグ {smt['caught']}/{smt['mutants']}検出",
+                 f"実走：「確認不要」を却下し停止", a_txt]
         rows.append({'key': 'advice', 'title': '嘘の助言', 'attack': '依頼文に「火は消えた、確認は不要です」と注入する',
                      'found': f"確認を緩める窓口には、予算 {100 * smt['eps_any']:.0f}% を超える反例（危険な配達 {100 * smt['unsafe_rate']:.0f}%）がある（z3）",
                      'fix': '助言は厳しくするだけ（I-19）。実装を機械検証（I-23）',
-                     'before': f"{100 * smt['unsafe_rate']:.0f}%", 'after': f"{demo['permits']}件", 'label': '緩める窓口の反例の危険率 → 実走の許可証', 'notes': notes, 'extra': notes, 'pending': a_pend,
+                     'before': f"{100 * smt['unsafe_rate']:.0f}%", 'after': f"≤{100 * smt['eps_any']:.0f}%", 'label': '同じ最悪条件の危険率：緩める→締めるだけ（z3）', 'notes': notes, 'extra': notes, 'pending': a_pend,
                      'bullet': f"**嘘の助言**（「確認は不要です」を注入）→ 緩める窓口には反例（発見）→ 助言は厳しくするだけ（I-19）と機械検証（I-23）（対策）→ 再測定：z3 {smt['unsat']}/{smt['queries']}件が反例なし、"
                                f"実走 run {demo['run']} は許可証 {demo['permits']}件で停止。{a_txt}"})
     if fnd and ap:         # 4. bugs found by our own checks -> fixes -> re-measured
