@@ -61,7 +61,7 @@ ADVICE_DIR = 'experiments/advice_A'
 # Intent prompt of the robot's instruction parser.  None = the orchestrator default (v3.6, i35: the registration of 2026-10-18).
 # Amendment of the study A pilot finding (FINDINGS #30): set to 'i38' (after the pre-fixed adoption rule of
 # scripts/intent_i38_check.py says so), regenerate both protocols with --amend and commit them BEFORE the pilot is rerun.
-INTENT_PROMPT = None
+INTENT_PROMPT = 'i38'                      # Amendment 1 (2026-10-18, FINDINGS #30, I-25)
 PILOT_ADVICE_DIR = 'experiments/advice_A_pilot'
 
 # {item}: Japanese item noun; {Y}: letter of the requested supply's own station; {X}: letter of the OTHER station
