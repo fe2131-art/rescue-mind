@@ -153,6 +153,7 @@ def w_facts():
         return {
             'n': a['n_perceivable'], 'n_side_only': a['n_side_only'], 'twins': a['n_twins'],
             'front': a['miss_front_only'], 'la': a['miss_look_around'], 'false_stops': a['twins']['extra_false_stop_from_side_views'],
+            'so_la': a['miss_look_around_side_only'], 'so_front': a['miss_front_only_side_only'],
             'not_visible': a['six_view']['n_not_visible_from_any_view'], 'missed': a['missed_worlds'],
             'eps2': a['oracle_steering']['label_FLR']['look_around']['by_k']['2']['eps_any'],
             'eps4': a['oracle_steering']['label_FLR']['look_around']['by_k']['4']['eps_any'],
@@ -205,6 +206,11 @@ def w_claims_en(f=None):
 
 def pending_studies():
     return {k: (RES / f).is_file() for k, f in (('IF', 'if_summary.json'), ('B', 'b_summary.json'))}
+
+
+def pending_all():
+    """{study letter: result file exists} for every registered study whose result is still missing or may be (A, S, X, XD, B, IF, Q); same files as Table S9."""
+    return {k: (RES / f'{k.lower()}_summary.json').is_file() for k in ('A', 'S', 'X', 'XD', 'B', 'IF', 'Q')}
 
 
 def study_counts_from_rows(rows):
