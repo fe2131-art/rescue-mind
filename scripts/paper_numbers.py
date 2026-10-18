@@ -942,6 +942,8 @@ def main():
         m['AClaimCost'] = sup(a3['supported'])
         m['AClaim'] = sup(a['headline_supported'])
         m['AExtract'] = f"{a['extraction']['exact_match']}/{a['extraction']['n_operator_runs']}"
+        bc_ = a['extraction']['by_condition']      # the attacks that relax a check (poison_safe, poison_location), not the easy ones
+        m['AExtractRelax'] = f"{bc_['poison_safe']['exact'] + bc_['poison_location']['exact']}/{bc_['poison_safe']['n'] + bc_['poison_location']['n']}"
         af_ = advice_numbers.a_facts()        # the rest of the A numbers (worlds, guardrail flag rates, replay, A-steer) share one reader with README/report/YouTube
         if af_:
             kk = lambda t: f"{t[0]}/{t[1]}"
@@ -1151,7 +1153,7 @@ def main():
     unrun = [d for d in drafts if not (RES / dict((n_, r_) for n_, _, r_ in studies)[d]).is_file()]
     m['PreregDrafts'] = ', '.join(unrun) if unrun else 'none'
     # the sentence of the Methodology about the studies without results (no dangling '(none)' when every registration is already on main)
-    m['PreregPending'] = (f"the drafts ({', '.join(unrun)}) are registered when the integration branch is merged, before any of their trials" if unrun
+    m['PreregPending'] = (f"the drafts ({', '.join(unrun)}) are registered on the integration branch (bound by its merge into main, before any of their trials)" if unrun
                           else 'all are on the main branch, bound by the integration merge before their first trial')
     m['NStudiesRun'] = cnt_['n'] - cnt_['pending']
     m['PendList'] = ', '.join(advice_numbers.pending_list()) or 'none'
@@ -1200,7 +1202,7 @@ def main():
                'WFAOursFull', 'WFAVote', 'WFAKnowFive', 'WFAKnowTen', 'WNDist', 'WMissFrontRate', 'WMissLAUpper', 'WMcNemarP', 'WCaughtOnlyByLA', 'WNFront', 'WNSideOnly', 'WMissLAFront', 'WMissLAFrontUpper', 'WMissLASide', 'WMissFrontSide', 'WMissedWorlds', 'WNotVisible', 'WNotVisibleUpper', 'WSixViewUpper', 'WTwinCA', 'WExtraStopUpper', 'WTauMiss', 'WEpsAnyTwo', 'WEpsAnyTwoCI', 'WEpsAnyFour', 'WEpsAnyFourCI', 'WEpsAnyTwoFront', 'WEpsAnyFourFront', 'WVOldMissFront', 'WVOldMissLA', 'WVOldMissLAUpper', 'WAdaptMiss', 'WAdaptMissUpper', 'WAdaptPaired', 'WAdaptPairedP', 'WAdaptTwinCA', 'WAdaptTrigTwin', 'WAdaptTrigTwinCI', 'WAdaptTrigFire', 'WAdaptRuleA', 'WAdaptRuleB', 'WAdaptAdopt', 'WScrutMissB', 'WScrutMissC', 'WScrutMissCUpper', 'WScrutPC', 'WScrutTwinStopC', 'WNImages', 'WNDeny', 'WNAllow', 'WFAOursDeployed', 'WFAOursFullRate', 'WFAOursDeployedCI', 'WCAOursFull', 'WFAVoteRate', 'WFAVoteCI', 'WVotePRaw', 'WVoteHolm', 'WVoteDisc', 'WVoteDeployedHolm', 'WVoteDeployedDisc', 'WVoteDeployedBetter', 'WCAKnowFive', 'WCAKnowFiveRate', 'WCAKnowFiveDrop', 'WCAKnowFiveP', 'WKnowTenSame', 'WSmallOurs', 'WSmallVote', 'WMondCA', 'PRecall', 'PFalseAlarm', 'PRecallCI', 'PFalseAlarmCI', 'PAuroc',
                'PTwoWording', 'PTwoTau', 'PTwoRecall', 'PTwoRecallCI', 'PTwoFA', 'PTwoFACI', 'PTwoClaim', 'PTwoFrozenRecall', 'PTwoFrozenFA',
                'APairs', 'AUnsafeNaive', 'AUnsafeOurs', 'AUnsafeCtrl', 'AMcNemarP', 'AViol', 'AAuditFail', 'ATimeSave', 'AWilcoxonP', 'ADoSVisits', 'ADoSFalseRef', 'ADoSN',
-               'ADoSAllowed', 'AClaimSafety', 'AClaimTime', 'AClaimCost', 'AClaim', 'AExtract',
+               'ADoSAllowed', 'AClaimSafety', 'AClaimTime', 'AClaimCost', 'AClaim', 'AExtract', 'AExtractRelax',
                'SNPairs', 'SFlipsC', 'SNC', 'SFlipsA', 'SNA', 'SFlipsB', 'SNB', 'SFlipsMis', 'SNMis', 'SFlipsSafe', 'SNSafe', 'SFlipsOneA', 'SFlipsMisFree', 'SLegible', 'SClaim', 'SHyp'])
     for name in ('tab_t1_models.tex', 'tab_t1_ablation.tex', 'tab_e_strata.tex', 'tab_i13_dev.tex', 'tab_r.tex', 'tab_h_arms.tex', 'tab_h_sequences.tex'):
         tables.setdefault(name, r'\begin{tabular}{l}\TBD\end{tabular}')

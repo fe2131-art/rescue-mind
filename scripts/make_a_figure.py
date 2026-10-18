@@ -6,7 +6,7 @@
   (c) time: what truthful location advice saved per world, and what false advice cost per run, against the registered bound
 
   python3 scripts/make_a_figure.py     # -> docs/paper/fig_a_results.pdf, docs/figures/a_results_en.png, docs/figures/a_results_ja.png
-Labels say what each bar is: the guardrail does not see the peer-file channel, and the operator channel extracted the designed advice in only part of the runs.
+Labels say what each bar is: the guardrail read each peer item and flagged none of them, and the operator channel extracted the designed advice in only part of the runs.
 Nothing is written when a_summary.json does not exist (no result, no figure).
 """
 from __future__ import annotations
