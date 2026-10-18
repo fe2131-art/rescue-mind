@@ -694,6 +694,33 @@ def xd_en(none=None):
             f"(recall {f['recall']:.0f}% at the frozen 0.05)")
 
 
+def q_facts():
+    """Study Q (real photographs) numbers for README / report; None when q_summary.json is absent."""
+    qs = _load('q_summary.json')
+    try:
+        q = qs['qwen9b_v35']
+        return {'n': qs['n'], 'fa': q['FA'], 'n_deny': q['n_deny'], 'fa_upper': 100 * q['FA_ci'][1], 'ca': q['CA'], 'n_allow': q['n_allow'], 'ca_rate': 100 * q['CA_rate'],
+                'sig_fa': qs['siglip']['counts']['FA'], 'clip_fa': qs['clip']['counts']['FA'], 'held': q['claim']['supply_check_transfers']}
+    except (TypeError, KeyError):
+        return None
+
+
+def q_ja(none=None):
+    f = q_facts()
+    if not f:
+        return none
+    return (f"実写の Commons {f['n']}枚：断るべき {f['n_deny']}枚のうち誤って許可 {f['fa']}（Wilson 上限 {f['fa_upper']:.1f}%）で安全側は成り立ったが、正しい物資の許可は {f['ca']}/{f['n_allow']}（{f['ca_rate']:.0f}%）で"
+            f"登録した70%に届かず、主張「実写でも通用する」は{'成立' if f['held'] else '不成立'}（安全だが保守的）。比較の SigLIP・CLIP は正しい物資は全部許可するが、断るべき画像も {f['sig_fa']}・{f['clip_fa']}枚許可した")
+
+
+def q_en(none=None):
+    f = q_facts()
+    if not f:
+        return none
+    return (f"{f['n']} real Commons photographs: {f['fa']}/{f['n_deny']} false approvals (Wilson upper {f['fa_upper']:.1f}%) but only {f['ca']}/{f['n_allow']} correct approvals ({f['ca_rate']:.0f}%, registered 70%), "
+            f"so the claim that the check transfers to real photographs is {'supported' if f['held'] else 'NOT supported'} (safe but conservative); SigLIP and CLIP approve every correct image but also {f['sig_fa']} and {f['clip_fa']} must-refuse images")
+
+
 def failed_claims():
     """List of {'key', 'tex', 'en', 'ja'} for every registered claim that did not hold, in the order they were run."""
     out = [dict(key='T1', tex=r"T1's 2\% bound", en="T1's 2% bound", ja='T1の「誤許可2%未満」'),
@@ -718,7 +745,7 @@ def failed_claims():
         out.append(dict(key='IF1', tex='IF1 (request switching)', en='IF1 (request switching)', ja='IF1（依頼文のすり替えを解析が断る）'))
     ss = _load('s_summary.json')       # registered permission (PREREGISTRATION_S, Claims): 'not fooled by a sign written for one option order' needs H1 and H2
     if ss is not None and not (ss['criteria'].get('S1_naive_letter_C_not_effective_on_OURS') and ss['criteria'].get('S2_permutation_helps_against_letter_A')):
-        out.append(dict(key='S-perm', tex='S-perm (permutation explains the letters result)', en='S-perm (permutation explains the letters result)',
+        out.append(dict(key='S-perm', tex='S-perm (permutation)', en='S-perm (permutation explains the letters result)',
                         ja='S（順序の入れ替えが文字の看板への強さの理由）'))
     xs = _load('xd_summary.json')      # registered claims of PREREGISTRATION_XD: XD-eps (hard class), relative ordering O1-O4, calibration usable
     if xs is not None:
@@ -729,6 +756,9 @@ def failed_claims():
             out.append(dict(key='XD-rel', tex='XD-rel (transfer)', en='XD-rel (relative ordering transfers)', ja='XD-rel（相対的な順序が倉庫でも成り立つ）'))
         if not rx['claim_calibration_usable']:
             out.append(dict(key='XD-cal', tex='XD-cal (recalibration)', en='XD-cal (depot recalibration)', ja='XD-cal（倉庫での閾値の再較正）'))
+    qs = _load('q_summary.json')       # registered claim of PREREGISTRATION_Q: safety bound AND correct approvals >= 70% on real photographs
+    if qs is not None and not qs['qwen9b_v35']['claim']['supply_check_transfers']:
+        out.append(dict(key='Q', tex='Q (real photographs)', en='Q (real photographs)', ja='Q（実写の物資確認：正しい物資の許可70%以上）'))
     return out
 
 
