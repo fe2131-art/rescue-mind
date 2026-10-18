@@ -687,6 +687,33 @@ def _safe(name: str, fn, *args, **kw):
         return {'status': 'ERROR', 'error': f'{type(e).__name__}: {e}'[:300], 'check': name, 'breaks_headline': False}
 
 
+_HOME = re.compile(r'/home/[A-Za-z0-9_.-]+|/tmp/claude-\d+[^\s\'",]*')
+
+
+def _repo_roots() -> list[str]:
+    roots = {str(ROOT)}
+    try:
+        common = subprocess.run(['git', 'rev-parse', '--git-common-dir'], cwd=ROOT, capture_output=True, text=True).stdout.strip()
+        roots.add(str((ROOT / common).resolve().parent))
+    except OSError:
+        pass
+    return sorted(roots, key=len, reverse=True)
+
+
+def _public(obj):
+    """Strip absolute machine paths from everything written to a tracked file: a path under the repository (main checkout or
+    a worktree) becomes repository-relative; any other home or scratch path becomes '~' / '<scratch>'."""
+    if isinstance(obj, dict):
+        return {k: _public(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_public(v) for v in obj]
+    if isinstance(obj, str):
+        for r in _repo_roots():
+            obj = obj.replace(r + '/', '').replace(r, '.')
+        return _HOME.sub(lambda m: '<scratch>' if m.group(0).startswith('/tmp/') else '~', obj)
+    return obj
+
+
 def run_checklist(ledger: Path, protocol_path: Path, mask_file: Path, runs_dir: Path, *, use_git: bool = True, show_partial: bool = False,
                   pilot_ledgers=(), w_summary_path: Path | None = None, expected_n: int = EXPECTED_N) -> dict:
     proto = json.loads(protocol_path.read_text(encoding='utf8'))
@@ -821,6 +848,7 @@ def main(argv=None) -> int:
     out = run_checklist(Path(a.ledger), Path(a.protocol), Path(a.masks), Path(a.runs_dir), use_git=not a.no_git, show_partial=a.show_partial,
                         pilot_ledgers=[RES / 'campaign_A_pilot_ledger.jsonl', RES / 'campaign_A_pilot1_ledger.jsonl'])
     Path(a.out_json).parent.mkdir(parents=True, exist_ok=True)
+    out = _public(out)                     # tracked file: repository-relative paths only (no home directory)
     Path(a.out_json).write_text(json.dumps(out, ensure_ascii=False, indent=1, default=str) + '\n', encoding='utf8')
     md = Path(a.out_md) if a.out_md else Path(a.out_json).with_suffix('.md')
     md.write_text(render_md(out), encoding='utf8')
