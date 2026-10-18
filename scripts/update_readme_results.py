@@ -322,7 +322,7 @@ def watch_text():
     except (OSError, ValueError):
         return '動画の章立て（`docs/video_chapters.json`）が無いため、見どころは書かない。'
     titles = ' '.join(c.get('title', '') for c in ch)
-    demos = [c['title'].split('：', 1)[-1] for c in ch if c.get('kind') == 'mission']
+    demos = [c.get('demo_title', c['title']).split('：', 1)[-1] for c in ch if c.get('kind') == 'mission']
     parts = []
     if '隠れた' in titles:
         parts.append('「隠れた小さな火」のデモ（正面では見えない火を、横へ動いて撮り直して見つけて止まる）')
@@ -963,7 +963,7 @@ def main():
     if chap.is_file():     # describe the video from the chapter file (length kept generic: it is re-rendered later)
         ch = json.loads(chap.read_text(encoding='utf8'))
         sp = next((c['speed'] for c in ch if c.get('speed')), None)
-        demos = [c['title'].split('：', 1)[-1] for c in ch if c.get('kind') == 'mission']
+        demos = [c.get('demo_title', c['title']).split('：', 1)[-1] for c in ch if c.get('kind') == 'mission']
         n_tab = sum(c.get('kind') == 'table' for c in ch)
         length = '3分以内' if ch[-1]['end_s'] <= 180 else f"{int(ch[-1]['end_s'] // 60)}分{int(round(ch[-1]['end_s'] % 60)):02d}秒"
         desc = (f"{length}、日本語ナレーション付き。実走デモ{len(demos)}本（{'／'.join(demos)}）と、事前登録した結果の表{n_tab}枚"

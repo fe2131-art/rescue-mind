@@ -21,6 +21,7 @@ from pathlib import Path
 if '--snapshot' in sys.argv:      # submission snapshot (read before advice_numbers is imported)
     os.environ['SNAPSHOT'] = '1'
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import youtube_chapters  # noqa: E402  (YouTube-valid chapters: merge short segments, validate)
 import advice_numbers  # noqa: E402  (study V wording: single source shared with the README and the report)
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -53,7 +54,7 @@ def circled(i):
 def video_facts(chapters):
     if not chapters:
         raise ValueError('no chapters')
-    chapters = sorted(chapters, key=lambda c: c['start_s'])
+    chapters = youtube_chapters.merge_short(chapters)      # idempotent: a list that is already valid is returned unchanged
     total = chapters[-1]['end_s']
     missions = [c for c in chapters if c.get('kind') == 'mission']
     speeds = []
@@ -63,11 +64,7 @@ def video_facts(chapters):
     warn = []
     if not 60 <= total <= 180:
         warn.append(f'video length {total:.1f}s is outside the 1-3 minute requirement')
-    for c in chapters:
-        if c['end_s'] - c['start_s'] < 10:
-            warn.append(f"chapter '{c['title']}' ({mmss(c['start_s'])}) is shorter than 10 s (YouTube may ignore the chapter list)")
-    if mmss(chapters[0]['start_s']) != '0:00':
-        warn.append('first chapter does not start at 0:00')
+    warn += youtube_chapters.validate(chapters)
     return {'chapters': chapters, 'total_s': total, 'length_mmss': mmss(round(total)),
             'length_ja': f'{int(round(total)) // 60}分{int(round(total)) % 60}秒',
             'missions': missions, 'speeds': speeds,
@@ -80,7 +77,7 @@ def demo_sentence(facts):
         return None
     items = []
     for i, c in enumerate(ms):
-        t = strip_demo(c['title'])
+        t = strip_demo(youtube_chapters.demo_title(c))
         items.append(f'{circled(i)}{GLOSS.get(t, t)}')
     return f'デモは{len(ms)}場面：' + ' '.join(items) + '。'
 
@@ -321,9 +318,9 @@ def number_lines(res):
 
 
 # ------------------------------------------------------------------ documents
-DROP_ORDER = ('（T2）', 'ゼロショット', '劣化', '評価J', '評価P', '（T1）')     # detail lines dropped first when over YouTube's 5000 bytes
+DROP_ORDER = ('（T2）', 'ゼロショット', '劣化', '評価J', '評価P', '（T1）')     # detail lines dropped first when over YouTube's 5000 characters
 DROP_ORDER_SNAP = ('閉ループ評価L',)      # snapshot only: the extra "not run at submission" line needs the room
-LIMIT = 4990
+LIMIT = 4900      # YouTube's limit is 5000 CHARACTERS (not bytes); a margin of 100 characters
 
 
 def watch_sentence(facts):
@@ -371,7 +368,7 @@ def build_description(chapters, res, _nums=None):
                  '- 採点完了まで削除・非公開にしない')
     out = '\n\n'.join(paras) + '\n'
     body = out.split('## 概要欄\n', 1)[1].split('\n\n## 公開設定', 1)[0]
-    if len(body.encode('utf8')) > LIMIT and nums:
+    if len(body) > LIMIT and nums:
         snap = advice_numbers.snapshot_mode()
         for key in DROP_ORDER + (DROP_ORDER_SNAP if snap else ()):
             keep = [x for x in nums if key not in x]
@@ -424,8 +421,8 @@ def main(argv=None):
     for w in facts['warnings']:
         print('WARNING:', w, file=sys.stderr)
     body = desc.split('## 概要欄\n', 1)[1].split('\n\n## 公開設定', 1)[0]
-    if len(body.encode('utf8')) > 5000:
-        print(f"WARNING: description is {len(body.encode('utf8'))} bytes (YouTube limit 5000)", file=sys.stderr)
+    if len(body) > LIMIT:
+        print(f"WARNING: description is {len(body)} characters (YouTube limit 5000, ours {LIMIT})", file=sys.stderr)
     out = Path(a.out)
     stale = []
     if not out.is_file() or out.read_text(encoding='utf8') != desc:

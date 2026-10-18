@@ -308,6 +308,11 @@ def main():
     # video facts: chapters vs YouTube text vs README "what to watch" (no demo that is not in the video)
     ch = json.loads(read('docs/video_chapters.json') or '[]')
     if ch:
+        import youtube_chapters
+        _bad = youtube_chapters.validate(ch)
+        extra.append((f'video chapters are YouTube-valid ({len(ch)} chapters: 0:00 start, >= 3, ascending, each >= 10 s)', 'MISMATCH' if _bad else 'ok', '; '.join(_bad[:2])))
+        _yt_chars = len(docs['yt'].split('## 概要欄\n', 1)[-1].split('\n\n## 公開設定', 1)[0]) if docs['yt'] else 0
+        extra.append((f'YouTube description {_yt_chars} characters (limit 5000, margin kept)', 'MISMATCH' if _yt_chars > 4900 else 'ok', ''))
         total = ch[-1]['end_s']
         ytxt = docs['yt']
         want = f'約{int(total // 60)}分{int(round(total % 60)):02d}秒'

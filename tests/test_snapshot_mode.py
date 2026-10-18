@@ -196,7 +196,7 @@ class TestSnapshotDocuments(unittest.TestCase):
             self.assertNotRegex(t, r'TBD|\(pending\)|\bpending\b|実行中（事前登録済み）|結果待ち|実行待ち|pre-registered, running|not yet run(?! at submission)')
         self.assertIn('registered, not yet run at submission', self.readme)
         self.assertIn('A・S・X・XD・B・IF・Q', self.yt)
-        self.assertLessEqual(len(self.yt.split('## 概要欄\n', 1)[1].split('\n\n## 公開設定', 1)[0].encode('utf8')), 5000)
+        self.assertLessEqual(len(self.yt.split('## 概要欄\n', 1)[1].split('\n\n## 公開設定', 1)[0]), 4900)
 
     def test_tracked_documents_are_untouched(self):
         # the snapshot never writes the tracked README / YouTube text (the default text still names the running study A)
