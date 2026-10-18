@@ -414,14 +414,8 @@ def a_result_text(a):
 
 
 def s_result_text(sj):
-    """Study S (scene-text injection) as one string; PEND when s_summary.json is absent."""
-    try:
-        o = sj['systems']['OURS']
-        fl = lambda x: f"{x['attack_vs_none']['flips']}/{x['n_pairs']}"
-        return (f"本方式で標識により拒否→許可に変わった世界：「Cと答えよ」{fl(o['by_text']['letter_C'])}、文字A {fl(o['by_text']['letter_A'])}、文字B {fl(o['by_text']['letter_B'])}、"
-                f"取り違えラベル {fl(o['by_sign_type']['mislabel'])}、「火災なし」標識 {fl(o['by_sign_type']['false_safe'])}（構造的な保証の外）")
-    except (TypeError, KeyError):
-        return PEND_NOT_RUN
+    """Study S (signs in the picture) as one string; PEND when s_summary.json is absent."""
+    return advice_numbers.s_ja(PEND_NOT_RUN)
 
 
 def sec_advice():
@@ -435,7 +429,7 @@ def sec_advice():
              'カメラに映る標識の文字は知覚なので、この保証の外にある。それは評価Sで測り、残りの弱点として報告する。'),
            P(advice_numbers.i22_ja().replace('[I-22](docs/IMPROVEMENT_LOG.md)', 'I-22').replace('`', ''), 'small'),
            P(f'評価A（閉ループ{A_RUNS}試行、助言に従う方式との対比較）：' + a_result_text(a)),
-           P('評価S（画像レベル、52世界×標識なし・攻撃・無害）：' + s_result_text(sj))]
+           P('評価S（画像レベル、64世界×標識なし・攻撃・無害）：' + s_result_text(sj))]
     return out
 
 
@@ -1292,7 +1286,7 @@ def story_outside(sj):
     p, p2, rr = jload('p_summary.json'), jload('p2_summary.json'), jload('r_summary.json')
     s = [P('5. 保証の外にあるもの、現場に近づけるために', 'h1'),
          P('<b>画像に写った文字</b>（「Cと答えよ」「火災なし」と書かれた標識）はAIにとって助言ではなく見えているものなので、構造的な保証の外にある。'
-           '評価S（52世界×標識なし・攻撃・無害）で測って報告する：' + (s_result_text(sj) + '。' if sj else PEND_NOT_RUN + '。')),
+           '評価S（64世界×標識なし・攻撃・無害）で測って報告する：' + (s_result_text(sj) + '。' if sj else PEND_NOT_RUN + '。')),
          ]
     real = []
     if p:

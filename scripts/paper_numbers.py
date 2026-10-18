@@ -1007,6 +1007,23 @@ def main():
         if all(h_ is not None for h_ in hyp_) and lg_ is not None:
             m['SClaim'] = sup(hyp_[0] and hyp_[1] and lg_)      # registered claim: the permuted check is not fooled by a letter written for one option order (H1, H2, S0)
             m['SHyp'] = f"{sum(hyp_)}/7"
+        fa_ = ((sj.get('defence') or {}).get('OCR-MASK') or {}).get('false_approvals_with_attack_sign', {}).get('OURS')     # all attack-sign worlds that OURS refuses without the sign
+        if fa_:
+            m['SPoolFlips'], m['SPoolN'], m['SPoolUpper'] = fa_['k'], fa_['n'], f"{100 * fa_['ci95'][1]:.1f}\\%"
+        d7_ = cr_.get('S7_detail') or {}
+        if 'FREE-FORM' in d7_ and 'OURS' in d7_:
+            m['SBenignFree'], m['SBenignOurs'] = d7_['FREE-FORM'], d7_['OURS']
+        lc_ = ((sj.get('defence') or {}).get('OCR-MASK') or {}).get('legit_cost')
+        if lc_:
+            m['SLegitKept'] = f"{lc_['ours_approved']}/{lc_['n_images']}"
+    if sf.is_file():        # supplementary table of study S: every system, approvals of must-refuse worlds without a sign / with the attack sign / with a benign text
+        rows_ = [r'\begin{tabular}{lcccc}', r'\toprule', r'System & no sign & attack sign & benign text & flips \\', r'\midrule']
+        for nm_, sy_ in sj['systems'].items():
+            mr_ = sy_['must_refuse_all']
+            c_ = lambda g_: f"{g_['k']}/{g_['n']}"
+            rows_.append(f"{nm_.replace('+', '+').replace('_', ' ')} & {c_(mr_['bad_no_sign'])} & {c_(mr_['bad_attack'])} & {c_(mr_['bad_benign'])} & {mr_['attack_vs_none']['flips']} \\\\")
+        rows_ += [r'\bottomrule', r'\end{tabular}']
+        tables['tab_s_systems.tex'] = '\n'.join(rows_)
     m['StatS'] = f"letters: {m.lookup('SClaim')}; {m.lookup('SHyp')} hypotheses" if m.lookup('SClaim') else 'pending'
     # ---- study IF (request text switching the requested supply; advice_numbers.if_facts reads if_summary.json)
     iff_ = advice_numbers.if_facts()
@@ -1203,8 +1220,8 @@ def main():
                'PTwoWording', 'PTwoTau', 'PTwoRecall', 'PTwoRecallCI', 'PTwoFA', 'PTwoFACI', 'PTwoClaim', 'PTwoFrozenRecall', 'PTwoFrozenFA',
                'APairs', 'AUnsafeNaive', 'AUnsafeOurs', 'AUnsafeCtrl', 'AMcNemarP', 'AViol', 'AAuditFail', 'ATimeSave', 'AWilcoxonP', 'ADoSVisits', 'ADoSFalseRef', 'ADoSN',
                'ADoSAllowed', 'AClaimSafety', 'AClaimTime', 'AClaimCost', 'AClaim', 'AExtract', 'AExtractRelax',
-               'SNPairs', 'SFlipsC', 'SNC', 'SFlipsA', 'SNA', 'SFlipsB', 'SNB', 'SFlipsMis', 'SNMis', 'SFlipsSafe', 'SNSafe', 'SFlipsOneA', 'SFlipsMisFree', 'SLegible', 'SClaim', 'SHyp'])
-    for name in ('tab_t1_models.tex', 'tab_t1_ablation.tex', 'tab_e_strata.tex', 'tab_i13_dev.tex', 'tab_r.tex', 'tab_h_arms.tex', 'tab_h_sequences.tex'):
+               'SNPairs', 'SFlipsC', 'SNC', 'SFlipsA', 'SNA', 'SFlipsB', 'SNB', 'SFlipsMis', 'SNMis', 'SFlipsSafe', 'SNSafe', 'SFlipsOneA', 'SFlipsMisFree', 'SLegible', 'SClaim', 'SHyp', 'SPoolFlips', 'SPoolN', 'SPoolUpper', 'SBenignFree', 'SBenignOurs', 'SLegitKept'])
+    for name in ('tab_t1_models.tex', 'tab_t1_ablation.tex', 'tab_e_strata.tex', 'tab_i13_dev.tex', 'tab_r.tex', 'tab_h_arms.tex', 'tab_h_sequences.tex', 'tab_s_systems.tex'):
         tables.setdefault(name, r'\begin{tabular}{l}\TBD\end{tabular}')
     def write_if_changed(path, text):      # keep mtimes when nothing changed (latexmk and `make check` compare them)
         if not path.is_file() or path.read_text(encoding='utf8') != text:
