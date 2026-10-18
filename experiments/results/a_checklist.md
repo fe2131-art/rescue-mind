@@ -23,11 +23,11 @@ Ledger 226 of 226 final rows
 * C6: W 33.73 s, bound 50.59 s, max extra 41.74, lost 0 (allowed 4) -> PASS
 * C7: steering direction observed but not significant
 * C8: operator exact 36/72, intent accepted 72/72
-* C9: failed A claims []; Nfailed 6 -> 6
+* C9: failed A claims []; Nfailed 7 -> 7
 
 ## Unsafe deliveries of the monotone family (C2 replay; images)
 
-* A165 (monotone, AD06): baseline approves True, images ['/home/tetsutani/work/rescue-mind/outputs/runs/3bccb15d4eb84940/checkpoint.jpg', '/home/tetsutani/work/rescue-mind/outputs/runs/3bccb15d4eb84940/peek_L_checkpoint.jpg', '/home/tetsutani/work/rescue-mind/outputs/runs/3bccb15d4eb84940/peek_R_checkpoint.jpg']
-* A200 (monotone, AD08): baseline approves True, images ['/home/tetsutani/work/rescue-mind/outputs/runs/a11f0d2c60ac488a/checkpoint.jpg', '/home/tetsutani/work/rescue-mind/outputs/runs/a11f0d2c60ac488a/peek_L_checkpoint.jpg', '/home/tetsutani/work/rescue-mind/outputs/runs/a11f0d2c60ac488a/peek_R_checkpoint.jpg']
+* A165 (monotone, AD06): baseline approves True, images ['outputs/runs/3bccb15d4eb84940/checkpoint.jpg', 'outputs/runs/3bccb15d4eb84940/peek_L_checkpoint.jpg', 'outputs/runs/3bccb15d4eb84940/peek_R_checkpoint.jpg']
+* A200 (monotone, AD08): baseline approves True, images ['outputs/runs/a11f0d2c60ac488a/checkpoint.jpg', 'outputs/runs/a11f0d2c60ac488a/peek_L_checkpoint.jpg', 'outputs/runs/a11f0d2c60ac488a/peek_R_checkpoint.jpg']
 
 Flags for wording / claim level: none.
