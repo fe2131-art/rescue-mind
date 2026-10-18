@@ -921,7 +921,7 @@ def judge_box(D, E, V, compact=False):
                          f"バグ{sf['mutants']}個を{sf['caught']}個とも検出）。「締めるだけ」は<b>必要十分</b>でもあり、"
                          + (f"<b>信用枠</b>で、毎回嘘をつく情報源の代償にも上限がつく（記述モデル：+{cf['liar_no']:.0f}秒 → +{cf['liar_yes']:.0f}秒）。" if cf else '')
                          + '閉ループの確認（研究B）は' + ((advice_numbers.b_ja() + '。') if advice_numbers.pending_studies()['B'] else (WAIT_JA if SNAP else '結果待ち') + '。')
-                         + ('依頼文の書き換え（研究IF）は、書き換えた' + f"{advice_numbers.if_facts()['n']}文のうち{advice_numbers.if_facts()['k']}文で受理され、登録した主張は不成立。対策（研究IF2）は" + ('結果あり。' if advice_numbers.if2_done() else (WAIT_JA if SNAP else '結果待ち') + '。') if advice_numbers.if_facts() else ''))
+                         + ('依頼文の書き換え（研究IF）は、書き換えた' + f"{advice_numbers.if_facts()['n']}文のうち{advice_numbers.if_facts()['k']}文で受理され、登録した主張は不成立。対策（研究IF2）は" + ((advice_numbers.if2_short_ja() + '。') if advice_numbers.if2_done() else (WAIT_JA if SNAP else '結果待ち') + '。') if advice_numbers.if_facts() else ''))
         return [P(x, 'small') for x in lines] + [Spacer(1, 3)]
     h = jload('h_summary.json')
     items = ['<b>問題</b>：災害時の物資配達ロボットは、在庫表と現物の食い違い（水のはずが救急箱・空）や火災に出会う。指示どおり運ぶだけでは、誤った物資や危険な場所へ届けてしまう。',
@@ -1087,7 +1087,7 @@ def new_results_main():
                  + (f"：書き換えた{iff_['n']}文のうち<b>{iff_['k']}文で受理</b>され、登録した主張は<b>不成立</b>。依頼物資は保証の外で、出発前の読み返しが必須。" if iff_ else '。')
                  + '<b>IF2</b>：対策（物資が食い違えば聞き返す、I-27）の再測定（新しい72文）。',
                  '事前登録済み、B：' + ('結果あり' if p['B'] else '<b>' + WAIT_JA + '</b>') + '、IF：' + ('<b>主張不成立</b>' if iff_ and not iff_['held'] else ('結果あり' if p['IF'] else '<b>' + WAIT_JA + '</b>'))
-                 + '、IF2：' + ('結果あり' if advice_numbers.if2_done() else '<b>' + WAIT_JA + '</b>')])
+                 + '、IF2：' + (advice_numbers.if2_short_ja() if advice_numbers.if2_done() else '<b>' + WAIT_JA + '</b>')])
     out = [P('<b>この保証の新しい成果</b>（機械検証・必要十分・期間の上限）', 'small'), Spacer(1, 2), table(rows, [26, 112, 36])]
     if c:
         out += fig('advice_credit.png', 128, f"図 助言の信用枠の記述モデル（{c['missions']}出動）：嘘つき・危険の連打の代償は上限で止まり、正直な情報源は何も失わない。")
