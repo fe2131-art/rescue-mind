@@ -673,6 +673,16 @@ def xd_facts():
         return None
 
 
+def xdr_result_ja():
+    r = _load('xd_real_summary.json')
+    try:
+        fa = r['false_alarm']
+        return (f"。実写の火のない倉庫写真 {r['n']} 枚では、0.05 で {fa['frozen']['k']}/{fa['frozen']['n']}（{100 * fa['frozen']['rate']:.1f}%）、P2 の 0.35 で {fa['p2_h36']['k']}/{fa['p2_h36']['n']} が火と誤判定"
+                "（登録した主張は倉庫の τ* で述べたが τ* が存在しないため評価できず、失敗には数えない）")
+    except (TypeError, KeyError):
+        return ''
+
+
 def xd_ja(none=None):
     f = xd_facts()
     if not f:
@@ -681,7 +691,17 @@ def xd_ja(none=None):
             f"難しい火（小さく半分隠れた炎）の見回しの見逃しは {f['hard_la']}（上限 {f['hard_upper']:.1f}%）で、登録した上限15%は**不成立**。"
             f"相対的な主張のうち、見回しが正面の見逃しの大半を減らす（O1）と、誤った物資の許可が無い（O4）は成り立ったが、疑わしいときだけ足す追加視点（I-20）は"
             f"見逃しを {f['removed']} 件減らし増やさなかった（{f['ad']}）一方で、火のない双子の {f['trig']}（{f['trig_rate']:.0f}%）で発動し、事前の撤回規則（15%超）で既定にしないことになった（O3 不成立）。"
-            f"閾値の再較正は登録の基準（較正の再現率0.95）を満たす閾値が無く不成立（0.05 での再現率 {f['recall']:.0f}%）")
+            f"閾値の再較正は登録の基準（較正の再現率0.95）を満たす閾値が無く不成立（0.05 での再現率 {f['recall']:.0f}%）" + xdr_result_ja())
+
+
+def xdr_result_en():
+    r = _load('xd_real_summary.json')
+    try:
+        fa = r['false_alarm']
+        return (f"; on {r['n']} real fire-free warehouse photographs the frozen 0.05 flagged {fa['frozen']['k']}/{fa['frozen']['n']} ({100 * fa['frozen']['rate']:.1f}%) and the P2 threshold 0.35 flagged {fa['p2_h36']['k']}/{fa['p2_h36']['n']} "
+                "(the registered claim at the depot tau* is not evaluable because no tau* exists)")
+    except (TypeError, KeyError):
+        return ''
 
 
 def xd_en(none=None):
@@ -691,7 +711,7 @@ def xd_en(none=None):
     return (f"depot images ({f['nworlds']} worlds, {f['nperc']} perceivable fires): front-only missed {f['front']}, look-around {f['la']} (Wilson upper {f['la_upper']:.1f}%); on the hard class (small partly hidden flames) look-around "
             f"missed {f['hard_la']} (upper {f['hard_upper']:.1f}%), so the registered 15% bound is NOT met. O1 and O4 hold, but the I-20 extra views (which removed {f['removed']} misses and added none, {f['ad']} left) "
             f"fired on {f['trig']} fire-free twins ({f['trig_rate']:.0f}%), so the rule fixed before XD withdrew them as a default (O3 fails); recalibration found no threshold meeting the registered recall "
-            f"(recall {f['recall']:.0f}% at the frozen 0.05)")
+            f"(recall {f['recall']:.0f}% at the frozen 0.05)" + xdr_result_en())
 
 
 def q_facts():
