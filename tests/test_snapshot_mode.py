@@ -214,7 +214,7 @@ class TestSnapshotDocuments(unittest.TestCase):
             self.assertEqual(r.returncode, 1)
             self.assertTrue(any(ln.startswith('MISMATCH') and 'snapshot README: no TBD' in ln for ln in r.stdout.splitlines()), r.stdout[-800:])
             # inconsistency 2: a wrong number is still caught in snapshot mode
-            wrong = re.sub(r'\*\*(\d+)回 → (\d+)回\*\*', lambda m: f'**{int(m.group(1)) + 1}回 → {m.group(2)}回**', self.readme, count=1)     # study G's headline numbers
+            wrong = re.sub(r'\*\*(\d+)/(\d+) → (\d+)/(\d+)\*\*', lambda m: f'**{int(m.group(1)) + 1}/{m.group(2)} → {m.group(3)}/{m.group(4)}**', self.readme)     # study G's headline numbers (every occurrence)
             self.assertNotEqual(wrong, self.readme)
             (self.dir / 'README.md').write_text(wrong, encoding='utf8')
             r = run(['scripts/check_consistency.py', '--snapshot', '--no-report'], env=self.env)

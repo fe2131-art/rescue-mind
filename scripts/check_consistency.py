@@ -104,13 +104,13 @@ def facts():
     if g:
         pr = g['primary']
         b, c, n = pr['wrong_deliveries_B'], pr['wrong_deliveries_C'], pr['n_world_pairs_fire_perceivable']
-        add('G deliveries despite fire', f'{b}/{n} -> {c}/{n}', [f'**{b}回 → {c}回**'], [f'{b}回、横から撮り直すと {c}回'], [],
+        add('G deliveries despite fire', f'{b}/{n} -> {c}/{n}', [f'**{b}/{n} → {c}/{n}**'], [f'{b}回、横から撮り直すと {c}回'], [],
             {'GWrongB': str(b), 'GWrongC': str(c), 'GPairs': str(n)})
     h = jload('h_summary.json')
     if h:
         p1, p2, p3 = h['P1_efficiency_relocation_persist'], h['P2_safety_naive_vs_verified'], h['P3_no_extra_risk_vs_v36']
         t0, t2 = round(p1['time_M0_median_s']), round(p1['time_M2_median_s'])
-        add('H median time M0 -> M2', f'{t0} -> {t2} s', [f'**{t0}秒 → {t2}秒**'], [f'記憶なし {t0}秒・検証つき記憶 {t2}秒'], [f'{t0}→{t2}秒'],
+        add('H median time M0 -> M2', f'{t0} -> {t2} s', [f'{t0}秒 → {t2}秒'], [f'記憶なし {t0}秒・検証つき記憶 {t2}秒'], [f'{t0}→{t2}秒'],
             {'HTimeMzero': str(t0), 'HTimeMtwo': str(t2)})
         add('H unsafe M0 / M1 / M2', f"{p3['unsafe_M0']} / {p2['unsafe_M1']} / {p2['unsafe_M2']} of {p2['n_pairs']}",
             [f"記憶なし {p3['unsafe_M0']}/{p3['n_pairs']}"], [f"素朴な記憶 {p2['unsafe_M1']}件"], [],
@@ -192,7 +192,7 @@ def facts():
     if sf:
         add('I-23 z3 unsat queries / differential cases / injected bugs caught',
             f"{sf['unsat']} unsat of {sf['queries']}; {sf['cases']:,} cases, {sf['disagreements']} disagreements; {sf['caught']}/{sf['mutants']} caught",
-            [f"z3 の{sf['unsat']}件の問い", f"{sf['cases']:,}件で不一致 {sf['disagreements']}", f"{sf['caught']}個とも検出"], [],
+            [f"{sf['unsat']}件が反例なし", f"{sf['cases']:,}件で不一致 {sf['disagreements']}", f"{sf['caught']}/{sf['mutants']} を検出"], [],
             [f"{sf['unsat']}件", f"{sf['cases']:,}件で不一致{sf['disagreements']}", f"{sf['mutants']}個を{sf['caught']}個とも"], {})
     if cf:
         add('I-24 advice credit (descriptive model, k=4): liar / flooding', f"{cf['liar_no']:.0f} -> {cf['liar_yes']:.0f} s; {cf['flood_no']} -> {cf['flood_yes']}",
@@ -296,6 +296,14 @@ def main():
         hit = re.search(rx, t)
         extra.append((f'no stale text in {doc} ({why})', 'MISMATCH' if hit else 'ok', f'matches {rx!r}' if hit else ''))
 
+    # README as GitHub renders it: no broken relative link / image / anchor (tracked files only); the first screen keeps its parts
+    if not SNAP:
+        import check_readme_links
+        _n, _bad, _ = check_readme_links.check(ROOT / 'README.md')
+        extra.append((f'README relative links ({_n} checked)', 'MISMATCH' if _bad else 'ok', '; '.join(_bad[:3])))
+    first = '\n'.join(docs['readme'].splitlines()[:32])
+    _miss = [k for k in ('hero_lookaround.gif', '<!-- KEY:START -->', 'YouTube（提出時にURLを記載）', 'main.pdf', 'REPRODUCE.md', '説明資料') if k not in first]
+    extra.append(('README first screen (hero, key table, video placeholder, report, paper, REPRODUCE)', 'MISMATCH' if _miss else 'ok', ', '.join(_miss)))
     # video facts: chapters vs YouTube text vs README "what to watch" (no demo that is not in the video)
     ch = json.loads(read('docs/video_chapters.json') or '[]')
     if ch:

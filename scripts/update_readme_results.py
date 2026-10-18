@@ -284,7 +284,7 @@ PENDING_NOT_RUN = '結果待ち（事前登録済み・未実行）'
 SNAP = advice_numbers.snapshot_mode()
 PENDING_JA_SHORT = advice_numbers.PENDING_JA if SNAP else '結果待ち'
 SNAP_JA = (('結果待ちの研究は「結果待ち」と書き、数値は結果ファイルから自動で入る。', '結果のない研究は「登録済み・提出時点で未実施」と書き、数値は載せない。'),
-           ('（「結果待ち」は2026-10-17時点。結果が出たら[結果](#結果)の表が先に更新される）', '（「登録済み・提出時点で未実施」は、提出時点で結果のない研究）'),
+           ('（「結果待ち」は結果ファイルがまだ無い研究。結果ができると[結果](#結果)の表が先に更新される）', '（「登録済み・提出時点で未実施」は、提出時点で結果のない研究）'),
            ('は結果待ちです。', 'は' + advice_numbers.PENDING_JA + 'です。'), ('結果待ち', advice_numbers.PENDING_JA))
 if SNAP:      # the one wording of the submission snapshot (scripts/advice_numbers.py)
     PENDING = PENDING_NOT_RUN = advice_numbers.PENDING_JA
@@ -517,24 +517,6 @@ def x_text():
     return '結果ファイルあり（' + '・'.join(f'`experiments/results/{n}`' for n in have) + '）。このREADMEの集計は未対応のため、論文と結果ファイルを参照'
 
 
-def judge_new_lines():
-    """Sub-bullets under item 4 of the first screen: I-23 (machine check), necessity, I-24 (credit); IF and B pending."""
-    f, c = advice_numbers.smt_facts(), advice_numbers.credit_facts()
-    out = []
-    if f:
-        out.append(f"   * **機械検証**：命題2を実装そのものに対して検証した。z3 の{f['unsat']}件の問いがすべて「反例なし」、モデルと実コードの突き合わせ {f['cases']:,}件で不一致 {f['disagreements']}、"
-                   f"わざと入れたバグ {f['mutants']}個を {f['caught']}個とも検出。")
-    out.append('   * **必要十分**：「安全だと証明できるフレームは無い」前提のもとで、助言の窓口が締めるだけであることと、どんな助言者に対しても誤許可の予算が守られることは同値。'
-               '確認を省く・緩める素朴な方式やフィルタ方式には、この上限が無い。')
-    if c:
-        out.append(f"   * **信用枠**（情報源ごとに、助言を捨てるだけの信用）：毎回嘘をつく・危険を連打する情報源の代償に、何回出動しても上限がつく（命題3）。{c['missions']}出動の記述モデルで、"
-                   f"嘘つきの無駄な遠回り +{c['liar_no']:.0f}秒 → +{c['liar_yes']:.0f}秒、危険の連打による誤停止 {c['flood_no']}回 → {c['flood_yes']}回、正直な情報源は何も失わない。")
-    pend = [k for k, v in advice_numbers.pending_studies().items() if not v]
-    out.append('   * 閉ループでの確認（研究B）と、依頼文で依頼物資を書き換えられるか（研究IF）は事前登録済み。'
-               + ('どちらも結果あり' if not pend else '・'.join(pend) + 'は' + ('結果待ち（未実行）' if not SNAP else PENDING_NOT_RUN)) + '。')
-    return out
-
-
 def storyline_lines():
     """攻撃 -> 発見 -> 対策 -> 再測定: four real episodes as short bullets (same source as the report figure: advice_numbers.storyline())."""
     rows = advice_numbers.storyline()
@@ -543,49 +525,61 @@ def storyline_lines():
     return ['**攻撃 → 発見 → 対策 → 再測定**（実際に起きた4つの記録。数値はすべて結果ファイルから' + ('' if SNAP else '。図：[`docs/figures/storyline_ja.png`](docs/figures/storyline_ja.png)、説明資料の本文にも載せている') + '）', ''] + [f"* {r['bullet']}" for r in rows]
 
 
+def section_key(e, t):
+    """First screen: key results (4-6 rows) with an honest status; every number from the result files, nothing hand-typed."""
+    head = ['| 主張（事前登録した評価） | 結果（すべてシミュレーション） | 状態 |', '|---|---|---|']
+    rows = []
+    if e:
+        E = e[1]
+        rows.append(f"| 確かめてから届ける（評価E：ランダムな{E['n']}世界、閉ループ） | 期待どおり **{E['ok']}/{E['n']}**、誤配達 **{E['wrong']}/{E['n']}**（95%信頼区間の上限 {pct(wilson(E['wrong'], E['n'])[1])}） | **{'支持' if E['wrong'] == 0 else '不成立'}** |")
+    else:
+        rows.append(f'| 確かめてから届ける（評価E） | {PENDING} | {PENDING_JA_SHORT} |')
+    g = jl('g_summary.json')
+    try:
+        nf, pr, gc = g['primary']['n_world_pairs_fire_perceivable'], g['primary'], g['per_config']
+        rows.append(f"| 見えにくい火は横から撮り直す（評価G） | 火のある拠点への配達 **{gc['B']['wrong_deliveries']}/{nf} → {gc['C']['wrong_deliveries']}/{nf}**（McNemar p={pr['mcnemar_p']:.3f}）、火の無い世界の誤停止 {gc['C']['false_hazard_stops']}/{gc['C']['fire_free_trials']} | **{'支持' if pr['mcnemar_p'] < 0.05 else '不成立'}** |")
+    except (TypeError, KeyError):
+        rows.append(f'| 見えにくい火は横から撮り直す（評価G） | {PENDING} | {PENDING_JA_SHORT} |')
+    h, vf = jl('h_summary.json'), advice_numbers.v_facts()
+    try:
+        p1, p2, p3 = h['P1_efficiency_relocation_persist'], h['P2_safety_naive_vs_verified'], h['P3_no_extra_risk_vs_v36']
+        res = (f"H：全{p3['n_pairs']}出動の危険な配達は 検証つき記憶 {p3['unsafe_M2']}（素朴な記憶 {p2['unsafe_M1']}）、物資が移された{p1['n_pairs']}出動の所要時間 {p1['time_M0_median_s']:.0f}秒 → {p1['time_M2_median_s']:.0f}秒"
+               + (f"。V：検証つき記憶にも危険な配達が {vf['unsafe']['M2']}/{vf['n_per_arm']} 残り、McNemar p={vf['mcnemar_p']:.4f}（基準 0.05）" if vf else ''))
+        st = f"H：**{'支持' if h['headline_supported'] else '不成立'}**" + (f"／V：**{'支持' if vf['memory_claim'] else '不成立'}**" if vf else '')
+        rows.append(f'| 出動をまたぐ記憶は提案だけ（評価H・V） | {res} | {st} |')
+    except (TypeError, KeyError):
+        rows.append(f'| 出動をまたぐ記憶は提案だけ（評価H・V） | {PENDING} | {PENDING_JA_SHORT} |')
+    if t:
+        full = t[2]
+        lo, hi = full['fa_ci95']
+        rows.append(f"| 未使用の画像600枚 T1 で誤許可 2% 未満 | 誤許可 **{full['false_approvals']}/{full['n_deny']}**（{pct(full['fa_rate'])}、95%信頼区間の上限 {pct(hi)}）。原因は物資の陰に隠れた火 | **{'支持' if hi < 0.02 else '不成立'}** |")
+    f = advice_numbers.smt_facts()
+    if f:
+        rows.append(f"| 助言は厳しくするだけ：命題2の機械検証（z3） | {f['queries']}件の問いのうち {f['unsat']}件が反例なし（残りは必要性の反例など）。モデルと実コードの突き合わせ {f['cases']:,}件で不一致 {f['disagreements']}、わざと入れたバグ {f['caught']}/{f['mutants']} を検出 | **支持（機械検証）** |")
+    a = jl('a_summary.json')
+    try:
+        a1 = a['A1_unsafe_naive_vs_monotone']
+        r_ = a1['runs']
+        rows.append(f"| 悪意のある助言でも危険にならない（評価A、閉ループ） | 危険な配達：助言に従う方式 {r_['naive']['unsafe']}/{r_['naive']['n']}、本方式 {r_['monotone']['unsafe']}/{r_['monotone']['n']} | **{'支持' if a1['supported'] else '不成立'}** |")
+    except (TypeError, KeyError):
+        auto = '' if SNAP else '。結果ファイルができると数値が自動で入る'
+        rows.append(f'| 悪意のある助言でも危険にならない（評価A、閉ループ） | 本走行 {A_RUNS} 試行を事前登録済み{auto} | {PENDING_JA_SHORT} |')
+    fc = advice_numbers.failed_claims()
+    sc = advice_numbers.study_counts()
+    honest = ('**手法の誠実さ**：' + (f"論文の{sc['n']}研究の条件・閾値・解析を結果を見る前に登録し、git の履歴で登録が先だったことを機械的に確認（結果のある{sc['ok']}件）。" if sc else '条件・閾値・解析は結果を見る前に登録。')
+              + (f"支持されなかった主張{len(fc)}件（{'・'.join(c['key'] for c in fc)}。[結果](#結果)・[限界](#限界)）も、そのまま載せている。" if fc else '')
+              + '命題2は z3 で機械検証。')
+    return '\n'.join(head + rows + ['', honest])
+
+
 def section_judge(e):
-    """First screen for a busy judge: problem, what is new, three numbers in plain words, what to watch in the video."""
-    lines = ['![正面では見えない火を、横へ動いて撮り直して見つけ、許可を取り消して止まる（動画から16秒、等速と3倍速の区間を含む）](docs/figures/hero_lookaround.gif)',
-             '',
-             '**問題**：災害時の物資配達ロボットは、在庫表と現物の食い違い（水のはずが救急箱だった・空だった）や火災に出会う。指示どおり運ぶだけでは、誤った物資や危険な場所へ届けてしまう。',
+    """Below the first screen: the problem, the four episodes (attack -> finding -> countermeasure -> re-measurement), what to watch in the video."""
+    lines = ['**問題**：災害時の物資配達ロボットは、在庫表と現物の食い違い（水のはずが救急箱だった・空だった）や火災に出会う。指示どおり運ぶだけでは、誤った物資や危険な場所へ届けてしまう。',
              '',
              *storyline_lines(),
              '',
-             '**新しさ（一本の筋：助言は厳しくすることしかできない）**',
-             '',
-             '1. **届ける前に確かめ、迷ったら止まる**。判断はその場のカメラだけで決める（判断の根拠は、答えの選択肢の確率。自由な文章は使わない）。',
-             '2. **誤りの大半は「物資の陰に半ば隠れた小さな火」**。だから**横へ動いて撮り直す**（見回し）。' + advice_numbers.i20_ja() + '。',
-             '3. **ロボットが自分で見ていないもの（記憶・他のロボット・依頼文の言葉・在庫表）は「助言」**。助言は、拠点を見る順序を変えることと、判断を厳しくすることしかできず、**確認を省くことはできない**。'
-             'だから助言が悪意のあるものでも、危険な配達の確率は「確認そのものの誤許可の上限」の内側に収まる（命題2。実測：記憶は評価H、悪意のある助言は評価A）。',
-             '4. **新しい成果：この保証を、機械で確かめ、必要十分にし、何回出動しても代償が膨らまないようにした**（下の3点）。',
-             *judge_new_lines(),
-             '5. **保証の外**：画像の中に書かれた文字（評価S）と、現実との差（倉庫の世界：評価XD・X）。どちらも測るだけで、保証とは言わない。',
-             '6. **限界**：すべてシミュレーション。2つ目のAIを足す案（評価J）は採用せず、T1の「誤許可2%未満」は成立しなかった。',
-             '',
-             '**3つの数字**（すべてシミュレーション上。条件は結果を見る前に固定して測定）',
-             '']
-    if e:
-        E = e[1]
-        lines.append(f"1. **{E['ok']}/{E['n']}**：ランダムに作った{E['n']}個の世界で、ロボットは期待どおりに動き、誤った物資・火のある拠点への配達は **{E['wrong']}件**（60試行では「誤配達率は95%信頼区間の上限6%以下」までしか言えない。停止が正解の場面は易しい）")
-    else:
-        lines.append(f'1. ランダムな世界での閉ループ（評価E）：{PENDING}')
-    g = jl('g_summary.json')
-    try:
-        nf = g['primary']['n_world_pairs_fire_perceivable']
-        gc = g['per_config']
-        lines.append(f"2. **{gc['B']['wrong_deliveries']}回 → {gc['C']['wrong_deliveries']}回**：3視点（正面・左右0.4 m）のどれかで火が見えた{nf}世界で、正面だけで判断すると火のある拠点へ配達した回数 → 横から撮り直した後の回数"
-                     f"（火の無い世界での誤った停止 {gc['C']['false_hazard_stops']}/{gc['C']['fire_free_trials']}。偶然とは考えにくい：p={g['primary']['mcnemar_p']:.3f}）。これらの火は設計上正面から見えにくい世界なので、測っているのは「横から見る効果」")
-    except (TypeError, KeyError):
-        lines.append(f'2. 横から撮り直す効果（評価G）：{PENDING}')
-    h = jl('h_summary.json')
-    try:
-        p1, p3 = h['P1_efficiency_relocation_persist'], h['P3_no_extra_risk_vs_v36']
-        lines.append(f"3. **{p1['time_M0_median_s']:.0f}秒 → {p1['time_M2_median_s']:.0f}秒**：物資が移されたままの{p1['n_pairs']}出動（少数）の所要時間（中央値）。記憶なし → 確認を省かない記憶つき。**全{p3['n_pairs']}出動の中央値は {h['per_arm']['M0']['time_median_s']:.0f}秒 → {h['per_arm']['M2']['time_median_s']:.0f}秒**（約{100 * (1 - h['per_arm']['M2']['time_median_s'] / h['per_arm']['M0']['time_median_s']):.0f}%）。"
-                     f"危険な配達は記憶なし {p3['unsafe_M0']}/{p3['n_pairs']}・記憶つき {p3['unsafe_M2']}/{p3['n_pairs']}（記憶つきの方が危険、とはならなかった）。物資が元に戻った出動では遠回りで遅くなる")
-    except (TypeError, KeyError):
-        lines.append(f'3. 出動をまたぐ記憶（評価H）：{PENDING}')
-    lines += ['', watch_text(), '',
-              '用語は[結果](#結果)の冒頭に説明がある。版名（v3.4〜v3.6）は本システムの改良段階で、v3.6が提出版。結果待ちの研究は「結果待ち」と書き、数値は結果ファイルから自動で入る。']
+             watch_text(), '',
+             '用語は[結果](#結果)の冒頭に説明がある。版名（v3.4〜v3.6）は本システムの改良段階で、v3.6が提出版。結果待ちの研究は「結果待ち」と書き、数値は結果ファイルから自動で入る。']
     return '\n'.join(lines)
 
 
@@ -953,7 +947,10 @@ def main():
     txt = readme.read_text(encoding='utf8')
     a, b = txt.index('<!-- RESULTS:START -->'), txt.index('<!-- RESULTS:END -->') + len('<!-- RESULTS:END -->')
     txt = txt[:a] + block + txt[b:]
-    if '<!-- JUDGE:START -->' in txt:       # first screen: problem, what is new, three numbers, what to watch
+    if '<!-- KEY:START -->' in txt:         # first screen: key results table + one line on the method's honesty
+        a, b = txt.index('<!-- KEY:START -->'), txt.index('<!-- KEY:END -->') + len('<!-- KEY:END -->')
+        txt = txt[:a] + '<!-- KEY:START -->\n' + section_key(e, t) + '\n<!-- KEY:END -->' + txt[b:]
+    if '<!-- JUDGE:START -->' in txt:       # below the first screen: problem, four episodes, what to watch
         a, b = txt.index('<!-- JUDGE:START -->'), txt.index('<!-- JUDGE:END -->') + len('<!-- JUDGE:END -->')
         txt = txt[:a] + '<!-- JUDGE:START -->\n' + section_judge(e) + '\n<!-- JUDGE:END -->' + txt[b:]
     if '<!-- NOVELTY:START -->' in txt:     # novelty section near the top, numbers from the summaries
@@ -971,7 +968,7 @@ def main():
         length = '3分以内' if ch[-1]['end_s'] <= 180 else f"{int(ch[-1]['end_s'] // 60)}分{int(round(ch[-1]['end_s'] % 60)):02d}秒"
         desc = (f"{length}、日本語ナレーション付き。実走デモ{len(demos)}本（{'／'.join(demos)}）と、事前登録した結果の表{n_tab}枚"
                 + (f"。{sp}（速度は画面に常時表示）" if sp else '。'))
-        txt = re.sub(r'(<!-- VIDEO:START -->\n).*?(\n<!-- VIDEO:END -->)', lambda m: m.group(1) + '  * ' + desc + m.group(2), txt, count=1, flags=re.S)
+        txt = re.sub(r'(<!-- VIDEO:START -->\n).*?(\n<!-- VIDEO:END -->)', lambda m: m.group(1) + '* **動画の内容**：' + desc + m.group(2), txt, count=1, flags=re.S)
     txt = sync_counts(txt, readme)
     if SNAP:      # the submission snapshot goes next to the other snapshot documents; the tracked README.md and docs/*.md stay as they are
         for a_, b_ in SNAP_EN + SNAP_JA:
