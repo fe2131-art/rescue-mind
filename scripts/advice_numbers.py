@@ -652,6 +652,48 @@ def s_ja(none=None):
         return none
 
 
+def xd_facts():
+    """Study XD (image level, depot) numbers for README / report; None when xd_summary.json is absent."""
+    xs = _load('xd_summary.json')
+    if xs is None:
+        return None
+    try:
+        m, r = xs['XD_main'], xs['XD_recalibration']
+        pl, hd = m['xd1_pooled'], m['xd1_by_class']['tongues_small']
+        tr, pr = m['xd3_extra_view_trigger_rate_on_twins'], m['caught_by_extra_views']['paired_la_vs_adaptive']
+        rt = lambda d: f"{d['k']}/{d['n']}"
+        return {'nperc': m['n_perceivable'], 'nworlds': m['n_worlds'], 'front': rt(pl['front_only']), 'la': rt(pl['look_around']), 'la_upper': 100 * pl['look_around']['ci95'][1],
+                'hard_la': rt(hd['look_around']), 'hard_upper': 100 * hd['look_around']['ci95'][1], 'hard_ad': rt(hd['adaptive']), 'ad': rt(pl['adaptive']),
+                'removed': pr['first_only'], 'added': pr['second_only'], 'trig': rt(tr), 'trig_rate': 100 * tr['rate'],
+                'o1': m['criteria']['O1_look_around_removes_at_least_half_of_front_misses'], 'o4': m['criteria']['O4_no_wrong_supply_false_approval'],
+                'ca': rt(m['xd3_correct_approvals']['pooled']['look_around']),
+                'tau_star': r['calibration']['tau_star'], 'recall': 100 * r['test_image_level']['at_frozen']['recall']['rate'],
+                'eps_ok': m['criteria']['claim_eps_tight_hard_class'], 'rel_ok': m['criteria']['claim_relative_ordering_transfers'], 'cal_ok': r['claim_calibration_usable']}
+    except (TypeError, KeyError):
+        return None
+
+
+def xd_ja(none=None):
+    f = xd_facts()
+    if not f:
+        return none
+    return (f"倉庫（4拠点）の画像 {f['nworlds']} 世界（知覚できる火 {f['nperc']}）：正面のみの見逃し {f['front']}、見回し {f['la']}（Wilson 上限 {f['la_upper']:.1f}%）。"
+            f"難しい火（小さく半分隠れた炎）の見回しの見逃しは {f['hard_la']}（上限 {f['hard_upper']:.1f}%）で、登録した上限15%は**不成立**。"
+            f"相対的な主張のうち、見回しが正面の見逃しの大半を減らす（O1）と、誤った物資の許可が無い（O4）は成り立ったが、疑わしいときだけ足す追加視点（I-20）は"
+            f"見逃しを {f['removed']} 件減らし増やさなかった（{f['ad']}）一方で、火のない双子の {f['trig']}（{f['trig_rate']:.0f}%）で発動し、事前の撤回規則（15%超）で既定にしないことになった（O3 不成立）。"
+            f"閾値の再較正は登録の基準（較正の再現率0.95）を満たす閾値が無く不成立（0.05 での再現率 {f['recall']:.0f}%）")
+
+
+def xd_en(none=None):
+    f = xd_facts()
+    if not f:
+        return none
+    return (f"depot images ({f['nworlds']} worlds, {f['nperc']} perceivable fires): front-only missed {f['front']}, look-around {f['la']} (Wilson upper {f['la_upper']:.1f}%); on the hard class (small partly hidden flames) look-around "
+            f"missed {f['hard_la']} (upper {f['hard_upper']:.1f}%), so the registered 15% bound is NOT met. O1 and O4 hold, but the I-20 extra views (which removed {f['removed']} misses and added none, {f['ad']} left) "
+            f"fired on {f['trig']} fire-free twins ({f['trig_rate']:.0f}%), so the rule fixed before XD withdrew them as a default (O3 fails); recalibration found no threshold meeting the registered recall "
+            f"(recall {f['recall']:.0f}% at the frozen 0.05)")
+
+
 def failed_claims():
     """List of {'key', 'tex', 'en', 'ja'} for every registered claim that did not hold, in the order they were run."""
     out = [dict(key='T1', tex=r"T1's 2\% bound", en="T1's 2% bound", ja='T1の「誤許可2%未満」'),
@@ -678,6 +720,15 @@ def failed_claims():
     if ss is not None and not (ss['criteria'].get('S1_naive_letter_C_not_effective_on_OURS') and ss['criteria'].get('S2_permutation_helps_against_letter_A')):
         out.append(dict(key='S-perm', tex='S-perm (permutation explains the letters result)', en='S-perm (permutation explains the letters result)',
                         ja='S（順序の入れ替えが文字の看板への強さの理由）'))
+    xs = _load('xd_summary.json')      # registered claims of PREREGISTRATION_XD: XD-eps (hard class), relative ordering O1-O4, calibration usable
+    if xs is not None:
+        cx, rx = xs['XD_main']['criteria'], xs['XD_recalibration']
+        if not cx['claim_eps_tight_hard_class']:
+            out.append(dict(key='XD-eps', tex='XD-$\\varepsilon$ (depot bound)', en='XD-eps (depot hard-class bound)', ja='XD-ε（倉庫の難しい火の見逃し上限15%）'))
+        if not cx['claim_relative_ordering_transfers']:
+            out.append(dict(key='XD-rel', tex='XD-rel (transfer)', en='XD-rel (relative ordering transfers)', ja='XD-rel（相対的な順序が倉庫でも成り立つ）'))
+        if not rx['claim_calibration_usable']:
+            out.append(dict(key='XD-cal', tex='XD-cal (recalibration)', en='XD-cal (depot recalibration)', ja='XD-cal（倉庫での閾値の再較正）'))
     return out
 
 
@@ -772,9 +823,14 @@ def i20_ja():
     f = w_facts()
     if not f:
         return '疑わしいときだけ視点を足す案（I-20）は評価Wの副次解析で測る：結果待ち'
+    x = xd_facts()
+    if f['adopt'] and x:
+        return (f"疑わしいときだけ視点を足す案（I-20）は、評価Wで採用規則を満たした（見逃し {f['adapt_miss']}/{f['la']['n']} 対 見回しのみ {f['la']['k']}/{f['la']['n']}）が、"
+                f"倉庫の評価XDで事前に決めた撤回規則（火のない双子の15%超で発動）に当たり、既定にしない。倉庫では見逃しを {x['removed']} 件減らし増やさなかった（{x['ad']}）が、双子の {x['trig_rate']:.0f}% で発動した。"
+                "これまでの閉ループの結果はすべて追加視点なしの v3.6")
     if f['adopt']:
-        return (f"疑わしいときだけ視点を足す案（I-20）は、事前に決めた採用規則を評価Wで満たしたので v3.7 の既定にした（見逃し {f['adapt_miss']}/{f['la']['n']} 対 見回しのみ {f['la']['k']}/{f['la']['n']}、"
-                "根拠は1つの世界の差だけで、閉ループの測定はまだ無い。これまでの閉ループの結果はすべて v3.6）")
+        return (f"疑わしいときだけ視点を足す案（I-20）は、事前に決めた採用規則を評価Wで満たした（見逃し {f['adapt_miss']}/{f['la']['n']} 対 見回しのみ {f['la']['k']}/{f['la']['n']}、"
+                "根拠は1つの世界の差だけで、閉ループの測定はまだ無い）。倉庫の評価XDの撤回規則で既定にするか決まる。これまでの閉ループの結果はすべて v3.6")
     return '疑わしいときだけ視点を足す案（I-20）は、評価Wで事前に決めた採用規則を満たさなかったので既定にしない'
 
 
@@ -782,9 +838,14 @@ def i20_en():
     f = w_facts()
     if not f:
         return 'extra views only when a score is suspicious (I-20) are pending'
+    x = xd_facts()
+    if f['adopt'] and x:
+        return (f"extra views only when a score is suspicious (I-20) met the adoption rule fixed beforehand on study W ({f['adapt_miss']}/{f['la']['n']} misses vs. {f['la']['k']}/{f['la']['n']} for look-around alone) "
+                f"but hit the revert rule fixed beforehand in depot study XD (extra views on over 15% of fire-free twins), so they are not the default; in the depot they removed {x['removed']} misses and added none ({x['ad']} left) "
+                f"but fired on {x['trig_rate']:.0f}% of twins. Every closed-loop result so far is v3.6 without them")
     if f['adopt']:
-        return (f"extra views only when a score is suspicious (I-20) met the adoption rule fixed beforehand on study W and are the v3.7 default ({f['adapt_miss']}/{f['la']['n']} misses vs. {f['la']['k']}/{f['la']['n']} for look-around alone; "
-                "one world is the whole evidence and the closed loop is not measured; every closed-loop result so far is v3.6)")
+        return (f"extra views only when a score is suspicious (I-20) met the adoption rule fixed beforehand on study W ({f['adapt_miss']}/{f['la']['n']} misses vs. {f['la']['k']}/{f['la']['n']} for look-around alone; "
+                "one world is the whole evidence); the revert rule of the depot study XD decides whether they become the default; every closed-loop result so far is v3.6")
     return 'extra views only when a score is suspicious (I-20) did not meet the adoption rule fixed beforehand on study W and are not the default'
 
 

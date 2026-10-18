@@ -93,6 +93,7 @@ def snapshot_head():
          r'\newcommand{\IfSnapshot}[2]{%s}' % ('#1' if SNAPSHOT else '#2'),
          r'\newcommand{\IfAnyPend}[2]{%s}' % ('#1' if pend else '#2')]
     h += [r'\newcommand{\IfPend%s}[2]{%s}' % (advice_numbers.mkey(k), '#1' if k in pend else '#2') for k in advice_numbers.SNAPSHOT_STUDIES]
+    h.append(r'\newcommand{\IfXDRRun}[2]{%s}' % ('#1' if (RES / 'xd_real_summary.json').is_file() else '#2'))      # XD stage r (real fire-free photographs) is a separate step of XD
     h.append(r'\newcommand{\TBDfor}[1]{\csname IfPend#1\endcsname{\SnapNA{}}{\TBD}}')      # a cell/number of study #1: "not run" in the snapshot, \TBD otherwise
     return h
 
@@ -1056,6 +1057,76 @@ def main():
         m['BSave'], m['BSavePred'] = f"{bj['B4_time_descriptive']['median_saving_s']:.0f}", f"{bj['B4_time_descriptive']['predicted_saving_per_sequence_s']:.0f}"
         m['BClaim'] = sup(bj['headline_supported'])
         m['StatB'] = f"credit bound: {m.lookup('BClaim')}"
+    # ---- study XD (image level, depot; xd_summary.json).  The I-20 revert verdict is recomputed from the raw records with the code that was
+    # committed before XD was scored (xd_analysis.i20_revert_verdict); the fields shared with the summary must agree.
+    xdf_ = RES / 'xd_summary.json'
+    if xdf_.is_file():
+        xj_ = json.loads(xdf_.read_text())
+        xm_, xr_ = xj_['XD_main'], xj_['XD_recalibration']
+        sys.path.insert(0, str(ROOT))
+        from scripts import xd_analysis as _xa
+        xrec_ = json.loads((RES / 'devset_xd_h36_tiles.json').read_text())['records']
+        xv_ = _xa.summarise_main(xrec_)['i20_revert_verdict']
+        rt_ = lambda d_: f"{d_['k']}/{d_['n']}"
+        pl_, bc_ = xm_['xd1_pooled'], xm_['xd1_by_class']
+        m['XDNWorlds'], m['XDNHaz'], m['XDNPerc'] = xm_['n_worlds'], xm_['n_hazard'], xm_['n_perceivable']
+        m['XDMissFront'], m['XDMissFrontRate'] = rt_(pl_['front_only']), pct(pl_['front_only']['rate'], 0)
+        m['XDMissLA'], m['XDMissLARate'] = rt_(pl_['look_around']), pct(pl_['look_around']['rate'])
+        m['XDMissLAUpper'] = pct(pl_['look_around']['ci95'][1]); m['XDMissLACI'] = '[{:.1f}, {:.1f}]\\%'.format(*(100 * x for x in pl_['look_around']['ci95']))
+        hd_ = bc_['tongues_small']
+        m['XDHardFront'], m['XDHardLA'], m['XDHardLARate'] = rt_(hd_['front_only']), rt_(hd_['look_around']), pct(hd_['look_around']['rate'], 0)
+        m['XDHardLAUpper'] = pct(hd_['look_around']['ci95'][1]); m['XDHardLACI'] = '[{:.1f}, {:.1f}]\\%'.format(*(100 * x for x in hd_['look_around']['ci95']))
+        m['XDHardAdapt'], m['XDHardAdaptUpper'] = rt_(hd_['adaptive']), pct(hd_['adaptive']['ci95'][1])
+        m['XDMissAdapt'], m['XDMissAdaptUpper'] = rt_(pl_['adaptive']), pct(pl_['adaptive']['ci95'][1])
+        m['XDBigLA'], m['XDSmokeLA'] = rt_(bc_['tongues_big']['look_around']), rt_(bc_['smoke_only']['look_around'])
+        m['XDRemoved'] = round(100 * xm_['criteria']['O1_front_misses_removed_share']); m['XDNSideOnly'] = xm_['n_side_only']
+        pr_ = xm_['caught_by_extra_views']['paired_la_vs_adaptive']
+        m['XDAdaptRemoved'], m['XDAdaptAdded'], m['XDAdaptP'] = pr_['first_only'], pr_['second_only'], _pfmt(pr_['first_only'], pr_['second_only'])
+        tr_ = xm_['xd3_extra_view_trigger_rate_on_twins']
+        m['XDTrig'], m['XDTrigRate'], m['XDTrigCI'] = rt_(tr_), pct(tr_['rate']), '[{:.1f}, {:.1f}]\\%'.format(*(100 * x for x in tr_['ci95']))
+        m['XDTwinCAAdapt'] = rt_(xm_['xd3_adaptive_correct_approvals_twins'])
+        ca_ = xm_['xd3_correct_approvals']['pooled']
+        m['XDCAFront'], m['XDCALA'] = rt_(ca_['front_only']), rt_(ca_['look_around'])
+        wr_ = xm_['xd3_wrong_supply_false_approvals']['pooled']['look_around']
+        m['XDWrongFA'], m['XDWrongUpper'] = rt_(wr_), pct(wr_['ci95'][1])
+        ar_ = xm_['arena_reference']['eps_look_around_depot_vs_arena_W']
+        m['XDArenaMiss'], m['XDArenaP'] = rt_(ar_['arena']), f"{ar_['fisher_two_sided_p']:.3f}"
+        hs_ = xm_['oracle_steering']['hard_class_tongues_small']['label_FLR']['look_around']['by_k']
+        m['XDHardEpsAnyTwo'], m['XDHardEpsAnyFour'] = pct(hs_['2']['eps_any']), pct(hs_['4']['eps_any'])
+        m['XDHardEpsAnyTwoCI'] = '[{:.1f}, {:.1f}]\\%'.format(*(100 * x for x in hs_['2']['ci95_independent']))
+        m['XDHardEpsAnyFourCI'] = '[{:.1f}, {:.1f}]\\%'.format(*(100 * x for x in hs_['4']['ci95_independent']))
+        sn_ = xm_['tau_h_sensitivity']
+        m['XDTauMissTwo'], m['XDTauCATwo'] = rt_(sn_['0.02']['miss_look_around']), rt_(sn_['0.02']['correct_approval_look_around'])
+        ti_ = xr_['test_image_level']['at_frozen']
+        m['XDTestRecall'], m['XDTestRecallRate'] = rt_(ti_['recall']), pct(ti_['recall']['rate'])
+        m['XDTestFA'], m['XDTestFARate'] = rt_(ti_['false_alarm']), pct(ti_['false_alarm']['rate'])
+        m['XDTestWorldMiss'] = rt_(xr_['test_world_level']['at_frozen']['miss_look_around'])
+        m['XDTauStar'] = 'none' if xr_['calibration']['tau_star'] is None else str(xr_['calibration']['tau_star'])
+        cr_ = xm_['criteria']
+        m['XDClaimEps'] = sup(cr_['claim_eps_tight_hard_class']); m['XDClaimRel'] = sup(cr_['claim_relative_ordering_transfers'])
+        m['XDClaimCal'] = sup(xr_['claim_calibration_usable']); m['XDClaimCost'] = sup(cr_['C1_correct_approvals_at_least_0.80'])
+        m['XDOne'], m['XDTwo'], m['XDFour'] = sup(cr_['O1_look_around_removes_at_least_half_of_front_misses']), sup(cr_['O2_small_hidden_harder_than_big_visible']), sup(cr_['O4_no_wrong_supply_false_approval'])
+        m['XDThree'] = sup(cr_['O3_adaptive_no_worse_and_trigger_rate_at_most_0.15'])
+        m['XDRevert'] = xv_['status']
+        m['XDRevertFired'] = ', '.join(k_[0] for k_, v_ in xv_['fired'].items() if v_) or 'none'
+        rows_ = [r'\begin{tabular}{@{}lrccc@{}}', r'\toprule', r'Class & Worlds & Front only & Look-around & + extra views \\', r'\midrule']
+        for cl_, nm_ in (('tongues_small', 'small flames, partly hidden'), ('tongues_big', 'big flames, visible'), ('smoke_only', 'smoke only'),
+                         ('mesh_flame', 'mesh flames'), ('sprite', 'sprite flames')):
+            c_ = bc_[cl_]
+            rows_.append(f"{nm_} & {c_['look_around']['n']} & {rt_(c_['front_only'])} & {rt_(c_['look_around'])} & {rt_(c_['adaptive'])} \\\\")
+        rows_ += [r'\midrule', f"all perceivable & {pl_['look_around']['n']} & {rt_(pl_['front_only'])} & {rt_(pl_['look_around'])} & {rt_(pl_['adaptive'])} \\\\",
+                  r'\bottomrule', r'\end{tabular}']
+        tables['tab_xd_classes.tex'] = '\n'.join(rows_)
+        xs_ = RES / 'xd_site_tau_sus.json'
+        if xs_.is_file():
+            sj_ = json.loads(xs_.read_text())
+            tt_ = sj_['test']
+            m['XDSiteTau'] = f"{sj_['tau_sus_site']:.4f}"
+            m['XDSiteTrig'] = f"{tt_['triggered']}/{tt_['twins_with_extra']}"
+            m['XDSiteRemoved'], m['XDSiteLA'] = f"{tt_['look_around_misses'] - tt_['adaptive_misses']}", f"{tt_['look_around_misses']}"
+            m['XDSiteRefMiss'] = f"{sj_['reference_tau_sus_0.005']['adaptive_misses']}/{tt_['perceivable']}"
+            m['XDSiteRefTrig'] = f"{sj_['reference_tau_sus_0.005']['triggered']}/{sj_['reference_tau_sus_0.005']['of']}"
+        m['StatXD'] = f"bound: {m.lookup('XDClaimEps')}; transfer: {m.lookup('XDClaimRel')}; recalibration: {m.lookup('XDClaimCal')}; cost: {m.lookup('XDClaimCost')}"
     # ---- submission snapshot: the claim column of a study without results says so (the other pending studies have no analysis macro yet)
     PEND = advice_numbers.snapshot_pending() if SNAPSHOT else set()
     for k_ in advice_numbers.SNAPSHOT_STUDIES:
@@ -1239,7 +1310,7 @@ def main():
                'APairs', 'AUnsafeNaive', 'AUnsafeOurs', 'AUnsafeCtrl', 'AMcNemarP', 'AViol', 'AAuditFail', 'ATimeSave', 'AWilcoxonP', 'ADoSVisits', 'ADoSFalseRef', 'ADoSN',
                'ADoSAllowed', 'AClaimSafety', 'AClaimTime', 'AClaimCost', 'AClaim', 'AExtract', 'AExtractRelax',
                'SNPairs', 'SFlipsC', 'SNC', 'SFlipsA', 'SNA', 'SFlipsB', 'SNB', 'SFlipsMis', 'SNMis', 'SFlipsSafe', 'SNSafe', 'SFlipsOneA', 'SFlipsMisFree', 'SLegible', 'SClaim', 'SHyp', 'BRuns', 'BMissions', 'BSeqs', 'BSeqsAll', 'BWastedNo', 'BWastedCredit', 'BBound', 'BHonestWasted', 'BAuditFail', 'BUnsafe', 'BSave', 'BSavePred', 'BClaim', 'SPoolFlips', 'SPoolN', 'SPoolUpper', 'SBenignFree', 'SBenignOurs', 'SLegitKept'])
-    for name in ('tab_t1_models.tex', 'tab_t1_ablation.tex', 'tab_e_strata.tex', 'tab_i13_dev.tex', 'tab_r.tex', 'tab_h_arms.tex', 'tab_h_sequences.tex', 'tab_s_systems.tex'):
+    for name in ('tab_t1_models.tex', 'tab_t1_ablation.tex', 'tab_e_strata.tex', 'tab_i13_dev.tex', 'tab_r.tex', 'tab_h_arms.tex', 'tab_h_sequences.tex', 'tab_s_systems.tex', 'tab_xd_classes.tex'):
         tables.setdefault(name, r'\begin{tabular}{l}\TBD\end{tabular}')
     def write_if_changed(path, text):      # keep mtimes when nothing changed (latexmk and `make check` compare them)
         if not path.is_file() or path.read_text(encoding='utf8') != text:
