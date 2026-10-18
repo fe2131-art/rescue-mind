@@ -7,6 +7,7 @@
 | 説明資料PDF | `docs/report/説明資料_PAI最終課題_tetsutetsu.pdf`（`scripts/make_report.py --account tetsutetsu` で再生成） | 作成済み |
 | GitHub リポジトリ（public） | https://github.com/fe2131-art/rescue-mind | **公開設定はご本人が変更** |
 | 動画（MP4、1〜3分） | `outputs/video/PAI最終課題_tetsutetsu.mp4`（長さ・デモ・章立ては下の「提出する版」を自動生成。Git管理外、`scripts/make_demo_video.py` で再生成。章立ては `docs/video_chapters.json`） | 作成済み |
+| YouTube の動画URL | `scripts/set_video_url.py` が書く（README の動画の項と PDF にも入る） | <!--VIDEOURL-->未設定<!--/VIDEOURL--> |
 | YouTube 投稿用テキスト | [`docs/YOUTUBE_DESCRIPTION.md`](YOUTUBE_DESCRIPTION.md)（タイトル・概要・倍速表記・チャプター・クレジット） | 作成済み |
 
 ## 提出する版（v3.6）の要点
@@ -51,12 +52,14 @@
 | AI の使用（必須。推論のみでも可） | ローカル LLM（指示の理解）・VLM Qwen3.5-9B（現物・火災の確認、状況報告）で推論。報告 PDF の「AIの活用」に明記 | 済 |
 | 剽窃・サンプルの丸写しでないこと／サンプルを元にした工夫点をレポートに明記 | 独自のタスク設計（確認してから届ける、横から見直す、検証つき記憶）。工夫点は PDF の審査基準の対応表と README「工夫した点」 | 済 |
 | ライセンス | `LICENSE`（MIT）。使用モデルのライセンスは README 末尾に記載 | 済 |
-| README（概要・動かし方・動画リンク） | `README.md`。動画の項は「YouTube（提出時にURLを記載）」のまま | **要対応（ユーザー）**（YouTube の URL を貼付） |
-| 動画の URL を PDF にも載せる（任意） | URL 取得後に `make_report.py --account tetsutetsu --video-url <URL>` で再生成 | **要対応（ユーザー）**（任意。URL が必要） |
+| README（概要・動かし方・動画リンク） | `README.md`。動画の項は「YouTube（提出時にURLを記載）」のまま（URL 取得後に `scripts/set_video_url.py URL --apply` が置き換える） | **要対応（ユーザー）**（YouTube の URL を貼付） |
+| 動画の URL を PDF にも載せる（任意） | URL 取得後に `scripts/set_video_url.py <URL> --apply` が `make_report.py --video-url` を実行して再生成 | **要対応（ユーザー）**（任意。URL が必要） |
 | omnicampus のフォームで提出（PDF＋GitHub URL＋YouTube URL） | 提出開始は 2026-10-19（月）、**締切 2026-11-02（月）10:00 JST** | **要対応（ユーザー）** |
 | 生成AIの利用開示の要求 | 課題文に要求なし（AI 利用は課題内容としての「ロボットが使う AI」のみ）。開発支援の AI 利用は求められていないため記載不要 | 済（該当なし） |
 
-ユーザーが行う作業（順番）：① リポジトリを public にする → ② YouTube に投稿して URL を取得 → ③ README の「YouTube（提出時にURLを記載）」を URL に置き換えてプッシュ（必要なら PDF も再生成）→ ④ omnicampus で提出（2026-10-19〜11-02 10:00）。
+手順の詳細（コマンド・フォーム項目）は [`SUBMISSION_CHECKLIST.md`](SUBMISSION_CHECKLIST.md)。
+
+ユーザーが行う作業（順番）：① リポジトリを public にする → ② YouTube に投稿して URL を取得 → ③ `python3 scripts/set_video_url.py <URL> --apply`（README・本書・PDF に URL を入れる）→ コミットしてプッシュ→ ④ omnicampus で提出（2026-10-19〜11-02 10:00）。
 
 ## 提出前チェック
 
