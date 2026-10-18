@@ -16,21 +16,35 @@ last time, refuses without visiting where a hazard was seen) -- it exists only t
 """
 from __future__ import annotations
 import json
+import math
 import time
 from pathlib import Path
 
 STATIONS = ('water', 'medicine')
 CAUTION_TAU_H = 0.01      # stricter p(fire/smoke) refusal threshold at a station with a recent hazard (v3.6: 0.05)
+HAZARD_REASON = 'visible_hazard_at_checkpoint'
 HORIZON = 3               # a hazard is "recent" if seen during the last HORIZON missions in memory
 SIDE_JA = {'front': '正面', 'L': '左', 'R': '右'}
 ITEM_JA = {'water': '飲料水', 'medicine': '医療物資', 'other': '依頼物資以外/空', 'uncertain': '不確か'}
 
 
-def _hazard_prob(call: dict) -> float:
+def scores_valid(call) -> bool:
+    """The call carries a usable p(hazard): a finite number in [0, 1] (not a bool).  Anything else is a broken view."""
     try:
-        return float(((call or {}).get('scores') or {}).get('hazard_prob') or 0.0)
-    except (TypeError, ValueError):
-        return 0.0
+        v = ((call or {}).get('scores') or {}).get('hazard_prob')
+    except AttributeError:
+        return False
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) and 0.0 <= v <= 1.0
+
+
+def _hazard_prob(call: dict) -> float:
+    """p(hazard) of one model call.  FAIL-CLOSED (I-19 fix, FINDINGS #26): a missing, malformed, non-finite or
+    out-of-range score counts as p = 1.0, i.e. as a hazard (consistent with adaptive_views._p)."""
+    return float(call['scores']['hazard_prob']) if scores_valid(call) else 1.0
+
+
+def hazard_prob(call: dict) -> float:
+    return _hazard_prob(call)
 
 
 def apply_memory_caution(decision: dict, first: dict, second: dict, tau_h: float | None) -> dict:
@@ -46,8 +60,12 @@ def apply_memory_caution(decision: dict, first: dict, second: dict, tau_h: float
 
 
 def peek_hazard(reason: str, first: dict, second: dict, tau_h: float | None) -> bool:
-    """A side view shows a hazard if the model said so, or (under memory caution) p(hazard) >= tau_h."""
+    """A side view shows a hazard if the model said so, or (under memory caution) p(hazard) >= tau_h.
+    FAIL-CLOSED: a side view whose hazard score is missing / invalid / non-finite (or whose inference failed) is a hazard,
+    with or without a caution threshold -- a broken view never counts as clear."""
     if reason == 'visible_hazard_at_checkpoint':
+        return True
+    if not (scores_valid(first) and scores_valid(second)):
         return True
     return tau_h is not None and max(_hazard_prob(first), _hazard_prob(second)) >= tau_h
 
@@ -67,11 +85,26 @@ def _supply_seen(cp: dict) -> str:
 
 
 def _front_hazard(cp: dict) -> bool:
+    """A REAL hazard at the front: a model answered scene == 'hazard' (p >= the standard tau_h).  A score that only
+    crossed the tightened caution threshold is a caution alert (`_front_caution`), not a hazard."""
     calls = cp.get('model_calls') or {}
     if any(((c or {}).get('result') or {}).get('scene') == 'hazard' for c in calls.values() if isinstance(c, dict)):
         return True
+    d = cp.get('decision') or {}      # the Jev-role model's hazard also refuses under the standard rule
+    return d.get('reason') == HAZARD_REASON and 'pre_caution_reason' not in d and 'look_around_hazard_sides' not in d
+
+
+def _front_caution(cp: dict) -> bool:
+    """Caution-level alert at the front: no real hazard, but p(hazard) >= the caution threshold in force (tau_mem <= p < tau_h)."""
     tau = cp.get('memory_caution_tau_h')
-    return tau is not None and max(_hazard_prob(calls.get('first')), _hazard_prob(calls.get('second'))) >= tau
+    calls = cp.get('model_calls') or {}
+    return (tau is not None and not _front_hazard(cp)
+            and max(_hazard_prob(calls.get('first')), _hazard_prob(calls.get('second'))) >= tau)
+
+
+def _peek_real_hazard(p: dict) -> bool:
+    """A side view that the standard rule flagged.  Entries without a recorded reason (older logs) count as real."""
+    return bool(p.get('hazard')) and p.get('reason', HAZARD_REASON) == HAZARD_REASON
 
 
 def observations(mission: dict, tag: str) -> list[dict]:
@@ -81,10 +114,14 @@ def observations(mission: dict, tag: str) -> list[dict]:
     def add(station, cp, peeks=()):
         if not isinstance(cp, dict) or cp.get('memory_trusted') or 'decision' not in cp:
             return
-        views = (['front'] if _front_hazard(cp) else []) + [p['side'] for p in peeks if p.get('hazard')]
+        # I-19 fix #28: memory records REAL hazards (standard rule) separately from caution-level alerts (only the tightened
+        # threshold crossed).  Only real hazards renew the caution horizon, so a false alarm at the caution threshold cannot
+        # pin a fire-free station in caution forever (the old rule recorded the caution alert as a hazard, which renewed it).
+        views = (['front'] if _front_hazard(cp) else []) + [p['side'] for p in peeks if _peek_real_hazard(p)]
+        cviews = (['front'] if _front_caution(cp) else []) + [p['side'] for p in peeks if p.get('hazard') and not _peek_real_hazard(p)]
         calls = cp.get('model_calls') or {}
         out.append({'tag': tag, 'station': station, 'supply': _supply_seen(cp),
-                    'hazard': bool(views), 'hazard_views': views,
+                    'hazard': bool(views), 'hazard_views': views, 'caution_alert': bool(cviews), 'caution_views': cviews,
                     'hazard_prob_max': round(max([_hazard_prob(calls.get('first')), _hazard_prob(calls.get('second'))]
                                                  + [max(_hazard_prob(p['model_calls'].get('first')),
                                                         _hazard_prob(p['model_calls'].get('second'))) for p in peeks]), 4),
@@ -92,7 +129,11 @@ def observations(mission: dict, tag: str) -> list[dict]:
 
     rec = mission.get('recovery') or {}
     if rec:
-        add(rec.get('first_station'), rec.get('first_checkpoint'))
+        # a caution-only refusal from a side view (R5 #5, --caution-soft) leaves that station's side views in its checkpoint
+        peeks = lambda cp: ((cp or {}).get('look_around') or {}).get('peeks') or []
+        add(rec.get('first_station'), rec.get('first_checkpoint'), peeks(rec.get('first_checkpoint')))
+        for h in rec.get('hops') or []:          # I-21: every station of a k-station search is a fresh observation
+            add(h.get('station'), h.get('checkpoint'), peeks(h.get('checkpoint')))
     station = mission.get('checkpoint_station')
     if station:
         add(station, mission.get('checkpoint'), ((mission.get('look_around') or {}).get('peeks') or []))
@@ -118,24 +159,39 @@ class MissionMemory:
         obs = [r for r in self.records if r['station'] == station]
         return obs[-1] if obs else None
 
-    def plan(self, item: str, mode: str = 'verified', *, horizon: int = HORIZON, caution_tau_h: float = CAUTION_TAU_H) -> dict:
-        """Mission plan proposed by memory for the requested `item` (catalog station = the item's own station)."""
-        if item not in STATIONS or mode not in ('off', 'verified', 'naive'):
+    def plan(self, item: str, mode: str = 'verified', *, horizon: int = HORIZON, caution_tau_h: float = CAUTION_TAU_H,
+             stations=None) -> dict:
+        """Mission plan proposed by memory for the requested `item` (catalog station = the inventory's first station for
+        the item; in the two-station arena the item's own station).  `stations` (rescuemind.stations.StationSet,
+        default the arena) generalises to k stations: plan['order'] is the candidate order (a permutation of ALL
+        stations: memory may reorder, never skip) and plan['first_station'] is its head."""
+        from .stations import StationSet
+        ss = stations or StationSet.legacy()
+        if item not in ('water', 'medicine') or mode not in ('off', 'verified', 'naive'):
             raise ValueError('bad memory plan request')
-        out = {'mode': mode, 'catalog_station': item, 'first_station': item, 'n_records': len(self.records),
+        base_order = ss.default_order(item)
+        cat = base_order[0]
+        out = {'mode': mode, 'catalog_station': cat, 'first_station': cat, 'n_records': len(self.records),
                'caution': {}, 'skip_check': False, 'deny_without_visit': False, 'rationale': []}
+        if not ss.is_legacy():
+            out['order'] = list(base_order)
         if mode == 'off' or not self.records:
             return out
-        here = self.last(item)
+        here = self.last(cat)
         if here and here['supply'] not in (item, 'uncertain'):
-            for s in STATIONS:
-                o = self.last(s)
-                if s != item and o and o['supply'] == item:
-                    out['first_station'] = s
-                    out['rationale'].append(f'前回、{ITEM_JA[item]}は拠点「{s}」で確認（定位置には{ITEM_JA[here["supply"]]}）→ 先に「{s}」へ')
+            seen = {s: (self.last(s) or {}).get('supply') for s in base_order}
+            found = [s for s in base_order if s != cat and seen[s] == item]
+            if found:
+                # stations where the item was seen come first, then the unknown ones, then those seen holding something else
+                rank = lambda s: 0 if seen[s] == item else (2 if seen[s] not in (None, 'uncertain') else 1)
+                order = sorted(base_order, key=lambda s: (rank(s), base_order.index(s)))
+                out['first_station'] = order[0]
+                if 'order' in out:
+                    out['order'] = order
+                out['rationale'].append(f'前回、{ITEM_JA[item]}は拠点「{order[0]}」で確認（定位置には{ITEM_JA[here["supply"]]}）→ 先に「{order[0]}」へ')
         if mode == 'verified':
             recent = set(self.tags()[-horizon:])
-            for s in STATIONS:
+            for s in ss.ids:
                 hz = [r for r in self.records if r['station'] == s and r['tag'] in recent and r['hazard']]
                 if hz:
                     sides = [v for v in hz[-1]['hazard_views'] if v in ('L', 'R')]

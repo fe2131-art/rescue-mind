@@ -108,6 +108,11 @@ def render(run_dir: Path, out_png: Path, result: dict | None = None):
         d.text((40, yl), '出動をまたぐ記憶（提案だけ・確認は省略しない）', font=font(22, True), fill=(70, 72, 160)); yl += 34
         for ln in rep['memory']:
             yl = para(d, (56, yl), '・' + ln, 20, colw - 20, fill=(55, 58, 120))
+    if rep.get('advice'):
+        yl += 10
+        d.text((40, yl), '助言の扱い（助言は並べ替えと慎重化だけ・確認は省略しない）', font=font(22, True), fill=(150, 90, 30)); yl += 34
+        for ln in rep['advice']:
+            yl = para(d, (56, yl), '・' + ln, 20, colw - 20, fill=(120, 75, 30))
     x2 = 80 + colw
     d.text((x2, yr), '次にしてほしいこと', font=font(24, True), fill=INK); yr += 38
     for ln in rep['next']:

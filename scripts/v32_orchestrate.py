@@ -37,7 +37,7 @@ def shell_exec(args: list[str]) -> tuple[str, ...]:
 
 
 WORLD_SPEC_KEYS = {'lighting_params', 'prop_offsets', 'hazard_at', 'hazard_geom', 'distractor_at',
-                   'distractor_kind', 'distractor_side', 'distractor_layout', 'layout'}
+                   'distractor_kind', 'distractor_side', 'distractor_layout', 'layout', 'depot'}
 
 
 def waypoint_config_path(log_dir: Path) -> Path:
@@ -86,7 +86,10 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
                intent_prompt: str = 'i34', describe_prompt: str = 'e0', inject_stall: float = 0.0,
                hazard_threshold: float = 0.5, control_qos: str = 'reliable', hazard_views: str = 'full',
                hazard_prompt: str = 'h35', jev_local: str = 'off', jev_hazard_threshold: float = .35, jev_schema: str = 'jev',
-               look_around: float = 0.0, memory_file: str | None = None, memory_mode: str = 'off',
+               look_around: float = 0.0, memory_file: str | None = None, memory_mode: str = 'off', adaptive_views: float = 0.0,
+               advice_file: str | None = None, advice_mode: str = 'off', advice_from_instruction: bool = False,
+               caution_soft: bool = False, advice_scrutiny: bool = False, advice_credit: str | None = None,
+               delivery_interlock: bool = False, interlock_key: str | None = None,
                config_path: Path | None = None, centers_path: Path | None = None) -> dict:
     if scenario not in ('motion-check', 'live'):
         raise ValueError('invalid scenario')
@@ -101,10 +104,27 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
         cmd += ['--config', str(config_path)]       # Study L: per-run waypoints
     if centers_path is not None:
         cmd += ['--centers', str(centers_path)]     # Study L: per-run station centres
+    cmd += ['--expected-hazard-threshold', str(hazard_threshold)]     # I-19 #27: the mission checks the server's tau_h
     if look_around:
         cmd += ['--look-around', str(look_around)]
+    if adaptive_views:
+        cmd += ['--adaptive-views', str(adaptive_views)]     # I-20 (tau_sus and near keep their defaults)
     if memory_file:
         cmd += ['--memory-file', str(memory_file), '--memory-mode', memory_mode]
+    if advice_file or advice_from_instruction:      # I-19: advice from a file (peer/inventory/memory) and/or the instruction text
+        cmd += ['--advice-mode', advice_mode]
+        if advice_file:
+            cmd += ['--advice-file', str(advice_file)]
+        if advice_from_instruction:
+            cmd += ['--advice-from-instruction']
+    if caution_soft:
+        cmd += ['--caution-soft']                            # R5 #5: caution-only refusals continue the search
+    if advice_scrutiny:
+        cmd += ['--advice-scrutiny']                         # I-19: advice-promoted station gets caution + extra views
+    if advice_credit:
+        cmd += ['--advice-credit', str(advice_credit)]       # I-24: per-source credit ledger (read here, settled after)
+    if delivery_interlock:
+        cmd += ['--delivery-interlock']                      # I-22: ask the independent interlock before the delivery leg
     if inject_stall:
         cmd += ['--inject-warmup-stall', str(inject_stall)]
     if scenario=='live':
@@ -126,6 +146,21 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
         ManagedCommand('bridge', ('bash', str(ROOT/'scripts/bridge_direct_gazebo.sh'))),
         ManagedCommand('velocity_guard', prioritised(('bash', str(ROOT/'scripts/start_velocity_guard.sh')), -10)),
     ]
+    if delivery_interlock:
+        if scenario != 'live':
+            raise ValueError('the delivery interlock needs the live scenario')
+        # I-22: separate node, started right after the guard (which is told --delivery-interlock through RESCUEMIND_GUARD_ARGS)
+        il = ['python3', str(ROOT/'ros/delivery_interlock.py')]
+        if interlock_key:
+            il += ['--key-file', interlock_key]
+        if evidence_dir is not None:
+            il += ['--log', str(evidence_dir/'delivery_interlock.jsonl'), '--image-root', str(evidence_dir)]
+        il += ['--hazard-threshold', str(hazard_threshold)]
+        if look_around:
+            il += ['--require-look-around']
+        if adaptive_views:
+            il += ['--require-adaptive']
+        services.append(ManagedCommand('delivery_interlock', shell_exec(il)))
     if scenario=='live':
         from rescuemind.local_vision import PRIMARY_MODEL, SECONDARY_MODEL
         services.insert(0,ManagedCommand('primary_local_vlm', shell_exec([
@@ -219,14 +254,25 @@ def memory_denied(log_dir: Path) -> bool:
         e.get('stage') == 'memory_denial' for e in m.get('events', []))
 
 
+def caution_refused(log_dir: Path) -> bool:
+    """R5 #5: the run contains a recorded caution-only refusal (soft refusal, --caution-soft): its end is an expected denial."""
+    try:
+        m = json.loads((log_dir/'mission.json').read_text(encoding='utf8'))
+    except (OSError, ValueError):
+        return False
+    return bool(m.get('caution_soft')) and bool(m.get('caution_refusals'))
+
+
 def memory_trusted_audit(outcome: dict, log_dir: Path, run_id: str, mission: dict, sup) -> None:
     """I-15 naive-memory baseline: the robot skipped the on-site check because memory said the supply was there.
     Only the physical delivery is audited (guard graph, independent odometry, Gazebo ground truth)."""
     from rescuemind.runtime_guard_graph import audit_watch_jsonl
     from rescuemind.motion_evidence import audit_motion, MotionEvidenceError
     from rescuemind.ground_truth_evidence import audit_ground_truth
-    if (mission.get('memory') or {}).get('mode') != 'naive':
-        raise StackFailure('memory-trusted delivery outside the naive-memory baseline')
+    from rescuemind.advice import skip_source
+    source = skip_source(mission.get('memory'))
+    if source is None or (mission.get('checkpoint') or {}).get('trusted_by', 'memory') != source:
+        raise StackFailure('trusted delivery outside the naive memory / naive advice baselines')
     config = json.loads(waypoint_config_path(log_dir).read_text())
     station = mission.get('checkpoint_station')
     outcome['runtime_guard_graph_evidence'] = audit_watch_jsonl(log_dir/'guard_graph_watch.jsonl')
@@ -242,7 +288,54 @@ def memory_trusted_audit(outcome: dict, log_dir: Path, run_id: str, mission: dic
             time.sleep(.15)
     outcome['ground_truth_evidence'] = audit_ground_truth(log_dir/'independent_ros_topics.jsonl', station=config[station],
                                                           shelter=config['B'], expect_arrival=True)
-    outcome['state'] = 'COMPLETED_MEMORY_TRUSTED'
+    outcome['state'] = 'COMPLETED_ADVICE_TRUSTED' if source == 'advice' else 'COMPLETED_MEMORY_TRUSTED'
+
+
+def denial_by(log_dir: Path) -> str:
+    """'advice' or 'memory': who made the naive robot refuse without visiting (from the logged event and plan)."""
+    from rescuemind.advice import denial_source
+    m = json.loads((log_dir/'mission.json').read_text(encoding='utf8'))
+    by = denial_source(m.get('memory'))
+    ev = [e.get('by', 'memory') for e in m.get('events', []) if e.get('stage') == 'memory_denial']
+    if by is None or not ev or ev[0] != by:
+        raise ValueError('refusal without a visit that no naive plan explains')
+    return by
+
+
+def settle_credit(log_dir: Path, ledger_path: str, run_id: str) -> dict:
+    """I-24: charge / refund each advice source after the mission, from mission.json alone (the robot's own checks)."""
+    from rescuemind import advice_credit as ac
+    m = json.loads((log_dir/'mission.json').read_text(encoding='utf8'))
+    led = ac.load(ledger_path)
+    rec = ac.settle(led, m.get('memory') or {}, ac.visits_from_mission(m), mission_id=run_id)
+    ac.save(led, ledger_path)
+    return {'settlement': rec, 'credit': {k: {'loc': v['loc'], 'haz': v['haz']} for k, v in led['sources'].items()}}
+
+
+def advice_audit(log_dir: Path) -> dict | None:
+    """I-19: a monotone run must satisfy advice.assert_monotone(base, plan), recomputed from mission.json, and must
+    show no trusted checkpoint and no refusal without a visit.  Raises AdviceError / ValueError.  None if no advice."""
+    from rescuemind import advice as adv
+    try:
+        m = json.loads((log_dir/'mission.json').read_text(encoding='utf8'))
+    except (OSError, ValueError):
+        return None           # no record (stack failed before the mission wrote it): nothing to audit
+    plan = m.get('memory')
+    if not (plan or {}).get('advice'):
+        return None
+    ev = adv.audit_plan(plan)
+    ev['scrutiny_run'] = adv.audit_scrutiny(m)
+    if 'throttled' in plan['advice']:
+        from rescuemind.advice_credit import audit_credit
+        ev['credit'] = audit_credit(plan)          # I-24: every item received was acted on or throttled, once
+    from rescuemind.caution_soft import audit_caution_refusals
+    ev['caution'] = audit_caution_refusals(m)
+    if ev.get('mode') == 'monotone':
+        if (m.get('checkpoint') or {}).get('trusted_by') == 'advice' or any(
+                e.get('stage') in ('memory_denial', 'checkpoint_skipped_by_memory') and e.get('by') == 'advice'
+                for e in m.get('events', [])):
+            raise adv.AdviceError('monotone run skipped a check or refused without visiting because of advice')
+    return ev
 
 
 def memory_denial_audit(outcome: dict, log_dir: Path) -> None:
@@ -258,7 +351,7 @@ def memory_denial_audit(outcome: dict, log_dir: Path) -> None:
     if far > .5:
         raise ValueError(f'memory denial but the robot moved {far:.2f} m from the start')
     outcome['memory_denial_evidence'] = {'max_distance_from_start_m': round(far, 3), 'n_ground_truth': len(xs)}
-    outcome['state'] = 'DENIED_BY_MEMORY'
+    outcome['state'] = 'DENIED_BY_ADVICE' if denial_by(log_dir) == 'advice' else 'DENIED_BY_MEMORY'
     outcome['error'] = None
 
 
@@ -288,11 +381,34 @@ def main(argv=None):
                    help='I-12 (v3.5 default: async): default = reliable control topics, synchronous Fast DDS publication; '
                         'async = RMW_FASTRTPS_PUBLICATION_MODE=ASYNCHRONOUS for the whole stack; '
                         'best_effort = best-effort request/heartbeat topics')
+    p.add_argument('--adaptive-views', type=float, default=0.0,
+                   help='I-20: suspicion-triggered extra views at this side offset (m); 0 = off (v3.6)')
     p.add_argument('--look-around', type=float, default=0.4,
                    help='I-14: after an approval, look again from this far (m) left and right of the station')
     p.add_argument('--memory-file', default=None, help='I-15: cross-mission memory JSONL (read before, appended after)')
     p.add_argument('--memory-mode', choices=['off', 'verified', 'naive'], default='off',
                    help='I-15: verified = memory proposes, perception disposes; naive = trust memory (baseline only)')
+    p.add_argument('--advice-file', default=None, help='I-19: JSON list of advice items (peer / inventory / memory claims)')
+    p.add_argument('--advice-mode', choices=['off', 'monotone', 'naive', 'filtered'], default='off',
+                   help='I-19: monotone = advice may only reorder and tighten; naive = follow advice; '
+                        'filtered = follow advice that an LLM injection filter does not flag (baselines only)')
+    p.add_argument('--caution-soft', action='store_true',
+                   help='R5 #5: a refusal caused ONLY by memory / advice caution (tau_mem <= p(hazard) < tau_h) does not stop the '
+                        'mission: no delivery from that station, search the next candidate (default off: v3.6)')
+    p.add_argument('--advice-scrutiny', action='store_true',
+                   help='I-19: the station that advice moved to the front gets caution (tau_h = caution threshold) and the I-20 '
+                        'extra views regardless of suspicion (monotone mode only; can only tighten)')
+    p.add_argument('--advice-credit', default=None,
+                   help='I-24: per-source advice-credit ledger (JSON, kept across missions): advice whose worst cost the '
+                        'source can no longer pay is dropped (monotone mode only; dropping advice never loosens a check); '
+                        'settled after the mission from the robot\'s own checks')
+    p.add_argument('--delivery-interlock', action='store_true',
+                   help='I-22 (default off; v3.6 unchanged): an independent node recomputes the decision from the saved model outputs '
+                        'and the velocity guard forwards motion in the delivery leg only with its permit')
+    p.add_argument('--interlock-hmac', action=argparse.BooleanOptionalAction, default=True,
+                   help='I-22: sign permits with a key generated at stack start (0600, outside the evidence directory)')
+    p.add_argument('--advice-from-instruction', action='store_true',
+                   help='I-19: extract operator advice from the instruction text (closed-set, fail-closed)')
     p.add_argument('--jev-local', choices=['off', 'clef'], default='off',
                    help='I-13: add the Jev-role model (Clef-Flash, local) - both models must approve')
     p.add_argument('--jev-hazard-threshold', type=float, default=.35)
@@ -336,6 +452,9 @@ def main(argv=None):
                 layout = Layout.from_dict(world_spec['layout'])
             except ValueError as e:
                 p.error(f'--world-spec layout invalid: {e}')
+    depot_k4 = bool(world_spec and (world_spec.get('depot') or {}).get('stations') == 4)
+    if depot_k4 and layout is not None:
+        p.error('--world-spec: a Study L layout and the four-station depot cannot be combined')
     robust = args.lighting != 'default' or args.hazard_at or args.distractor_at or world_spec is not None
     def make_world(dest_dir):
         if not robust:
@@ -358,9 +477,13 @@ def main(argv=None):
                  intent_backend=args.intent_backend, intent_prompt=args.intent_prompt,
                  describe_prompt=args.describe_prompt, inject_stall=args.inject_warmup_stall,
                  hazard_threshold=args.hazard_threshold, hazard_views=args.hazard_views,
-                 hazard_prompt=args.hazard_prompt, jev_local=args.jev_local, look_around=args.look_around,
+                 hazard_prompt=args.hazard_prompt, jev_local=args.jev_local, look_around=args.look_around, adaptive_views=args.adaptive_views,
                  jev_hazard_threshold=args.jev_hazard_threshold, jev_schema=args.jev_schema,
                  memory_file=args.memory_file, memory_mode=args.memory_mode,
+                 advice_file=args.advice_file, advice_mode=args.advice_mode,
+                 advice_from_instruction=args.advice_from_instruction,
+                 caution_soft=args.caution_soft, advice_scrutiny=args.advice_scrutiny,
+                 advice_credit=args.advice_credit,
                  control_qos='best_effort' if args.dds_mode == 'best_effort' else 'reliable')
     if args.dds_mode == 'async':
         os.environ['RMW_FASTRTPS_PUBLICATION_MODE'] = 'ASYNCHRONOUS'
@@ -370,8 +493,10 @@ def main(argv=None):
     plan = build_plan(args.scenario, args.instruction, mission_timeout=args.mission_timeout, scene=args.scene,
                       evidence_dir=placeholder, capture_rosbag=args.capture_rosbag,local_mode=args.local_mode,
                       gz_mode=args.gz_mode, film=args.film, **extra,
+                      delivery_interlock=args.delivery_interlock,
+                      interlock_key='<interlock_key>' if (args.delivery_interlock and args.interlock_hmac) else None,
                       **(dict(config_path=placeholder/'waypoints.json', centers_path=placeholder/'station_centers.json')
-                         if layout is not None else {}))
+                         if (layout is not None or depot_k4) else {}))
     import hashlib
     scene_path = ROOT/'worlds/scenarios'/('rescuemind_'+args.scene+'.sdf')
     scene_sha256=hashlib.sha256(scene_path.read_bytes()).hexdigest()
@@ -385,10 +510,30 @@ def main(argv=None):
     run_id = uuid.uuid4().hex[:16]
     log_dir = ROOT/'outputs'/'runs'/run_id
     log_dir.mkdir(parents=True, exist_ok=False)
+    interlock_key = None
+    interlock_keydir = None
+    if args.delivery_interlock:
+        # I-22: fresh key per stack start, in a private directory (not in the evidence bundle); the guard and the interlock
+        # read it, the mission node is not given the path
+        import tempfile
+        from rescuemind import delivery_permit as _dp
+        if args.interlock_hmac:
+            interlock_keydir = tempfile.mkdtemp(prefix='rm_interlock_')
+            interlock_key = str(Path(interlock_keydir)/'permit.key')
+            _dp.generate_key(interlock_key)
+        os.environ['RESCUEMIND_GUARD_ARGS'] = (os.environ.get('RESCUEMIND_GUARD_ARGS', '') + ' --delivery-interlock'
+                                               + (f' --permit-key-file {interlock_key}' if interlock_key else '')).strip()
     run_world = make_world(log_dir)
     layout_files = layout.write_configs(log_dir) if layout is not None else (None, None)
+    if depot_k4:        # I-21 phase 2: the four-station depot audits against ITS OWN waypoints (station ids + inventory)
+        from rescuemind.depot import write_k4_configs
+        layout_files = write_k4_configs(log_dir)
+    if args.delivery_interlock:
+        # I-22: the guard derives the shelter geofence from the same per-run waypoints file the run audits against
+        os.environ['RESCUEMIND_GUARD_ARGS'] += ' --geofence-config ' + str(waypoint_config_path(log_dir))
     plan = build_plan(args.scenario, args.instruction, mission_timeout=args.mission_timeout, scene=args.scene, evidence_dir=log_dir,
                       world=run_world, config_path=layout_files[0], centers_path=layout_files[1], **extra,
+                      delivery_interlock=args.delivery_interlock, interlock_key=interlock_key,
                       capture_rosbag=args.capture_rosbag,local_mode=args.local_mode,gz_mode=args.gz_mode,
                       film=args.film)
     summary['world_variant'] = {'lighting': args.lighting, 'hazard_at': args.hazard_at,
@@ -404,8 +549,15 @@ def main(argv=None):
     summary['dds_mode'] = args.dds_mode
     summary['jev_local'] = args.jev_local
     summary['look_around'] = args.look_around
+    summary['adaptive_views'] = args.adaptive_views
     summary['memory_file'] = args.memory_file
     summary['memory_mode'] = args.memory_mode
+    summary['advice_file'] = args.advice_file
+    summary['advice_mode'] = args.advice_mode
+    summary['caution_soft'] = args.caution_soft
+    summary['advice_scrutiny'] = args.advice_scrutiny
+    summary['delivery_interlock'] = {'enabled': args.delivery_interlock, 'hmac': bool(interlock_key)}
+    summary['advice_from_instruction'] = args.advice_from_instruction
     summary['jev_hazard_threshold'] = args.jev_hazard_threshold
     summary['jev_schema'] = args.jev_schema
     summary['hazard_views'] = args.hazard_views
@@ -428,6 +580,7 @@ def main(argv=None):
         # Turn SIGTERM into an exception so `with Supervisor` tears the stack down.
         raise StackFailure(f'orchestrator received signal {signum}; stack torn down')
     _signal.signal(_signal.SIGTERM, _graceful)
+    return_code = 2        # overwritten on every normal path; keeps the finally block (advice audit) well-defined
     try:
         check_prerequisites(args.scenario, capture_rosbag=args.capture_rosbag)
         quiet = subprocess.run(shell_exec(['python3', str(ROOT/'scripts/stack_quiescence.py'), '--wait', '45']),
@@ -467,7 +620,7 @@ def main(argv=None):
             try:
                 sup.run_mission(plan['mission'], plan['mission_timeout'])
             except StackFailure as mission_error:
-                if (args.scenario == 'live' and (args.scene in ('swapped', 'empty') or args.hazard_at or memory_denied(log_dir))
+                if (args.scenario == 'live' and (args.scene in ('swapped', 'empty') or args.hazard_at or memory_denied(log_dir) or caution_refused(log_dir))
                         and str(mission_error).startswith('mission failed (exit=')):
                     deferred_denial = mission_error
                 else:
@@ -508,7 +661,8 @@ def main(argv=None):
                     raise StackFailure('motion evidence: invalid supply item')
                 # I-02: after a recovery search the authorising checkpoint is at the OTHER station.
                 station_name=mission_record.get('checkpoint_station') or item
-                if station_name not in ('water','medicine'):
+                from rescuemind.stations import StationSet
+                if station_name not in StationSet.from_config(config).ids:     # I-21: k stations (the arena: water / medicine)
                     raise StackFailure('motion evidence: invalid checkpoint station')
                 if mission_record.get('recovery'):
                     from rescuemind.recovery_evidence import audit_recovery
@@ -564,7 +718,7 @@ def main(argv=None):
                 return_code=0
             except (ValueError,OSError,KeyError,TypeError,RuntimeError) as denial_error:
                 outcome['negative_evidence_failure']=str(denial_error)
-        elif (args.scenario=='live' and (args.scene in ('swapped','empty') or args.hazard_at)
+        elif (args.scenario=='live' and (args.scene in ('swapped','empty') or args.hazard_at or caution_refused(log_dir))
                 and isinstance(e,StackFailure)
                 and str(e).startswith('mission failed (exit=')):
             try:
@@ -582,7 +736,7 @@ def main(argv=None):
                 denied_item=denied['intent']['item']
                 final_station=denied.get('checkpoint_station') or denied_item
                 waypoints=dict(config); waypoints[denied_item]=config[final_station]
-                negative=classify_negative_run(log_dir,scene='hazard' if args.hazard_at else args.scene,
+                negative=classify_negative_run(log_dir,scene='hazard' if args.hazard_at else ('caution' if args.scene=='nominal' else args.scene),
                                                run_id=run_id,waypoints=waypoints)
                 outcome['expected_denial']=negative
                 if denied.get('recovery'):
@@ -591,7 +745,8 @@ def main(argv=None):
                 from rescuemind.ground_truth_evidence import audit_ground_truth
                 outcome['ground_truth_evidence']=audit_ground_truth(
                     log_dir/'independent_ros_topics.jsonl',station=config[final_station],shelter=config['B'],
-                    expect_arrival=False, look_around_m=float((denied.get('look_around') or {}).get('offset_m', 0.0)))
+                    expect_arrival=False, look_around_m=max(float((denied.get('look_around') or {}).get('offset_m', 0.0)),
+                                     float(((denied.get('look_around') or {}).get('adaptive') or {}).get('offset_m', 0.0)) if ((denied.get('look_around') or {}).get('adaptive') or {}).get('triggered') else 0.0))
                 # If a rosbag was specifically requested, it is evidence
                 # required even for a deliberately denied mission.
                 if args.capture_rosbag:
@@ -617,6 +772,38 @@ def main(argv=None):
                 outcome['error'] = 'rosbag evidence missing/incomplete: ' + str(exc)
                 return_code = 2
     finally:
+        if args.delivery_interlock:
+            # I-22: what the interlock decided; a delivered mission without a logged permit fails the run
+            from rescuemind.delivery_interlock import summarise_log
+            outcome['delivery_interlock'] = summarise_log(log_dir/'delivery_interlock.jsonl')
+            if (str(outcome.get('state', '')).startswith('COMPLETED') and outcome['state'] != 'COMPLETED_EXPECTED_DENIAL'
+                    and outcome['delivery_interlock']['permits'] == 0):
+                outcome['state'] = 'FAILED'
+                outcome['error'] = 'delivery completed without a logged interlock permit'
+                if return_code in (0, None):
+                    return_code = 2
+            if interlock_keydir:
+                shutil.rmtree(interlock_keydir, ignore_errors=True)
+        if args.advice_file or args.advice_from_instruction:
+            # I-19: recompute advice monotonicity from the logged plan; a violation fails the run
+            try:
+                outcome['advice_audit'] = advice_audit(log_dir)
+            except Exception as exc:          # AdviceError, ValueError, KeyError ...
+                outcome['advice_audit_failure'] = f'{type(exc).__name__}: {exc}'
+                outcome['state'] = 'FAILED'
+                outcome['error'] = 'advice monotonicity audit failed: ' + str(exc)
+                if return_code in (0, None):
+                    return_code = 2
+            if args.advice_credit and outcome.get('advice_audit') is not None and not outcome.get('advice_audit_failure'):
+                # I-24: settle the credit of every source from what the robot itself saw at each station
+                try:
+                    outcome['advice_credit'] = settle_credit(log_dir, args.advice_credit, run_id)
+                except Exception as exc:
+                    outcome['advice_credit_failure'] = f'{type(exc).__name__}: {exc}'
+                    outcome['state'] = 'FAILED'
+                    outcome['error'] = 'advice credit settlement failed: ' + str(exc)
+                    if return_code in (0, None):
+                        return_code = 2
         if args.memory_file:
             # I-15: remember what the robot itself saw (never ground truth), whatever the outcome
             try:

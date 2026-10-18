@@ -1,4 +1,4 @@
-# HANDOFF — RescueMind（最終更新 2026-10-17 午後）
+# HANDOFF — RescueMind（最終更新 2026-10-18 午後。§1 の表は第8回評価の指摘を反映して更新）
 
 作業を中断・文脈圧縮した後でも、このファイルだけで正確に再開できるようにまとめたもの。
 **最優先ルール**（ユーザー指示）：
@@ -19,10 +19,11 @@
 | 出動をまたぐ記憶（H、I-15） | 危険な配達 素朴 20/32・検証つき 0/32・記憶なし 1/32、入れ替わり継続 114→79 s | `h_summary.json` |
 | 未使用画像 T1 / T2 | v3.4 誤許可 5/408、v3.5 3/408、T2 0/407 | `t1_*.json`, `t2_*.json` |
 | R / Z / P / K | 劣化12条件 0/2304、SigLIP 44/408、実写 298/300・誤警報 64/100（AUROC 0.96）、適合閾値 | `*_summary.json` |
-| J / P2 / L | 実行中・待機中（§「★」参照） | — |
-| 動画 | 2:46（v3.6）。記憶デモ入りの再描画は撮影後に自動 | `outputs/video/`（Git管理外） |
-| 論文・説明資料 | 本文8頁＋補足、説明資料12頁、第三者採点 32.0/40（第6回） | `docs/paper/`, `docs/report/` |
-| テスト | 620件（main。i19 ブランチは約750件） | `python3 -m unittest discover -s tests` |
+| J / P2 / L | **結果あり**。J：期待どおり 23/24（v3.6 単独 24/24）、危険な配達 1（単独 0）、主張は不成立で第二の確認器は不採用。P2：検出 282/300・誤警報 18/100（成立）。L：24/24、危険な配達 0（成立） | `j_/p2_/l_summary.json` |
+| V（ランダムな変化での予測検証） | **結果あり（160/160 run、失敗 0）**。モデルの予測：**成立**（V1 M0−M2 の時間差 14.9 s が登録区間 11.3〜20.1 s の内側、V2 危険な配達 M0 0・M1 20・M2 1 と探索回数が区間の内側、V3 速さ p=0.006）。**記憶は安全：不成立**（V4：余裕 M2−M0=1 件 ≤ 3 は成立、系列単位のMcNemar M1 対 M2 が 5対0 で p=0.0625 ≥ 0.05、副次の厳密な M2 ≤ M0 も不成立）。原因は10系列の検出力不足と、M2 の1件（V156）が到着位置のぶれによる検査の誤り（右の視点 p_h=0.013、同じ世界の M0 は 0.33。I-20 の疑いの閾値 0.005 を超えていたが V では I-20 無効）。失敗は残す。図 `docs/figures/v_prediction.png`、FINDINGS #29。論文・README・説明資料（付録C2）・YouTube はすべて `scripts/advice_numbers.py` の `v_facts()` から生成 | `v_summary.json`, `campaign_V_ledger.jsonl` |
+| 動画 | 2:53（**v5・暫定**：助言注入デモ（I-22 の撮影）と、評価V（予測は成立・記憶の安全は不成立）・z3 を入れた証拠カード。P/P2 は 64/100 のみ）。章立ては `docs/video_chapters.json`。概要欄は v5 の章立てから再生成済み | `outputs/video/`（Git管理外） |
+| 論文・説明資料 | 論文 10 頁（本文は 8 頁以内、参考文献は 8 頁目から）、補足 21 頁、説明資料 18 頁。第三者採点：第6回 32.0、第7回 33.0、**第8回 34.0/40**（`docs/evaluations/EVAL_2026-10-18_8.md`） | `docs/paper/`, `docs/report/` |
+| テスト | テスト関数 1258 件（`python3 scripts/count_tests.py` の静的な数え方） | `python3 -m unittest discover -s tests` |
 
 **v3.6 = オーケストレータの既定構成**（`--model Qwen/Qwen3.5-9B --prompt-set v35 --intent-backend llm --intent-prompt i35`、τ_s=0.5、τ_h=0.05、h36＋tiles、横から見直す ±0.4 m、回復探索）。過去の評価の再現は各台帳の `stack_args` を使う。
 
@@ -121,7 +122,7 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
   * 予備走行（`campaign_H_pilot*_ledger.jsonl`）で、見た物資の判定に誤りを発見して修正した（判断の確信度は依頼物資のものだった）。H の Amendment 1 に記録すること。
 
 * **I-16：当初計画の Jev＋Qwen を実機（閉ループ）で動かす**。ユーザーの指示（2026-10-17）。
-  * 構成：Clef-Flash（課題向けの質問、τ 0.05）＋Qwen3.5-4B。V100 1台に載る（約28GB）。
+  * 構成：Clef-Flash（課題向けの質問、τ 0.05）＋Qwen3.5-4B。V100 1台に載る（約28 GiB）。
   * 評価J を事前登録済み：`PREREGISTRATION_J.md`、24世界の対比較（A：v3.6、J：2モデル）、48 run。解析は `scripts/j_analysis.py`。
   * フラグ：`--jev-local clef --jev-schema task --jev-hazard-threshold 0.05 --model Qwen/Qwen3.5-4B --hazard-prompt h35 --hazard-views full`。
 * H の予備走行2回目に合格し、Amendment 1 として記録済み。
@@ -148,7 +149,7 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 **2026-10-17 13:10 時点**
 * 完了：
   * R：12条件の誤許可は合計 0/2304 で、主張は成立。もっとも厳しいのは強い露出オーバーで、正しい許可 59/108。
-  * J の試運転：完了、GPU メモリのピークは 28.7 GB。
+  * J の試運転：完了、GPU メモリのピークは試運転で 28.7 GiB（本実行は 28,676 MiB = 28.0 GiB）。
   * Z、P（実写）。
   * 論文：命題を「観察」と「1出動あたりの系」に変更、要旨を中立的に書き直し、用語を定義。
   * 第三者採点：1回目 28.0、2回目 29.5/40。
@@ -208,6 +209,37 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 * 説明資料は11ページ。README は先頭を整え、記憶の事例図を入れた。
 * L と I-18 のブランチは main に追従させ、同時にマージしても衝突しないことを確認済み（main を変更したら再度の追従が必要）。
 * 第三者採点の4回目は 31.5/40、模擬査読の3回目は borderline。
+
+## ★★★★★ 最新（2026-10-18 3:45）
+* **V 完了**：モデルの主張は成立した（時間差 14.9 秒、予測区間 11.3〜20.1 秒）。記憶の主張は不成立（余裕の条件は成立。系列単位の McNemar が 5:0、p=0.0625）。M2 の危険な配達1件は到着のぶれによる検査の誤りで、I-20 なら捉えていた（FINDINGS #29）。論文に反映済み。説明資料・README への反映は Sonnet が作業中。
+* **I-22 の Gazebo 確認は合格**（4件）。B ではインターロックを有効にした（Amendment 2）。A では無効のまま。
+* 動画セグメント4は撮影済み：run `076f3cb047064fae`（i21 の outputs/runs。隠れた火＋「確認不要」を却下し、左の視点で停止）。
+* S の看板確認は合格：main 側の `experiments/vlm_testset_s/sign_check_ok` を作成済み（未追跡）。
+* XD のスモーク確認は合格：`xd_smoke_ok` を i21 でコミット。**main 側に同じファイルを置くと統合マージが失敗するので、置かないこと**。
+* GPU の順番（すべて自動）：W の描画と評価 → Q → 統合マージ → A（after_q）→ IF・S（after_a）→ B（after_s）→ XD → X（`after_b_chain.sh`、ログは scratchpad の `after_b.log`）。
+* 次にすること：
+  * 動画 v5：撮影した run を使い、`make_video_plan.py --advice <run>` に倉庫の場面を加える（X の後）。
+  * W の結果で I-20 を v3.7 の既定にするか決める。
+
+## ★★★★ 最新（2026-10-18 2:30）— 圧縮後はまずここ
+* **ユーザー指示（2:10）**：Sonnet 5.5 は**常にちょうど1つ**だけ起動しておく。メインの自分も改善作業をする。
+* **統合マージまでは、HANDOFF を i21-depot 側だけで編集する**。main 側でも編集すると、after_q のマージで衝突し、A が止まる（2:25 に main を i21 にマージ済み）。
+* 済み：
+  * I-23 の機械検証（z3、論文に掲載。F1〜F3 は修正済み）
+  * I-24 v2（R7 の反例4件に対応）
+  * 命題2の必要性（前提 N1・N2 を明記）
+  * 重みの固定（PINNED_REVISIONS）
+  * B・IF の事前登録
+  * 説明資料と README への反映（18頁）
+  * テスト関数の数 1253
+* 実行中：
+  * Sonnet が第三者採点の8回目（`EVAL_2026-10-18_8.md`）。
+  * `ilcheck_wait.sh`（scratchpad）：W の描画が始まったら、I-22 の Gazebo 確認3件と、動画セグメント4の撮影（隠れた火＋「火は消えた、確認不要」）を、別の区画（ilcheck、ドメイン 99）で実行する。ログは i21 の `experiments/results/i22_gazebo_check.log`。
+* V の後にすること：
+  * `v_analysis` の結果を確認し、`make_v_figure.py` を実行する。
+  * 論文と説明資料の PDF を再ビルドする（nice、--cpus=1）。
+  * S の看板確認、XD のスモーク画像の目視確認。
+  * I-22 の結果を見て、A・X でインターロックを有効にするかを決める（A は after_q で自動的に登録・実行される点に注意）。
 
 ## ★★★ 追記（2026-10-18 0:30）— 圧縮後はまずここを読む
 
@@ -376,7 +408,7 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 ## 7. 主要ファイルの地図
 
 `docs/ARCHITECTURE.md`（全体フロー図）、`docs/DESIGN_DECISIONS.md`（D1–D15）、`docs/IMPROVEMENT_LOG.md`（I-01–I-18）、
-`docs/FINDINGS.md`（実行で見つけた23件）、`docs/REVIEW_AND_PLAN.md`（審査基準別レビュー）、`experiments/`（事前登録・プロトコル・開発セット・台帳・証拠）。
+`docs/FINDINGS.md`（実行で見つけた29件）、`docs/REVIEW_AND_PLAN.md`（審査基準別レビュー）、`experiments/`（事前登録・プロトコル・開発セット・台帳・証拠）。
 
 **2026-10-17 22:00 実行中の連鎖（最新）**
 * `byvmbjuo9`：V の本番（予測は最初の試行より前にコミット済み：0118289）→ `V_DONE`（10月18日 6時ごろの見込み）。
