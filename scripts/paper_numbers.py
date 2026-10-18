@@ -1126,6 +1126,11 @@ def main():
             m['XDSiteRemoved'], m['XDSiteLA'] = f"{tt_['look_around_misses'] - tt_['adaptive_misses']}", f"{tt_['look_around_misses']}"
             m['XDSiteRefMiss'] = f"{sj_['reference_tau_sus_0.005']['adaptive_misses']}/{tt_['perceivable']}"
             m['XDSiteRefTrig'] = f"{sj_['reference_tau_sus_0.005']['triggered']}/{sj_['reference_tau_sus_0.005']['of']}"
+        xh_ = RES / 'xd_site_tau_h.json'
+        if xh_.is_file():
+            hj_ = json.loads(xh_.read_text())
+            m['XDSiteTauH'] = f"{hj_['tau_h_site']:g}"
+            m['XDSiteHardMiss'] = f"{hj_['test_site']['hard_misses']}/{hj_['test_site']['hard_n']}"
         m['StatXD'] = f"bound: {m.lookup('XDClaimEps')}; transfer: {m.lookup('XDClaimRel')}; recalibration: {m.lookup('XDClaimCal')}; cost: {m.lookup('XDClaimCost')}"
     # ---- submission snapshot: the claim column of a study without results says so (the other pending studies have no analysis macro yet)
     PEND = advice_numbers.snapshot_pending() if SNAPSHOT else set()
