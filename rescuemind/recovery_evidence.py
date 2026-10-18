@@ -89,13 +89,14 @@ def audit_recovery(mission: dict, run_dir: Path, *, completed: bool) -> dict:
     if any(not isinstance(t, (int, float)) for t in times) or times != sorted(times):
         raise RecoveryEvidenceError('recovery event times not monotonic')
     from .local_run_audit import audit_local_checkpoint
+    from .real_profile import audit_kwargs     # I-26: {} unless the run used --site-config
     for j, (cp, name) in enumerate(checkpoints):
         frame = events[idx[j * 5 + 1]]
         image = Path(run_dir) / name
         if not image.is_file() or hashlib.sha256(image.read_bytes()).hexdigest() != frame.get('image_sha256'):
             raise RecoveryEvidenceError('first checkpoint image missing or hash mismatch' if j == 0
                                         else f'checkpoint image of hop {j + 1} missing or hash mismatch')
-        res = audit_local_checkpoint(cp, frame['image_sha256'], expected=item)
+        res = audit_local_checkpoint(cp, frame['image_sha256'], expected=item, **audit_kwargs(mission))
         if kinds[j] == 'caution_only' and not res.get('caution_only'):
             raise RecoveryEvidenceError(f'hop {j + 1} was continued as a caution-only refusal, but the saved outputs show a real hazard')
     from .caution_soft import audit_caution_refusals, CautionError

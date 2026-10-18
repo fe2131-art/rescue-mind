@@ -530,10 +530,21 @@ def main():
     p.add_argument('--prompt-set',choices=sorted(PROMPT_SETS),default='v33')
     p.add_argument('--describe-prompt',choices=sorted(ModelWorker.DESCRIBE_PROMPTS),default='e0')
     p.add_argument('--intent-prompt',choices=sorted(ModelWorker.INTENT_PROMPTS),default='i34')
-    p.add_argument('--hazard-threshold',type=float,default=0.5,help='p(Yes) at or above which the scene is a hazard (I-10)')
-    p.add_argument('--hazard-views',choices=['full','tiles'],default='full',help='I-11: also ask on enlarged crops')
-    p.add_argument('--hazard-prompt',choices=['h35','h36','h36ign'],default='h35',help='I-11: hazard question wording')
+    p.add_argument('--hazard-threshold',type=float,default=None,help='p(Yes) at or above which the scene is a hazard (I-10; default 0.5)')
+    p.add_argument('--hazard-views',choices=['full','tiles'],default=None,help='I-11: also ask on enlarged crops (default full)')
+    p.add_argument('--hazard-prompt',choices=['h35','h36','h36ign'],default=None,help='I-11: hazard question wording (default h35)')
+    p.add_argument('--site-config',default=None,
+                   help='I-26: site.json; its hazard_threshold (and hazard_prompt / hazard_views if present) are used, and a conflicting '
+                        'flag is an error.  The same file goes to the mission node and the interlock')
     a=p.parse_args()
+    try:
+        from rescuemind import real_profile as rp
+        site=rp.load_site_config(a.site_config) if a.site_config else None
+        a.hazard_threshold=rp.resolve('hazard-threshold',a.hazard_threshold,site.hazard_threshold if site else None,0.5)
+        a.hazard_views=rp.resolve('hazard-views',a.hazard_views,site.hazard_views if site else None,'full')
+        a.hazard_prompt=rp.resolve('hazard-prompt',a.hazard_prompt,site.hazard_prompt if site else None,'h35')
+    except ValueError as e:         # SiteConfigError
+        p.error(str(e))
     if not 1024<=a.port<=65535: p.error('invalid port')
     if not 0<a.hazard_threshold<=1: p.error('hazard threshold must be in (0, 1]')
     worker=ModelWorker(a.model,method=a.method,prompt_set=a.prompt_set,dtype=a.dtype)

@@ -90,7 +90,8 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
                advice_file: str | None = None, advice_mode: str = 'off', advice_from_instruction: bool = False,
                caution_soft: bool = False, advice_scrutiny: bool = False, advice_credit: str | None = None,
                delivery_interlock: bool = False, interlock_key: str | None = None,
-               config_path: Path | None = None, centers_path: Path | None = None) -> dict:
+               config_path: Path | None = None, centers_path: Path | None = None,
+               site_config: str | None = None) -> dict:
     if scenario not in ('motion-check', 'live'):
         raise ValueError('invalid scenario')
     from rescuemind.scene_variants import SCENES
@@ -105,6 +106,8 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
     if centers_path is not None:
         cmd += ['--centers', str(centers_path)]     # Study L: per-run station centres
     cmd += ['--expected-hazard-threshold', str(hazard_threshold)]     # I-19 #27: the mission checks the server's tau_h
+    if site_config:
+        cmd += ['--site-config', str(site_config)]      # I-26 (default off): the mission records the site config, derives the caution threshold
     if look_around:
         cmd += ['--look-around', str(look_around)]
     if adaptive_views:
@@ -375,8 +378,11 @@ def main(argv=None):
     p.add_argument('--model', default='Qwen/Qwen3.5-9B', help='local VLM model id (I-08)')
     p.add_argument('--intent-backend', choices=['tfidf', 'llm'], default='llm', help='I-04 instruction parser')
     p.add_argument('--intent-prompt', choices=['i34', 'i35', 'i36', 'i37', 'i38'], default='i35')
-    p.add_argument('--hazard-threshold', type=float, default=0.05,
-                   help='I-10: VLM p(fire/smoke) at or above which the checkpoint refuses (v3.5: 0.05)')
+    p.add_argument('--hazard-threshold', type=float, default=None,
+                   help='I-10: VLM p(fire/smoke) at or above which the checkpoint refuses (default 0.05 = v3.5/v3.6)')
+    p.add_argument('--site-config', default=None,
+                   help='I-26: site.json; its hazard_threshold (and hazard_prompt / hazard_views if present) are passed to the server, '
+                        'the mission and the interlock; a conflicting --hazard-threshold / --hazard-prompt / --hazard-views is an error')
     p.add_argument('--dds-mode', choices=['default', 'async', 'best_effort'], default='async',
                    help='I-12 (v3.5 default: async): default = reliable control topics, synchronous Fast DDS publication; '
                         'async = RMW_FASTRTPS_PUBLICATION_MODE=ASYNCHRONOUS for the whole stack; '
@@ -414,8 +420,8 @@ def main(argv=None):
     p.add_argument('--jev-hazard-threshold', type=float, default=.35)
     p.add_argument('--jev-schema', choices=['jev', 'task'], default='jev',
                    help='I-16: ask the Jev-role model the original Jev request or the task-worded request (T2: task)')
-    p.add_argument('--hazard-views', choices=['full', 'tiles'], default='tiles', help='I-11: hazard question on crops too')
-    p.add_argument('--hazard-prompt', choices=['h35', 'h36'], default='h36', help='I-11: hazard question wording')
+    p.add_argument('--hazard-views', choices=['full', 'tiles'], default=None, help='I-11: hazard question on crops too (default tiles)')
+    p.add_argument('--hazard-prompt', choices=['h35', 'h36'], default=None, help='I-11: hazard question wording (default h36)')
     p.add_argument('--inject-warmup-stall', type=float, default=0.0, help='I-09 fault injection (A/B tests only)')
     p.add_argument('--describe-prompt', choices=['e0', 'e1', 'e2'], default='e0')
     p.add_argument('--lighting', choices=['default', 'dim_evening', 'harsh_noon'], default='default')
@@ -433,6 +439,14 @@ def main(argv=None):
     args = p.parse_args(argv)
     if args.startup_timeout < 5 or args.mission_timeout < 10:
         p.error('timeouts too short')
+    from rescuemind import real_profile as rp
+    try:                                     # I-26: one site.json -> the same tau_h / wording for server, mission and interlock
+        site = rp.load_site_config(args.site_config) if args.site_config else None
+        args.hazard_threshold = rp.resolve('hazard-threshold', args.hazard_threshold, site.hazard_threshold if site else None, 0.05)
+        args.hazard_views = rp.resolve('hazard-views', args.hazard_views, site.hazard_views if site else None, 'tiles')
+        args.hazard_prompt = rp.resolve('hazard-prompt', args.hazard_prompt, site.hazard_prompt if site else None, 'h36')
+    except rp.SiteConfigError as e:
+        p.error(str(e))
     from rescuemind.scene_variants import audit_scenarios
     from rescuemind.gazebo_transport_contract import validate_static
     audit_scenarios(ROOT/'worlds/scenarios')
@@ -494,6 +508,7 @@ def main(argv=None):
                       evidence_dir=placeholder, capture_rosbag=args.capture_rosbag,local_mode=args.local_mode,
                       gz_mode=args.gz_mode, film=args.film, **extra,
                       delivery_interlock=args.delivery_interlock,
+                      **({'site_config': args.site_config} if args.site_config else {}),
                       interlock_key='<interlock_key>' if (args.delivery_interlock and args.interlock_hmac) else None,
                       **(dict(config_path=placeholder/'waypoints.json', centers_path=placeholder/'station_centers.json')
                          if (layout is not None or depot_k4) else {}))
@@ -546,6 +561,8 @@ def main(argv=None):
     summary['intent_backend'] = args.intent_backend
     summary['intent_prompt'] = args.intent_prompt
     summary['hazard_threshold'] = args.hazard_threshold
+    if args.site_config:
+        summary['site_config'] = site.block()
     summary['dds_mode'] = args.dds_mode
     summary['jev_local'] = args.jev_local
     summary['look_around'] = args.look_around
