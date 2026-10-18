@@ -678,7 +678,7 @@ def xdr_result_ja():
     try:
         fa = r['false_alarm']
         return (f"。実写の火のない倉庫写真 {r['n']} 枚では、0.05 で {fa['frozen']['k']}/{fa['frozen']['n']}（{100 * fa['frozen']['rate']:.1f}%）、P2 の 0.35 で {fa['p2_h36']['k']}/{fa['p2_h36']['n']} が火と誤判定"
-                "（登録した主張は倉庫の τ* で述べたが τ* が存在しないため評価できず、失敗には数えない）")
+                "（登録した主張は倉庫の τ* で述べたが τ* が存在せず、登録済みの解析は「不成立」を返す。基準の20%以下は存在する2つの閾値では満たす。失敗の件数には加えず、ここに明記する）")
     except (TypeError, KeyError):
         return ''
 
@@ -699,7 +699,7 @@ def xdr_result_en():
     try:
         fa = r['false_alarm']
         return (f"; on {r['n']} real fire-free warehouse photographs the frozen 0.05 flagged {fa['frozen']['k']}/{fa['frozen']['n']} ({100 * fa['frozen']['rate']:.1f}%) and the P2 threshold 0.35 flagged {fa['p2_h36']['k']}/{fa['p2_h36']['n']} "
-                "(the registered claim at the depot tau* is not evaluable because no tau* exists)")
+                "(the registered claim at the depot tau* returns 'not supported' because no tau* exists; the 20% criterion holds at both existing thresholds; not added to the failed-claim count)")
     except (TypeError, KeyError):
         return ''
 
