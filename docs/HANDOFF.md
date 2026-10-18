@@ -7,6 +7,52 @@
 
 ---
 
+## ★ 圧縮後はここから（2026-10-18 19:10）
+
+**ユーザーの方針（最新）**
+* **サブエージェントは今後使わない**（10/18 19:10）。すべて自分で行う。
+* `rm` は使わない。消すものは `~/rescue-mind-trash/<日時>/` に移し、削除はユーザーに任せる。
+* 公開設定は変えない。YouTube 投稿と公開はユーザーが行う。日本語で簡潔に。事前登録し、失敗も載せる。コミットは I-xx で、push まで行う。
+* 締切は 2026-11-02 10:00 JST。
+
+**ブランチ**
+* main：登録と結果。i21-depot（worktree `.claude/worktrees/i21`）：文書と論文の作業場所。
+* 統合マージまでは、HANDOFF は i21 だけで編集する。
+* i21 が追跡するファイルを、main の作業ツリーに未追跡のまま置かない（マージが失敗する）。
+* `scripts/build_paper.sh` は main の図を再生成するので使わない。worktree では latexmk を直接呼ぶ。
+
+**結果（すべて論文・説明資料・README に反映済み）**
+* **A は主張成立**：
+  * 悪意ある助言で危険な配達があった世界：素朴 12/12、LLM ガードレール 12/12、本方式 0/12（p=0.0005）。
+  * 配達 43/43 は、助言なしの確認でも許可されるものだった。
+  * 正しい助言で中央値 27 秒短縮。誘導による配達できなかった世界は 14/16（FINDINGS #33）。
+* **IF は不成立**：すり替えの受理 12/36（#32）。→ I-27（聞き返し）を IF2 として登録し、実行待ち。
+* その他：V はモデルの主張が成立し、記憶の主張は不成立。W は ε の上限 5.7% で成立、W-b は不成立。I-20 は v3.7 に採用（元に戻す規則つき）。
+* 不成立の主張は7件：T1、F、T2、J、V4、W-b、IF1。
+* 第三者採点：第10回 35.5/40。模擬査読は R8 で、R9 は実行中（最後のサブエージェント）。
+
+**GPU の自動の連鎖**（scratchpad、nohup、通知なし。ログは scratchpad の *.log）
+1. `queue_chain.sh`（`queue.log`）：S（評価中、19:00 開始）→ B → XD → X → Q → `QUEUE_DONE`
+2. `after_queue.sh`：XD のステージ r（実写 258 枚）
+3. `after_xdr.sh`：i21 を main にマージ → `scripts/film_depot.sh`（倉庫の場面の撮影）
+4. `after_film.sh`：i21 をマージ → `if2_run.sh`（IF2）
+5. `after_if2.sh`：i21 をマージ → `a_offline_run.sh`（A のオフライン集合の test 半分。C1 の残り）
+* 確認：`grep -E "^=== |DONE|ABORT|FAILED" <scratchpad>/queue.log`。スクリプトが消えていたら、上の順で作り直す。
+
+**各段が終わったら（自分で行う）**
+* **S**：`s_summary.json` → `paper_numbers.py` → main.tex・supplement の S の文章と説明資料・README。いずれも生成スクリプト経由で、`check_consistency` は 0 にする。
+* **B・XD・X・Q・IF2・XD-R・A offline**：同様に反映する。IF2 の結果で I-27 の判断を書く。XD の結果で I-20 を元に戻す規則を判定する。
+* **動画の最終版**（撮影の後）：
+  1. `make_video_plan.py --recover b4fcd9d164444db7 --memory b93040decbf04ca4 --advice 076f3cb047064fae --depot <film_depot_runs.txt の run>`
+  2. rm-dev で `make_demo_video.py --narrate 2` → 3分以内を確認 → main の `outputs/video/PAI最終課題_tetsutetsu.mp4` に置く（旧版は残す）
+  3. `update_submission_facts.py`
+* **最後**：i21 を main にマージ → `make paper FINAL=1`（だめなら `make snapshot`）→ 採点 → `docs/SUBMISSION_CHECKLIST.md` に沿ってユーザーへ引き継ぐ。
+
+**ユーザーへの未回答の質問**
+1. git 履歴に残る個人パス（main の A チェックリストのコミット）を履歴の書き換えで消すか。force push が必要なので、指示があるまで行わない。
+2. OpenTimestamps（ハッシュのみ送る）を実施してよいか。
+3. ゴミ箱の確認と削除。
+
 ## 現在地（2026-10-18 10:00）— 圧縮後はここから
 
 ### 0'. 最新（2026-10-18 18:40）
