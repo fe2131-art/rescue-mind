@@ -137,10 +137,12 @@ def snapshot_expand(tex, pending, snapshot=True):
     return ''.join(out)
 
 
-def check_final(m, tables):
+def check_final(m, tables, studies=False):
     """FINAL=1, the strict mode: any macro or table that is still \\TBD refuses the build (SystemExit)."""
     pend = [ln.split('}')[0].split('{\\')[1] for ln in m.lines[2:] if ln.endswith('{\\TBD}')]
     pend += [n for n, b in tables.items() if '\\TBD' in b]
+    if studies:       # the real build: a study whose text is a 'not run' sentence is pending too
+        pend += [f'study {k} (no result file)' for k, has in advice_numbers.pending_all().items() if not has]
     if pend:
         raise SystemExit(f'FINAL: {len(pend)} pending (TBD) macros/tables: {pend[:12]} ...')
 
@@ -1228,7 +1230,7 @@ def main():
             path.write_text(text, encoding='utf8')
     write_if_changed(OUT / 'numbers.tex', m.text())
     if FINAL:   # final build: refuse to produce a paper with pending results
-        check_final(m, tables)
+        check_final(m, tables, studies=True)
     for name, body in tables.items():
         if SNAPSHOT:
             body = re.sub(r'\\TBD(?![A-Za-z])', lambda _: r'\SnapNA{}', body)
