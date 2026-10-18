@@ -21,7 +21,7 @@ Physical AI 応用1講座 最終課題 ｜ ROS 2 Jazzy × Gazebo Harmonic × ロ
 **手法の誠実さ**：論文の23研究の条件・閾値・解析を結果を見る前に登録し、git の履歴で登録が先だったことを機械的に確認（結果のある16件）。支持されなかった主張6件（T1・F・T2・J・V4・W-b。[結果](#結果)・[限界](#限界)）も、そのまま載せている。命題2は z3 で機械検証。
 <!-- KEY:END -->
 
-**動画**：YouTube（提出時にURLを記載）｜ [説明資料（PDF）](docs/report/説明資料_PAI最終課題_tetsutetsu.pdf) ｜ [論文（PDF）](docs/paper/main.pdf)（[補足](docs/paper/supplement.pdf)）｜ [5分で検証：`make verify-quick`（20秒）・`make verify`](docs/REPRODUCE.md) ｜ [現場への導入](docs/DEPLOYMENT.md)
+**動画**：<!--VIDEOURL-->YouTube（提出時にURLを記載）<!--/VIDEOURL-->｜ [説明資料（PDF）](docs/report/説明資料_PAI最終課題_tetsutetsu.pdf) ｜ [論文（PDF）](docs/paper/main.pdf)（[補足](docs/paper/supplement.pdf)）｜ [5分で検証：`make verify-quick`（20秒）・`make verify`](docs/REPRODUCE.md) ｜ [現場への導入](docs/DEPLOYMENT.md)
 
 ---
 
@@ -315,7 +315,7 @@ bash docker/build.sh                                   # ROS 2 Jazzy + Gazebo Ha
 #    旧環境（v3.3: torch 2.5.1 / transformers 4.53。図・PDF・テスト用の rm-dev）: docker build --build-arg STACK=v33 -t rescuemind:jazzy docker
 # 1) モデル重みを一度だけ取得（以降の実行は HF_HUB_OFFLINE=1）
 HF_HUB_OFFLINE=0 bash docker/run.sh python3 -c "from huggingface_hub import snapshot_download as s; s('Qwen/Qwen3.5-9B')"
-# 2) テスト（テスト関数 1319 件。数え方は静的で `python3 scripts/count_tests.py`。ROS/Gazebo不要の部分はDockerなしでも実行可）
+# 2) テスト（テスト関数 1331 件。数え方は静的で `python3 scripts/count_tests.py`。ROS/Gazebo不要の部分はDockerなしでも実行可）
 bash docker/run.sh python3 -m unittest discover -s tests -q
 # 3) 1回のAIミッション（Gazebo・ブリッジ・ガード・VLMを自動起動、証拠は outputs/runs/<run_id>/）
 V34="--model Qwen/Qwen3.5-9B --prompt-set v35 --intent-backend llm --intent-prompt i35 --recovery --explain"

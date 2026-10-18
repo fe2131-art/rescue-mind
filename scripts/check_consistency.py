@@ -302,7 +302,8 @@ def main():
         _n, _bad, _ = check_readme_links.check(ROOT / 'README.md')
         extra.append((f'README relative links ({_n} checked)', 'MISMATCH' if _bad else 'ok', '; '.join(_bad[:3])))
     first = '\n'.join(docs['readme'].splitlines()[:32])
-    _miss = [k for k in ('hero_lookaround.gif', '<!-- KEY:START -->', 'YouTube（提出時にURLを記載）', 'main.pdf', 'REPRODUCE.md', '説明資料') if k not in first]
+    _video_ok = 'YouTube（提出時にURLを記載）' in first or re.search(r'<!--VIDEOURL-->\[YouTube\]\(https://www\.youtube\.com/watch\?v=[A-Za-z0-9_-]{11}\)<!--/VIDEOURL-->', first)   # placeholder, or the URL set by scripts/set_video_url.py
+    _miss = [k for k in ('hero_lookaround.gif', '<!-- KEY:START -->', 'main.pdf', 'REPRODUCE.md', '説明資料') if k not in first] + ([] if _video_ok else ['video placeholder/URL'])
     extra.append(('README first screen (hero, key table, video placeholder, report, paper, REPRODUCE)', 'MISMATCH' if _miss else 'ok', ', '.join(_miss)))
     # video facts: chapters vs YouTube text vs README "what to watch" (no demo that is not in the video)
     ch = json.loads(read('docs/video_chapters.json') or '[]')

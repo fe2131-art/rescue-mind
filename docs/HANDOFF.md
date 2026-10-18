@@ -16,6 +16,7 @@
   3. `after_xdr.sh`（`after_xdr.log`）：i21 を main にマージ → `scripts/film_depot.sh`（倉庫の場面の撮影）。
 * **A が終わったら**：`python3 scripts/a_checklist.py --runs-dir ~/work/rescue-mind/outputs/runs` で C0〜C9 を判定する。続いて `a_analysis` → 論文・説明資料・README に反映する（Sonnet に依頼してよい）。
 * **動画の最終版**：撮影が終わったら `make_video_plan.py --recover b4fcd9d164444db7 --memory b93040decbf04ca4 --advice 076f3cb047064fae --depot <run>` → `make_demo_video.py --narrate 2`（3分以内）→ `update_submission_facts.py`。
+* **提出の手順（ご本人用）**：[`SUBMISSION_CHECKLIST.md`](SUBMISSION_CHECKLIST.md)（最終確認 → YouTube → `scripts/set_video_url.py` → public 化 → フォーム）。動画の URL の差し込みは `python3 scripts/set_video_url.py <URL> --apply`、公開前の検査は `python3 scripts/secret_scan.py --history`。
 * 締切前の保険：`make snapshot`（結果の出ていない研究は「登録済み・提出時点で未実施」と表記される）。
 
 ### A. ユーザーの方針（必ず守る）
@@ -74,7 +75,7 @@
 | Q（Wikimedia Commons 405 枚） | 実写の物資確認 | 登録済み・**未実行**（GPU 約 40 分。W の後の連鎖が .gitignore の衝突で止まり、一度も走っていない） |
 
 * 登録済み 7 本（A・B・IF・Q・S・X・XD）は統合マージ 09:08 で main に載り、A の予備走行が 09:14 に始まった時点で、IF・S・B・XD・X・Q は試行も推論もしていない。これらの登録ファイルには「DRAFT」の行が残るが、拘束力のある版は `docs/REGISTRATIONS.md` の表の版（ファイルは変えない。変更は日付とコミットつきの Amendment で追記する）。
-* テスト関数は 1319 件（`python3 scripts/count_tests.py` の静的な数え方）。FINDINGS は 31 件。
+* テスト関数は 1331 件（`python3 scripts/count_tests.py` の静的な数え方）。FINDINGS は 31 件。
 
 ### D. GPU の順番と、その動かし方
 
