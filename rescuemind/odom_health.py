@@ -12,6 +12,8 @@ from .frame_freshness import frame_stamp_ns
 class OdomHealth:
     last_stamp_ns: int | None = None
     last_position: tuple[float, float, float] | None = None
+    odom_frame: str = 'odom'          # I-26: the suffix header.frame_id must end with (default: unchanged)
+    base_frame: str = 'base_link'     # I-26: the suffix child_frame_id must end with (default: unchanged)
 
     def observe(self, msg) -> str | None:
         try:
@@ -24,7 +26,7 @@ class OdomHealth:
             norm=sum(v*v for v in quat)
             if not (0.9 < norm < 1.1):
                 return "invalid_odom_quaternion"
-            if not (str(msg.header.frame_id).endswith('odom') and str(msg.child_frame_id).endswith('base_link')):
+            if not (str(msg.header.frame_id).endswith(self.odom_frame) and str(msg.child_frame_id).endswith(self.base_frame)):
                 return "invalid_odom_frames"
             stamp=frame_stamp_ns(msg)
             if stamp is None:

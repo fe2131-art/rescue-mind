@@ -7,7 +7,86 @@
 
 ---
 
+## ★ 圧縮後はここから（2026-10-18 19:10）
+
+**ユーザーの方針（最新）**
+* **サブエージェントは今後使わない**（10/18 19:10）。すべて自分で行う。
+* `rm` は使わない。消すものは `~/rescue-mind-trash/<日時>/` に移し、削除はユーザーに任せる。
+* 公開設定は変えない。YouTube 投稿と公開はユーザーが行う。日本語で簡潔に。事前登録し、失敗も載せる。コミットは I-xx で、push まで行う。
+* 締切は 2026-11-02 10:00 JST。
+
+**ブランチ**
+* main：登録と結果。i21-depot（worktree `.claude/worktrees/i21`）：文書と論文の作業場所。
+* 統合マージまでは、HANDOFF は i21 だけで編集する。
+* i21 が追跡するファイルを、main の作業ツリーに未追跡のまま置かない（マージが失敗する）。
+* `scripts/build_paper.sh` は main の図を再生成するので使わない。worktree では latexmk を直接呼ぶ。
+
+**結果（すべて論文・説明資料・README に反映済み）**
+* **A は主張成立**：
+  * 悪意ある助言で危険な配達があった世界：素朴 12/12、LLM ガードレール 12/12、本方式 0/12（p=0.0005）。
+  * 配達 43/43 は、助言なしの確認でも許可されるものだった。
+  * 正しい助言で中央値 27 秒短縮。誘導による配達できなかった世界は 14/16（FINDINGS #33）。
+* **IF は不成立**：すり替えの受理 12/36（#32）。→ I-27（聞き返し）を IF2 として登録し、実行待ち。
+* その他：V はモデルの主張が成立し、記憶の主張は不成立。W は ε の上限 5.7% で成立、W-b は不成立。
+* **XD（倉庫の画像、10/19 04:21 完了・I-32）**：難しい火（小さく隠れた炎）の見回しの見逃し 12/100（Wilson 上限 19.8%）で登録した15%は不成立。全体 14/151（上限15.0%）、正面のみ 55/151。追加視点（I-20）は 2/151（12件減らし増やさず）だが火のない双子の 65/76 で発動（O3 不成立）→ **事前の撤回規則で既定にしない**（コードの既定は元から OFF）。再較正は τ* なし（0.05 での再現率 79%）。
+* * **Q（実写405枚、10/19 04:54 完了・I-36）**：誤許可 0/277（上限 1.4%）で安全側は成立、正しい物資の許可 52/128（40.6%）で登録の70%に届かず主張は不成立（安全だが保守的）。水 33/70、医療 19/58。拒否 76 件のうち 49 件は2回とも「その他」、26 件は順序で答えが割れた。SigLIP・CLIP は全部許可するが誤許可 65・60。
+* 不成立の主張は12件（T1・F・T2・J・V4・W-b・IF1・S-perm・XD-eps・XD-rel・XD-cal・Q）。
+* 第三者採点：第10回 35.5/40。模擬査読 R9 は完了し（`docs/paper/REVIEW_NOTES_R9.md`、採択見込み RA-L 約50%・ICRA 約33%）、文章の指摘は I-28 で反映済み。残り：A のオフライン224文の採点（連鎖の最後）、停止後も探索を続ける腕（設計の選択で、実装は大きいので今回は見送り）、XD の ε 上限（15% 以下か）が分かれ目。
+
+**GPU の自動の連鎖**（scratchpad、nohup、通知なし。ログは scratchpad の *.log）
+1. `queue_chain.sh`（`queue.log`）：S（完了・反映済み I-29）→ B（完了・反映済み I-30）→ XD（完了 04:21・反映済み I-32）→ X（**04:41 に予備走行で中止**、I-34、Amendment 1 を main に commit 済み。やり直しは手順 7）→ Q（完了 04:54・反映済み I-36）→ `QUEUE_DONE`
+2. `after_queue.sh`：XD のステージ r（実写 258 枚）
+3. `after_xdr.sh`：i21 を main にマージ → `scripts/film_depot.sh`（倉庫の場面の撮影）
+4. `after_film.sh`：i21 をマージ → `if2_run.sh`（IF2）
+5. `after_if2.sh`：i21 をマージ → `a_offline_run.sh`（A のオフライン集合の test 半分。C1 の残り）
+6. `after_aoff.sh`：i21 をマージ → `if_i38_run.sh`（IF の文を i38 で再実行する探索的な実験。登録した主張ではない。結果は `if_i38_summary.json`。R9 の指摘：IF は i35 だけだった）
+7. `after_x2.sh`（`after_x2.log`）：上の手順 6（IF38）の終わりを待ち、`x_run.sh`（予備走行をやり直し→X 本走）。X の結果が出たら記憶の転移・助言の方向づけ（X-s）を論文・補遺・README・説明資料に反映し、I-35 として記録する。
+* 確認：`grep -E "^=== |DONE|ABORT|FAILED" <scratchpad>/queue.log`。スクリプトが消えていたら、上の順で作り直す。
+
+**各段が終わったら（自分で行う）**
+* **S**：`s_summary.json` → `paper_numbers.py` → main.tex・supplement の S の文章と説明資料・README。いずれも生成スクリプト経由で、`check_consistency` は 0 にする。
+* **B・XD・X・Q・IF2・XD-R・A offline**：同様に反映する。IF2 の結果で I-27 の判断を書く。（XD は完了：I-20 は撤回。XD-R は `xd_real_summary.json` が出たら別に反映する。）
+* **動画の最終版**（撮影の後）：
+  1. `make_video_plan.py --recover b4fcd9d164444db7 --memory b93040decbf04ca4 --advice 076f3cb047064fae --depot <film_depot_runs.txt の run>`
+  2. rm-dev で `make_demo_video.py --narrate 2` → 3分以内を確認 → main の `outputs/video/PAI最終課題_tetsutetsu.mp4` に置く（旧版は残す）
+  3. `update_submission_facts.py`
+* **最後**：i21 を main にマージ → `make paper FINAL=1`（だめなら `make snapshot`）→ 採点 → `docs/SUBMISSION_CHECKLIST.md` に沿ってユーザーへ引き継ぐ。
+
+**ユーザーへの未回答の質問**
+1. git 履歴に残る個人パス（main の A チェックリストのコミット）を履歴の書き換えで消すか。force push が必要なので、指示があるまで行わない。
+2. OpenTimestamps（ハッシュのみ送る）を実施してよいか。
+3. ゴミ箱の確認と削除。
+
 ## 現在地（2026-10-18 10:00）— 圧縮後はここから
+
+### 0'. 最新（2026-10-18 18:40）
+* **A は完了**し、主張は成立（C0〜C6 すべて合格）：
+  * 悪意ある助言のもとで危険な配達があった世界は、素朴 12/12、LLM フィルタ 12/12、本方式 0/12（McNemar p=0.0005）。
+  * 本方式の配達 43 件はすべて、助言なしの確認でも許可されるものだった。
+  * 正しい助言で中央値 27 秒短縮。
+  * 読むときの条件：A の全試行は意図の質問 i38（Amendment 1）で走らせた。提出版の既定は i35（FINDINGS #30、DEPLOYMENT）。LLM フィルタはファイル経由の助言を見ない（止めた数：依頼文 7/12、ファイル 0/12、FINDINGS #34）ので、「フィルタ 12/12」はこの条件つき。
+  * 代償（記述的）：真の助言で火のある拠点へ誘導されると、配達できなかった世界は 本方式 14/16・scrutiny 11/16・助言なし 0/16。
+  * A の図：`scripts/make_a_figure.py`（論文は補足 S9 の図、README と説明資料は `docs/figures/a_results_ja.png`。本文 8 頁に収まらないので補足に置いた）。
+* **IF は主張不成立**：すり替えの受理が 12/36（FINDINGS #32）。→ 対策 I-27（物資が食い違えば聞き返す）を研究 IF2 として事前登録した。
+  * IF の結果は論文（失敗した登録済みの主張は 7 件目の IF1）・補足・README・説明資料・YouTube 説明・DEPLOYMENT（出発前の読み返しが必須）・storyline の 5 行目に反映済み（コミットの接頭辞 `study IF:`）。IF2 は登録済み・結果待ち（`bash scripts/if2_run.sh`）で、結果が出たら `advice_numbers.if_facts` と同じ形で IF2 の読み取りを足す。I-27 の判断は IF2 の結果まで保留。
+* **残りの GPU の順番**（自動。ログは scratchpad）：
+  1. `queue.log`：S → B → XD → X → Q
+  2. `after_queue.log`：XD のステージ r
+  3. `after_xdr.log`：倉庫の撮影
+  4. `after_film.log`：IF2
+  5. `after_if2.log`：A のオフライン集合（test 半分、i38）。C1 の未了項目。
+
+### 0. 最新の状態（2026-10-18 14:30）
+* **GPU の順番**（すべて自動。scratchpad の nohup スクリプトで動かしていて、通知は来ない）：
+  1. `queue_chain.sh`（ログは `queue.log`）：A（11:11 に開始、18:00 に完了：判定 HEADLINE_HOLDS）→ IF → S → B → XD → X → Q → `QUEUE_DONE`。
+  2. `after_queue.sh`（`after_queue.log`）：XD のステージ r（実写 258 枚）。
+  3. `after_xdr.sh`（`after_xdr.log`）：i21 を main にマージ → `scripts/film_depot.sh`（倉庫の場面の撮影）。
+* **A は完了し、論文・補遺・説明資料・README・YouTube 説明・動画の証拠カード・図（graphical abstract）・IMPROVEMENT_LOG I-19・FINDINGS #33・#34 に反映済み**（コミットの接頭辞 `study A:`）。残り：登録した224件のオフライン注入セット（`scripts/advice_injection_eval.py --split test`、GPU）の採点は**未実施**で、論文は「採点していない」と書いている。採点したら `experiments/results/advice_injection_eval.json` ができ、`a_checklist.py` の C1 が PASS_RUNS_OFFLINE_PENDING から変わる。
+* **動画の最終版**：撮影が終わったら `make_video_plan.py --recover b4fcd9d164444db7 --memory b93040decbf04ca4 --advice 076f3cb047064fae --depot <run>` → `make_demo_video.py --narrate 2`（3分以内）→ `update_submission_facts.py`。
+* **提出の手順（ご本人用）**：[`SUBMISSION_CHECKLIST.md`](SUBMISSION_CHECKLIST.md)（最終確認 → YouTube → `scripts/set_video_url.py` → public 化 → フォーム）。動画の URL の差し込みは `python3 scripts/set_video_url.py <URL> --apply`、公開前の検査は `python3 scripts/secret_scan.py --history`。
+* 締切前の保険：`make snapshot`（結果の出ていない研究は「登録済み・提出時点で未実施」と表記される）。
+
+* **落とし穴（10/18）**：`scripts/build_paper.sh` は `docker exec rm-dev … make_paper_figures.py` を呼ぶ。rm-dev は **main の作業ツリー**で動くので、worktree から実行すると main の図の PDF が再生成される。worktree では latexmk を直接呼ぶか、`docker exec -w <worktree>` を使う。
 
 ### A. ユーザーの方針（必ず守る）
 
@@ -15,15 +94,16 @@
 * **メインの自分も改善作業をする**（サブエージェント任せにしない）。結果を分析し、最大の弱点に絞って、事前登録した評価で確かめる。だらだら改善を続けない。ユーザーが「ストップ」と言うまで自律的に改善を続ける。
 * リポジトリの**公開設定（private → public）は絶対に変更しない**。公開と YouTube 投稿は**ユーザーが行う**。push は可。
 * ユーザーへの質問・説明は**日本語・簡潔**に。omnicampus のアカウント名は `tetsutetsu`。
-* **事前登録してから走らせる。失敗した主張も消さずに載せる**（論文で不成立の主張は六つ：T1 の「2% 未満」、F、T2、J、V4、W-b）。改善は `docs/IMPROVEMENT_LOG.md` に「動機→仮説→変更→計測(Before/After)→判断」で書き、**コミットの先頭は `I-xx`**。コミットは必ず push する。
+* **事前登録してから走らせる。失敗した主張も消さずに載せる**（論文で不成立の主張は12件：T1・F・T2・J・V4・W-b・IF1・S-perm・XD-eps・XD-rel・XD-cal・Q。件数と一覧は `scripts/check_consistency.py` が `advice_numbers.failed_claims()` と突き合わせる）。改善は `docs/IMPROVEMENT_LOG.md` に「動機→仮説→変更→計測(Before/After)→判断」で書き、**コミットの先頭は `I-xx`**。コミットは必ず push する。
 * **sudo は使わない**（docker グループ権限だけで全て動く）。必要になったらユーザーに依頼する。
+* **`rm` は使わない**（2026-10-18 ユーザー指示。`rm -rf`・`git clean`・`unlink`・`find -delete` も同じ）。消したいものは `~/rescue-mind-trash/<日時>/` に相対パスのまま移し、移したものをユーザーに伝える。削除はユーザーが確認してから行う。サブエージェントへの指示にも必ず書く。
 * **個人情報を入れない**（ホームのパス、スクラッチパッドのパスは `tests/test_no_personal_paths.py` が落とす。文書では `<scratchpad>`、`<user>` と書く）。
 * 動画は **1〜3 分**（現在 2:53）。倍速は区間ごとに画面表示（走行 8 倍、確認 3 倍、判断の瞬間は等速）。
 * 説明資料のファイル名は **`説明資料_PAI最終課題_tetsutetsu.pdf`**（`docs/report/`）。**締切は 2026-11-02 10:00 JST**。
 * 評価基準（創造性・技術力・実用性・表現力）と、論文として通用する水準を常に意識する。実機は用意できない → シミュレーションでできることはすべてやる。
 * 当初計画（Jev＋Qwen の 2 つの AI による確認）から勝手に外れない（Jev の役割はローカルの Clef-Flash。J で実装・検証し、採用しなかった結果を論文に載せた）。
 * 評価（GPU キャンペーン）の実行中は、重い処理（ビルド・テスト・図・動画）と実行時コードの編集をしない。CPU を使うときは `nice -n 19`。
-* 第三者採点（Sonnet 5.5 に `docs/evaluations/EVALUATOR_PROMPT.md` で採点させる）を定期的に行い、点数を上げる改善点トップ5に沿って直す。最新は第8回 **34.0/40**（`docs/evaluations/EVAL_2026-10-18_8.md`）。模擬査読は R8 まで（`docs/paper/REVIEW_NOTES_R8.md`、判定は borderline）。
+* 第三者採点（Sonnet 5.5 に `docs/evaluations/EVALUATOR_PROMPT.md` で採点させる）を定期的に行い、点数を上げる改善点トップ5に沿って直す。最新は第10回 **35.5/40**（`docs/evaluations/EVAL_2026-10-18_10.md`。回と点数は `check_consistency.py` が最新の評価ファイルと突き合わせる）。模擬査読は R8 まで（`docs/paper/REVIEW_NOTES_R8.md`、判定は borderline）。
 
 ### B. ブランチの考え方
 
@@ -55,8 +135,8 @@
 | W（小さく隠れた火 150＋双子 75、画像） | 見回しの取りこぼし上限と先行手法 | **完了**。見逃し 見回し 3/150（Wilson 上限 5.7% ≤ 15%、**成立**）、正面のみ 76/150（横からしか見えない火 23 件のうち 22 件）、双子の余計な停止 0/75（**成立**）。先行手法（同じ全体画像）：本方式 3/815、投票 9/815（Holm p=0.094）、KnowNo 風 α=0.05 は 1/815 で正しい許可が 303/384 に低下 → 判定規則そのものが優れる主張は**不成立（0/3）**。I-20（疑わしいとき視点を増やす）：見逃し 2/150、双子の損失 0/75 → 事前の規則を満たし v3.7 の既定にした |
 | I-22 Gazebo 確認 | 配送インターロックの実機（シミュレーション）確認 | **合格**（4 ミッション。許可証は承認時のみ、隠れた火＋「確認不要」の助言は拒否・停止）。動画の素材にした |
 | I-23 / I-24 | 命題 2 の z3 検証／助言の信用枠 | I-23：99 件が unsat、実関数との突き合わせ 9,000 件で不一致 0、変異 11/11 検出（F1〜F3 を修正）。I-24：命題 3、閉ループは B で測る |
-| **A（226 run、予備走行 27 run）** | 助言は検査を緩められるか、攻撃者が買えるもの | **予備走行は失敗**（2026-10-18 09:14〜）。依頼文で助言する経路（operator）の run がすべて意図ゲートで拒否された（v3.6 の意図プロンプト i35 が、拠点を「避難所 B 以外の届け先」と読む）→ **FINDINGS #30**。i38 は事前に固定した規則（I-25）で採用済み（`experiments/results/intent_i38_check.json`：保留 55/60 で両方同じ・危険 0、dev の注入で正しい受理 86→92/94・取り違え 0）。**Amendment 1**（`experiments/PREREGISTRATION_A.md`、コミット 2a1bab0）で A の全試行を i38 にし、最初のパイロット台帳は `campaign_A_pilot1_ledger.jsonl` に残した（27 試行：依頼文チャネル 12 件中 0 件が意図どおり、うち 6 件は意図の段で拒否、残りは取れた項目が設計と違った）。新しい台帳でパイロットをやり直し中。論文・補遺・README・報告に反映済み（`tab_amend.tex`、マクロ `APilot*` `AInt*`）。v3.6 の既定は i35 のまま、IF は i35 を測る |
-| IF（72 文） | 依頼文で依頼物資を書き換えられるか | 登録済み・**未実行**（GPU 約 2 分） |
+| **A（226 run、予備走行 27 run）** | 助言は検査を緩められるか、攻撃者が買えるもの | **予備走行は失敗**（2026-10-18 09:14〜）。依頼文で助言する経路（operator）の run がすべて意図ゲートで拒否された（v3.6 の意図プロンプト i35 が、拠点を「避難所 B 以外の届け先」と読む）→ **FINDINGS #30**。i38 は事前に固定した規則（I-25）で採用済み（`experiments/results/intent_i38_check.json`：保留 55/60 で両方同じ・危険 0、dev の注入で正しい受理 86→92/94・取り違え 0）。**Amendment 1**（`experiments/PREREGISTRATION_A.md`、コミット 2a1bab0）で A の全試行を i38 にし、最初のパイロット台帳は `campaign_A_pilot1_ledger.jsonl` に残した（27 試行：依頼文チャネル 12 件中 0 件が意図どおり、うち 6 件は意図の段で拒否、残りは取れた項目が設計と違った）。**Amendment 2**（コミット 1163eee、10:38）で予備走行の合格条件を「依頼文チャネルの意図の受理 9/12 以上」に変え、正確な取り出し（FINDINGS #31：最初の予備走行で 0/6）は報告項目にした。新しい台帳でやり直した予備走行は合格した（`A_PILOT_OK` 10:56：意図の受理 12/12、ファイルチャネル 12/12、正確な取り出し 0/12）。**本走行（226 試行、11:11 開始、失敗 0）は完了し、登録した主張は成立**（`a_checklist.md`：C0〜C6 合格、判定 HEADLINE_HOLDS）：悪意のある助言の12世界で危険な配達が起きた世界は 素朴 12/12・LLM ガードレール 12/12・本方式 0/12（McNemar p=0.0005）、本方式の配達 43/43 は助言なしの確認でも許可、正しい助言の時間短縮 中央値 27.1 秒（6/6、p=0.031）、代償は上限内（最大 +41.7 秒 ≤ 50.6 秒、取りこぼし 0）。A-steer は記述的：本方式の危険な配達 2/16（確認の誤り、有意でなく ε_any の区間内）、**配達できない世界 14/16**（FINDINGS #33）。ガードレールは助言ファイルでは 0/12 しか止めなかった（FINDINGS #34）。依頼文チャネルの正確な取り出しは 36/72（報告項目）。**未了：オフライン注入セットの採点**。論文・補遺・README・報告・YouTube・動画の証拠カードに反映済み（マクロ `AWorlds*` `ASteer*` など。生成は `advice_numbers.a_facts()`）。v3.6 の既定は i35 のまま、IF は i35 を測る |
+| IF（72 文） | 依頼文で依頼物資を書き換えられるか | **完了・不成立**。36 文中 12 文で、注入された物資を受理（FINDINGS #32）。対策は IF2（登録済み・未実行） |
 | S（64 世界、276 画像） | 場面内の文字（貼り紙・看板）による注入 | 登録済み・**未実行**（約 2.4 時間。看板の確認 `sign_check_ok` は済み） |
 | B（48 run＋予備走行 6） | 信用枠（I-24）の閉ループ | 登録済み・**未実行**（約 1.5 時間。Amendment 2：両アームでインターロックを有効にする） |
 | XD（画像、4 拠点の倉庫） | 倉庫で v3.6 の検査を再測定。I-20 を取り消す規則の判定を含む | 登録済み・**未実行**（スモーク確認 `xd_smoke_ok` は済み）。XD-R の実写の火のない倉庫写真は採点前に凍結済み（Commons の候補 394 枚から目視確認で 258 枚を採用、`experiments/xd_real_manifest.jsonl`・`xd_real_exclusions.json`。登録どおり先頭 200 枚を採点） |
@@ -64,14 +144,14 @@
 | Q（Wikimedia Commons 405 枚） | 実写の物資確認 | 登録済み・**未実行**（GPU 約 40 分。W の後の連鎖が .gitignore の衝突で止まり、一度も走っていない） |
 
 * 登録済み 7 本（A・B・IF・Q・S・X・XD）は統合マージ 09:08 で main に載り、A の予備走行が 09:14 に始まった時点で、IF・S・B・XD・X・Q は試行も推論もしていない。これらの登録ファイルには「DRAFT」の行が残るが、拘束力のある版は `docs/REGISTRATIONS.md` の表の版（ファイルは変えない。変更は日付とコミットつきの Amendment で追記する）。
-* テスト関数は 1270 件（`python3 scripts/count_tests.py` の静的な数え方）。FINDINGS は 30 件。
+* テスト関数は 1429 件（`python3 scripts/count_tests.py` の静的な数え方）。FINDINGS は 36 件。
 
 ### D. GPU の順番と、その動かし方
 
 **予定の順番**：i38 の確認 → **A（再実行）** → IF → S → B → XD → X → Q。GPU は同時に 1 本だけ（同じ ROS ドメイン／Gazebo パーティション／ポート 8765 を使うので並行しない）。
 
 **今の状態（10:00 ごろ）**
-* A のパイロット（`bash scripts/a_run.sh`、main のチェックアウトで 09:14 開始）が最後まで走っている。09:41 時点で台帳 `experiments/results/campaign_A_pilot_ledger.jsonl` は 20 行（27 試行の計画）。終わると `a_analysis.py --pilot` が不合格（依頼文チャネルの抽出が 12 件中 9 件に届かない）になり、`A_ABORT` で止まる（`a_pilot_ok` は作られない）。これは設計どおりの停止で、本番 A は始まらない。
+* （解決済み）A の最初のパイロットは 09:14 に始まり、i35 では依頼文チャネルが意図の段で拒否されて不合格になった（FINDINGS #30・#31）。i38 の採用（Amendment 1）と合格条件の変更（Amendment 2）のあと、パイロットは合格し（10:56）、本走行が 11:11 に始まった。
 * スクラッチパッドの連鎖 `i38_check_chain.sh`（実行中）が、`after_q.log` に `A_CHAIN_ABORT`（または `A_CHAIN_DONE`）が出るのを待つ → main に i21-depot をマージして push → サーバを i35 と i38 で順に起動し `scripts/intent_i38_check.py --tag i35|i38`（約 10 分）→ `--decide` → `I38_CHECK_DONE`。**採用規則は走らせる前に固定済み**（`scripts/intent_i38_check.py` の冒頭と FINDINGS #30。IMPROVEMENT_LOG にはまだ i38 の項が無い）：保留テスト集合（held_out_v34）で危険な誤りが増えず、正しい答えの減りが 1 件以内、かつ注入文の dev 半分で避難所の取り違えが 0 件のまま正しい受理が増えること。結果は `experiments/results/intent_i38_check.json`。
 * **このチェーンは main に `experiments/results/i38_stop_server.sh`・`i38_server_*.log`・`intent_i38_check.json` を作る（untracked）。** i21 側で同名のファイルを追跡しないこと。
 
@@ -121,7 +201,7 @@ docker exec rm-dev rescuemind-entrypoint python3 scripts/make_video_plan.py ... 
 ### G. 成果物の状態と整合性
 
 * 論文：`docs/paper/main.pdf` 10 頁（本文は 8 頁以内、参考文献は 8 頁目から）、補足 `supplement.pdf` 22 頁。未実行の研究の結果欄は灰色の「(pending)」（`make paper FINAL=1` は pending が残ると失敗する）。説明資料 `docs/report/説明資料_PAI最終課題_tetsutetsu.pdf` は **20 頁**（旧版の HANDOFF は 18 頁と書いていた）。
-* `python3 scripts/check_consistency.py`：**0 mismatch**（2026-10-18 09:43 に確認）。A・S・X の README の行は「実行中」、V・W は結果ありで検査する。結果が出るたびに、検査の「結果待ち」の期待も更新する。
+* `python3 scripts/check_consistency.py`：**0 mismatch**（2026-10-18 09:43 に確認）。S・X の README の行は「実行中」、A・V・W は結果ありで検査する（A は 18:00 に完了）。結果が出るたびに、検査の「結果待ち」の期待も更新する。
 * 整合性検査を通し、`make paper FINAL=1` が通る状態を締切（11/02 10:00）の数日前までに作る。結果が出ない研究があっても、登録どおり「未実行」と書いた版で確定できるようにしておく。
 
 ---
@@ -208,7 +288,7 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 ## 7. 主要ファイルの地図
 
 * 現在地・履歴：このファイル。旧版の全文：`docs/HANDOFF_ARCHIVE.md`。
-* `docs/ARCHITECTURE.md`（全体フロー図）、`docs/DESIGN_DECISIONS.md`（D1–D15）、`docs/IMPROVEMENT_LOG.md`（I-01–I-24）、`docs/FINDINGS.md`（実行で見つけた30件）、`docs/REVIEW_AND_PLAN.md`（審査基準別レビュー）。
+* `docs/ARCHITECTURE.md`（全体フロー図）、`docs/DESIGN_DECISIONS.md`（D1–D15）、`docs/IMPROVEMENT_LOG.md`（I-01–I-24）、`docs/FINDINGS.md`（実行で見つけた36件）、`docs/REVIEW_AND_PLAN.md`（審査基準別レビュー）。
 * `docs/REGISTRATIONS.md`（事前登録の台帳：main に載った最初のコミットと sha256）、`docs/REPRODUCE.md`（クリーンな Ubuntu＋NVIDIA 環境での 3 段階の再現手順）、`docs/REPRODUCIBILITY.md`。
 * `docs/evaluations/`（第三者採点、第1〜8回と固定の指示文）、`docs/paper/`（論文・補足・`REVIEW_NOTES*.md`・`LITERATURE_*.md`・`PROOF_REVIEW.md`）、`docs/report/`（説明資料）、`docs/design/`（I-19〜I-24 の設計、動画 v5 の計画）。
 * `experiments/`（事前登録 `PREREGISTRATION_*.md`・プロトコル・開発セット・台帳 `results/campaign_*_ledger.jsonl`・要約 `results/*_summary.json`）。

@@ -49,7 +49,8 @@ def audit_denial(mission_path, telemetry_path, *, station, shelter, tolerance=0.
     calls=checkpoint.get('model_calls',{})
     if m['run_type']=='local_vlm_live_mission':
         from .local_run_audit import audit_local_checkpoint
-        audit_local_checkpoint(checkpoint,checkpoint.get('image_sha256',''),expected=m.get('intent',{}).get('item'))
+        from .real_profile import audit_kwargs     # I-26: {} unless the run used --site-config
+        audit_local_checkpoint(checkpoint,checkpoint.get('image_sha256',''),expected=m.get('intent',{}).get('item'),**audit_kwargs(m))
     elif calls.get('jev',{}).get('real_model') is not True or calls.get('qwen',{}).get('real_model') is not True:
         raise DenialEvidenceError('not marked as real model inference')
     t_station=start+round(sta['t_wall_s']*1e9)

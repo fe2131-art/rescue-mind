@@ -7,6 +7,9 @@ ROOT=Path(__file__).resolve().parents[1]
 PRIVATE_NAMES={'.env','credentials.json','service-account.json','id_rsa'}
 PATTERNS={'secret_key':re.compile(r'(?:jv_live_|sk-)[A-Za-z0-9_=-]{16,}'),
           'email_address':re.compile(r'\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b')}
+# Not personal data: GitHub noreply / commit-trailer addresses, documentation addresses, and the contact addresses of third-party code under worlds/assets/
+EMAIL_OK=re.compile(r'(?i)@(?:users\.noreply\.github\.com|anthropic\.com|example\.(?:com|org|net)|localhost)$|^git@github\.com$')
+THIRD_PARTY_DIRS=('worlds/assets/',)
 ALLOW_SUFFIXES={'.py','.md','.txt','.json','.yml','.yaml','.sh','.toml','.sdf','.srt','.csv'}
 
 def audit():
@@ -18,8 +21,11 @@ def audit():
         if p.suffix not in ALLOW_SUFFIXES:continue
         scanned+=1
         text=p.read_text(encoding='utf-8',errors='ignore')
+        if relative.startswith(THIRD_PARTY_DIRS):continue
         for kind,pattern in PATTERNS.items():
-            if pattern.search(text):
+            hits=[m.group(0) for m in pattern.finditer(text)]
+            if kind=='email_address':hits=[h for h in hits if not EMAIL_OK.search(h)]
+            if hits:
                 findings.append({'path':relative,'issue':kind})
     return {'status':'PASS' if not findings else 'FAIL','scanned_text_files':scanned,
             'findings':findings,'manual_privacy_and_screen_recording_review_still_required':True}

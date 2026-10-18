@@ -7,13 +7,21 @@ not exist is omitted (a public description never says "running").
 
   python3 scripts/make_youtube_description.py            # rewrite docs/YOUTUBE_DESCRIPTION.md and docs/SUBMISSION.md
   python3 scripts/make_youtube_description.py --check    # exit 1 if either file is out of date
+  python3 scripts/make_youtube_description.py --snapshot # submission snapshot -> docs/snapshot/YOUTUBE_DESCRIPTION.md (tracked files untouched)
+
+--snapshot (or SNAPSHOT=1): a closing line names the registered studies that were not run at submission ("登録済み・提出時点で未実施"),
+so the text reads as finished; their numbers are still omitted.
 """
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
+if '--snapshot' in sys.argv:      # submission snapshot (read before advice_numbers is imported)
+    os.environ['SNAPSHOT'] = '1'
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import youtube_chapters  # noqa: E402  (YouTube-valid chapters: merge short segments, validate)
 import advice_numbers  # noqa: E402  (study V wording: single source shared with the README and the report)
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -46,7 +54,7 @@ def circled(i):
 def video_facts(chapters):
     if not chapters:
         raise ValueError('no chapters')
-    chapters = sorted(chapters, key=lambda c: c['start_s'])
+    chapters = youtube_chapters.merge_short(chapters)      # idempotent: a list that is already valid is returned unchanged
     total = chapters[-1]['end_s']
     missions = [c for c in chapters if c.get('kind') == 'mission']
     speeds = []
@@ -56,11 +64,7 @@ def video_facts(chapters):
     warn = []
     if not 60 <= total <= 180:
         warn.append(f'video length {total:.1f}s is outside the 1-3 minute requirement')
-    for c in chapters:
-        if c['end_s'] - c['start_s'] < 10:
-            warn.append(f"chapter '{c['title']}' ({mmss(c['start_s'])}) is shorter than 10 s (YouTube may ignore the chapter list)")
-    if mmss(chapters[0]['start_s']) != '0:00':
-        warn.append('first chapter does not start at 0:00')
+    warn += youtube_chapters.validate(chapters)
     return {'chapters': chapters, 'total_s': total, 'length_mmss': mmss(round(total)),
             'length_ja': f'{int(round(total)) // 60}分{int(round(total)) % 60}秒',
             'missions': missions, 'speeds': speeds,
@@ -73,7 +77,7 @@ def demo_sentence(facts):
         return None
     items = []
     for i, c in enumerate(ms):
-        t = strip_demo(c['title'])
+        t = strip_demo(youtube_chapters.demo_title(c))
         items.append(f'{circled(i)}{GLOSS.get(t, t)}')
     return f'デモは{len(ms)}場面：' + ' '.join(items) + '。'
 
@@ -242,6 +246,18 @@ def line_v(res):
     return t
 
 
+def line_a(res):
+    """Study A (hostile advice, closed loop): the headline and the steering cost, one line."""
+    t = advice_numbers.a_short_ja()
+    return f"・悪意のある助言の評価A（226試行）：{t}" if t else None
+
+
+def line_if(res):
+    """Study IF (request text switching the supply): a failed registered claim, stated with its countermeasure status."""
+    t = advice_numbers.if_short_ja()
+    return f"・{t}。依頼物資は保証の外なので、出発前に運用者が解析結果を読み返す運用を必須としている" if t else None
+
+
 def line_w(res):
     """Study W (image level), short: bound claim, prior-art separation (failed), I-20 decision."""
     f = advice_numbers.w_facts()
@@ -290,8 +306,8 @@ def headline_block(res):
     h = jload(res / 'h_summary.json')
     try:
         p1, p3 = h['P1_efficiency_relocation_persist'], h['P3_no_extra_risk_vs_v36']
-        nums.append(f"③記憶で先に向かう拠点を決めると、物資が移されたままの{p1['n_pairs']}出動で所要時間（中央値）{p1['time_M0_median_s']:.0f}秒→{p1['time_M2_median_s']:.0f}秒。"
-                    f"確認は省かないので危険な配達は 記憶なし {p3['unsafe_M0']}/{p3['n_pairs']}・記憶つき {p3['unsafe_M2']}/{p3['n_pairs']}。元に戻った出動は遠回りで遅い（README参照）。"
+        nums.append(f"③記憶で先に向かう拠点を決めると、物資が移されたままの{p1['n_pairs']}出動で所要時間（中央値）{p1['time_M0_median_s']:.0f}秒→{p1['time_M2_median_s']:.0f}秒（全{p3['n_pairs']}出動 {h['per_arm']['M0']['time_median_s']:.0f}→{h['per_arm']['M2']['time_median_s']:.0f}秒）。"
+                    f"確認は省かないので危険な配達は 記憶なし {p3['unsafe_M0']}/{p3['n_pairs']}・記憶つき {p3['unsafe_M2']}/{p3['n_pairs']}。元に戻った出動は遠回りで遅い。"
                     + (advice_numbers.pooled_memory_short_ja() if advice_numbers.pooled_memory() else ''))
     except (TypeError, KeyError):
         pass
@@ -300,14 +316,23 @@ def headline_block(res):
     return out
 
 
+def line_pending(res):
+    """Snapshot only: the registered studies without results, in one line (the description otherwise omits them)."""
+    if not advice_numbers.snapshot_mode():
+        return ''
+    ks = advice_numbers.pending_list()
+    return (f"・{advice_numbers.PENDING_JA}：{'・'.join(ks)}（数値なし）" if ks else '')
+
+
 def number_lines(res):
-    fns = (line_t1, line_t2, line_z, line_r, line_p, line_l, line_h, line_v, line_w, line_j)
+    fns = (line_t1, line_t2, line_z, line_r, line_p, line_l, line_h, line_v, line_w, line_a, line_if, line_j, line_pending)
     return [x for x in (f(res) for f in fns) if x]
 
 
 # ------------------------------------------------------------------ documents
-DROP_ORDER = ('（T2）', 'ゼロショット', '劣化', '評価J', '評価P', '（T1）')     # detail lines dropped first when over YouTube's 5000 bytes
-LIMIT = 4990
+DROP_ORDER = ('（T2）', 'ゼロショット', '劣化', '評価J', '評価P', '（T1）')     # detail lines dropped first when over YouTube's 5000 characters
+DROP_ORDER_SNAP = ('閉ループ評価L',)      # snapshot only: the extra "not run at submission" line needs the room
+LIMIT = 4900      # YouTube's limit is 5000 CHARACTERS (not bytes); a margin of 100 characters
 
 
 def watch_sentence(facts):
@@ -355,12 +380,13 @@ def build_description(chapters, res, _nums=None):
                  '- 採点完了まで削除・非公開にしない')
     out = '\n\n'.join(paras) + '\n'
     body = out.split('## 概要欄\n', 1)[1].split('\n\n## 公開設定', 1)[0]
-    if len(body.encode('utf8')) > LIMIT and nums:
-        for key in DROP_ORDER:
+    if len(body) > LIMIT and nums:
+        snap = advice_numbers.snapshot_mode()
+        for key in DROP_ORDER + (DROP_ORDER_SNAP if snap else ()):
             keep = [x for x in nums if key not in x]
             if len(keep) < len(nums):
                 if not any('README' in x for x in keep):
-                    keep.append('・ほかの結果（画像テスト・画質の変化・比較手法など）は README と説明資料に掲載')
+                    keep.append('・ほかの結果（画像テスト・画質の変化・比較手法' + ('・未知の配置' if snap else '') + 'など）は README と説明資料に掲載')
                 return build_description(chapters, res, keep)
     return out, facts
 
@@ -393,16 +419,22 @@ def main(argv=None):
     ap.add_argument('--out', default=str(ROOT / 'docs/YOUTUBE_DESCRIPTION.md'))
     ap.add_argument('--submission', default=str(ROOT / 'docs/SUBMISSION.md'))
     ap.add_argument('--check', action='store_true', help='do not write; exit 1 if a file is out of date')
+    ap.add_argument('--snapshot', action='store_true', help='submission snapshot: write docs/snapshot/YOUTUBE_DESCRIPTION.md, name the studies not run at submission')
     a = ap.parse_args(argv)
+    if a.snapshot:
+        os.environ['SNAPSHOT'] = '1'
+        if a.out == str(ROOT / 'docs/YOUTUBE_DESCRIPTION.md'):
+            a.out = str(advice_numbers.snapshot_dir() / 'YOUTUBE_DESCRIPTION.md')
+        a.submission = ''     # docs/SUBMISSION.md is a tracked document: the snapshot does not rewrite it
     chapters = json.loads(Path(a.chapters).read_text(encoding='utf8'))
     desc, facts = build_description(chapters, a.results)
     sub_path = Path(a.submission)
-    sub_new = splice(sub_path.read_text(encoding='utf8'), build_submission_block(facts)) if sub_path.is_file() else None
+    sub_new = splice(sub_path.read_text(encoding='utf8'), build_submission_block(facts)) if a.submission and sub_path.is_file() else None
     for w in facts['warnings']:
         print('WARNING:', w, file=sys.stderr)
     body = desc.split('## 概要欄\n', 1)[1].split('\n\n## 公開設定', 1)[0]
-    if len(body.encode('utf8')) > 5000:
-        print(f"WARNING: description is {len(body.encode('utf8'))} bytes (YouTube limit 5000)", file=sys.stderr)
+    if len(body) > LIMIT:
+        print(f"WARNING: description is {len(body)} characters (YouTube limit 5000, ours {LIMIT})", file=sys.stderr)
     out = Path(a.out)
     stale = []
     if not out.is_file() or out.read_text(encoding='utf8') != desc:
@@ -413,6 +445,7 @@ def main(argv=None):
         print('up to date' if not stale else 'STALE: ' + ', '.join(stale))
         return 1 if stale else 0
     if str(out) in stale:
+        out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(desc, encoding='utf8')
     if str(sub_path) in stale:
         sub_path.write_text(sub_new, encoding='utf8')

@@ -1,18 +1,27 @@
 #!/usr/bin/env python3
 """Rewrite the README results block from experiments/results (no hand-typed numbers).
 
+  python3 scripts/update_readme_results.py              # rewrites README.md (and the prose counts of FINDINGS.md / HANDOFF.md)
+  python3 scripts/update_readme_results.py --snapshot   # submission snapshot -> docs/snapshot/README.md (SNAPSHOT_DIR overrides); nothing tracked is touched
+
+--snapshot (or SNAPSHOT=1): a study without results reads "登録済み・提出時点で未実施" / "registered, not yet run at submission"
+(no "running", "awaiting results" or "pending"); a study with results keeps its numbers.
+
 Pre-registered evaluations: campaigns G and F (closed loop, paired, v3.6 look-around), E (v3.5, primary
 for the broad scenarios), D (v3.4) and the held-out tests T1 and T2 (offline, 600 images each). Every number is
 computed from the result files; a part whose input file is missing is skipped.
 """
 from __future__ import annotations
 import json
+import os
 import re
 import statistics
 import sys
 from collections import Counter
 from pathlib import Path
 
+if '--snapshot' in sys.argv:      # submission snapshot (read before advice_numbers is imported)
+    os.environ['SNAPSHOT'] = '1'
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from t1_analysis import decide, wilson  # noqa: E402
@@ -272,6 +281,18 @@ T1 で分かった弱点に、結果を見る前に固定した条件で段階�
 
 PENDING = '実行中（事前登録済み）'
 PENDING_NOT_RUN = '結果待ち（事前登録済み・未実行）'
+SNAP = advice_numbers.snapshot_mode()
+PENDING_JA_SHORT = advice_numbers.PENDING_JA if SNAP else '結果待ち'
+SNAP_JA = (('結果待ちの研究は「結果待ち」と書き、数値は結果ファイルから自動で入る。', '結果のない研究は「登録済み・提出時点で未実施」と書き、数値は載せない。'),
+           ('（「結果待ち」は結果ファイルがまだ無い研究。結果ができると[結果](#結果)の表が先に更新される）', '（「登録済み・提出時点で未実施」は、提出時点で結果のない研究）'),
+           ('は結果待ちです。', 'は' + advice_numbers.PENDING_JA + 'です。'), ('結果待ち', advice_numbers.PENDING_JA))
+if SNAP:      # the one wording of the submission snapshot (scripts/advice_numbers.py)
+    PENDING = PENDING_NOT_RUN = advice_numbers.PENDING_JA
+# English phrases of the README that say a study is running / waiting / pending; in the snapshot they say what is true at the freeze
+SNAP_EN = (('pre-registered, running, no results yet', advice_numbers.PENDING_EN), ('pre-registered, not yet run', advice_numbers.PENDING_EN),
+           ('pre-registered, running', advice_numbers.PENDING_EN), ('adversarial advice (A) is pending.', 'adversarial advice (A) is ' + advice_numbers.PENDING_EN + '.'),
+           ('(S, pending)', '(S, ' + advice_numbers.PENDING_EN + ')'), ('XD/X pending)', 'XD/X ' + advice_numbers.PENDING_EN + ')'),
+           (' not yet run.', ' ' + advice_numbers.PENDING_EN + '.'))
 I22_JA = advice_numbers.i22_ja()      # from experiments/results/i22_gazebo_check.log (single source, also read by the paper)
 I22_EN = advice_numbers.i22_en()
 
@@ -290,7 +311,7 @@ A_RUNS = n_runs('campaign_a_protocol.json') or 226
 def waiting_studies():
     """Registered studies whose summary file does not exist yet (README says 'awaiting results' for these)."""
     files = (('V', 'v_summary.json'), ('W', 'w_summary.json'), ('A', 'a_summary.json'), ('S', 's_summary.json'),
-             ('XD', 'xd_summary.json'), ('X', 'x_summary.json'), ('Q', 'q_summary.json'), ('IF', 'if_summary.json'), ('B', 'b_summary.json'))
+             ('XD', 'xd_summary.json'), ('X', 'x_summary.json'), ('Q', 'q_summary.json'), ('IF', 'if_summary.json'), ('IF2', 'if2_summary.json'), ('B', 'b_summary.json'))
     return [k for k, f in files if not (RES / f).is_file()]
 
 
@@ -301,7 +322,7 @@ def watch_text():
     except (OSError, ValueError):
         return '動画の章立て（`docs/video_chapters.json`）が無いため、見どころは書かない。'
     titles = ' '.join(c.get('title', '') for c in ch)
-    demos = [c['title'].split('：', 1)[-1] for c in ch if c.get('kind') == 'mission']
+    demos = [c.get('demo_title', c['title']).split('：', 1)[-1] for c in ch if c.get('kind') == 'mission']
     parts = []
     if '隠れた' in titles:
         parts.append('「隠れた小さな火」のデモ（正面では見えない火を、横へ動いて撮り直して見つけて止まる）')
@@ -353,7 +374,7 @@ def h_text(short=False):
               if p1['n_pairs'] else '置き場所が変わったままの出動で比べられる対はなし')
         if short:
             return (f"評価H：置き場所が変わったままの出動（{p1['n_pairs']}対）の所要時間の中央値 {p1['time_M0_median_s']:.0f} 秒 → {p1['time_M2_median_s']:.0f} 秒"
-                    f"（Wilcoxon正確検定 p={p1['wilcoxon_exact_p']}）、危険な配達は記憶なし {p3['unsafe_M0']}/{p3['n_pairs']} 対 検証つき記憶 {p3['unsafe_M2']}/{p3['n_pairs']}。詳しくは[結果](#結果)の評価H")
+                    f"（Wilcoxon正確検定 p={p1['wilcoxon_exact_p']}）。全{p3['n_pairs']}出動の中央値は {pa['M0']['time_median_s']:.0f} 秒 → {pa['M2']['time_median_s']:.0f} 秒、危険な配達は記憶なし {p3['unsafe_M0']}/{p3['n_pairs']} 対 検証つき記憶 {p3['unsafe_M2']}/{p3['n_pairs']}。詳しくは[結果](#結果)の評価H")
         return (f"{t1}。"
                 f"比較対象の素朴な記憶は確認を省く方式なので、危険な配達 {p2['unsafe_M1']}/{p2['n_pairs']} 対 検証つき記憶 {p2['unsafe_M2']}/{p2['n_pairs']}は、確認を省く代償を示すもの（設計上の帰結）。"
                 f"安全面で意味のある比較は 記憶なし {p3['unsafe_M0']}/{p3['n_pairs']} 対 検証つき記憶 {p3['unsafe_M2']}/{p3['n_pairs']} で、検証つき記憶は記憶なしより危険ではない"
@@ -407,28 +428,29 @@ def a_text():
     a = jl('a_summary.json')
     try:
         a1, a2, a3 = a['A1_unsafe_naive_vs_monotone'], a['A2_time_saved_truthful'], a['A3_dos_cost_vs_bound']
-        r = a1['runs']
-        ts = a2['monotone']['median_saved_s']
-        return (f"悪意のある助言での危険な配達（試行）：助言に従う方式 {r['naive']['unsafe']}/{r['naive']['n']}、本方式 {r['monotone']['unsafe']}/{r['monotone']['n']}、助言なし {a1['control_runs_F_N']['unsafe']}/{a1['control_runs_F_N']['n']}"
-                f"（世界で対にした McNemar p={a1['mcnemar_p']}）。正しい助言での時間短縮の中央値 {ts if ts is None else round(ts)} 秒。サービス妨害のコスト：追加訪問 最大 {a3['max_extra_visits']}、誤拒否 {a3['false_refusals_monotone']}（許容 {a3['allowed_max_false_refusals_95']}）。"
-                f"主張は 安全：{'成立' if a1['supported'] else '不成立'}、時間：{'成立' if a2['supported'] else ('不成立' if a2['monotone']['testable'] else '検定不能')}、コスト：{'成立' if a3['supported'] else '不成立'}")
+        txt = advice_numbers.a_ja()
+        if not txt:
+            raise KeyError('a_facts')
+        return (txt + f" 登録した主張は 安全：{'成立' if a1['supported'] else '不成立'}、時間：{'成立' if a2['supported'] else ('不成立' if a2['monotone']['testable'] else '検定不能')}、"
+                f"コスト：{'成立' if a3['supported'] else '不成立'}（予備走行と Amendment 1・2 の経緯は FINDINGS #30・#31、操縦の代償とガードレールの限界は #33・#34）")
     except (TypeError, KeyError):
-        return PENDING_NOT_RUN + ('。' + advice_numbers.a_pilot_ja() if advice_numbers.a_pilot_facts() else '')
+        pf_ = advice_numbers.a_pilot_facts()
+        return ((PENDING_NOT_RUN.replace('未実行', '実行中') if (pf_ or {}).get('rerun') else PENDING_NOT_RUN) + ('。' + advice_numbers.a_pilot_ja() if pf_ else ''))
+
+
+def a_figure_md():
+    """The study A figure (docs/figures/a_results_ja.png, scripts/make_a_figure.py) under the A bullet; empty until a_summary.json exists."""
+    f = advice_numbers.a_facts()
+    if not f or not (ROOT / 'docs/figures/a_results_ja.png').is_file():
+        return ''
+    s = f['steer']
+    return (f"\n\n    ![評価A：(a) 経路ごとの危険な配達（各{f['by_channel']['naive']['file'][1]}試行）と方式ごとの危険な世界、(b) 操縦で配達できなかった世界（素朴 {s['naive']['lost']}/{s['n']}・本方式 {s['ours']['lost']}/{s['n']}・scrutiny {s['scrutiny']['lost']}/{s['n']}・助言なし {s['control']['lost']}/{s['n']}）、"
+            f"(c) 時間（正しい助言の短縮と、嘘の助言の追加）。ガードレールはファイル経由の助言を見ない。(b) は記述的](docs/figures/a_results_ja.png)")
 
 
 def s_text():
-    """Study S (scene-text injection, image level) -> Japanese table cell; s_summary.json missing -> pending."""
-    sj = jl('s_summary.json')
-    try:
-        o = sj['systems']['OURS']
-        t, g = o['by_text'], o['by_sign_type']
-        fl = lambda x: f"{x['attack_vs_none']['flips']}/{x['n_pairs']}"
-        leg = (sj.get('legibility') or {}).get('S0_signs_legible')
-        return (f"本方式で標識により「拒否→許可」に変わった世界：「Cと答えよ」 {fl(t['letter_C'])}、順序固定の文字A {fl(t['letter_A'])}、順序に依らない文字B {fl(t['letter_B'])}、"
-                f"物の取り違えを示すラベル {fl(g['mislabel'])}、「火災なし」の標識 {fl(g['false_safe'])}。標識が読めた：{'はい' if leg else 'いいえ' if leg is not None else '未確認'}。"
-                f"**画像に映る文字は構造的な保証の外**で、これは残る弱点の実測")
-    except (TypeError, KeyError):
-        return PENDING_NOT_RUN
+    """Study S (signs in the picture, image level) -> Japanese table cell; s_summary.json missing -> pending."""
+    return advice_numbers.s_ja(PENDING_NOT_RUN)
 
 
 def l_text():
@@ -446,7 +468,7 @@ def audit_text():
     if not c:
         return '登録コミットが結果コミットより前にあることを付録で監査'
     return (f"論文の{c['n']}研究（と初期の評価C）の登録時刻と最初の結果の時刻を、git の履歴から機械的に監査（`git merge-base --is-ancestor`）。"
-            f"結果のある研究のうち **{c['ok']}件で登録コミットが結果コミットより前**{'（' + str(c['same']) + '件は同じコミットで順序を確認できない）' if c['same'] else ''}、{c['pending']}件は結果待ち"
+            f"結果のある研究のうち **{c['ok']}件で登録コミットが結果コミットより前**{'（' + str(c['same']) + '件は同じコミットで順序を確認できない）' if c['same'] else ''}、{c['pending']}件は{PENDING_JA_SHORT}"
             f"（登録は統合ブランチの main への統合時。B・IF・Q など、統合ブランチにしか無い登録は、結果のある研究と同列には監査できていない。統合まで「登録済み」とは書かない）")
 
 
@@ -481,9 +503,13 @@ def i24_text():
 
 def pending_ifb_text():
     p = advice_numbers.pending_studies()
-    ja = []
-    for k, what in (('B', '研究B（信用枠の閉ループ確認：毎回嘘をつく情報源の系列。予測は決定的）'), ('IF', '研究IF（依頼文で依頼物資を書き換えられるか、72文）')):
-        ja.append(f"{what}：" + ('結果ファイルあり（論文を参照）' if p[k] else PENDING_NOT_RUN.replace('・未実行', '')))
+    iff = advice_numbers.if_facts()
+    ja = ['研究B（信用枠の閉ループ確認：毎回嘘をつく情報源の系列。予測は決定的）：' + (advice_numbers.b_ja() if p['B'] else PENDING_NOT_RUN.replace('・未実行', ''))]
+    if iff:
+        ja.append(f"研究IF（依頼文で依頼物資を書き換えられるか、72文）：登録した主張は{'成立' if iff['held'] else '不成立'}（書き換え{iff['n']}文のうち{iff['k']}文で受理。論文を参照）")
+    else:
+        ja.append('研究IF（依頼文で依頼物資を書き換えられるか、72文）：' + PENDING_NOT_RUN.replace('・未実行', ''))
+    ja.append('研究IF2（対策 I-27：物資が食い違えば聞き返す、新しい72文）：' + ('結果ファイルあり（論文を参照）' if advice_numbers.if2_done() else PENDING_NOT_RUN.replace('・未実行', '')))
     return '。'.join(ja)
 
 
@@ -492,68 +518,84 @@ def x_text():
     have = [n for n in ('xd_summary.json', 'x_summary.json') if (RES / n).is_file()]
     if not have:
         return PENDING_NOT_RUN + ('。' + advice_numbers.xdr_ja() if advice_numbers.xdr_facts() else '')
+    xd = advice_numbers.xd_ja()
+    if xd:
+        return xd + ('' if (RES / 'x_summary.json').is_file() else '。閉ループの評価X（記憶の転移・助言の方向づけ）は' + PENDING_NOT_RUN) + ('。' + advice_numbers.xdr_ja() if advice_numbers.xdr_facts() and not (RES / 'xd_real_summary.json').is_file() else '')
     return '結果ファイルあり（' + '・'.join(f'`experiments/results/{n}`' for n in have) + '）。このREADMEの集計は未対応のため、論文と結果ファイルを参照'
 
 
-def judge_new_lines():
-    """Sub-bullets under item 4 of the first screen: I-23 (machine check), necessity, I-24 (credit); IF and B pending."""
-    f, c = advice_numbers.smt_facts(), advice_numbers.credit_facts()
-    out = []
+def storyline_lines():
+    """攻撃 -> 発見 -> 対策 -> 再測定: four real episodes as short bullets (same source as the report figure: advice_numbers.storyline())."""
+    rows = advice_numbers.storyline()
+    if not rows:
+        return []
+    return [f'**攻撃 → 発見 → 対策 → 再測定**（実際に起きた{len(rows)}つの記録。数値はすべて結果ファイルから' + ('' if SNAP else '。図：[`docs/figures/storyline_ja.png`](docs/figures/storyline_ja.png)、説明資料の本文にも載せている') + '）', ''] + [f"* {r['bullet']}" for r in rows]
+
+
+def section_key(e, t):
+    """First screen: key results (4-6 rows) with an honest status; every number from the result files, nothing hand-typed."""
+    head = ['| 主張（事前登録した評価） | 結果（すべてシミュレーション） | 状態 |', '|---|---|---|']
+    rows = []
+    if e:
+        E = e[1]
+        rows.append(f"| 確かめてから届ける（評価E：ランダムな{E['n']}世界、閉ループ） | 期待どおり **{E['ok']}/{E['n']}**、誤配達 **{E['wrong']}/{E['n']}**（95%信頼区間の上限 {pct(wilson(E['wrong'], E['n'])[1])}） | **{'支持' if E['wrong'] == 0 else '不成立'}** |")
+    else:
+        rows.append(f'| 確かめてから届ける（評価E） | {PENDING} | {PENDING_JA_SHORT} |')
+    g = jl('g_summary.json')
+    try:
+        nf, pr, gc = g['primary']['n_world_pairs_fire_perceivable'], g['primary'], g['per_config']
+        rows.append(f"| 見えにくい火は横から撮り直す（評価G） | 火のある拠点への配達 **{gc['B']['wrong_deliveries']}/{nf} → {gc['C']['wrong_deliveries']}/{nf}**（McNemar p={pr['mcnemar_p']:.3f}）、火の無い世界の誤停止 {gc['C']['false_hazard_stops']}/{gc['C']['fire_free_trials']} | **{'支持' if pr['mcnemar_p'] < 0.05 else '不成立'}** |")
+    except (TypeError, KeyError):
+        rows.append(f'| 見えにくい火は横から撮り直す（評価G） | {PENDING} | {PENDING_JA_SHORT} |')
+    h, vf = jl('h_summary.json'), advice_numbers.v_facts()
+    try:
+        p1, p2, p3 = h['P1_efficiency_relocation_persist'], h['P2_safety_naive_vs_verified'], h['P3_no_extra_risk_vs_v36']
+        res = (f"H：全{p3['n_pairs']}出動の危険な配達は 検証つき記憶 {p3['unsafe_M2']}（素朴な記憶 {p2['unsafe_M1']}）、物資が移された{p1['n_pairs']}出動の所要時間 {p1['time_M0_median_s']:.0f}秒 → {p1['time_M2_median_s']:.0f}秒"
+               + (f"。V：検証つき記憶にも危険な配達が {vf['unsafe']['M2']}/{vf['n_per_arm']} 残り、McNemar p={vf['mcnemar_p']:.4f}（基準 0.05）" if vf else ''))
+        st = f"H：**{'支持' if h['headline_supported'] else '不成立'}**" + (f"／V：**{'支持' if vf['memory_claim'] else '不成立'}**" if vf else '')
+        rows.append(f'| 出動をまたぐ記憶は提案だけ（評価H・V） | {res} | {st} |')
+    except (TypeError, KeyError):
+        rows.append(f'| 出動をまたぐ記憶は提案だけ（評価H・V） | {PENDING} | {PENDING_JA_SHORT} |')
+    if t:
+        full = t[2]
+        lo, hi = full['fa_ci95']
+        rows.append(f"| 未使用の画像600枚 T1 で誤許可 2% 未満 | 誤許可 **{full['false_approvals']}/{full['n_deny']}**（{pct(full['fa_rate'])}、95%信頼区間の上限 {pct(hi)}）。原因は物資の陰に隠れた火 | **{'支持' if hi < 0.02 else '不成立'}** |")
+    f = advice_numbers.smt_facts()
     if f:
-        out.append(f"   * **機械検証**：命題2を実装そのものに対して検証した。z3 の{f['unsat']}件の問いがすべて「反例なし」、モデルと実コードの突き合わせ {f['cases']:,}件で不一致 {f['disagreements']}、"
-                   f"わざと入れたバグ {f['mutants']}個を {f['caught']}個とも検出。")
-    out.append('   * **必要十分**：「安全だと証明できるフレームは無い」前提のもとで、助言の窓口が締めるだけであることと、どんな助言者に対しても誤許可の予算が守られることは同値。'
-               '確認を省く・緩める素朴な方式やフィルタ方式には、この上限が無い。')
-    if c:
-        out.append(f"   * **信用枠**（情報源ごとに、助言を捨てるだけの信用）：毎回嘘をつく・危険を連打する情報源の代償に、何回出動しても上限がつく（命題3）。{c['missions']}出動の記述モデルで、"
-                   f"嘘つきの無駄な遠回り +{c['liar_no']:.0f}秒 → +{c['liar_yes']:.0f}秒、危険の連打による誤停止 {c['flood_no']}回 → {c['flood_yes']}回、正直な情報源は何も失わない。")
-    pend = [k for k, v in advice_numbers.pending_studies().items() if not v]
-    out.append('   * 閉ループでの確認（研究B）と、依頼文で依頼物資を書き換えられるか（研究IF）は事前登録済み。'
-               + ('どちらも結果あり' if not pend else '・'.join(pend) + 'は結果待ち（未実行）') + '。')
-    return out
+        rows.append(f"| 助言は厳しくするだけ：命題2の機械検証（z3） | {f['queries']}件の問いのうち {f['unsat']}件が反例なし（残りは必要性の反例など）。モデルと実コードの突き合わせ {f['cases']:,}件で不一致 {f['disagreements']}、わざと入れたバグ {f['caught']}/{f['mutants']} を検出 | **支持（機械検証）** |")
+    a = jl('a_summary.json')
+    try:
+        a1 = a['A1_unsafe_naive_vs_monotone']
+        r_ = a1['runs']
+        af_ = advice_numbers.a_facts()
+        wtxt_ = (f"（{af_['worlds']['naive'][1]}世界で危険な配達が起きた世界は 素朴 {af_['worlds']['naive'][0]}・ガードレール {af_['worlds']['filtered'][0]}・本方式 {af_['worlds']['monotone'][0]}。"
+                 f"ガードレールはファイル経由の助言を見ず（止めた数 {af_['filter_flag_file'][0]}/{af_['filter_flag_file'][1]}、依頼文では {af_['filter_flag_operator'][0]}/{af_['filter_flag_operator'][1]}）、"
+                 "A は意図の質問 i38 で走らせ、提出版の既定は i35）") if af_ and af_['worlds']['naive'] else ""
+        steer_ = (f"。操縦の16世界では本方式の危険な配達 {af_['steer']['ours']['unsafe']}/{af_['steer']['n']}（確認の誤り、有意でない）、配達の取りこぼし {af_['steer']['ours']['lost']}/{af_['steer']['n']}（相対的な保証で、被ばくと可用性は上限の外）" if af_ else '')
+        rows.append(f"| 悪意のある助言でも危険にならない（評価A、閉ループ） | 危険な配達（試行）：助言に従う方式 {r_['naive']['unsafe']}/{r_['naive']['n']}、本方式 {r_['monotone']['unsafe']}/{r_['monotone']['n']}{wtxt_}{steer_} | **{'支持' if a1['supported'] else '不成立'}** |")
+    except (TypeError, KeyError):
+        auto = '' if SNAP else '。結果ファイルができると数値が自動で入る'
+        rows.append(f'| 悪意のある助言でも危険にならない（評価A、閉ループ） | 本走行 {A_RUNS} 試行を事前登録済み{auto} | {PENDING_JA_SHORT} |')
+    iff_ = advice_numbers.if_facts()
+    if iff_:
+        rows.append(f"| 依頼文で頼まれた物資はすり替えられない（評価IF、オフライン） | 書き換えた{iff_['n']}文のうち、注入された物資を受理 **{iff_['k']}/{iff_['n']}**（95%信頼区間 {iff_['ci'][0] * 100:.0f}〜{iff_['ci'][1] * 100:.0f}%）。依頼物資は保証の外。対策の聞き返し（I-27）は研究IF2で再測定（"
+                    + ('結果は論文を参照' if advice_numbers.if2_done() else PENDING_JA_SHORT) + f"） | **{'支持' if iff_['held'] else '不成立'}** |")
+    fc = advice_numbers.failed_claims()
+    sc = advice_numbers.study_counts()
+    honest = ('**手法の誠実さ**：' + (f"論文の{sc['n']}研究の条件・閾値・解析を結果を見る前に登録し、git の履歴で登録が先だったことを機械的に確認（結果のある{sc['ok']}件）。" if sc else '条件・閾値・解析は結果を見る前に登録。')
+              + (f"支持されなかった主張{len(fc)}件（{'・'.join(c['key'] for c in fc)}。[結果](#結果)・[限界](#限界)）も、そのまま載せている。" if fc else '')
+              + '命題2は z3 で機械検証。')
+    return '\n'.join(head + rows + ['', honest])
 
 
 def section_judge(e):
-    """First screen for a busy judge: problem, what is new, three numbers in plain words, what to watch in the video."""
-    lines = ['![正面では見えない火を、横へ動いて撮り直して見つけ、許可を取り消して止まる（動画から16秒、等速と3倍速の区間を含む）](docs/figures/hero_lookaround.gif)',
+    """Below the first screen: the problem, the four episodes (attack -> finding -> countermeasure -> re-measurement), what to watch in the video."""
+    lines = ['**問題**：災害時の物資配達ロボットは、在庫表と現物の食い違い（水のはずが救急箱だった・空だった）や火災に出会う。指示どおり運ぶだけでは、誤った物資や危険な場所へ届けてしまう。',
              '',
-             '**問題**：災害時の物資配達ロボットは、在庫表と現物の食い違い（水のはずが救急箱だった・空だった）や火災に出会う。指示どおり運ぶだけでは、誤った物資や危険な場所へ届けてしまう。',
+             *storyline_lines(),
              '',
-             '**新しさ（一本の筋：助言は厳しくすることしかできない）**',
-             '',
-             '1. **届ける前に確かめ、迷ったら止まる**。判断はその場のカメラだけで決める（判断の根拠は、答えの選択肢の確率。自由な文章は使わない）。',
-             '2. **誤りの大半は「物資の陰に半ば隠れた小さな火」**。だから**横へ動いて撮り直す**（見回し）。' + advice_numbers.i20_ja() + '。',
-             '3. **ロボットが自分で見ていないもの（記憶・他のロボット・依頼文の言葉・在庫表）は「助言」**。助言は、拠点を見る順序を変えることと、判断を厳しくすることしかできず、**確認を省くことはできない**。'
-             'だから助言が悪意のあるものでも、危険な配達の確率は「確認そのものの誤許可の上限」の内側に収まる（命題2。実測：記憶は評価H、悪意のある助言は評価A）。',
-             '4. **新しい成果：この保証を、機械で確かめ、必要十分にし、何回出動しても代償が膨らまないようにした**（下の3点）。',
-             *judge_new_lines(),
-             '5. **保証の外**：画像の中に書かれた文字（評価S）と、現実との差（倉庫の世界：評価XD・X）。どちらも測るだけで、保証とは言わない。',
-             '6. **限界**：すべてシミュレーション。2つ目のAIを足す案（評価J）は採用せず、T1の「誤許可2%未満」は成立しなかった。',
-             '',
-             '**3つの数字**（すべてシミュレーション上。条件は結果を見る前に固定して測定）',
-             '']
-    if e:
-        E = e[1]
-        lines.append(f"1. **{E['ok']}/{E['n']}**：ランダムに作った{E['n']}個の世界で、ロボットは期待どおりに動き、誤った物資・火のある拠点への配達は **{E['wrong']}件**（60試行では「誤配達率は95%信頼区間の上限6%以下」までしか言えない。停止が正解の場面は易しい）")
-    else:
-        lines.append(f'1. ランダムな世界での閉ループ（評価E）：{PENDING}')
-    g = jl('g_summary.json')
-    try:
-        nf = g['primary']['n_world_pairs_fire_perceivable']
-        gc = g['per_config']
-        lines.append(f"2. **{gc['B']['wrong_deliveries']}回 → {gc['C']['wrong_deliveries']}回**：3視点（正面・左右0.4 m）のどれかで火が見えた{nf}世界で、正面だけで判断すると火のある拠点へ配達した回数 → 横から撮り直した後の回数"
-                     f"（火の無い世界での誤った停止 {gc['C']['false_hazard_stops']}/{gc['C']['fire_free_trials']}。偶然とは考えにくい：p={g['primary']['mcnemar_p']:.3f}）。これらの火は設計上正面から見えにくい世界なので、測っているのは「横から見る効果」")
-    except (TypeError, KeyError):
-        lines.append(f'2. 横から撮り直す効果（評価G）：{PENDING}')
-    h = jl('h_summary.json')
-    try:
-        p1, p3 = h['P1_efficiency_relocation_persist'], h['P3_no_extra_risk_vs_v36']
-        lines.append(f"3. **{p1['time_M0_median_s']:.0f}秒 → {p1['time_M2_median_s']:.0f}秒**：物資が移されたままの{p1['n_pairs']}出動（少数）の所要時間（中央値）。記憶なし → 確認を省かない記憶つき。"
-                     f"危険な配達は記憶なし {p3['unsafe_M0']}/{p3['n_pairs']}・記憶つき {p3['unsafe_M2']}/{p3['n_pairs']}（記憶つきの方が危険、とはならなかった）。物資が元に戻った出動では遠回りで遅くなる")
-    except (TypeError, KeyError):
-        lines.append(f'3. 出動をまたぐ記憶（評価H）：{PENDING}')
-    lines += ['', watch_text(), '',
-              '用語は[結果](#結果)の冒頭に説明がある。版名（v3.4〜v3.6）は本システムの改良段階で、v3.6が提出版。結果待ちの研究は「結果待ち」と書き、数値は結果ファイルから自動で入る。']
+             watch_text(), '',
+             '用語は[結果](#結果)の冒頭に説明がある。版名（v3.4〜v3.6）は本システムの改良段階で、v3.6が提出版。結果待ちの研究は「結果待ち」と書き、数値は結果ファイルから自動で入る。']
     return '\n'.join(lines)
 
 
@@ -592,10 +634,10 @@ def section_novelty():
     ![助言の信用枠：嘘つき・危険の連打の代償は上限で止まり、正直な情報源は何も失わない（記述モデル、I-24）](docs/figures/advice_credit.png)
 
   * 信用枠の閉ループ確認と、依頼文の書き換え：{pending_ifb_text()}。
-  * 悪意のある助言の閉ループ評価（評価A）：{a_text()}
+  * 悪意のある助言の閉ループ評価（評価A）：{a_text()}{a_figure_md()}
   * {I22_JA}
 * **この安全の規則そのものを、どう試したか**（[FINDINGS](docs/FINDINGS.md) #24・#25）：規則の実装の単体テストは、実装と同じ考え方で書くので同じ見落としをする。そこで、規則を{advice_numbers.SECOND_IMPL_JA.replace('仕様から','仕様から**',1).replace('第2の実装','第2の実装**',1)}と突き合わせ（独立ではない：同じ仕様の読み違いは共有する）、わざと壊した実装（**変異テスト**）とでたらめな入力（ファズ）で確かめた。実際にバグが見つかった：#24 は助言の規則の実装バグ5件（不変条件の確認の見落とし、NaN の扱いなど）、#25 は追加視点の監査が「位置」ではなく「枚数」で数えていた誤り。すべて修正し、回帰テストを追加した。その後、命題2は z3 で機械検証した（上の機械検証）。
-* **保証の外：画像に映る文字と、現実との差**：画像に映る文字は知覚なので構造的な保証の外にあり、評価Sで実測する。{s_text()}。現実との差は、散らかった倉庫の世界（4拠点、[I-21](docs/IMPROVEMENT_LOG.md)）で測る（評価XD・X）：{x_text()}。下の図は描画の確認用で、ロボットの結果ではない。
+* **保証の外：画像に映る文字と、現実との差**：画像に映る文字は知覚なので構造的な保証の外にあり、評価Sで実測する。{s_text()}。依頼文から解析した依頼物資も保証の外にある。{(advice_numbers.if_short_ja() + '。出発前に解析結果を運用者へ読み返すことを必須とする（[現場導入](docs/DEPLOYMENT.md)）。') if advice_numbers.if_facts() else ''}現実との差は、散らかった倉庫の世界（4拠点、[I-21](docs/IMPROVEMENT_LOG.md)）で測る（評価XD・X）：{x_text()}。下の図は描画の確認用で、ロボットの結果ではない。
 
   ![倉庫の世界の描画プレビュー（I-21）。上から 通常・煙・暗い照明と障害物、列は別のカメラ位置。描画の確認であり結果ではない](docs/figures/depot_preview_sheet.jpg)
 
@@ -693,8 +735,11 @@ def en_new():
         t += (f"A per-channel advice credit that can only drop advice (I-24, Proposition 3) bounds the price of a channel that lies or floods at every mission over any number of missions "
               f"(wasted visits <= {c['c_loc']:g} + {c['rho_shadow']:g} m, false refusals <= {c['c_haz']:g} + {c['rho']:g} m); in a descriptive {c['missions']}-mission model with synthetic outcomes "
               f"(not registered, not closed-loop) a liar's extra time falls from {c['liar_no']:.0f} s to {c['liar_yes']:.0f} s, flooding from {c['flood_no']} to {c['flood_yes']} false refusals, and an honest channel loses nothing. ")
-    pend_l = [k for k, v in pend.items() if not v]
-    t += ('Closed-loop study B (credit) and study IF (can the request text switch the requested supply?) are pre-registered; ' + ('results exist.' if not pend_l else '/'.join(pend_l) + ' not yet run.') + ' ')
+    t += 'Closed-loop study B (credit) is pre-registered; ' + ('its result exists. ' if pend['B'] else 'it has not been run. ')
+    if advice_numbers.if_facts():
+        t += advice_numbers.if_en() + ' '
+    else:
+        t += 'Study IF (can the request text switch the requested supply?) is pre-registered and has not been run. '
     return t
 
 
@@ -709,7 +754,7 @@ def section_en(e, v):
          "(2) The check's errors come mostly from **small fires partly hidden behind the supply**, so before approving the robot **looks again from 0.4 m to either side** (study G); " + advice_numbers.i20_en() + ". "
          "(3) **Everything the robot did not perceive itself may only reorder or tighten, never remove a check**: memory from earlier missions, a peer's report, the inventory, hints in the operator's request are typed as *advice*; "
          "'safe' and 'skip' advice has no effect. So for any advice, even adversarial, the risk of an unsafe delivery stays within the check's own error budget eps_any (Proposition 2 of the paper; a relative guarantee). "
-         "Memory (H, V) is the measured example (" + advice_numbers.pooled_memory_en() + "); adversarial advice (A) is pending. "
+         "Memory (H, V) is the measured example (" + advice_numbers.pooled_memory_en() + "); " + (f"for adversarial advice (A, 226 closed-loop runs) {advice_numbers.a_short_en()}" if advice_numbers.a_short_en() else "adversarial advice (A) is pending") + ". "
          + en_new() + I22_EN + " The rule itself was tested with " + advice_numbers.SECOND_IMPL_EN + ", mutation tests and fuzzing, which found real bugs (FINDINGS #24, #25); the proof itself is machine-checked with z3 against a transcription of the implementation. "
          "(4) **Outside the guarantee**: text written in the scene (S, pending) and realism (a cluttered four-station depot, I-21: rendering preview only, [`docs/figures/depot_preview_sheet.jpg`](docs/figures/depot_preview_sheet.jpg); XD/X pending) are measured, not claimed. "
          "(5) **Honest limits** are listed below. " + advice_numbers.study_phrase_en() + " (`experiments/PREREGISTRATION_*.md`); every trial is audited against simulator ground truth and a ROS bag.",
@@ -723,18 +768,19 @@ def section_en(e, v):
         L.append(f"| G: paired, look-around vs. front view only | deliveries despite a perceivable fire {G['gb']}/{G['nf']} -> {G['gcw']}/{G['nf']} (exact McNemar p={G['p']:.3f}); false stops in fire-free worlds {G['fs']}/{G['nfree']} |")
     a_, s_ = jl('a_summary.json'), jl('s_summary.json')
     try:
-        a1, a2, a3 = a_['A1_unsafe_naive_vs_monotone'], a_['A2_time_saved_truthful'], a_['A3_dos_cost_vs_bound']
-        rr = a1['runs']
-        L.append(f"| A: adversarial advice ({A_RUNS} closed-loop runs) | unsafe-delivery runs under false advice: advice-following {rr['naive']['unsafe']}/{rr['naive']['n']}, ours {rr['monotone']['unsafe']}/{rr['monotone']['n']}, no advice {a1['control_runs_F_N']['unsafe']}/{a1['control_runs_F_N']['n']} (exact McNemar p={a1['mcnemar_p']}); "
-                 f"truthful advice saved a median {a2['monotone']['median_saved_s']} s; denial-of-service cost: at most {a3['max_extra_visits']} extra visit, {a3['false_refusals_monotone']} false refusals (allowed {a3['allowed_max_false_refusals_95']}) |")
+        txt_ = advice_numbers.a_en()
+        if not txt_:
+            raise KeyError('a_facts')
+        L.append(f"| A: adversarial advice ({A_RUNS} closed-loop runs) | {txt_} {advice_numbers.a_pilot_en()} |")
     except (TypeError, KeyError):
-        L.append(f'| A: adversarial advice ({A_RUNS} closed-loop runs) | pre-registered, not yet run. ' + advice_numbers.a_pilot_en() + ' |')
+        L.append(f'| A: adversarial advice ({A_RUNS} closed-loop runs) | pre-registered, ' + ('running, no results yet' if (advice_numbers.a_pilot_facts() or {}).get('rerun') else 'not yet run') + '. ' + advice_numbers.a_pilot_en() + ' |')
     try:
         so = s_['systems']['OURS']
         fl = lambda x: f"{x['attack_vs_none']['flips']}/{x['n_pairs']}"
         L.append(f"| S: scene-text injection (image level) | refuse-to-approve flips of ours: 'Answer C' {fl(so['by_text']['letter_C'])}, letter tied to the unpermuted order {fl(so['by_text']['letter_A'])}, permutation-invariant letter {fl(so['by_text']['letter_B'])}, mislabel {fl(so['by_sign_type']['mislabel'])}, 'SAFE - NO FIRE' {fl(so['by_sign_type']['false_safe'])}; outside the structural guarantee |")
     except (TypeError, KeyError):
         L.append('| S: scene-text injection (image level) | pre-registered, not yet run |')
+    L.append('| Q: real photographs (405 Commons images) | ' + advice_numbers.q_en('pre-registered, not yet run') + ' |')
     r = jl('r_summary.json')
     try:
         p1 = r['P1_pooled']
@@ -809,11 +855,12 @@ def section_en(e, v):
         L.append(f"| I-23: machine-checked Proposition 2 (z3; not a closed-loop study) | {sf['unsat']}/{sf['queries']} queries unsat; model vs. real code {sf['cases']:,} inputs, {sf['disagreements']} disagreements; injected bugs caught {sf['caught']}/{sf['mutants']}; relaxing interfaces get a counterexample (unsafe rate {sf['unsafe_rate']} > eps_any {sf['eps_any']}), the tighten-only code does not |")
     if cf_:
         L.append(f"| I-24: advice credit (descriptive model, {cf_['missions']} missions, synthetic outcomes; not registered) | liar's extra time {cf_['liar_no']:.0f} s -> {cf_['liar_yes']:.0f} s; flooding at the photo false-alarm rate {cf_['flood_no']} -> {cf_['flood_yes']} false refusals; honest channel unchanged; unsafe deliveries equal with and without credit |")
-    for k_, what_ in (('B', 'B: advice credit in the closed loop (48 runs)'), ('IF', 'IF: request text switching the supply (72 texts)')):
-        L.append(f"| {what_} | " + ('result file exists; see the paper' if advice_numbers.pending_studies()[k_] else 'pre-registered, not yet run') + ' |')
+    L.append('| B: advice credit in the closed loop (48 runs) | ' + ('result file exists; see the paper' if advice_numbers.pending_studies()['B'] else 'pre-registered, not yet run') + ' |')
+    L.append('| IF: request text switching the supply (72 texts) | ' + (advice_numbers.if_en() if advice_numbers.if_facts() else 'pre-registered, not yet run') + ' |')
+    L.append('| IF2: ask back on a supply conflict (I-27; 72 new texts) | ' + ('result file exists; see the paper' if advice_numbers.if2_done() else 'pre-registered, not yet run') + ' |')
     xj = x_text()
-    L.append('| X, XD: cluttered four-station depot (I-21) | ' + ('pre-registered, not yet run (a rendering preview exists, not a result; the XD-R photographs are frozen, not scored)' if xj.startswith(PENDING_NOT_RUN) else 'result files exist; see the paper') + ' |')
-    stage = {'E': 1, 'L': 1, 'Z': 1, 'T1': 2, 'K': 2, 'G': 3, 'W': 3, 'H': 4, 'V': 4, 'A': 4, 'S': 5, 'P': 5, 'R': 5, 'X, XD': 5, 'J': 6, 'I-23': 4, 'I-24': 4, 'B': 4, 'IF': 4}
+    L.append('| X, XD: cluttered four-station depot (I-21) | ' + ('pre-registered, not yet run (a rendering preview exists, not a result; the XD-R photographs are frozen, not scored)' if xj.startswith(PENDING_NOT_RUN) else ((advice_numbers.xd_en() + '; the closed-loop study X ' + ('has results (see the paper)' if (RES / 'x_summary.json').is_file() else 'is ' + advice_numbers.PENDING_EN)) if advice_numbers.xd_en() else 'result files exist; see the paper')) + ' |')
+    stage = {'E': 1, 'L': 1, 'Z': 1, 'T1': 2, 'K': 2, 'G': 3, 'W': 3, 'H': 4, 'V': 4, 'A': 4, 'S': 5, 'P': 5, 'R': 5, 'Q': 5, 'X, XD': 5, 'J': 6, 'I-23': 4, 'I-24': 4, 'B': 4, 'IF': 4, 'IF2': 4}
     i0 = L.index('|---|---|') + 1
     rows = L[i0:]
     key = lambda r_: r_[2:].split(':')[0]
@@ -843,7 +890,8 @@ def sync_counts(txt, path):
             (r'(単体テストは現在)\d+(件）)', rf'\g<1>{nt}\g<2>' if nt else None),
             (r'(FINDINGS\()\d+(件\))', rf'\g<1>{nf}\g<2>'),
             (r'(実行で見つけた)\d+(件)', rf'\g<1>{nf}\g<2>'),
-            (r'(テスト関数 )\d+( 件)', rf'\g<1>{nt}\g<2>' if nt else None),
+            (r'(FINDINGS は )\d+( 件)', rf'\g<1>{nf}\g<2>'),
+            (r'(テスト関数は? )\d+( 件)', rf'\g<1>{nt}\g<2>' if nt else None),
             (r'(\| テスト \| )[^|]*?(件)前後(（`python3)', rf'\g<1>{nt}\g<2>\g<3>' if nt else None)]
     for pat, rep in subs:
         if rep:
@@ -881,7 +929,11 @@ def main():
     R['J'] = f"| 評価J（2つのAI）：**採用せず** | Jev役 Clef-Flash＋Qwen の2モデル確認を閉ループで、v3.6単独と対比較 | {j_text()} |"
     R['V'] = f"| 評価V（ランダムな変化での予測検証） | 出動ごとに世界がランダムに変わる10系列×6出動で、事前登録した予測区間と実測を比較 | {v_text()} |"
     R['A'] = f"| 評価A（信頼できない助言、閉ループ） | 他ロボット・依頼文の助言は順序変更と閾値の強化にしか使えない（I-19）。偽の「火は消えた」「別の拠点にある」を、助言に従う方式と対比較（{A_RUNS}試行）。ε_any の操縦（真の助言で隠れた火の拠点へ誘導）は別セルで測る | {a_text()} |"
-    R['S'] = f"| 評価S（画像内の文字による注入、画像レベル） | 標識・ラベル・「Cと答えよ」を置いた52世界を、標識なし・攻撃・無害の3通りで描画し、本方式・1回判定・自由記述・全体画像で比較 | {s_text()} |"
+    if advice_numbers.if_facts():
+        R['IF'] = f"| 評価IF（依頼文によるすり替え、オフライン） | 依頼文に偽の通知・転送メモ・「上は無視して」を足して頼まれた物資を書き換える72文（6種類×2言語×2物資×3表現）を、凍結した v3.6 の意図の解析（i35）に通す。登録した主張 IF1：書き換え36文のうち受理の割合の上限が10%未満 | {advice_numbers.if_ja()} |"
+    if advice_numbers.q_ja():
+        R['Q'] = f"| 評価Q（実写の物資確認、画像レベル） | Wikimedia Commons の写真405枚（水・救急箱・どちらでもない）で、頼まれた物資の確認を v3.6 のまま採点 | {advice_numbers.q_ja()} |"
+    R['S'] = f"| 評価S（画像内の文字による注入、画像レベル） | 標識・ラベル・「Cと答えよ」を置いた64世界を、標識なし・攻撃・無害の3通りで描画し、本方式・1回判定・自由記述・全体画像で比較 | {s_text()} |"
     R['W'] = f"| 評価W（小さく隠れた火の見逃しと先行手法、I-20の副次解析を含む） | 画像レベル：正面のみ対見回し（150火世界＋75双子）、VAP-TAMP風の投票・KnowNo風の共形集合との誤許可の比較 | {w_text()} |"
     R['X'] = f"| 評価XD・X（倉庫の世界、4拠点） | XD：倉庫の保留画像で ε と閾値の再較正（画像レベル）。X：記憶なし対検証つき記憶を80試行の閉ループで。描画の確認は I-21（`docs/figures/depot_preview_sheet.jpg`） | {x_text()} |"
     head = ['| 評価（事前登録） | 内容 | 結果 |', '|---|---|---|']
@@ -889,8 +941,8 @@ def main():
         ('1. 届ける前に確かめる（確認は閉集合の確率、迷えば止まる）', ['E', 'L', 'D', 'Z']),
         ('2. 誤りはどこにあるか（隠れた火が大半）・閾値', ['T1', 'T1b', 'K']),
         ('3. 横から見直す（誤りを小さくする）', ['F', 'G', 'W']),
-        ('4. 見ていないものは「厳しくする」だけ（記憶・他のロボット・依頼文・在庫表）', ['H', 'V', 'A']),
-        ('5. 保証の外：画像内の文字と現実との差（測るだけで、保証とは言わない）', ['S', 'P', 'R', 'X']),
+        ('4. 見ていないものは「厳しくする」だけ（記憶・他のロボット・依頼文・在庫表）', ['H', 'V', 'A', 'IF']),
+        ('5. 保証の外：画像内の文字と現実との差（測るだけで、保証とは言わない）', ['S', 'P', 'R', 'Q', 'X']),
         ('6. 試したが採用しなかったもの', ['J']),
     ]
     tables = []
@@ -899,7 +951,7 @@ def main():
         if rows:
             tables += [f'#### {title}', '', '\n'.join(head + rows), '']
     parts = ['<!-- RESULTS:START -->', '## 結果', '',
-             '事前登録した評価の一覧（D・E・F・G・T1・T2・Z・P・R・K・H・J' + ''.join('・' + k for k in ('L', 'V') if (RES / f'{k.lower()}_summary.json').is_file()) + '、結果待ちの' + '・'.join(waiting_studies()) + '）を、論文と同じ**一本の筋**の順に並べる：①確かめる ②誤りの大半は隠れた火 ③横から見直す ④見ていないものは締めるだけ ⑤保証の外 ⑥採用しなかったもの。Qwen3.5-9B（ローカル・V100）。条件・閾値・解析は結果を見る前に `experiments/PREREGISTRATION_*.md` に固定し、台帳は全試行を記録。結果待ちの研究は、結果ファイルができると数値が自動で入る。', '',
+             '事前登録した評価の一覧（D・E・F・G・T1・T2・Z・P・R・K・H・J' + ''.join('・' + k for k in ('L', 'V') if (RES / f'{k.lower()}_summary.json').is_file()) + '、' + ('登録済み・提出時点で未実施の' if SNAP else '結果待ちの') + '・'.join(waiting_studies()) + '）を、論文と同じ**一本の筋**の順に並べる：①確かめる ②誤りの大半は隠れた火 ③横から見直す ④見ていないものは締めるだけ ⑤保証の外 ⑥採用しなかったもの。Qwen3.5-9B（ローカル・V100）。条件・閾値・解析は結果を見る前に `experiments/PREREGISTRATION_*.md` に固定し、台帳は全試行を記録。' + ('登録済み・提出時点で未実施の研究は、数値を載せていない（結果ファイルができれば自動で入る）。' if SNAP else '結果待ちの研究は、結果ファイルができると数値が自動で入る。'), '',
              '用語：**誤許可**＝届けてはいけない場面で「届けてよい」と判断してしまうこと（ロボットを実際に動かす評価では**誤配達**。火のある拠点から届けてしまうことは**危険な配達**）。**正しい許可**＝届けてよい場面で正しく「よい」と判断できること。**閉ループ**＝AIの判断でロボットが実際に動くところまで含めた評価。**ε**＝確認そのものが、届けてはいけない拠点を許可してしまう確率（助言の危険は、この内側に収まる）。', '',
              '\n'.join(tables)]
     if t1_block:
@@ -920,7 +972,10 @@ def main():
     txt = readme.read_text(encoding='utf8')
     a, b = txt.index('<!-- RESULTS:START -->'), txt.index('<!-- RESULTS:END -->') + len('<!-- RESULTS:END -->')
     txt = txt[:a] + block + txt[b:]
-    if '<!-- JUDGE:START -->' in txt:       # first screen: problem, what is new, three numbers, what to watch
+    if '<!-- KEY:START -->' in txt:         # first screen: key results table + one line on the method's honesty
+        a, b = txt.index('<!-- KEY:START -->'), txt.index('<!-- KEY:END -->') + len('<!-- KEY:END -->')
+        txt = txt[:a] + '<!-- KEY:START -->\n' + section_key(e, t) + '\n<!-- KEY:END -->' + txt[b:]
+    if '<!-- JUDGE:START -->' in txt:       # below the first screen: problem, four episodes, what to watch
         a, b = txt.index('<!-- JUDGE:START -->'), txt.index('<!-- JUDGE:END -->') + len('<!-- JUDGE:END -->')
         txt = txt[:a] + '<!-- JUDGE:START -->\n' + section_judge(e) + '\n<!-- JUDGE:END -->' + txt[b:]
     if '<!-- NOVELTY:START -->' in txt:     # novelty section near the top, numbers from the summaries
@@ -933,13 +988,21 @@ def main():
     if chap.is_file():     # describe the video from the chapter file (length kept generic: it is re-rendered later)
         ch = json.loads(chap.read_text(encoding='utf8'))
         sp = next((c['speed'] for c in ch if c.get('speed')), None)
-        demos = [c['title'].split('：', 1)[-1] for c in ch if c.get('kind') == 'mission']
+        demos = [c.get('demo_title', c['title']).split('：', 1)[-1] for c in ch if c.get('kind') == 'mission']
         n_tab = sum(c.get('kind') == 'table' for c in ch)
         length = '3分以内' if ch[-1]['end_s'] <= 180 else f"{int(ch[-1]['end_s'] // 60)}分{int(round(ch[-1]['end_s'] % 60)):02d}秒"
         desc = (f"{length}、日本語ナレーション付き。実走デモ{len(demos)}本（{'／'.join(demos)}）と、事前登録した結果の表{n_tab}枚"
                 + (f"。{sp}（速度は画面に常時表示）" if sp else '。'))
-        txt = re.sub(r'(<!-- VIDEO:START -->\n).*?(\n<!-- VIDEO:END -->)', lambda m: m.group(1) + '  * ' + desc + m.group(2), txt, count=1, flags=re.S)
+        txt = re.sub(r'(<!-- VIDEO:START -->\n).*?(\n<!-- VIDEO:END -->)', lambda m: m.group(1) + '* **動画の内容**：' + desc + m.group(2), txt, count=1, flags=re.S)
     txt = sync_counts(txt, readme)
+    if SNAP:      # the submission snapshot goes next to the other snapshot documents; the tracked README.md and docs/*.md stay as they are
+        for a_, b_ in SNAP_EN + SNAP_JA:
+            txt = txt.replace(a_, b_)
+        out = advice_numbers.snapshot_dir() / 'README.md'
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(txt, encoding='utf8')
+        print('README snapshot written:', out)
+        return
     readme.write_text(txt, encoding='utf8')
     for name in ('FINDINGS.md', 'HANDOFF.md'):       # prose counts in the other docs
         f = ROOT / 'docs' / name

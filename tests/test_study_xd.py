@@ -511,5 +511,34 @@ class TestRecal:
         return out
 
 
+class I20RevertVerdict(unittest.TestCase):
+    """The revert rule of I-20 (fixed before XD): withdrawn if ANY of a/b/c fires, kept otherwise."""
+    @staticmethod
+    def out(trig=(1, 80), ad_ca=(78, 80), la_ca=(79, 80), removed=2, added=0):
+        return {'xd3_extra_view_trigger_rate_on_twins': xa.rate(*trig),
+                'xd3_adaptive_correct_approvals_twins': xa.rate(*ad_ca),
+                'xd3_look_around_correct_approvals_same_twins': xa.rate(*la_ca),
+                'caught_by_extra_views': {'paired_la_vs_adaptive': {'first_only': removed, 'second_only': added, 'n': 40}}}
+
+    def test_kept_when_none_fires(self):
+        v = xa.i20_revert_verdict(self.out())
+        self.assertEqual(v['status'], 'kept')
+        self.assertFalse(any(v['fired'].values()))
+
+    def test_each_criterion_alone_withdraws(self):
+        self.assertTrue(xa.i20_revert_verdict(self.out(trig=(13, 80)))['fired']['a_trigger_rate_over_15pct'])
+        self.assertFalse(xa.i20_revert_verdict(self.out(trig=(12, 80)))['fired']['a_trigger_rate_over_15pct'])  # exactly 15% is allowed
+        self.assertTrue(xa.i20_revert_verdict(self.out(ad_ca=(75, 80), la_ca=(79, 80)))['fired']['b_correct_approvals_down_5pts_or_more'])
+        self.assertFalse(xa.i20_revert_verdict(self.out(ad_ca=(76, 80), la_ca=(79, 80)))['fired']['b_correct_approvals_down_5pts_or_more'])
+        v = xa.i20_revert_verdict(self.out(removed=0, added=1))
+        self.assertTrue(v['fired']['c_removes_no_look_around_miss'])
+        self.assertEqual(v['status'], 'withdrawn')
+
+    def test_not_evaluable_without_adaptive_pass(self):
+        o = self.out()
+        o['xd3_extra_view_trigger_rate_on_twins'] = xa.rate(0, 0)
+        self.assertEqual(xa.i20_revert_verdict(o)['status'], 'not_evaluable')
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -61,9 +61,36 @@ def parse_instruction_llm(text: str, **kw) -> dict:
     return {'accept': True, 'item': item, 'shelter': 'B', 'reason': 'llm_intent_accepted', 'probs': probs}
 
 
-def decide_intent_hybrid(text: str, **kw) -> dict:
+# I-27 (study IF: a request text switched the parsed supply in 12/36 flip texts).  The requested supply is a COMMAND, not
+# advice, so it cannot be 'tightened'; the safe response to a text that names both supplies, or whose other supply keeps
+# real probability, is to ask the operator back before moving.  Default off (v3.6); rule fixed before its evaluation (IF2).
+import re as _re
+WATER_ANY = _re.compile(r'(飲料水|給水|水分|水(?!準|平|道)|飲み水|飲み物|ペットボトル|\bwater\b|\bdrinking\b|\bbottled\b)', _re.I)
+MEDICINE_ANY = _re.compile(r'(医療|医薬|救急|応急|薬|包帯|絆創膏|ガーゼ|消毒|止血|first[- ]?aid|\bmedic|\bbandage|\bantiseptic)', _re.I)
+CONFLICT_OTHER_P = 0.05
+
+
+def supply_conflict(text: str, probs: dict | None = None, item: str | None = None) -> str | None:
+    """Why the request must be confirmed before acting, or None: both supplies named in the text (lexical), or the
+    model gives the other supply p >= CONFLICT_OTHER_P."""
+    if WATER_ANY.search(text or '') and MEDICINE_ANY.search(text or ''):
+        return 'both_supplies_named'
+    ip = (probs or {}).get('item') or {}
+    other = {'water': 'medicine', 'medicine': 'water'}.get(item)
+    if other and isinstance(ip.get(other), (int, float)) and ip[other] >= CONFLICT_OTHER_P:
+        return 'other_supply_probable'
+    return None
+
+
+def decide_intent_hybrid(text: str, conflict_check: bool = False, **kw) -> dict:
     from .mission_policy import UNSUPPORTED
     from .intent import parse_shelter
     if UNSUPPORTED.search(text) or parse_shelter(text) != 'B':
         return {'accept': False, 'item': None, 'reason': 'unsupported_shelter', 'rule': 'explicit_shelter_name'}
-    return parse_instruction_llm(text, **kw)
+    out = parse_instruction_llm(text, **kw)
+    if conflict_check and out.get('accept'):
+        why = supply_conflict(text, out.get('probs'), out.get('item'))
+        if why:
+            return dict(out, accept=False, item=None, reason='conflicting_supply_ask_back', conflict=why,
+                        parsed_item=out.get('item'))
+    return out

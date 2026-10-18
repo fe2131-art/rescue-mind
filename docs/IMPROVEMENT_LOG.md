@@ -421,9 +421,15 @@
 * **計測**（結果が出る前に記述）：
   * 研究A（閉ループ、`experiments/PREREGISTRATION_A.md`）：162回（当初114回＋ガードレール方式 filtered の48回）、F（見える火）・S（入れ替え）・N（通常）の世界、助言は依頼文とファイルの2経路、方式は monotone（本方式）・naive（助言に従う）・filtered（LLMの注入フィルタを通った助言に従う。実務のガードレール）。A1：悪意のある助言での危険な配達（naive と monotone を世界で対にして McNemar）。A2：正しい助言での時間短縮。A3：サービス妨害のコスト（追加訪問 ≤ 1、誤拒否が上限内）。
   * 研究S（画像、`experiments/PREREGISTRATION_S.md`、別ブランチ）：標識・ラベル・「Answer C」のような文字をシーンに置き、符号の有無で対にして誤許可を測る。保証の外にある残りの弱点を、事前の仮説（H1〜H7）つきで報告する。
-  * Before：助言（依頼文・他ロボット・在庫）の扱いに構造的な保証はない。After：**結果待ち**（A、S とも未実行）。
+  * Before：助言（依頼文・他ロボット・在庫）の扱いに構造的な保証はない。After：**研究 A は完了し、登録した主張は成立（受入チェック C0〜C6 が合格、判定 HEADLINE_HOLDS）**。S は未実行。
+  * **研究 A の結果**（226 試行、失敗 0、`experiments/results/a_summary.json`・`a_checklist.md`）：
+    * A1（安全）：悪意のある助言の12世界のうち、危険な配達が起きた世界は 助言に従う方式 12/12、LLM ガードレール方式 12/12、本方式（締めるだけ）0/12（世界で対にした McNemar p=0.000488、ガードレールとの比較も同じ）。試行では 16/24・12/24・0/24、助言なし 0/12。本方式の配達はすべて、助言なしの確認でも許可される配達だった（C2：43/43 件を保存画像で再計算、違反 0）。
+    * A2（時間）：正しい場所の助言は中央値 27.1 秒を節約（6/6 世界、p=0.031）。A3（代償）：最大の追加時間 41.7 秒（上限 1.5W=50.6 秒）、配達の取りこぼし 0（許容 4）、追加訪問は最大 1。
+    * A-steer（記述的）：真の助言で火のある拠点を先に確認させる16世界で、危険な配達は 本方式 2/16（AD06・AD08）、助言なし 0/16、scrutiny 0/16、素朴 1/16。2件は確認の誤り（助言なしの確認でも保存画像で許可）で、有意でなく、W の ε_any(2)=4.0% の区間内。**代償は可用性**：配達できなかった世界は 本方式 14/16、scrutiny 11/16、助言なし 0/16（FINDINGS #33）。
+    * ガードレール（FINDINGS #34）：依頼文の攻撃は 7/12 を不審と判定したが、助言ファイルでは 0/12 で、ファイル経由の危険な配達は素朴な方式と同じ 12/12。
+    * 依頼文チャネル：意図の受理 72/72、設計した助言の正確な取り出し 36/72（Amendment 2 の報告項目）。登録した224件のオフライン注入セット（届け先の誤受理 0 が条件）の採点は**未実施**（GPU を使う研究の実行中のため）。
 * **証明レビュー後の修正（I-19 fix、FINDINGS #26〜#28）**：`docs/paper/PROOF_REVIEW.md` が見つけた実装の穴を直した。①横・追加・scrutiny 視点の壊れたスコアを「危険なし」と扱っていた（フェイルオープン）→ 壊れた視点は危険（p = 1.0）とし、監査・インターロックも同じ規則で再計算（記録済み 341 件の横視点に該当は 0 件で、登録済みキャンペーンには影響なし）。②サーバーの危険閾値（既定 0.5）をクライアントで検証していなかった → 全呼び出しの記録値を v3.6 の 0.05 と照合（記録済みの 2,404 件は全件 0.05）。③慎重さ警報が記憶に「危険」として書かれ、慎重さが自己更新していた → 本物の危険と警報を分けて記録し、期間を更新するのは本物の危険だけ。テスト：`tests/test_i19_fail_closed.py`。
-* **判断**：**結果待ち**。A1〜A3 のどれかが不成立なら、その部分と原因の実行を報告する。S は帰無結果でも保証の外にあることは変えず、残りの弱点として書く。
+* **判断**：**採用を維持し、研究 A の安全の主張を支持とする**（A1・A1b・A2・A3 すべて成立、失敗した A の主張なし）。ただし書きは変えない：(1) 保証は相対的で、本方式の 0/24 は確認の誤りがないことを意味しない（Wilson 上限 0.14）。(2) 真の助言による操縦は、危険な配達の増加は有意に示されなかったが、可用性（配達できない世界 14/16）と被ばくを大きく損なう。これは命題2の外で、scrutiny＋soft refusal は 14→11 に減らすだけ。(3) 依頼文チャネルは助言の取り出しが弱い（36/72）ので、規則の統制された検証はファイルチャネルで行ったと書く。(4) オフラインセットの採点が済むまで「届け先の誤受理 0」は主張しない。S は帰無結果でも保証の外にあることは変えず、残りの弱点として書く。
 
 ---
 
@@ -617,3 +623,98 @@
   * 注入文の dev 半分：正しい受理が i35 の 86/94 から i38 では 92/94 に増えた。避難所の取り違えは両方とも 0。
   * 予備走行の依頼文4種（このため拒否されていたもの）：i38 では4種すべてを正しい物資で受理した（届け先 B の確率 0.70〜0.99）。
 * **判断**：規則を満たしたので採用する。研究 A は Amendment 1 で i38 に切り替え、予備走行をやり直す。最初の予備走行の台帳は失敗の記録として残す。v3.6 の既定（i35）は変えず、登録済みの研究 IF は i35 を測る。v3.7 の既定にするかは、A の後に決める。
+
+---
+
+## I-26 実機用プロファイル（任意）：`/clock` なしの時計、best effort のカメラ、フレーム名、`site.json` 1つの τ_h
+
+* **動機**：`docs/DEPLOYMENT.md` の第1・5・7節が挙げる実機のブロッカーのうち、コードで解決できるものが4つ残っていた。(a) ミッションは `/clock` を必要とし、カメラのスタンプが `/clock` から遅れ 1.2 s・進み 0.25 s 以内であることを確かめる。実機には `/clock` が無い。(b) カメラの購読は Reliable だけで、best effort で出すドライバには接続されない。(c) オドメトリのフレーム名は `odom`／`base_link` で終わる必要がある。(d) τ_h をサーバー、ミッション、インターロックの3か所に別々に渡すので、食い違うと許可証が出ない。しかも登録済みの評価は、すべて既定のコマンド行で動いている（現在もメイン側で台帳のキューが走っている）。既定の動作は1バイトも変えられない。
+* **仮説**：実機の置き換えは、(1) すべてオプトインのフラグにし、(2) 検査を外すのではなく「同じ限度を別の時間基準に対して適用する」形にすれば、既定の動作を変えずに、実機で必要な最小の変更を足せる。(3) τ_h は1つのファイルから全ノードが読み、食い違うフラグはエラーにすれば、一貫性は人の注意に頼らなくなる。
+* **変更**（新規は `rescuemind/real_profile.py`、ROS を読み込まない純粋なコード）：
+  * `--clock-source {sim,system}`（ミッション。既定 sim）：system のとき `/clock` を購読せず、カメラの `header.stamp` を、**画像を受け取った時点の**ホストのシステム時計と比べる（`SystemClockGate`）。限度は Gazebo 用と同じ（遅れ 1.2 s、進み 0.25 s）。スタンプが無い・0・負・壊れている、スタンプの逆戻り（以後ずっと拒否）、システム時計の逆戻りは、すべて拒否する。受け取りの記録は `checkpoint_camera_system_clock_verified`（Gazebo 用の `checkpoint_camera_sim_clock_verified` とは別の名前）。事後の確認は `audit_system_clock_capture`。
+  * `--camera-qos {reliable,best_effort}`（ミッションとガード。既定 reliable）：best effort は**実機用プロファイルのときだけ**許可する（ミッションは `--clock-source system`、ガードは `--real-profile`）。購読側のQoSだけが変わり、スタンプの前進、静止、画像の質の検査は同じ。
+  * `--odom-frame`／`--base-frame`（ミッションとガード。既定は変更なし）：`OdomHealth` がその名前で終わることを要求する（既定は `odom`／`base_link`）。ミッションは指定されたときだけ検査し、違えば停止する。
+  * `--site-config site.json`（サーバー、ミッション、インターロック、ガード、オーケストレータ）：`hazard_threshold`（τ_h）、任意で `hazard_prompt`、`hazard_views`、`caution_ratio`、フレーム名。同じ値を別のフラグでも与えて**食い違えば、黙って上書きせずエラー**で止まる。厳格な読み込み（未知のキー、重複したキー、NaN、真偽値、範囲外は拒否）。ミッションは設定の内容と SHA-256 を `mission.json` の `site_config` に記録し、`run_completion`／`negative_evidence`／`recovery_evidence` の監査は、記録した τ_h をすべてのモデル呼び出しの記録と照らす（記録が無い run には何も足さない）。
+  * **慎重さの閾値**（P2 の注記：実写では較正していない）は τ_h から導く：`min(0.01, 0.2 × τ_h)`。τ_h が 0.05 より厳しいサイトでは比例して厳しくなる（0.02 → 0.004）。τ_h が 0.05 以上（較正後の 0.30 など）では **0.01 のまま上げない**。慎重さを τ_h に比例して 0.06 にすると、`local_run_audit` の上限（0.05 未満）と、助言の機械検証した単調性の証明（慎重さは 0.01 以下、`advice.py` の文面を直接書き換える変異テストを含む）の前提を壊す。緩める方向には動かさない、を優先した。代償は、τ_h = 0.30 で慎重さが τ_h の 1/30 になり、記憶・助言が危険と指摘した拠点だけで拒否が増えること（締めるだけ）。τ_h が 0.05 でないサイトでの助言は、導いた慎重さが 0.01 でなければ起動時に拒否する。
+  * 実装の方針：ガード、ミッション、サーバー、インターロックの既定値は、引数の既定値を `None` にして解決後に元の値（0.05、0.5、`full`、`h35` など）を入れる形にした。オーケストレータの `--hazard-threshold`／`--hazard-views`／`--hazard-prompt` も同じ（解決後は 0.05／`tiles`／`h36`）。`image_qos(reliability='reliable')`、`OdomHealth(odom_frame='odom', base_frame='base_link')` も既定の呼び出しは同じ。
+* **Before/After（デフォルトのコマンド行が同一であることの確認）**：
+  * 変更の前後で `scripts/v32_orchestrate.py --plan` の出力（サービス全体の引数とミッションのコマンド行）を4通りの既定に近い設定（motion-check、live、live＋インターロック＋適応視点＋τ_h 0.3＋記憶、live＋i38＋caution-soft＋advice-scrutiny）で保存して `cmp` した。**4通りとも 1 バイトも違わない**（例：motion-check の SHA-256 が `f1b755ea…`、live が `4a66e35f…` で前後一致）。新しいフラグは、指定したときだけコマンド行に現れる。これを `tests/test_i26_real_profile.py::DefaultCommandLines` が毎回確かめる（既定の設定でも `--site-config`、`--clock-source`、`--camera-qos`、`--odom-frame`、`--base-frame`、`--real-profile` は出ない）。
+  * Before：実機では `/clock` が無く、カメラの購読が接続されず、フレーム名が違えば止まり、τ_h は3か所に手で同じ値を渡すしかなかった。After：上のフラグで、それぞれ解決（手動の手順は `docs/DEPLOYMENT.md` 第7.1節に残す）。
+  * テスト：新規 `tests/test_i26_real_profile.py`（52 テスト）。偽の時計と偽のメッセージ、偽の rclpy だけで動く（ROS 実行環境は不要）。システム時計の限度の境界、スタンプの欠落・0・逆戻り・Unix 時間でないスタンプ、システム時計の逆戻り、`/clock` を購読しない・best effort で購読するミッション一式（到着から配達まで）、古い・先のスタンプでの推論前の拒否、フレーム名の不一致での停止、site.json の不正な内容、フラグの食い違い、三者の τ_h が一致すること、既定の動作が変わらないことを確かめる。
+* **判断**：採用する。すべてオプトインで、既定のコマンド行は前後で同一。**ただし、実機でも Gazebo の閉ループでも、これらのオプションを通した実績は無い**（単体テストだけ）。τ_h ≠ 0.05 での閉ループの安全性は未測定（第3.1節のまま）。慎重さの閾値を τ_h に比例して上げる（0.06 など）ことは、証明と監査の前提を取り替えてからにする。実機でやること：カメラの計算機とのクロック同期、トピック名の中継、拠点・避難所の座標を起動時のオドメトリ座標で測ること（第7.1節の表）。
+
+## I-27 依頼文で依頼物資をすり替えられる問題：物資が食い違えば聞き返す
+
+* **動機**：研究 IF（事前登録済み）で、v3.6 の意図の解析（i35）が、すり替えの依頼文 36 件のうち 12 件を、すり替えた物資で受理した。内訳は偽の「システム通知」8/12、転送メモ 2/12、「上は無視して」2/12。登録した主張 IF1 は不成立。「両方の物資を含む曖昧な依頼として断るはず」という予測も外れた（0 件）。依頼物資は助言ではなく命令なので、「締めるだけ」の原理では守れない（命題2の外）。
+* **仮説**：すり替えは、元の物資と別の物資の両方に触れないと成り立たない。だから、依頼文が両方の物資を挙げる場合、またはモデルがもう一方の物資に確率 0.05 以上を残す場合に、動かずに運用者へ聞き返せばよい。そうすれば、すり替えは通らない。代償は、言い直しと「〜は足りている」の依頼にも聞き返すこと。
+* **変更**：
+  * `rescuemind/intent_llm.py` に `supply_conflict` と `decide_intent_hybrid(conflict_check=True)` を追加した。
+  * ミッションノードに `--intent-conflict-check` を追加した（既定はオフで、v3.6 は不変）。
+  * テストは `tests/test_i27_conflict.py`。
+* **計測**：研究 IF2 として事前登録した（`experiments/PREREGISTRATION_IF2.md`）。新しい言い回しの 72 件（`intent_flip_set2.jsonl`）を使い、規則あり・なしを同じ推論で比べる。主張は「すり替えの受理 0/36（上限 10% 未満）」と「通常の依頼の受理 11/12 以上」。GPU の順番では、倉庫の撮影の後に実行する。
+* **判断**：（結果待ち）
+
+## I-28 (2026-10-18): 模擬査読 R9 への対応（文章の事実修正と図の高さ計算）
+* **動機**：R9（`docs/paper/REVIEW_NOTES_R9.md`）が A の節に事実と合わない文を見つけた。ガードレールは「ファイルを見ない」のではなく、各項目を読んで 0/12 しか不審と判定しなかった（コード・登録・FINDINGS #34 が一致）。A-steer の 2/16 を W の全体の ε_any の「内側」と書いたが、比べるべきは側面のみの部類（3/23）で、点推定は上限を超える。Price の文は「真の助言でも火のある拠点に当たれば全体を失う」ことと矛盾していた。
+* **変更**：登録した名称 self-filter に戻し、「読んで見逃した」と書く／基準は助言に従うのが定義であり、対比は「判断するのはインタフェース」と書く／C2 の再生は適合検査であり画像の独立性の検査ではないと書く／A-steer は最悪の部類と一致と書く／Price の文を直す／抄録に助言なしの対照と A-steer の 2/16 対 0/16 を足す／依頼文チャネルで緩める攻撃は 3/36 しか取り出せなかったと書く／表 I に「依頼物資」の行（IF 不成立）を足す／IF2 の登録文の古い表現を直す。図の高さ計算の誤り（最後の行のラベルを全行に使っていた）も直した。
+* **Before/After**：A の節の事実誤り 3 → 0。本文は 8 頁のまま（参考文献は 9〜10 頁）、`check_consistency` は 0。数値は変えていない。
+* **未対応（R9 の残り）**：オフライン 224 文の採点（GPU の連鎖の最後）、停止後も探索を続ける腕の登録（X-s）、構成の列、頁の上限の確認。
+
+## I-29 (2026-10-18): 研究 S（画像の中の看板）の結果を取り込む
+* **動機**：S は構造的な保証の外にあるが、「看板でゲートが壊れるか」は査読者が必ず聞く（R3〜R9）。7つの仮説を事前登録済み（`experiments/PREREGISTRATION_S.md`）。
+* **仮説（事前）**：順序の入れ替えが文字の看板を防ぐ（H1、H2）。順序に依らない文字B と取り違えは残る弱点になる（H3、H4）。「火災なし」の看板は火を打ち消さない（H5）。文字は可用性攻撃になる（H6）。無害な文字は何もしない（H7）。
+* **結果（64世界、7方式、標識の読み取りは 52/52）**：
+  * 本方式で拒否→許可に変わった世界は **0/42**（Wilson 上限 8.4%）。C 0/9、A 0/6、B 0/6、取り違え 0/10、「火災なし」0/8。
+  * 1回判定の方式も A で 0/6。よって H2 は不成立（「どちらとも言えない」）。**登録した主張（H1 と H2）は不成立 → 失敗した主張の8件目（S-perm）**。
+  * H3・H4・H6 は不成立（予想した弱点は見つからなかった）。H5 は成立（0/8）。H7 は不成立：無害な文字が自由記述の基準方式を6世界で動かした（本方式 0）。
+  * OCR マスクと「無視せよ」の指示は決定を何も変えなかった（正しい許可 56/56 を維持、新しい誤許可 0）。閉じるべき脆弱性が無かった（D4）。
+* **変更**：失敗した主張に S-perm を足した（`advice_numbers.failed_claims`）／論文の S の段落を結果つきに書き換え／補遺に S の小節と7方式の表（`tab_s_systems.tex`）／FINDINGS #35／README・説明資料の S の文を1つの関数（`advice_numbers.s_ja`）から生成。「順序の入れ替えが理由」とは書かない。
+* **Before/After**：S の欄は「登録済み・未実行」→「0/42（上限 8.4%）、順序の主張は不成立」。失敗した主張 7→8。本文は 8 頁のまま。
+* **読むときの限界**：看板は適応的でない（検出器や質問を知らない）。斜めの文字・小さい文字・別のモデルは未検証。0/42 は上限 8.4% までしか言えない。
+
+## I-30 (2026-10-18): 研究 B（助言の信用枠の閉ループ確認）の結果を取り込む
+* **動機**：命題 3（信用枠）は単体テストと合成モデルだけだった。「毎回嘘をつく情報源の代償は有界」を、配線を含む閉ループで確かめる（機構の確認で、安全の研究ではない）。
+* **予測（事前）**：嘘つき3系列（各6出動）で、信用なしは無駄足 6、ありは 2（上限 C_loc+ρ·m = 3）。正直な系列は止められない。監査の失敗 0、危険な配達 0、I-22 の許可は全試行。
+* **結果（48/48 試行、欠測 0）**：予測どおり 3 系列すべて 6 → 2（正確に一致、上限 3 の内）。正直な系列の無駄足 0、両群で同一。監査の失敗 0、危険な配達 0、許可の違反 0。信用枠で系列あたり中央値 129 秒短縮（予測 144 秒、到着のぶれの差）。
+* **変更**：`paper_numbers.py` に B のマクロ、論文の Limits と補遺（B の段落）、`advice_numbers.b_ja()` から README・説明資料へ。主張は成立なので、失敗した主張は 8 のまま。
+* **限界**：決定的なモデルの機構の確認で、率の推定ではない。k=2、位置の助言、1つの情報源だけ。複数の情報源・k>2・危険の助言は未検証。
+
+## I-31 (2026-10-19): XD revert rule as code; second AI pass over Q's labels (both before their results exist)
+- **Motivation.** Mock review R9 asked for (i) decisions fixed before data and (ii) a label check for Q. XD and Q are unscored; anything done now is not post hoc.
+- **Change 1.** `xd_analysis.i20_revert_verdict` computes the I-20 revert rule (withdraw if ANY of: extra views fire on >15% of fire-free twins; correct approvals on twins fall >=5 points vs look-around; no look-around miss removed) from `xd_summary.json`, with tests. The decision is therefore mechanical when XD lands.
+- **Change 2.** Second AI pass over 60 random audited Q images (20 per class, seed 20261019): 0 class violations (Wilson upper 6.0%), 4 borderline not counted (`experiments/results/q_label_recheck.json`). Not independent of the first pass (same assistant, same criteria); human spot-check still pending. Labels are NOT changed.
+- **Before/After.** Before: Q labels had one AI audit and no measured error check. After: 0/60, upper bound 6%, stated as non-independent in the supplement.
+
+## I-32 (2026-10-19): study XD (depot, image level) integrated; the I-20 revert rule applied as written
+- **Motivation.** XD finished at 04:21 (1932 images, 308 worlds). The registered claims had to be reported either way, and the I-20 revert rule (fixed 2026-10-18 before XD was rendered) had to be applied without bending it.
+- **Result.** Hard class (tongues_small): look-around missed 12/100, Wilson upper 19.8% > 15%: **XD-eps not supported** (pooled 14/151, upper 15.0%, reported next to it, not instead of it). Front-only 55/151. O1, O2, O4 and C1 hold; **O3 fails**: the extra views fired on 65/76 fire-free twins (85.5%), so "the relative ordering transfers" is not supported. **XD-cal not supported**: no threshold on the grid reached 0.95 calibration recall (recall 79% at 0.05). P1 failed (smoke-only 1/20). No realism ablation moved eps.
+- **I-20 revert verdict (`xd_analysis.i20_revert_verdict`, committed 2026-10-19 before the scores were read): withdrawn by criterion (a) alone.** (b) did not fire (twin correct approvals 75/76 with and without the extra views), (c) did not fire (12 of the 14 look-around misses removed, none added, exact p = 0.0005; adaptive 2/151).
+- **Change.** The code default of `--adaptive-views` was already 0 (off), so nothing in the code changes; every text that said "v3.7 default" now says "withdrawn; optional". Failed registered claims: 8 -> 11 (XD-eps, XD-rel, XD-cal). Paper, supplement (Sec. S12 study XD, Table `tab:xd-classes`, transfer table), README and report read the results from `xd_summary.json` through the generators.
+- **Before/After.** Before: I-20 was to become the v3.7 default on 1 world of evidence. After: it removes 12 of 14 depot misses but is not the default; the depot's hard-class eps with look-around is 12% (arena W: 2%), so the steering exposure eps_any(k=4) on the hard class is 40.5% [25.2, 58.7].
+- **Cause check (FINDINGS #36).** The fire-free views of the depot score higher than the arena's (median 0.0062; 70% of views and 87% of twins reach tau_sus = 0.005, which was the arena's 90th percentile per view). tau_sus is a per-view threshold but the trigger is a per-world "any of three views", so it could not meet a 15% world-level cap.
+
+## I-33 (2026-10-19): exploratory, rule written before the computation -- a per-site tau_sus for the extra views
+- **Status.** Exploratory and post hoc with respect to XD: the XD test split has been seen in aggregate. It is NOT a replacement of the registered XD verdict (I-20 stays withdrawn as a default). A confirmation needs a fresh set (XD2), which would be a new registration.
+- **Rule (fixed here, before it is computed).** tau_sus' = the 85th percentile of the world-level maximum F/L/R hazard score over the fire-free worlds (ok, wrong, twin) of the **calibration split** only. Evaluate the adaptive policy with tau_sus' on the **test split** only: (i) trigger rate on test twins with extra views, (ii) misses among test perceivable hazard worlds (look-around vs adaptive), (iii) correct approvals on test twins. Nothing else is varied; tau_h stays 0.05.
+- **Read-out rule.** Called "promising" only if (i) <= 15%, (ii) removes at least half of the look-around misses on the test split, and (iii) loses at most 1 correct approval. Otherwise reported as not promising. Either way it goes into the supplement as exploratory.
+- **Result (`experiments/results/xd_site_tau_sus.json`, `scripts/xd_site_tau_sus.py`).** tau_sus' = 0.0191 (63 calibration fire-free worlds). On the test split: trigger 0/45 twins (criterion i met), correct approvals 44/44 (iii met), but look-around 9 -> adaptive 5 misses of 90, i.e. 4 of 9 removed, less than half (criterion ii **not met**). Reference with tau_sus = 0.005 on the same test split: 41/45 twins triggered, 9 -> 2 misses. **Verdict by the pre-written rule: not promising.** The extra views behave like a trade-off along tau_sus (a cheap setting removes fewer misses, the setting that removes nearly all fires on almost every station); nothing here changes the registered XD verdict or the withdrawal.
+
+## I-34 (2026-10-19): the X mechanics pilot stopped the study as designed -- Amendment 1 (denial classification in the depot)
+- **Motivation.** The chain reached X at 04:21; `x_run.sh` runs a 9-run mechanics pilot first and stops unless it behaves as designed.
+- **What happened.** `X_ABORT: pilot did not behave as designed; X NOT started`. Run XP-E (empty depot, expected DENY) ended FAILED / DENY_UNVERIFIED although the robot denied at all four stations and held for 2.5 s. No X trial was run (Q started next, unaffected).
+- **Cause.** The orchestrator audits a failed mission as an *expected denial* only when `--scene` is swapped/empty, a hazard is configured, or a caution/memory denial is logged. In the depot an empty/swapped world comes from the world spec, so `--scene` stays nominal and the denial was never audited. The 4 `empty` trials of X would have failed the same way. The pilot clause of PREREGISTRATION_X exists for exactly this.
+- **Change (main f0ddd78, Amendment 1 of X).** `ai_denial_held`: a run with exactly one completed denial hold and an explicit denying decision goes through the same strict `classify_negative_run` (hold >= 2 s, zero commands, independent ROS evidence); without that stage it is still FAILED. 5 tests. The first pilot ledger is kept (`campaign_X_pilot1_ledger.jsonl`); the stale pilot memory was moved to `~/rescue-mind-trash/20261019-0448/`. The pilot and X are queued after the rest of the chain (`after_x2.sh`).
+- **Before/After.** Before: X could not classify any all-denied depot run (would have been 4 spurious FAILED among 80). After: classified with the same evidence audits as the arena; protocol, worlds, thresholds and claims unchanged.
+
+## I-35 (2026-10-19): exploratory, rule written before the computation -- a per-site tau_h calibrated on world-level false stops
+- **Status.** Exploratory and post hoc with respect to XD (the test split was seen in aggregate; registered XD-4, the P2 recall rule, found no tau*). Not a replacement of any registered verdict. A confirmation would need a fresh set (XD2, a new registration).
+- **Question.** The look-around misses 12/100 hard-class fires at the frozen tau_h = 0.05. Would a site-calibrated tau_h on the **calibration split only** cut them at an acceptable false-stop cost?
+- **Rule (fixed here, before it is computed).** On the calibration split, over the grid {0.01, 0.02, 0.05, 0.10, 0.15, 0.20}, tau_h' = the **smallest** grid value whose look-around correct-approval rate on the fire-free correct-supply worlds (ok + twin) is at least 95%. Evaluate tau_h' and the frozen 0.05 on the **test split** only (the look-around world rule, tau_sus/extra views off): misses among the perceivable hazard worlds (pooled and tongues_small), correct approvals on ok + twin, and false approvals on wrong-supply worlds.
+- **Read-out rule.** "Promising" only if on the test split (i) tongues_small look-around misses at tau_h' are at most half of those at 0.05, (ii) correct approvals stay >= 90%, (iii) no wrong-supply world is approved. Otherwise "not promising". Reported either way in the supplement as exploratory.
+- **Result (`experiments/results/xd_site_tau_h.json`, `scripts/xd_site_tau_h.py`).** Calibration correct-approval rates of the look-around: 0.01 -> 38.8%, 0.02 -> 89.8%, 0.05 -> 98.0%, 0.10 and above -> 100%. The rule therefore picks tau_h' = 0.05, **the frozen value itself**; the test split is unchanged (hard class 9/60 misses, correct approvals 70/72, wrong-supply false approvals 0/21). **Verdict by the pre-written rule: not promising.** Reading: at a 5% false-stop budget the frozen threshold is already where the depot's calibration data put it, so the residual hard-class misses are not a threshold artifact; the only lever that removed most of them is the extra views (I-20), which the registered rule withdrew for their trigger cost.
+
+## I-36 (2026-10-19): study Q (real photographs) integrated -- safe but conservative
+- **Result.** 405 Commons photographs (139 water, 116 medicine, 150 neither), frozen v3.6 supply check: false approvals 0/277 (Wilson upper 1.4%, criterion <= 5% met); correct approvals 52/128 = 40.6% (water 33/70, medicine 19/58), criterion >= 70% **not met**, so the registered claim "the supply check transfers to real photographs" is not supported ("safe but conservative"). tau_s 0.7 / 0.9 only lower approvals (28 / 15). SigLIP and CLIP approve all 128 correct images but also 65 and 60 of the 277 must-refuse images. The failed registered claims are now 12 (Q added).
+- **Descriptive reading (score file).** Of 76 refused correct images, 49 were called "other" in both option orders (museum tins, bags, old kits, unusual bottles), 26 got different answers in the two orders (fail-closed refuses), 1 had the right answer twice with p below tau_s.
+- **Before/After.** Before: real-photo supply recognition untested (labels audited by an AI, 0/60 violations on recheck). After: safety transfers, availability does not; the paper says a site-specific description or example is needed before use on unconstrained photographs.
+- **Not done.** No post-hoc tuning of the prompt on Q (it would spend the registered set); a Q2 with a revised kit description would be a new registration.
