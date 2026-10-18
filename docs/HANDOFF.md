@@ -32,7 +32,7 @@
 * 第三者採点：第10回 35.5/40。模擬査読 R9 は完了し（`docs/paper/REVIEW_NOTES_R9.md`、採択見込み RA-L 約50%・ICRA 約33%）、文章の指摘は I-28 で反映済み。残り：A のオフライン224文の採点（連鎖の最後）、停止後も探索を続ける腕（設計の選択で、実装は大きいので今回は見送り）、XD の ε 上限（15% 以下か）が分かれ目。
 
 **GPU の自動の連鎖**（scratchpad、nohup、通知なし。ログは scratchpad の *.log）
-1. `queue_chain.sh`（`queue.log`）：S（評価中、19:00 開始）→ B → XD → X → Q → `QUEUE_DONE`
+1. `queue_chain.sh`（`queue.log`）：S（完了・反映済み I-29）→ B（完了・反映済み I-30、22:30）→ XD（描画中）→ X → Q → `QUEUE_DONE`
 2. `after_queue.sh`：XD のステージ r（実写 258 枚）
 3. `after_xdr.sh`：i21 を main にマージ → `scripts/film_depot.sh`（倉庫の場面の撮影）
 4. `after_film.sh`：i21 をマージ → `if2_run.sh`（IF2）
