@@ -761,7 +761,7 @@ def sec_prereg(D, E):
             ['XD・X', '倉庫（4拠点）の画像と閉ループでも成り立つか', reg('XD'),
              (advice_numbers.xd_ja() + ('' if jload('x_summary.json') else '。閉ループの評価Xは' + PEND_NOT_RUN))
              if advice_numbers.xd_ja() else PEND_NOT_RUN + ('。' + advice_numbers.xdr_ja() if advice_numbers.xdr_facts() else '')],
-            ['Q', '実物の写真（Commons 405枚）で物資の確認は通用するか', reg('Q'), PEND_NOT_RUN],
+            ['Q', '実物の写真（Commons 405枚）で物資の確認は通用するか', reg('Q'), advice_numbers.q_ja(PEND_NOT_RUN)],
             ['B', '助言の信用枠は、毎回嘘をつく情報源の代償を閉ループで抑えるか（機構の確認）', reg('B'), PEND if jload('b_summary.json') else PEND_NOT_RUN],
             ['IF', '依頼文で、頼まれた物資をすり替えられるか（査読 R6 の P7）', reg('IF'),
              (f"主張 IF1 {'成立' if advice_numbers.if_facts()['held'] else '不成立'}：すり替えの受理 {advice_numbers.if_facts()['k']}/{advice_numbers.if_facts()['n']}（95%区間 {advice_numbers.if_facts()['ci'][0] * 100:.0f}〜{advice_numbers.if_facts()['ci'][1] * 100:.0f}%）、"

@@ -1057,6 +1057,30 @@ def main():
         m['BSave'], m['BSavePred'] = f"{bj['B4_time_descriptive']['median_saving_s']:.0f}", f"{bj['B4_time_descriptive']['predicted_saving_per_sequence_s']:.0f}"
         m['BClaim'] = sup(bj['headline_supported'])
         m['StatB'] = f"credit bound: {m.lookup('BClaim')}"
+    # ---- study Q (real photographs, 405 Commons images; q_summary.json + the score file for the descriptive split of the refusals)
+    qf_ = RES / 'q_summary.json'
+    if qf_.is_file():
+        qj_ = json.loads(qf_.read_text())
+        qq_, qc_ = qj_['qwen9b_v35'], qj_['qwen9b_v35']['claim']
+        m['QN'] = qj_['n']
+        m['QFA'], m['QNDeny'] = f"{qq_['FA']}/{qq_['n_deny']}", qq_['n_deny']
+        m['QFAUpper'] = pct(qq_['FA_ci'][1])
+        m['QCA'], m['QCARate'] = f"{qq_['CA']}/{qq_['n_allow']}", pct(qq_['CA_rate'])
+        m['QCACI'] = '[{:.1f}, {:.1f}]\\%'.format(*(100 * x for x in qq_['CA_ci']))
+        ca_ = qj_['breakdown']['correct_approvals']
+        m['QCAWater'], m['QCAMed'] = f"{ca_['water']['k']}/{ca_['water']['n']}", f"{ca_['medicine']['k']}/{ca_['medicine']['n']}"
+        m['QSigFA'], m['QClipFA'] = f"{qj_['siglip']['counts']['FA']}/{qj_['siglip']['counts']['n_deny']}", f"{qj_['clip']['counts']['FA']}/{qj_['clip']['counts']['n_deny']}"
+        m['QCAHigh'], m['QCAHigher'] = (f"{qj_['tau_s_sensitivity'][t_]['CA']}/{qj_['tau_s_sensitivity'][t_]['n_allow']}" for t_ in ('0.7', '0.9'))
+        m['QSafe'], m['QAvail'] = sup(qc_['safety_FA_upper_bound_le_0.05']), sup(qc_['availability_CA_ge_0.70'])
+        m['QClaim'] = sup(qc_['supply_check_transfers'])
+        qs_ = RES / 'q_scores_qwen9b_v35.jsonl'
+        if qs_.is_file():      # descriptive: why the correct images were refused (both passes said "other" / the two option orders disagreed)
+            al_ = [r_ for r_ in (json.loads(x_) for x_ in qs_.read_text().splitlines()) if r_['expected'] == 'allow']
+            ref_ = [r_ for r_ in al_ if not all(r_['passes'][k_]['supply'] == r_['requested'] for k_ in '12')]
+            m['QRefused'] = qq_['n_allow'] - qq_['CA']      # one more correct image has the right answer in both orders but p below tau_s
+            m['QRefOther'] = sum(all(r_['passes'][k_]['supply'] == 'other' for k_ in '12') for r_ in ref_)
+            m['QRefDisagree'] = sum(r_['passes']['1']['supply'] != r_['passes']['2']['supply'] for r_ in ref_)
+        m['StatQ'] = f"safety: {m.lookup('QSafe')}; availability: {m.lookup('QAvail')}; transfers: {m.lookup('QClaim')}"
     # ---- study XD (image level, depot; xd_summary.json).  The I-20 revert verdict is recomputed from the raw records with the code that was
     # committed before XD was scored (xd_analysis.i20_revert_verdict); the fields shared with the summary must agree.
     xdf_ = RES / 'xd_summary.json'
