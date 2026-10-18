@@ -7,12 +7,19 @@ not exist is omitted (a public description never says "running").
 
   python3 scripts/make_youtube_description.py            # rewrite docs/YOUTUBE_DESCRIPTION.md and docs/SUBMISSION.md
   python3 scripts/make_youtube_description.py --check    # exit 1 if either file is out of date
+  python3 scripts/make_youtube_description.py --snapshot # submission snapshot -> docs/snapshot/YOUTUBE_DESCRIPTION.md (tracked files untouched)
+
+--snapshot (or SNAPSHOT=1): a closing line names the registered studies that were not run at submission ("登録済み・提出時点で未実施"),
+so the text reads as finished; their numbers are still omitted.
 """
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
+if '--snapshot' in sys.argv:      # submission snapshot (read before advice_numbers is imported)
+    os.environ['SNAPSHOT'] = '1'
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import advice_numbers  # noqa: E402  (study V wording: single source shared with the README and the report)
 
@@ -300,13 +307,22 @@ def headline_block(res):
     return out
 
 
+def line_pending(res):
+    """Snapshot only: the registered studies without results, in one line (the description otherwise omits them)."""
+    if not advice_numbers.snapshot_mode():
+        return ''
+    ks = advice_numbers.pending_list()
+    return (f"・{advice_numbers.PENDING_JA}：{'・'.join(ks)}（数値なし）" if ks else '')
+
+
 def number_lines(res):
-    fns = (line_t1, line_t2, line_z, line_r, line_p, line_l, line_h, line_v, line_w, line_j)
+    fns = (line_t1, line_t2, line_z, line_r, line_p, line_l, line_h, line_v, line_w, line_j, line_pending)
     return [x for x in (f(res) for f in fns) if x]
 
 
 # ------------------------------------------------------------------ documents
 DROP_ORDER = ('（T2）', 'ゼロショット', '劣化', '評価J', '評価P', '（T1）')     # detail lines dropped first when over YouTube's 5000 bytes
+DROP_ORDER_SNAP = ('閉ループ評価L',)      # snapshot only: the extra "not run at submission" line needs the room
 LIMIT = 4990
 
 
@@ -356,11 +372,12 @@ def build_description(chapters, res, _nums=None):
     out = '\n\n'.join(paras) + '\n'
     body = out.split('## 概要欄\n', 1)[1].split('\n\n## 公開設定', 1)[0]
     if len(body.encode('utf8')) > LIMIT and nums:
-        for key in DROP_ORDER:
+        snap = advice_numbers.snapshot_mode()
+        for key in DROP_ORDER + (DROP_ORDER_SNAP if snap else ()):
             keep = [x for x in nums if key not in x]
             if len(keep) < len(nums):
                 if not any('README' in x for x in keep):
-                    keep.append('・ほかの結果（画像テスト・画質の変化・比較手法など）は README と説明資料に掲載')
+                    keep.append('・ほかの結果（画像テスト・画質の変化・比較手法' + ('・未知の配置' if snap else '') + 'など）は README と説明資料に掲載')
                 return build_description(chapters, res, keep)
     return out, facts
 
@@ -393,11 +410,17 @@ def main(argv=None):
     ap.add_argument('--out', default=str(ROOT / 'docs/YOUTUBE_DESCRIPTION.md'))
     ap.add_argument('--submission', default=str(ROOT / 'docs/SUBMISSION.md'))
     ap.add_argument('--check', action='store_true', help='do not write; exit 1 if a file is out of date')
+    ap.add_argument('--snapshot', action='store_true', help='submission snapshot: write docs/snapshot/YOUTUBE_DESCRIPTION.md, name the studies not run at submission')
     a = ap.parse_args(argv)
+    if a.snapshot:
+        os.environ['SNAPSHOT'] = '1'
+        if a.out == str(ROOT / 'docs/YOUTUBE_DESCRIPTION.md'):
+            a.out = str(advice_numbers.snapshot_dir() / 'YOUTUBE_DESCRIPTION.md')
+        a.submission = ''     # docs/SUBMISSION.md is a tracked document: the snapshot does not rewrite it
     chapters = json.loads(Path(a.chapters).read_text(encoding='utf8'))
     desc, facts = build_description(chapters, a.results)
     sub_path = Path(a.submission)
-    sub_new = splice(sub_path.read_text(encoding='utf8'), build_submission_block(facts)) if sub_path.is_file() else None
+    sub_new = splice(sub_path.read_text(encoding='utf8'), build_submission_block(facts)) if a.submission and sub_path.is_file() else None
     for w in facts['warnings']:
         print('WARNING:', w, file=sys.stderr)
     body = desc.split('## 概要欄\n', 1)[1].split('\n\n## 公開設定', 1)[0]
@@ -413,6 +436,7 @@ def main(argv=None):
         print('up to date' if not stale else 'STALE: ' + ', '.join(stale))
         return 1 if stale else 0
     if str(out) in stale:
+        out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(desc, encoding='utf8')
     if str(sub_path) in stale:
         sub_path.write_text(sub_new, encoding='utf8')

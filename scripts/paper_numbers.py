@@ -10,6 +10,11 @@ files in experiments/results/.  Missing results are the macro \\TBD, which print
     presentable PDF exists at any time;
   * the red "TBD" with PENDING_TEXT=0 (debugging);
   * FINAL=1 (or --final) refuses to build while any macro or table is still pending.
+  * SNAPSHOT=1 (or --snapshot; `make snapshot`) is the submission snapshot: the studies without results (advice_numbers.snapshot_pending())
+    print the pending form of every sentence that needs their numbers ("registered, not yet run at submission"), chosen in main.tex /
+    supplement.tex by the generated switches \\IfPendA{pending}{normal} ... \\IfPendIF; no \\TBD survives (it prints "not run").  Studies
+    with results keep their normal sentences.  FINAL and SNAPSHOT exclude each other.  `--out DIR` writes the macros and tables to DIR
+    instead of docs/paper (the snapshot build never touches the tracked files).
 """
 from __future__ import annotations
 import json
@@ -27,6 +32,8 @@ from run_paths import FULL as FULL_RUNS  # noqa: E402
 import advice_numbers  # noqa: E402
 RES = ROOT / 'experiments/results'
 OUT = ROOT / 'docs/paper'
+if '--out' in sys.argv:
+    OUT = Path(sys.argv[sys.argv.index('--out') + 1]).resolve()
 
 
 def _num(x, nd=0):
@@ -66,17 +73,99 @@ def all_attempts(name):
 
 
 FINAL = '--final' in sys.argv or os.environ.get('FINAL', '') not in ('', '0')
+SNAPSHOT = '--snapshot' in sys.argv or advice_numbers.snapshot_mode()
+if SNAPSHOT:
+    os.environ['SNAPSHOT'] = '1'          # the other generators (advice_numbers) read the same switch
+    if FINAL:
+        raise SystemExit('FINAL=1 and SNAPSHOT=1 exclude each other: FINAL refuses any pending result, SNAPSHOT prints it as "registered, not yet run at submission"')
 PENDING_TEXT = (not FINAL) and os.environ.get('PENDING_TEXT', '1') != '0'
 # FINAL: a \TBD that survives anywhere (a literal one in main.tex/supplement.tex, a missing figure) is a LaTeX error, so the build fails
 TBD_DEF = (r'\providecommand{\TBD}{\PackageError{rescuemind}{FINAL build: a pending (TBD) result remains}{Fill it or remove the sentence.}}' if FINAL
+           else r'\providecommand{\TBD}{\SnapNA{}}' if SNAPSHOT
            else r'\providecommand{\TBD}{\textcolor{gray}{\textit{(pending)}}}' if PENDING_TEXT
            else r'\providecommand{\TBD}{\textbf{\textcolor{red}{TBD}}}')
+
+
+def snapshot_head():
+    """LaTeX switches of the submission snapshot: \\IfPendX{pending form}{normal form} for every study that may lack results."""
+    pend = advice_numbers.snapshot_pending() if SNAPSHOT else set()
+    h = [r'\newcommand{\SnapNA}{not run}',
+         r'\newcommand{\IfSnapshot}[2]{%s}' % ('#1' if SNAPSHOT else '#2'),
+         r'\newcommand{\IfAnyPend}[2]{%s}' % ('#1' if pend else '#2')]
+    h += [r'\newcommand{\IfPend%s}[2]{%s}' % (k, '#1' if k in pend else '#2') for k in advice_numbers.SNAPSHOT_STUDIES]
+    h.append(r'\newcommand{\TBDfor}[1]{\csname IfPend#1\endcsname{\SnapNA{}}{\TBD}}')      # a cell/number of study #1: "not run" in the snapshot, \TBD otherwise
+    return h
+
+
+def snapshot_expand(tex, pending, snapshot=True):
+    """What LaTeX makes of the switches in `tex` for a given pending set (used by the tests and check_consistency to see the text a snapshot
+    prints without compiling): \\IfPend<L>{a}{b}, \\IfAnyPend, \\IfSnapshot and \\TBDfor{L}; comment lines are dropped."""
+    tex = '\n'.join(re.sub(r'(?<!\\)%.*$', '', ln) for ln in tex.splitlines())
+    sw = re.compile(r'\\(IfPend[A-Z]+|IfAnyPend|IfSnapshot)(?![A-Za-z])|\\TBDfor\{([A-Z]+)\}')
+
+    def group(t, i):
+        while t[i].isspace():
+            i += 1
+        assert t[i] == '{', t[i:i + 40]
+        d, j = 0, i
+        while True:
+            if t[j] == '\\':
+                j += 2
+                continue
+            d += (t[j] == '{') - (t[j] == '}')
+            j += 1
+            if d == 0:
+                return t[i + 1:j - 1], j
+
+    out, i = [], 0
+    while True:
+        mm = sw.search(tex, i)
+        if not mm:
+            out.append(tex[i:])
+            break
+        out.append(tex[i:mm.start()])
+        if mm.group(2):
+            out.append(r'\SnapNA{}' if snapshot and mm.group(2) in pending else r'\TBD')
+            i = mm.end()
+            continue
+        a, j = group(tex, mm.end())
+        b, j = group(tex, j)
+        name = mm.group(1)
+        on = snapshot and (bool(pending) if name == 'IfAnyPend' else True if name == 'IfSnapshot' else name[len('IfPend'):] in pending)
+        out.append(snapshot_expand(a if on else b, pending, snapshot))
+        i = j
+    return ''.join(out)
+
+
+def check_final(m, tables):
+    """FINAL=1, the strict mode: any macro or table that is still \\TBD refuses the build (SystemExit)."""
+    pend = [ln.split('}')[0].split('{\\')[1] for ln in m.lines[2:] if ln.endswith('{\\TBD}')]
+    pend += [n for n, b in tables.items() if '\\TBD' in b]
+    if pend:
+        raise SystemExit(f'FINAL: {len(pend)} pending (TBD) macros/tables: {pend[:12]} ...')
+
+
+def snapshot_problems(tex_files, numbers_text, pending):
+    """What would still print a pending marker in a snapshot build: a literal \\TBD left after the switches are expanded (the definition of the
+    figure-fallback box excepted) and every use of a result macro whose snapshot value is the clean "not run" fallback (i.e. a number that does
+    not exist yet and that no \\IfPend<study>{pending}{normal} wraps).  [] means the snapshot text is complete."""
+    na = {m.group(1) for m in re.finditer(r'\\newcommand\{\\([A-Za-z]+)\}\{\\SnapNA\{\}\}', numbers_text)}
+    bad = []
+    for f in tex_files:
+        t = snapshot_expand(Path(f).read_text(encoding='utf8'), pending)
+        t = '\n'.join(ln for ln in t.splitlines() if r'\newcommand{\fig}' not in ln)
+        for mm in re.finditer(r'\\TBD(?![A-Za-z])', t):
+            bad.append(f'{Path(f).name}: literal \\TBD near "{t[max(0, mm.start() - 50):mm.start() + 20].strip()}"')
+        for mm in re.finditer(r'\\([A-Za-z]+)', t):
+            if mm.group(1) in na:
+                bad.append(f'{Path(f).name}: \\{mm.group(1)} (no result) near "{t[max(0, mm.start() - 50):mm.start() + 20].strip()}"')
+    return bad
 
 
 class Macros:
     def __init__(self):
         self.lines = ['% generated by scripts/paper_numbers.py -- do not edit', TBD_DEF]
-
+        self.head = snapshot_head()        # the switches \\IfPendA ... (always defined, so that main.tex builds in every mode)
         self.names = set()
 
     def __setitem__(self, name, value):
@@ -92,13 +181,24 @@ class Macros:
                 return None if v == r'\TBD' else v
         return None
 
+    def override(self, name, value):
+        """Replace the value of an already set macro (the snapshot wording of a status macro)."""
+        for i, ln in enumerate(self.lines):
+            if ln.startswith(f'\\newcommand{{\\{name}}}{{'):
+                self.lines[i] = f'\\newcommand{{\\{name}}}{{{value}}}'
+                return
+        self[name] = value
+
     def pending(self, names):
         for n in names:
             if n not in self.names:
                 self[n] = r'\TBD'
 
     def text(self):
-        return '\n'.join(self.lines) + '\n'
+        rest = self.lines[2:]
+        if SNAPSHOT:      # a pending value that nothing wrapped in a pending form prints a clean "not run", never a TBD
+            rest = [re.sub(r'\\TBD(?![A-Za-z])', lambda _: r'\SnapNA{}', ln) for ln in rest]
+        return '\n'.join(self.lines[:2] + self.head + rest) + '\n'
 
 
 def campaign(m: Macros, prefix: str, file: str):
@@ -874,6 +974,14 @@ def main():
             m['SClaim'] = sup(hyp_[0] and hyp_[1] and lg_)      # registered claim: the permuted check is not fooled by a letter written for one option order (H1, H2, S0)
             m['SHyp'] = f"{sum(hyp_)}/7"
     m['StatS'] = f"letters: {m.lookup('SClaim')}; {m.lookup('SHyp')} hypotheses" if m.lookup('SClaim') else 'pending'
+    # ---- submission snapshot: the claim column of a study without results says so (the other pending studies have no analysis macro yet)
+    PEND = advice_numbers.snapshot_pending() if SNAPSHOT else set()
+    for k_ in advice_numbers.SNAPSHOT_STUDIES:
+        nm_ = f'Stat{k_}'
+        if k_ in PEND:
+            m.override(nm_, 'registered, not run')
+        elif nm_ not in m.names:
+            m[nm_] = 'see text' if (SNAPSHOT and (RES / f'{k_.lower()}_summary.json').is_file()) else 'pending'
     # ---- study A: first mechanics pilot (i35) and Amendment 1 (i38); XD-R photographs (advice_numbers.a_pilot_facts / xdr_facts read the files)
     pf_ = advice_numbers.a_pilot_facts()
     if pf_:
@@ -919,7 +1027,10 @@ def main():
         rel = f'experiments/{reg}'
         sc = first_commit(f'experiments/results/{res}')
         if not (ROOT / rel).is_file():     # registration not in this checkout (study Q: design on its own branch until the merge)
-            rows.append(f"{name} & registered at merge, pending & \\texttt{{{sc.split()[0] if sc else 'pending'}}} & -- & pending \\\\")
+            if SNAPSHOT:
+                rows.append(name + ' & registered at merge & ' + ('\\texttt{' + sc.split()[0] + '}' if sc else 'not run') + ' & -- & -- \\\\')
+            else:
+                rows.append(f"{name} & registered at merge, pending & \\texttt{{{sc.split()[0] if sc else 'pending'}}} & -- & pending \\\\")
             drafts.append(name)
             continue
         hist, _ = git('log', '--full-history', '--no-merges', '--invert-grep', '--grep=erratum (times)', '--format=%h %ad', '--date=short', '--', rel)   # newest first; an appended time erratum is not a change of the registered text
@@ -942,11 +1053,11 @@ def main():
             order = r'$\checkmark$' if git('merge-base', '--is-ancestor', rc.split()[0], sc.split()[0])[1] == 0 else 'NO'
             ok_all &= order != 'NO'
         else:
-            order = 'pending'
+            order = '--' if SNAPSHOT else 'pending'
         reg_cell = f"\\texttt{{{rc or '--'}}}" + ('' if on_main or not rc else r' (draft; registered at merge)')
         if rc and not on_main:
             drafts.append(name)
-        rows.append(f"{name} & {reg_cell} & \\texttt{{{sc or 'pending'}}} & {n_am} & {order} \\\\")
+        rows.append(f"{name} & {reg_cell} & " + (f"\\texttt{{{sc}}}" if sc else 'not run' if SNAPSHOT else '\\texttt{pending}') + f" & {n_am} & {order} \\\\")
     rows += [r'\bottomrule', r'\end{tabular}']
     tables['tab_prereg.tex'] = '\n'.join(rows)
     # ---- amendments: one row per amendment heading, the commit that introduced it (git -G, oldest) against the first results commit of its study
@@ -965,13 +1076,14 @@ def main():
             if not c_:
                 continue
             if not sc:
-                order_ = 'no results yet'
+                order_ = '--' if SNAPSHOT else 'no results yet'
             elif c_.split()[0] == sc.split()[0]:
                 order_ = 'same commit'
             else:
                 ok_ = git('merge-base', '--is-ancestor', c_.split()[0], sc.split()[0])[1] == 0
                 order_ = r'$\checkmark$' if ok_ else 'NO'
-            arows.append(f"{name.split()[0]} & {k_} ({(d_ or '--') + (' ' + t_ if t_ else '')}) & \\texttt{{{c_.split()[0]}}} {' '.join(c_.split()[1:])} & \\texttt{{{sc.split()[0] if sc else 'pending'}}} & {order_} \\\\")
+            cell_ = ('\\texttt{' + sc.split()[0] + '}') if sc else ('not run' if SNAPSHOT else '\\texttt{pending}')
+            arows.append(f"{name.split()[0]} & {k_} ({(d_ or '--') + (' ' + t_ if t_ else '')}) & \\texttt{{{c_.split()[0]}}} {' '.join(c_.split()[1:])} & {cell_} & {order_} \\\\")
             if name == 'A' and k_ == '1':
                 am_a = c_
             if name == 'A' and k_ == '2':
@@ -995,6 +1107,11 @@ def main():
     # the sentence of the Methodology about the studies without results (no dangling '(none)' when every registration is already on main)
     m['PreregPending'] = (f"the drafts ({', '.join(unrun)}) are registered when the integration branch is merged, before any of their trials" if unrun
                           else 'all are on the main branch, bound by the integration merge before their first trial')
+    m['NStudiesRun'] = cnt_['n'] - cnt_['pending']
+    m['PendList'] = ', '.join(advice_numbers.pending_list()) or 'none'
+    for k_ in advice_numbers.SNAPSHOT_STUDIES:      # the registration commit and date, for the sentence "registered (commit, date), not run"
+        rc_ = advice_numbers.registration_commit(k_)
+        m[f'Reg{k_}'] = (f"\\texttt{{{rc_.split()[0]}}}, {rc_.split()[1]}" if rc_ else 'registration pending')
     m['PreregOrderOK'] = 'holds' if ok_all else 'does NOT hold'
     # ---- development-data model selection (appendix table)
     sel = json.loads((RES / 'i08_model_selection.json').read_text())
@@ -1046,11 +1163,10 @@ def main():
             path.write_text(text, encoding='utf8')
     write_if_changed(OUT / 'numbers.tex', m.text())
     if FINAL:   # final build: refuse to produce a paper with pending results
-        pend = [ln.split('}')[0].split('{\\')[1] for ln in m.lines[2:] if ln.endswith('{\\TBD}')]
-        pend += [n for n, b in tables.items() if '\\TBD' in b]
-        if pend:
-            raise SystemExit(f'FINAL: {len(pend)} pending (TBD) macros/tables: {pend[:12]} ...')
+        check_final(m, tables)
     for name, body in tables.items():
+        if SNAPSHOT:
+            body = re.sub(r'\\TBD(?![A-Za-z])', lambda _: r'\SnapNA{}', body)
         write_if_changed(OUT / name, '% generated by scripts/paper_numbers.py\n' + body + '\n')
     print('macros', len(m.lines) - 2, 'tables', sorted(tables))
 

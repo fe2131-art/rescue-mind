@@ -5,6 +5,11 @@ docs/paper/numbers.tex (macros) and the explanation report (docs/report/*.pdf) m
   python3 scripts/check_consistency.py                # table; exit 1 on any MISMATCH
   python3 scripts/check_consistency.py --no-report    # skip the report (no docker / pdftotext)
   python3 scripts/check_consistency.py --report-text FILE   # use already extracted report text
+  python3 scripts/check_consistency.py --snapshot     # the SUBMISSION SNAPSHOT (docs/snapshot/: README, YouTube text, paper, report; `make snapshot`)
+
+--snapshot: a registered study without results reads "registered, not yet run at submission" (登録済み・提出時点で未実施) in every document; that is
+accepted (no TBD, no "pending"), while a TBD, a "pending", a "running" / "結果待ち" for such a study, a result number that disagrees with the
+result files, or a number of a pending study that no sentence wraps is still a MISMATCH.
 
 Expected values are read from experiments/results/*.json (and the ledgers), never from the documents.
 Each fact has up to four cells: README, YouTube text, paper macro, report.  Cells: ok / MISMATCH (the document
@@ -17,12 +22,17 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import os
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
+SNAP = '--snapshot' in sys.argv
+if SNAP:
+    os.environ['SNAPSHOT'] = '1'          # before paper_numbers / advice_numbers are imported
 ROOT = Path(__file__).resolve().parents[1]
+SD = os.environ.get('SNAPSHOT_DIR') or 'docs/snapshot'      # where `make snapshot` writes (untracked); SNAPSHOT_DIR overrides (tests)
 sys.path.insert(0, str(ROOT / 'scripts'))
 RES = ROOT / 'experiments/results'
 LATEX_IMG = 'rescuemind:latex'
@@ -50,7 +60,8 @@ def read(p):
     return f.read_text(encoding='utf8') if f.is_file() else ''
 
 
-def macros(path='docs/paper/numbers.tex'):
+def macros(path=None):
+    path = path or (f'{SD}/paper/numbers.tex' if SNAP else 'docs/paper/numbers.tex')
     out = {}
     for ln in read(path).splitlines():
         m = re.match(r'\\newcommand\{\\([A-Za-z]+)\}\{(.*)\}$', ln)
@@ -110,7 +121,7 @@ def facts():
         add('L expected behaviour (unseen layouts)', f"{pl['expected_behaviour']}, unsafe {pl['unsafe_deliveries']}",
             [f"期待どおり {pl['expected_behaviour']}、危険な配達 {pl['unsafe_deliveries']}件"], [f"期待どおり {pl['expected_behaviour']}、危険な配達 {pl['unsafe_deliveries']}件"],
             [f"期待どおり{pl['expected_behaviour']}"], {'LCorrect': pl['expected_behaviour'], 'LUnsafe': str(pl['unsafe_deliveries']),
-                                                       'LClaim': 'supported' if pl['claim_supported'] else 'not supported'})
+                                                       'LClaim': 'supported' if pl['claim_supported'] else 'not supported'}, yt_key='閉ループ評価L')   # dropped from the YouTube text by design in the snapshot (5000 bytes)
     import advice_numbers
     pf_ = advice_numbers.a_pilot_facts()
     if pf_:
@@ -265,11 +276,12 @@ def main():
     ap.add_argument('--no-report', action='store_true', help='do not read the report / paper PDFs')
     ap.add_argument('--report-text', help='text file with the already extracted report text')
     ap.add_argument('--strict', action='store_true', help='treat skipped documents as failures')
+    ap.add_argument('--snapshot', action='store_true', help='check the submission snapshot in docs/snapshot/ (pending studies read "registered, not yet run at submission")')
     a = ap.parse_args()
     F = facts()
     mac = macros()
-    docs = {'readme': read('README.md'), 'yt': read('docs/YOUTUBE_DESCRIPTION.md'), 'report': None}
-    pdfs = sorted((ROOT / 'docs/report').glob('*.pdf'))
+    docs = {'readme': read(f'{SD}/README.md' if SNAP else 'README.md'), 'yt': read(f'{SD}/YOUTUBE_DESCRIPTION.md' if SNAP else 'docs/YOUTUBE_DESCRIPTION.md'), 'report': None}
+    pdfs = sorted((ROOT / (f'{SD}/report' if SNAP else 'docs/report')).glob('*.pdf'))
     if a.report_text:
         docs['report'] = Path(a.report_text).read_text(encoding='utf8')
     elif not a.no_report and pdfs:
@@ -391,9 +403,10 @@ def main():
             with contextlib.redirect_stdout(io.StringIO()):
                 pn.main()
             pn.OUT, pn.PENDING_TEXT = old_out, old_pend
+            ref_ = ROOT / (f'{SD}/paper' if SNAP else 'docs/paper')
             stale = [f.name for f in sorted(Path(td).glob('*.tex'))
-                     if (ROOT / 'docs/paper' / f.name).read_text(encoding='utf8') != f.read_text(encoding='utf8')]
-        extra.append(('docs/paper/numbers.tex and tab_*.tex up to date', 'MISMATCH' if stale else 'ok', f'stale: {stale}' if stale else ''))
+                     if not (ref_ / f.name).is_file() or (ref_ / f.name).read_text(encoding='utf8') != f.read_text(encoding='utf8')]
+        extra.append((f'{"docs/snapshot/paper" if SNAP else "docs/paper"}/numbers.tex and tab_*.tex up to date', 'MISMATCH' if stale else 'ok', f'stale: {stale}' if stale else ''))
     except Exception as exc:       # noqa: BLE001
         extra.append(('docs/paper/numbers.tex up to date', 'skip', f'cannot regenerate: {exc}'))
 
@@ -412,7 +425,7 @@ def main():
             extra.append((f'{fn_}: FINDINGS count {nf_} ({pat_})', 'ok' if got_ and all(g_ == str(nf_) for g_ in got_) else 'MISMATCH', f'found {got_}' if not (got_ and all(g_ == str(nf_) for g_ in got_)) else ''))
 
     # the paper PDF: no red TBD, and no pending marker in the abstract
-    mp = ROOT / 'docs/paper/main.pdf'
+    mp = ROOT / (f'{SD}/paper/main.pdf' if SNAP else 'docs/paper/main.pdf')
     if mp.is_file() and not a.no_report:
         pt = pdf_text(mp)
         if pt is None:
@@ -430,8 +443,49 @@ def main():
             ab_txt = p1_[m_a.end():m_i.start()] if (m_a and m_i and m_i.start() > m_a.end()) else ''
             nw_ = len(ab_txt.split())
             extra.append((f'main.pdf: abstract length ({nw_} words; target <= 200)', 'ok' if nw_ <= 200 else 'warn', ''))
-            if (ROOT / 'docs/paper/numbers.tex').stat().st_mtime > mp.stat().st_mtime + 1:
+            if (ROOT / (f'{SD}/paper/numbers.tex' if SNAP else 'docs/paper/numbers.tex')).stat().st_mtime > mp.stat().st_mtime + 1:
                 extra.append(('main.pdf newer than numbers.tex', 'warn', 'rebuild the paper (make paper)'))
+
+    # ------------------------------------------------------------------ submission snapshot: pending = registered-not-run wording, never a TBD
+    if SNAP:
+        import advice_numbers
+        import paper_numbers as pn_
+        pend = advice_numbers.pending_list()
+        extra.append((f'snapshot: studies without results = {", ".join(pend) or "none"}', 'ok', 'wording: ' + advice_numbers.PENDING_EN))
+        word_rx = re.compile(r'TBD|\(pending\)|\bpending\b|\brunning\b|\bawaiting\b|実行中|結果待ち|実行待ち|評価中|not yet run(?! at submission)')
+        pdf_rx = re.compile(r'TBD|\(pending\)|\bpending\b|registered at merge')      # the paper's own prose may say "running the stack" / "not yet run" (adaptive views)
+        texts = {'README': docs['readme'], 'YouTube text': docs['yt'], 'report': docs.get('report')}
+        mp_ = ROOT / SD / 'paper/main.pdf'
+        if mp_.is_file() and not a.no_report:
+            texts['main.pdf'] = pdf_text(mp_)
+            sp_ = ROOT / SD / 'paper/supplement.pdf'
+            if sp_.is_file():
+                texts['supplement.pdf'] = pdf_text(sp_)
+        for nm_, t_ in texts.items():
+            if t_ is None:
+                if nm_ != 'report' and nm_ not in ('main.pdf', 'supplement.pdf'):
+                    extra.append((f'snapshot {nm_} exists', 'MISMATCH', 'not found: run make snapshot'))
+                continue
+            if not t_.strip():
+                extra.append((f'snapshot {nm_} exists', 'MISMATCH', 'empty: run make snapshot'))
+                continue
+            hits = sorted({m_.group(0) for m_ in (pdf_rx if nm_.endswith('.pdf') else word_rx).finditer(t_)})
+            extra.append((f'snapshot {nm_}: no TBD / pending / running / waiting marker', 'MISMATCH' if hits else 'ok', f'found {hits}' if hits else ''))
+            if pend and nm_ in ('README', 'report', 'YouTube text'):
+                has_ = advice_numbers.PENDING_JA in t_ or advice_numbers.PENDING_EN in t_
+                extra.append((f'snapshot {nm_}: says that {", ".join(pend)} are registered, not yet run at submission', 'ok' if has_ else 'MISMATCH', ''))
+        probs = pn_.snapshot_problems([ROOT / f'docs/paper/{f_}.tex' for f_ in ('main', 'supplement', 'sec_formal')], read(f'{SD}/paper/numbers.tex'), set(pend))
+        extra.append(('snapshot paper sources: every number of a pending study is wrapped in its pending form (\\IfPend<study>)', 'MISMATCH' if probs else 'ok', '; '.join(probs[:3])))
+        ex_ = pn_.snapshot_expand(read('docs/paper/main.tex'), set(pend))
+        ab_ = ex_.split(r'\begin{abstract}')[-1].split(r'\end{abstract}')[0]
+        if pend:
+            extra.append(('snapshot abstract says that the pending studies were not run', 'ok' if 'not run at submission' in ab_.lower() else 'MISMATCH', ''))
+            body_ = ex_.split(r'\section{Conclusion}')[-1]
+            extra.append(('snapshot conclusion words the claim on pending study A conditionally' if 'A' in pend else 'snapshot conclusion',
+                          'ok' if ('A' not in pend or 'not run at submission' in body_) else 'MISMATCH', ''))
+        sc_ = advice_numbers.study_counts()
+        if sc_:
+            extra.append(('snapshot Table S9: studies without results = registered, not run', 'ok' if sc_['pending'] == len(pend) else 'MISMATCH', f"table says {sc_['pending']}, result files say {len(pend)}"))
 
     # ------------------------------------------------------------------ print
     w0 = max(len(r[0]) for r in rows) + 2 if rows else 10
