@@ -32,7 +32,8 @@ class Tests(unittest.TestCase):
     def make_resp(self,model=PRIMARY_MODEL,pass_id=1,supply='water',scene='unknown',sha=None):
         return {'backend':'local_transformers','real_inference':True,'model':model,
                 'image_sha256':sha or self.sha,'pass_id':pass_id,
-                'result':{'supply':supply,'scene':scene}}
+                'result':{'supply':supply,'scene':scene},
+                'scores':{'supply_probs':{**{k:.05 for k in ('water','medicine','other')},supply:.9},'hazard_prob':.001,'hazard_threshold':.05}}
 
     def test_json_valid(self):
         self.assertEqual(parse_model_json('```json\n{"supply":"water","scene":"unknown"}\n```')['supply'],'water')

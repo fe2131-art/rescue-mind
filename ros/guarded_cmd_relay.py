@@ -6,6 +6,7 @@ Stop all robot processes and pause Gazebo before restarting after a fault.
 """
 from __future__ import annotations
 import argparse
+import math
 import time
 from pathlib import Path
 import sys
@@ -36,6 +37,28 @@ def run(args):
             self.create_subscription(Image,'/camera',self.on_camera,image_qos())
             self.create_subscription(LaserScan,'/scan',self.on_lidar,qos_profile_sensor_data)
             self.create_subscription(Bool,'/rescuemind/estop',self.on_estop,10)
+            self.gate=None
+            if getattr(args,'delivery_interlock',False):
+                # I-22: during the 'deliver' phase non-zero velocity needs a valid permit for the latest approval record.
+                # Imports only the tiny permit module; knows nothing about the mission node or the decision rule.
+                from std_msgs.msg import String
+                from rescuemind import delivery_permit as dp
+                key=dp.load_key(args.permit_key_file) if getattr(args,'permit_key_file',None) else None
+                fence=None
+                if getattr(args,'geofence_config',None):
+                    # shelter geofence from the per-run waypoints file given to the guard (not from the mission); a missing
+                    # or malformed file raises here, so the guard does not start (fail closed)
+                    fence=dp.ShelterGeofence.from_waypoints_file(args.geofence_config,getattr(args,'geofence_radius',None) or dp.GEOFENCE_RADIUS_M)
+                    self.get_logger().info(f'shelter geofence ON: centre={fence.centre} radius={fence.radius}')
+                else:
+                    self.get_logger().warning('delivery interlock without --geofence-config: the mission-reported phase is trusted')
+                self.gate=dp.PermitGate(key=key,fence=fence)
+                q=control_qos('reliable')
+                self.create_subscription(String,dp.TOPIC_RECORD,lambda m:self.gate.on_record(m.data),q)
+                self.create_subscription(String,dp.TOPIC_PERMIT,lambda m:self.gate.on_permit(m.data),q)
+                self.create_subscription(String,dp.TOPIC_PHASE,lambda m:self.gate.on_phase(m.data,time.time()),q)
+                self.get_logger().info('delivery interlock ON, hmac='+str(key is not None))
+            self.last_gate=None
             self.timer=self.create_timer(.10,self.on_tick)
             self.last_reason=None
             self.last_tick=None
@@ -49,6 +72,13 @@ def run(args):
             self.policy.request(linear,angular,time.monotonic())
         def on_odom(self,msg):
             self.policy.odometry(time.monotonic(),msg)
+            if self.gate is not None:
+                try:
+                    p,q=msg.pose.pose.position,msg.pose.pose.orientation
+                    yaw=math.atan2(2*(q.w*q.z+q.x*q.y),1-2*(q.y*q.y+q.z*q.z))
+                    self.gate.on_odom(float(p.x),float(p.y),yaw,time.time())
+                except (AttributeError,TypeError,ValueError):
+                    pass                         # unusable odometry is never stored: the fence then fails closed
         def on_camera(self,msg):
             self.policy.camera_frame(msg,time.monotonic())
         def on_lidar(self,msg):
@@ -70,6 +100,13 @@ def run(args):
             velocity=Twist()
             velocity.linear.x=outcome.linear
             velocity.angular.z=outcome.angular
+            if self.gate is not None:
+                lin,ang,why=self.gate.filter(outcome.linear,outcome.angular,time.time())
+                velocity.linear.x=lin
+                velocity.angular.z=ang
+                if why!=self.last_gate:
+                    self.get_logger().info('delivery gate: '+(why or 'pass'))
+                    self.last_gate=why
             self.command_pub.publish(velocity)
             self.status_pub.publish(Bool(data=outcome.ready))
             if outcome.reason != self.last_reason:
@@ -94,4 +131,10 @@ if __name__=='__main__':
                         help='I-12: QoS of the request / heartbeat topics (must match the mission)')
     parser.add_argument('--legacy-latch-zero',action='store_true',
                         help='pre-v3.4: latch even when the stale request was zero (A/B experiments only)')
+    parser.add_argument('--delivery-interlock',action='store_true',
+                        help='I-22 (default off): in the mission phase \'deliver\' forward non-zero velocity only with a valid permit')
+    parser.add_argument('--geofence-config',default=None,
+                        help='I-22: per-run waypoints.json whose B is the centre of the shelter geofence (non-zero velocity into it needs a permit whatever phase is claimed)')
+    parser.add_argument('--geofence-radius',type=float,default=None,help='I-22: geofence radius in metres (default 0.5)')
+    parser.add_argument('--permit-key-file',default=None,help='I-22: HMAC key shared with the interlock node (omit: unsigned permits)')
     run(parser.parse_args())

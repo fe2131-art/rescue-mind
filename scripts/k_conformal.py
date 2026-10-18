@@ -19,6 +19,7 @@ RES = ROOT / 'experiments/results'
 ALPHAS = (0.05, 0.10)
 DELTA = 0.10
 TAU_H = 0.05
+TAU_CAUTION = 0.01      # the memory / advice caution threshold (rescuemind.mission_memory.CAUTION_TAU_H)
 
 
 def load(tag):
@@ -73,6 +74,9 @@ def main():
            'delta': DELTA, 'small_fire_frac': {'cal': round(small(dev_fire) / len(dev_fire), 4),
                                               'heldout': round(small(fire) / len(fire), 4)},
            'frozen': {'tau_h': TAU_H, **evaluate(TAU_H, cal, fire, free, allow_all, deny_all)}, 'alphas': {}}
+    # I-19 proof review: the per-view false-alarm rate delta of the CAUTION threshold itself (not of the conformal tau 0.0113)
+    out['caution'] = {'tau': TAU_CAUTION, 'heldout_false_alarm': rate(sum(ph(r) >= TAU_CAUTION for r in free), len(free)),
+                      'n_fire_visible_missed': sum(ph(r) < TAU_CAUTION for r in fire)}
     for a in ALPHAS:
         res = {}
         for name, (tau, k) in (('K_PAC', tau_pac(cal, a)), ('K_marginal', tau_marginal(cal, a)),

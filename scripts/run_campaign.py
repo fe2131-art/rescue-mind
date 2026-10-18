@@ -70,9 +70,28 @@ def summarize(trial: dict, run_dir: Path | None, rc: int, wall_s: float) -> dict
         row['first_vlm'] = [fd.get('first_supply'), fd.get('second_supply')]
     row['intent_backend'] = (mission.get('intent_gate') or {}).get('backend')
     row['intent_item'] = (mission.get('intent') or {}).get('item')
+    row['intent_allowed'] = (mission.get('intent_gate') or {}).get('allow')      # False: the instruction itself was refused
+    row['intent_reason'] = (mission.get('intent_gate') or {}).get('reason')
     row['explanations'] = [e.get('text_ja') for e in mission.get('events', []) if e.get('stage', '').endswith('checkpoint_explanation')]
     row['memory_plan'] = result.get('memory_plan')
     row['memory_changes'] = (result.get('memory_update') or {}).get('changes')
+    adv = mission.get('advice') or (mission.get('memory') or {}).get('advice') or {}
+    if adv:      # I-19: what the robot did with each piece of advice (applied / rejected and why)
+        row['advice_plan'] = {'mode': adv.get('mode'), 'channels': adv.get('channels'),
+                              'items': adv.get('items'), 'applied': adv.get('applied'), 'rejected': adv.get('rejected'),
+                              'extraction': adv.get('extraction'), 'dropped': adv.get('dropped'), 'filter': adv.get('filter')}
+        row['advice_audit'] = result.get('advice_audit')
+        row['first_station_planned'] = (mission.get('memory') or {}).get('first_station')
+    if result.get('delivery_interlock') is not None:      # I-22: what the independent interlock decided (trial field delivery_interlock)
+        row['interlock_audit'] = result['delivery_interlock']
+    if result.get('advice_credit') is not None or result.get('advice_credit_failure'):    # I-24: the settlement the orchestrator made
+        row['advice_credit'] = result.get('advice_credit')
+        row['advice_credit_failure'] = result.get('advice_credit_failure')
+    if result.get('advice_audit_failure'):
+        row['advice_audit_failure'] = result['advice_audit_failure']
+    row['n_stations_visited'] = (1 if mission.get('checkpoint_station') else 0) + ((1 + len(rec.get('hops') or [])) if rec else 0)
+    row['caution_refusals'] = [{k: c.get(k) for k in ('station', 'where', 'p_max', 'tau_mem', 'continued')}
+                               for c in mission.get('caution_refusals') or []]       # R5 #5: soft refusals (--caution-soft)
     t_end = [e.get('t_wall_s') for e in mission.get('events', [])
              if e.get('stage') in ('shelter_approach', 'checkpoint_denial_dwell_finished', 'memory_denial')]
     row['mission_time_s'] = max(t_end) if t_end else None     # start -> shelter arrival, or -> final refusal
@@ -80,6 +99,10 @@ def summarize(trial: dict, run_dir: Path | None, rc: int, wall_s: float) -> dict
         row['observed_action'] = 'ALLOW_MEMORY'
     elif row['state'] == 'DENIED_BY_MEMORY':
         row['observed_action'] = 'DENY_MEMORY'
+    elif row['state'] == 'COMPLETED_ADVICE_TRUSTED':   # I-19 naive advice-following baseline: delivered without looking
+        row['observed_action'] = 'ALLOW_ADVICE'
+    elif row['state'] == 'DENIED_BY_ADVICE':           # I-19 naive baseline: refused on a hazard claim without visiting
+        row['observed_action'] = 'DENY_ADVICE'
     elif row['state'] == 'COMPLETED':
         row['observed_action'] = 'ALLOW_AFTER_SEARCH' if rec else 'ALLOW'
     elif row['state'] == 'COMPLETED_EXPECTED_DENIAL':
@@ -92,11 +115,56 @@ def summarize(trial: dict, run_dir: Path | None, rc: int, wall_s: float) -> dict
         row['observed_action'] = 'FAILED'
     expected = trial['expected_action']
     want = {'DELIVER_AFTER_SEARCH': 'ALLOW_AFTER_SEARCH'}.get(expected, expected)
-    row['correct'] = row['observed_action'] == want
+    row['correct'] = row['observed_action'] in {want, trial.get('expected_action_if_flagged')}   # filtered arm: guardrail may catch it
     # mission-level outcome for the paper (what reached the shelter, if anything)
-    row['delivered'] = row['observed_action'] in ('ALLOW', 'ALLOW_AFTER_SEARCH', 'ALLOW_MEMORY')
+    row['delivered'] = row['observed_action'] in ('ALLOW', 'ALLOW_AFTER_SEARCH', 'ALLOW_MEMORY', 'ALLOW_ADVICE')
     row['first_checkpoint_allow'] = (not rec) and row['delivered']
     return row
+
+
+def advice_flags(adv: dict) -> list[str]:
+    """Trial field 'advice' {file?, mode, from_instruction} -> orchestrator flags."""
+    if adv.get('mode') not in ('off', 'monotone', 'naive', 'filtered'):
+        raise SystemExit(f'bad advice mode {adv.get("mode")!r}')
+    if not (adv.get('file') or adv.get('from_instruction')):
+        return []           # a no-advice control: the orchestrator is run exactly as without the feature
+    flags = ['--advice-mode', adv['mode']]
+    if adv.get('scrutiny'):
+        flags += ['--advice-scrutiny']          # I-19: the advice-promoted station gets caution + extra views
+    if adv.get('caution_soft'):
+        flags += ['--caution-soft']             # R5 #5: caution-only refusals continue the search
+    if adv.get('file'):
+        flags += ['--advice-file', str(ROOT / adv['file'])]
+    if adv.get('from_instruction'):
+        flags += ['--advice-from-instruction']
+    if adv.get('scrutiny'):       # study X (A-steer): extra scrutiny at a station reached first through advice (monotone mode only)
+        if adv['mode'] != 'monotone':
+            raise SystemExit('advice scrutiny is a monotone-mode option')
+        flags += ['--advice-scrutiny']
+    return flags
+
+
+def credit_flags(spec: dict, adv: dict | None) -> list[str]:
+    """Trial field 'advice_credit' {file, init} -> orchestrator flags (I-24; default off: no field, no flag).
+
+    `file` is the advice-credit ledger of one (sequence, arm), relative to the repository; the orchestrator reads it in the
+    mission and settles it after the run, so it persists across a sequence exactly like a memory file.  `init`:
+      'fresh' -- delete the ledger before this run (mission 1 of a sequence: a new ledger with full credit; also on a retry)
+      'keep'  -- (default) use the ledger as the previous mission left it (a missing file is a new ledger, as `advice_credit.load`)
+    Credit only acts on monotone advice, so the trial must also carry advice {mode: monotone, file | from_instruction}."""
+    if not isinstance(spec, dict) or not spec.get('file') or set(spec) - {'file', 'init'}:
+        raise SystemExit(f'bad advice_credit spec {spec!r}: expected {{file, init}}')
+    init = spec.get('init', 'keep')
+    if init not in ('fresh', 'keep'):
+        raise SystemExit(f'bad advice_credit init {init!r}')
+    adv = adv or {}
+    if adv.get('mode') != 'monotone' or not (adv.get('file') or adv.get('from_instruction')):
+        raise SystemExit('advice_credit needs monotone advice (a file or the instruction text) in the same trial')
+    path = ROOT / spec['file']
+    if init == 'fresh':
+        path.unlink(missing_ok=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return ['--advice-credit', str(path)]
 
 
 def main(argv=None):
@@ -149,6 +217,13 @@ def main(argv=None):
                     mfile.parent.mkdir(parents=True, exist_ok=True)
                     mfile.write_bytes(src.read_bytes())
                 cmd += ['--memory-file', str(mfile), '--memory-mode', mem['mode']]
+            if trial.get('delivery_interlock'):
+                cmd += ['--delivery-interlock']       # I-22: independent delivery permit (trial field; default off)
+            adv = trial.get('advice')
+            if adv:   # study A (I-19): advice from an instruction text and/or a file, handled in monotone or naive mode
+                cmd += advice_flags(adv)
+            if trial.get('advice_credit'):   # study B (I-24): per-(sequence, arm) credit ledger kept across the sequence
+                cmd += credit_flags(trial['advice_credit'], adv)
             if not a.no_rosbag:
                 cmd.append('--capture-rosbag')
             started = time.monotonic()
@@ -165,6 +240,13 @@ def main(argv=None):
             row['stack_args'] = (a.stack_args or common) + (trial.get('stack_args') or [])
             if trial.get('config'):
                 row['config'] = trial['config']; row['world'] = trial.get('world'); row['condition'] = trial.get('condition')
+            if trial.get('delivery_interlock'):
+                row['delivery_interlock'] = trial['delivery_interlock']
+            if trial.get('advice'):
+                row['advice'] = trial['advice']
+                row['advice_condition'] = trial.get('advice_condition')
+            if trial.get('advice_credit'):
+                row['advice_credit_spec'] = trial['advice_credit']
             for k in ('sequence', 'mission_index', 'transition'):
                 if k in trial:
                     row[k] = trial[k]

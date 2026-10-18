@@ -230,6 +230,148 @@ def hazard_visible(station: str, hazard_at: str | None, pose_xy: tuple[float, fl
     return abs(math.atan2(math.sin(bearing), math.cos(bearing))) < half_fov
 
 
+# ---------------------------------------------------------------------------------------------------------------------
+# Study S: scene text (physical prompt injection).  Signs are thin textured boxes; nothing else in a world changes.
+SIGN_KINDS = ('mislabel', 'false_safe', 'letter', 'benign', 'legit')
+SIGN_PLACEMENTS = ('sticker', 'notice', 'beside_fire')
+SIGN_SIZE_M = {'sticker': (0.26, 0.11), 'notice': (0.40, 0.32), 'beside_fire': (0.40, 0.32)}
+SUPPLY_MODELS = ('sealed_water_bottles', 'first_aid_case')
+KIT_HALF_XY = (0.185, 0.20)          # first_aid_case body: box .37 x .40 (x, y in the model frame)
+APPROACH_DIST_M = 1.40               # design checkpoint distance to the station centre (fire_mask_at_pose.DESIGN_POSE)
+
+
+def _textured_box(link, name, pose, size, png_path, cast_shadows=False):
+    """A box visual whose faces show a PNG through the PBR albedo map (diffuse stays white)."""
+    v = ET.SubElement(link, 'visual', name=name)
+    ET.SubElement(v, 'pose').text = pose
+    v.append(ET.fromstring('<geometry><box><size>%s</size></box></geometry>' % ' '.join(f'{t:g}' for t in size)))
+    mat = ET.SubElement(v, 'material')
+    ET.SubElement(mat, 'ambient').text = '1 1 1 1'
+    ET.SubElement(mat, 'diffuse').text = '1 1 1 1'
+    pbr = ET.SubElement(mat, 'pbr')
+    metal = ET.SubElement(pbr, 'metal')
+    ET.SubElement(metal, 'albedo_map').text = str(Path(png_path).resolve())
+    ET.SubElement(metal, 'metalness').text = '0.0'
+    ET.SubElement(metal, 'roughness').text = '0.9'
+    if not cast_shadows:
+        ET.SubElement(v, 'cast_shadows').text = 'false'
+    return v
+
+
+def text_sign(name, x, y, z, yaw, png_path, w, h, thickness=0.006, post=False):
+    """A static sign: a thin box of w (wide) x h (high) metres centred at (x, y, z), whose front face (local +x, facing
+    the direction `yaw`) shows `png_path`.  post=True adds a thin grey post down to the floor (a notice stand)."""
+    m = ET.Element('model', name=name)
+    ET.SubElement(m, 'static').text = 'true'
+    ET.SubElement(m, 'pose').text = f'{x:.4f} {y:.4f} {z:.4f} 0 0 {yaw:.4f}'
+    link = ET.SubElement(m, 'link', name='sign')
+    _textured_box(link, 'face', '0 0 0 0 0 0', (thickness, w, h), png_path)
+    if post:
+        foot = z - h / 2
+        _visual(link, 'post', f'{-0.02:g} 0 {-(z + h / 2) / 2:.4f} 0 0 0',
+                f'<box><size>.03 .03 {foot:.4f}</size></box>', '.35 .35 .37 1')
+    return m
+
+
+def label_sticker(name, x, y, z, yaw, png_path, w=0.26, h=0.11):
+    """A label stuck ON a supply box face: a 4 mm textured plate whose front (local +x) points along `yaw` (the face
+    normal); (x, y, z) is the plate centre, 3 mm off the face so that it never z-fights with it."""
+    return text_sign(name, x, y, z, yaw, png_path, w, h, thickness=0.004, post=False)
+
+
+def station_axes(station: str) -> tuple[tuple[float, float], tuple[float, float]]:
+    """(u, v): unit vector from the arena origin to the station (the approach direction) and the lateral unit vector."""
+    x, y = STATIONS[station]
+    n = (x * x + y * y) ** .5
+    ux, uy = x / n, y / n
+    return (ux, uy), (-uy, ux)
+
+
+def camera_xy(station: str, dist: float = APPROACH_DIST_M) -> tuple[float, float]:
+    (ux, uy), _ = station_axes(station)
+    x, y = STATIONS[station]
+    return x - dist * ux, y - dist * uy
+
+
+def sign_layout(placement: str, station: str, *, side: float = 1.0, hazard_lateral: float | None = None) -> dict:
+    """Pose and size of a free-standing sign (placements 'notice' and 'beside_fire').
+    notice      : beside the platform's back corner (0.35 m behind its centre, lateral 0.55 m to `side`), on a post, facing the checkpoint camera.
+    beside_fire : on the same side as the fire (side = sign of the fire's lateral offset), 0.15 m behind the platform centre,
+                  lateral 0.46 m, so that it stands next to the flames in the checkpoint image."""
+    import math
+    (ux, uy), (vx, vy) = station_axes(station)
+    sx, sy = STATIONS[station]
+    if placement == 'notice':
+        back, lat, zc = 0.35, 0.55 * side, 0.74
+    elif placement == 'beside_fire':
+        s = side if not hazard_lateral else (1.0 if hazard_lateral > 0 else -1.0)
+        back, lat, zc = 0.15, 0.46 * s, 0.72
+    else:
+        raise ValueError(f'no free-standing layout for placement {placement!r}')
+    x, y = sx + back * ux + lat * vx, sy + back * uy + lat * vy
+    cx, cy = camera_xy(station)
+    w, h = SIGN_SIZE_M[placement]
+    return {'x': x, 'y': y, 'z': zc, 'yaw': math.atan2(cy - y, cx - x), 'w': w, 'h': h, 'post': True}
+
+
+def sign_max_bearing(layout: dict, cam_xy: tuple[float, float], cam_yaw: float) -> float:
+    """Largest |bearing| (rad) of the sign's left/right edge in the camera frame; the camera sees +-CAMERA_HALF_HFOV."""
+    import math
+    x, y, yaw, w = layout['x'], layout['y'], layout['yaw'], layout['w']
+    out = 0.0
+    for k in (-1, 1):
+        ex, ey = x - k * w / 2 * math.sin(yaw), y + k * w / 2 * math.cos(yaw)
+        b = math.atan2(ey - cam_xy[1], ex - cam_xy[0]) - cam_yaw
+        out = max(out, abs(math.atan2(math.sin(b), math.cos(b))))
+    return out
+
+
+def _supply_near(world, station: str):
+    sx, sy = STATIONS[station]
+    for m in world.findall('model'):
+        if m.get('name') in SUPPLY_MODELS:
+            v = [float(t) for t in m.findtext('pose').split()]
+            if abs(v[0] - sx) < 0.5 and abs(v[1] - sy) < 0.5:
+                return m, v
+    return None, None
+
+
+def _sign_models(world, sign: dict, hazard_at, hazard_geom):
+    """Models for build_variant(sign=...).  sign = {kind, text, placement, png, station[, side]}."""
+    import math
+    if sign.get('kind') not in SIGN_KINDS or sign.get('placement') not in SIGN_PLACEMENTS:
+        raise ValueError(f'unknown sign kind/placement: {sign.get("kind")!r}/{sign.get("placement")!r}')
+    if not sign.get('png'):
+        raise ValueError('sign needs a rendered texture: pass png=<abs path> (rescuemind.sign_textures.render_sign_png)')
+    st, side, png = sign['station'], float(sign.get('side', 1.0)), sign['png']
+    name = f'sign_{sign["kind"]}_{st}'
+    cx, cy = camera_xy(st)
+    if sign['placement'] == 'sticker':
+        m, v = _supply_near(world, st)
+        if m is None:
+            raise ValueError(f'no supply on the {st} platform to stick a label on')
+        beta = math.atan2(cy - v[1], cx - v[0])                 # direction from the supply to the checkpoint camera
+        if m.get('name') == 'first_aid_case':
+            # the four side faces of the (freely rotated) box; the one most squarely facing the camera gets the label
+            psi = v[5]
+            k = max(range(4), key=lambda i: math.cos(psi + i * math.pi / 2 - beta))
+            ang = psi + k * math.pi / 2
+            half = KIT_HALF_XY[0] if k % 2 == 0 else KIT_HALF_XY[1]
+            off = half + 0.003
+            return [label_sticker(name, v[0] + off * math.cos(ang), v[1] + off * math.sin(ang), 0.60, ang, png)]
+        # water bottles: a small tag card standing on the platform top in front of the six-pack
+        (ux, uy), _ = station_axes(st)
+        tx, ty = v[0] - 0.30 * ux, v[1] - 0.30 * uy
+        return [text_sign(name, tx, ty, 0.57, math.atan2(cy - ty, cx - tx), png, 0.26, 0.11, thickness=0.01)]
+    lat = None
+    if sign['placement'] == 'beside_fire':
+        if hazard_at != st:
+            raise ValueError('placement beside_fire needs a fire behind the same station')
+        lat = float(tuple(hazard_geom or (0.75, 0.5))[1])
+    lay = sign_layout(sign['placement'], st, side=side, hazard_lateral=lat)
+    return [text_sign(name, lay['x'], lay['y'], lay['z'], lay['yaw'], png, lay['w'], lay['h'], post=lay['post'])]
+
+
 def _platform_empty(world, x, y) -> bool:
     for m in world.findall('model'):
         if m.get('name') in ('sealed_water_bottles', 'first_aid_case'):
@@ -265,11 +407,65 @@ def _apply_layout(world, lay) -> None:
         m.find('pose').text = f'{x:g} {y:g} {v[2]:g} {v[3]:g} {v[4]:g} {v[5] + yaw:g}'
 
 
+_PROP_FOR = {'water': 'sealed_water_bottles', 'medicine': 'first_aid_case'}
+
+
+def arena_supply_at(world, supply_at: dict) -> dict:
+    """Two-station arena: set what each station's platform holds, `supply_at` = {'water'|'medicine': 'water'|'medicine'|None}
+    (None = empty platform).  A station that should hold the supply of the OTHER station gets a copy of that prop (named
+    '<prop>_<station>'), taking the place, yaw and prop-offset slot of the prop it replaces.  Used by Study A's A-steer worlds
+    (duplicate supply: both stations hold the requested supply).  Returns {new model name: replaced model name} so that
+    prop_offsets keyed by the original names still move the copy."""
+    import copy
+    protos = {sup: copy.deepcopy(next(m for m in world.findall('model') if m.get('name') == name)) for sup, name in _PROP_FOR.items()}
+    alias = {}
+    for st, sup in supply_at.items():
+        if st not in STATIONS or sup not in ('water', 'medicine', None):
+            raise ValueError(f'bad supply_at entry {st!r}: {sup!r}')
+    for st, sup in supply_at.items():
+        x, y = STATIONS[st]
+        cur = None
+        for m in list(world.findall('model')):
+            if m.get('name') in _PROP_NAMES_ALL and _near(m, x, y):
+                cur = m
+                world.remove(m)
+        if sup is None:
+            continue
+        m = copy.deepcopy(protos[sup])
+        base = _PROP_FOR[sup]
+        taken = {mm.get('name') for mm in world.findall('model')}
+        name = base if base not in taken else f'{base}_{st}'
+        m.set('name', name)
+        v = [float(t) for t in m.findtext('pose').split()]
+        yaw = float(cur.findtext('pose').split()[5]) if cur is not None else v[5]
+        m.find('pose').text = f'{x:g} {y:g} {v[2]:g} {v[3]:g} {v[4]:g} {yaw:g}'
+        world.append(m)
+        alias[name] = cur.get('name') if cur is not None else base
+    return alias
+
+
+_PROP_NAMES_ALL = ('sealed_water_bottles', 'first_aid_case', 'sealed_water_bottles_water', 'sealed_water_bottles_medicine',
+                   'first_aid_case_water', 'first_aid_case_medicine')
+
+
+def _near(m, x, y) -> bool:
+    px, py = [float(v) for v in m.findtext('pose').split()[:2]]
+    return abs(px - x) < 0.01 and abs(py - y) < 0.01
+
+
+def _depot_k(depot) -> int:
+    k = int(depot.get('stations') or 2)
+    if k not in (2, 4):
+        raise ValueError("depot['stations'] must be 2 (the arena's stations) or 4")
+    return k
+
+
 def build_variant(src: Path, *, lighting: str = 'default', distractor_at: str | None = None,
                   hazard_at: str | None = None, lighting_params: dict | None = None,
                   prop_offsets: dict | None = None, hazard_geom: tuple[float, float] | None = None,
                   distractor_kind: str = 'box', distractor_side: float = 1.0,
-                  distractor_layout: str = 'world', hazard_mask: bool = False, layout=None) -> bytes:
+                  distractor_layout: str = 'world', hazard_mask: bool = False, layout=None, depot=None,
+                  sign: dict | None = None) -> bytes:
     """Controlled variants (dev sets, campaigns) and, with the extra keyword arguments,
     the continuously randomised held-out test worlds (T1).
 
@@ -279,6 +475,11 @@ def build_variant(src: Path, *, lighting: str = 'default', distractor_at: str | 
     prop_offsets stay world-frame offsets added to the (moved) prop pose."""
     tree = ET.parse(src)
     world = tree.getroot().find('world')
+    if depot and depot.get('surroundings', True):
+        # I-21: realistic relief-depot surroundings (AWS small warehouse, MIT-0) around the unchanged operating area
+        from .depot import add_depot
+        add_depot(world, seed=depot.get('seed'), obstacle=bool(depot.get('obstacle')), k=_depot_k(depot),
+                  clutter=depot.get('clutter', True))
     preset = lighting_params or LIGHTING[lighting]
     if preset:
         world.find('scene/ambient').text = preset['ambient']
@@ -288,8 +489,23 @@ def build_variant(src: Path, *, lighting: str = 'default', distractor_at: str | 
         sun.find('diffuse').text = preset['diffuse']
     # which platforms are empty is decided from the scene definition, BEFORE any prop is moved
     # (T1 amendment 1: checking after the move made every platform with a moved supply look empty)
-    empty_at = {st: _platform_empty(world, *xy) for st, xy in STATIONS.items()}
-    stations = STATIONS
+    k4 = bool(depot) and _depot_k(depot) == 4
+    prop_alias = {}
+    if depot and depot.get('supply_at') and not k4 and layout is not None:
+        raise ValueError('supply_at (duplicate supply) and a Study L layout cannot be combined')
+    if k4:
+        # I-21 phase 2: four supply pallets (ids W1 M1 W2 M2) with props per depot['supply_at']; stations / empty_at
+        # (and with them distractor_at / hazard_at, which then take these ids) follow the four pallets
+        if layout is not None:
+            raise ValueError('a Study L layout and the four-station depot cannot be combined')
+        from .depot import add_k4_stations
+        stations, supply = add_k4_stations(world, depot.get('supply_at'))
+        empty_at = {st: supply[st] is None for st in stations}
+    else:
+        if depot and depot.get('supply_at'):
+            prop_alias = arena_supply_at(world, depot['supply_at'])
+        empty_at = {st: _platform_empty(world, *xy) for st, xy in STATIONS.items()}
+        stations = STATIONS
     if layout is not None:
         from .layout import Layout
         lay = Layout.from_dict(layout)
@@ -299,8 +515,9 @@ def build_variant(src: Path, *, lighting: str = 'default', distractor_at: str | 
     if prop_offsets:
         # held-out: move/rotate each supply prop on its platform (dx, dy, yaw)
         for m in world.findall('model'):
-            if m.get('name') in prop_offsets:
-                dx, dy, dyaw = prop_offsets[m.get('name')]
+            key = m.get('name') if m.get('name') in prop_offsets else prop_alias.get(m.get('name'))
+            if key in prop_offsets:
+                dx, dy, dyaw = prop_offsets[key]
                 v = [float(t) for t in m.findtext('pose').split()]
                 m.find('pose').text = f'{v[0] + dx:g} {v[1] + dy:g} {v[2]:g} {v[3]:g} {v[4]:g} {v[5] + dyaw:g}'
     if distractor_at:
@@ -334,6 +551,24 @@ def build_variant(src: Path, *, lighting: str = 'default', distractor_at: str | 
         # optional third element = fire size scale (campaign F: small, early-stage fires); default full size
         world.append(fire_and_smoke(f'hazard_fire_{hazard_at}', *hazard_xy(hazard_at, *geom[:2], stations=stations),
                                     mask=hazard_mask, scale=geom[2] if len(geom) > 2 else 1.0))
+        if depot and depot.get('hazard_style') not in (None, 'tongues'):
+            # I-21 polish (study XD): smoke without flames / a flame that is not our ellipsoid tongues
+            from .depot import restyle_hazard
+            restyle_hazard(world, f'hazard_fire_{hazard_at}', depot['hazard_style'], scale=geom[2] if len(geom) > 2 else 1.0,
+                           mask=hazard_mask, seed=depot.get('seed'))
+        if depot and depot.get('particle_smoke') and not hazard_mask:
+            # I-21: a moving smoke plume above the fire (visual only; the mask labels keep the static flame/smoke)
+            from .depot import particle_smoke, ensure_particle_plugin
+            ensure_particle_plugin(world)
+            fx, fy = hazard_xy(hazard_at, *geom[:2], stations=stations)
+            world.append(particle_smoke(f'hazard_smoke_{hazard_at}', fx, fy, z=0.9 * (geom[2] if len(geom) > 2 else 1.0)))
+    if depot and depot.get('pallets'):
+        # I-21 polish (study XD): wooden pallets with stretch-wrapped cartons; visual only, same collision footprint
+        from .depot import dress_platforms
+        dress_platforms(world, depot)
+    if sign:
+        # study S: a textured sign in the scene (nothing else changes); see _sign_models
+        world.extend(_sign_models(world, sign, hazard_at, hazard_geom))
     ET.indent(tree, space='  ')
     return ET.tostring(tree.getroot(), encoding='utf-8', xml_declaration=True)
 
@@ -346,6 +581,11 @@ def write_variant(scene_dir: Path, out_dir: Path, scene: str, **kw) -> Path:
     path = out_dir / f'rescuemind_{tag}.sdf'
     path.write_bytes(build_variant(scene_dir / f'rescuemind_{scene}.sdf', **kw))
     return path
+
+
+def truth_for_depot(supply: dict, station: str, *, hazard_at: str | None = None) -> dict:
+    """Label of one pallet of the four-station depot; `supply` = rescuemind.depot.supply_map / add_k4_stations output."""
+    return {'truth_supply': supply[station] or 'other', 'truth_hazard': hazard_at == station}
 
 
 def truth_for(scene: str, station: str, *, hazard_at: str | None = None) -> dict:

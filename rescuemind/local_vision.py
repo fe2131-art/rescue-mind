@@ -8,6 +8,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import math
 import re
 import urllib.request
 from pathlib import Path
@@ -18,6 +19,24 @@ SECONDARY_MODEL = 'HuggingFaceTB/SmolVLM2-2.2B-Instruct'
 # I-08 candidates (Apache-2.0, newer generations); selection is evidence-based (IMPROVEMENT_LOG.md)
 CANDIDATE_MODELS = ('Qwen/Qwen3-VL-8B-Instruct', 'Qwen/Qwen3.5-9B', 'Qwen/Qwen3.5-4B')
 ALLOWED_MODELS = frozenset((PRIMARY_MODEL, SECONDARY_MODEL) + CANDIDATE_MODELS)
+# Trust base: the Hugging Face commit of the weights each server must have loaded (from the author's cache, 2026-10-18).
+# A response that reports another revision is refused; a response without the field (servers before this change, test
+# fakes) is accepted and audits report it as unverified.
+PINNED_REVISIONS = {'Qwen/Qwen3.5-9B': 'c202236235762e1c871ad0ccb60c8ee5ba337b9a',
+                    'Qwen/Qwen3.5-4B': '851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a',
+                    'Qwen/Qwen2.5-VL-3B-Instruct': '66285546d2b821cf421d4f5eb2576359d3770cd3',
+                    'Qwen/Qwen3-VL-8B-Instruct': '0c351dd01ed87e9c1b53cbc748cba10e6187ff3b'}
+
+
+def weights_verified(response: dict) -> bool | None:
+    """True: the response names the pinned revision; None: no revision reported; raises on a different revision."""
+    rev = (response or {}).get('weights_revision')
+    if rev is None:
+        return None
+    pinned = PINNED_REVISIONS.get((response or {}).get('model'))
+    if pinned is not None and rev != pinned:
+        raise LocalInferenceError('model weights are not the pinned revision')
+    return pinned is not None
 DEFAULT_PRIMARY_URL = 'http://127.0.0.1:8765/v1/classify'
 DEFAULT_SECONDARY_URL = 'http://127.0.0.1:8766/v1/classify'
 LABELS = ('water', 'medicine', 'other')
@@ -63,6 +82,38 @@ def validate_result(data: dict, model_id: str, image_sha: str, pass_id: int) -> 
     return result
 
 
+V36_HAZARD_THRESHOLD = 0.05    # the v3.6 rule's tau_h: the server flag --hazard-threshold must have been started with it
+THRESHOLD_TOL = 1e-9
+
+
+def check_hazard_threshold(call: dict, expected, *, require: bool = True) -> bool:
+    """I-19 fix (FINDINGS #27): the decision's tau_h is the SERVER's hazard threshold (default 0.5!), reported in
+    scores.hazard_threshold.  The client verifies that every model call was made under the configured threshold.
+    A different value always raises; a missing record raises if `require` (live calls always carry it; only
+    pre-I-19 saved runs lack the field, and the audit then reports `hazard_threshold_verified: False`).
+    `expected=None` disables the check explicitly.  Returns True iff the call carried a matching threshold."""
+    if expected is None:
+        return False
+    sc = (call or {}).get('scores') if isinstance(call, dict) else None
+    thr = sc.get('hazard_threshold') if isinstance(sc, dict) else None
+    if thr is None:
+        if require:
+            raise LocalInferenceError('model call does not record the server hazard threshold')
+        return False
+    if (isinstance(thr, bool) or not isinstance(thr, (int, float)) or not math.isfinite(thr)
+            or abs(float(thr) - float(expected)) > THRESHOLD_TOL):
+        raise LocalInferenceError(f'server hazard threshold {thr!r} != configured {expected!r}')
+    return True
+
+
+def require_valid_scores(call: dict) -> None:
+    """I-19 fix (FINDINGS #26): every model call must carry a usable p(hazard); otherwise the inference is rejected
+    (the mission aborts without a delivery) instead of the view silently counting as clear."""
+    from .mission_memory import scores_valid
+    if not scores_valid(call):
+        raise LocalInferenceError('model call without a valid hazard score (finite, in [0,1])')
+
+
 def _client_call(url: str, model: str, image_bytes: bytes, pass_id: int, *, timeout: int=120, transport=None) -> dict:
     localhost_only(url)
     if model not in ALLOWED_MODELS:
@@ -93,9 +144,11 @@ def _confidence(response: dict, expected: str):
     if not isinstance(scores, dict):
         return None
     probs = scores.get('supply_probs')
-    if not isinstance(probs, dict) or not isinstance(probs.get(expected), (int, float)):
+    v = probs.get(expected) if isinstance(probs, dict) else None
+    # I-23 findings F2/F3: a bool or a non-finite / out-of-range confidence is malformed (NaN passed `c < 0.5` as confident)
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or not 0.0 <= v <= 1.0:
         raise LocalInferenceError('malformed closed-set scores')
-    return float(probs[expected])
+    return float(v)
 
 
 def local_decision(expected: str, first: dict, second: dict, *, dual_model: bool=False,
@@ -108,6 +161,7 @@ def local_decision(expected: str, first: dict, second: dict, *, dual_model: bool
             raise LocalInferenceError('unverified local model result')
         if response['result'].get('supply') not in LABELS or response['result'].get('scene') not in SCENES:
             raise LocalInferenceError('unsupported model label')
+        weights_verified(response)
     if dual_model and first['model'] == second['model']:
         raise LocalInferenceError('dual-model claim without distinct models')
     if first['image_sha256'] != second['image_sha256']:
@@ -178,7 +232,7 @@ def verify_station_local(image_path: str | Path, expected: str, *,
                          secondary_url: str=DEFAULT_SECONDARY_URL,
                          primary_model: str=PRIMARY_MODEL, secondary_model: str=SECONDARY_MODEL,
                          transport=None, jev_url: str | None = None, jev_hazard_threshold: float = .35,
-                         jev_schema: str = 'jev') -> dict:
+                         jev_schema: str = 'jev', hazard_threshold: float | None = V36_HAZARD_THRESHOLD) -> dict:
     """Use only real local HTTP inference in production; injection is unit-test only."""
     if mode not in ('single','dual'):
         raise LocalInferenceError('mode must be single or dual')
@@ -192,6 +246,9 @@ def verify_station_local(image_path: str | Path, expected: str, *,
     first=_client_call(primary_url,primary_model,raw,1,transport=transport)
     second=_client_call(secondary_url if mode=='dual' else primary_url,
                         secondary_model if mode=='dual' else primary_model,raw,2,transport=transport)
+    for call in (first,second):
+        require_valid_scores(call)
+        check_hazard_threshold(call,hazard_threshold)     # I-19 fix #27: never silently run under the server default 0.5
     decision=local_decision(expected,first,second,dual_model=mode=='dual')
     out={'checkpoint_type':'local_on_site_camera_supply_check',
          'image_sha256':hashlib.sha256(raw).hexdigest(),

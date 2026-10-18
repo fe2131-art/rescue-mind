@@ -1,6 +1,6 @@
 # I-21 design: a realistic relief depot (replaces the bare arena for the final closed-loop study)
 
-Status: design (2026-10-17 21:10). Motivation: the user and the reviewers (R3/R4, EVAL_5/6) point out that the arena is
+Status: design (2026-10-17 21:10); phase 2 (k stations) implemented 2026-10-17, see the last section. Motivation: the user and the reviewers (R3/R4, EVAL_5/6) point out that the arena is
 not realistic:
 * a flat empty floor, two stations, primitive props and a stylised flame;
 * known straight-line waypoints, no obstacles, no clutter;
@@ -44,3 +44,148 @@ The checks we claim to be robust may only work because the world is easy.
 ## What it does not fix
 It is still simulation. Real smoke, real lighting noise and real shelves differ. Real-photo studies (P/P2, Q) remain the
 link to reality.
+
+
+## Phase 2 as implemented (k supply stations; no Gazebo run yet)
+
+**Design in one paragraph.** A station is an id with a centre, a waypoint and the supply the inventory says it holds
+(`rescuemind/stations.py`, `StationSet`). The intent still asks for `water` or `medicine`. The candidate order for a
+request is the inventory's stations for that supply (in id order), then all others: `water -> [W1, W2, M1, M2]`. The robot
+visits the candidates in order, checks each one on site, and a wrong/missing-supply denial continues to the next unchecked
+candidate until a check confirms or all k are checked (at most k-1 more checks), then it stops and reports. A hazard (or low
+confidence) at ANY visited station stops the mission as before. Memory and advice may reorder the candidates, never remove
+one. The arena keeps ids `water` / `medicine` and no `stations` block: `water -> [water, medicine]`, the one-time
+search of the other station, unchanged (all existing tests pass; the arena's recovery record only gains `candidates`).
+
+**Per-run configuration (extends I-17 `--config` / `--centers`).**
+* `waypoints.json`: the arena file with the station ids as keys (`"W1": [wx, wy]`, ...), `"B"`, plus
+  `"stations": {"ids": [...], "inventory": {"W1": "water", ...}}`. Written by `depot.write_k4_configs(run_dir)`; the
+  orchestrator does this when the world spec has `depot.stations == 4`, and the audits read the run folder's own file
+  (`waypoint_config_path`).
+* `station_centers.json`: `{"W1": [cx, cy], ...}`. `camera_aim.station_centers(..., locked=False)` accepts 2..8 ids; the
+  locked default stays the arena's two. The mission refuses to start if a station set is given without a matching
+  `--centers` file.
+* mission record (k > 2 only): `stations` (the block), `station_order` (the candidate order after memory/advice).
+  Recovery block: `first_station`/`first_checkpoint`/`first_checkpoint_image` (hop 1, as before), `hops`
+  (`[{station, checkpoint, checkpoint_image, reason}]` for further denied stations), `searched_station` (the station of
+  the final checkpoint), `candidates`. Denied images: `recovery_*.jpg`, `recovery2_*.jpg`, `recovery3_*.jpg`.
+
+**Code map.**
+* `rescuemind/stations.py`: `StationSet`, `next_candidate`, `validate_visits`, `plan_order`, `check_centers`.
+* `ros/gazebo_waypoint_mission.py`: `route_from_config` for any station id; the recovery block continues to the next
+  candidate (`next_candidate`), records hops, stops on hazard / exhaustion.
+* `rescuemind/mission_memory.py` (`plan(..., stations=)`): stations where the item was last seen come first, then unknown,
+  then those seen holding something else; the reordering still triggers only if the catalog station was last seen
+  holding something else AND another station was seen holding the item (identical to before for k=2). Every station of a
+  search chain becomes an observation.
+* `rescuemind/advice.py` (`plan/validate/base_plan(..., stations=)`): station ids validated against the set; a location
+  claim moves that station to the front; `assert_monotone` (and so `audit_plan`) now also requires the candidate order to be
+  a permutation of the order before advice (nothing dropped or added) with `first_station` at its head. Operator text
+  that names a supply's station ("W"/"M") resolves to the inventory's first station for it.
+* `rescuemind/recovery_evidence.py`: audits a hop chain: every hop a wrong-supply denial for the same request, each hop's
+  image hash and event order, and the visited stations are a prefix of `candidates` (a skipped or repeated candidate is
+  rejected). Records without `candidates` (old arena logs) still need water+medicine.
+* `scripts/v32_orchestrate.py`: station-name check from the run's station set; depot configs written per run.
+* `rescuemind/depot.py`: `K4_*` geometry (W1 2,2 and M1 -2,2 as in the arena; W2 -2.8,-1.4; M2 -0.2,-3.0; shelter 3,-2;
+  waypoints 1.2 m off the centre, W1/M1/B hand-tuned as before), `OPERATING_AREA_K4`, `check_k4_layout`,
+  `add_k4_stations`, `supply_map`, `k4_configs`/`write_k4_configs`. `robust_scenes.build_variant(depot={'stations': 4,
+  'supply_at': {'W2': None, 'M2': 'water'}, ...})` places the four pallets with props (default: W1/M1 from the scene file,
+  W2/M2 from the inventory; `supply_at` swaps or empties any), and `hazard_at` / `distractor_at` then take the ids W1 M1 W2
+  M2. `truth_for_depot` gives the label.
+* Furniture of the four-bay depot is dropped when its collision footprint (from the collision meshes) comes within 0.5 m of
+  a pallet or the shelter or within 0.6 m of ANY straight leg (start to bay, all waypoint and look-around pairs, so a
+  recovery in any candidate order is covered). This drops the racks `ShelfD_01` at (4.73, -1.24) and (4.73, -3.04) and the crate `ClutteringC_01` at (3.33, 3.82);
+  the other racks stay. Clutter slots are separate for k=4.
+
+**Tests (all ROS-free).** `tests/test_i21_stations.py` (station set, order, candidate walk, config validation, memory and
+advice over 4 stations including the random adversarial property test extended to k=4: monotone plans approve only what the
+no-advice plan approves, the order is always a permutation of all four stations, `audit_plan` recomputes it; recovery audit
+accepts 1..3-denial chains in candidate order, also memory-reordered, and rejects a skipped / repeated candidate, a non
+wrong-supply hop, a tampered hop image, a missing event). `tests/test_i21_recovery_run.py` drives the real `run_ros` with
+simulated ROS messages and a mocked checkpoint: 3 wrong then confirmed visits W1 W2 M1 M2 in order; 4 wrong stops after
+exactly 4 checks; a hazard at the 2nd station stops; no `--recovery` stops at the first; a memory-reordered order is followed;
+the 2-station arena behaves exactly as before. `tests/test_i21_depot.py` (feasibility check incl. negative cases, configs
+round-trip through the mission's readers, worlds with 4 pallets / swapped / empty pallets, hazard and distractor ids).
+Full suite: no new failures (the 12 `test_v30_*` failures on python 3.10 are `TestCase.enterContext`, 3.11+; they pass with
+a shim; `test_core`/`test_v08` need scikit-learn).
+
+**Not done / needs a Gazebo smoke test (about 30 min, before study X).**
+1. Render the four stations' front views from their waypoints: the props on W2/M2 and the clutter must be in view, the
+   camera must be able to aim (waypoint to centre distance 1.2 m, bearing error < 0.1 rad) and no rack or clutter may block
+   the line of sight (only checked against platforms and the shelter, not against furniture).
+2. Drive the legs W1 -> W2 -> M1 -> M2 -> B with the lidar guard on: the guard must not trip on the racks (the nearest kept
+   rack is ShelfE at x >= 2.77, y in [0.14, 1.02]); the straight legs have no obstacle avoidance.
+3. One full k=4 recovery run (`--recovery`, supplies swapped so the first three candidates are wrong): check that the
+   independent motion / ground-truth / causal audits accept the chain (they only look at the final station and the shelter),
+   that `outputs/runs/<id>/mission.json` has `recovery.hops`, and that `audit_recovery` passes on the real record. Time
+   budget: each wrong candidate costs roughly one full checkpoint (about 60-90 s with Qwen 9B), so a 4-station search is
+   about 4 times the arena's; check `--stage-timeout` and the orchestrator's `--mission-timeout`.
+4. The phase-1 note stands: the east racks `ShelfD/E` are 3.9 m long in x (collision meshes), so their west ends reach
+   x = 2.77. In the two-station depot the rack at y = -1.24 touches shelter B's footprint (8 cm); the four-bay depot drops it.
+   Look at the two-station depot render as well.
+5. `scripts/make_demo_video.py` (two-station names only) and the arena-only builders (`build_image_set`, `build_testset_t1`,
+   `vlm_devset_capture`) are not generalised. Study X still needs its world sampler (supply arrangement via `supply_at`,
+   smoke/fire, obstacle, lighting) and its registration.
+
+
+## Phase 3: realism polish and the two transfer studies (XD image level, X closed loop; designed 2026-10-17, nothing run)
+
+Why. Review R5 (item 4): a bigger simulator does not make results transfer. The claim that is supposed to transfer has to be stated
+before the data, the claims that are not supposed to transfer have to be measured separately, and one hazard appearance must come from
+outside the development loop. Two registrations are drafted: `experiments/PREREGISTRATION_XD.md` (image level, the v3.6 check re-measured
+on 1 932 depot images, tau_h recalibrated, realism ablated, real fire-free warehouse photographs) and `experiments/PREREGISTRATION_X.md`
+(80 closed-loop runs in the k = 4 depot: behaviour cells, memory over k = 4 against the registered k-scaling prediction, A-steer).
+
+### World-spec options added to `rescuemind.depot` (all off by default; off = byte-identical SDF, tested)
+| Option (`depot` dict) | Effect | Notes |
+|---|---|---|
+| `pallets: 'wood_cartons'` | each supply platform is drawn as a wooden pallet (deck boards, stringers) carrying a stretch-wrapped carton plinth up to the old top (0.5 m), plus one or two small cartons standing on the top at the corners nearest the wall (never on a distractor) | **visual only**: the collision element, the pose and the 0.9 m × 0.9 m footprint are untouched, so every audit and every lidar result stays valid; the old grey box visual is replaced |
+| `hazard_style: 'smoke_only'` | the hazard is a rising plume of static smoke puffs without flames (a burnt patch on the floor); a particle plume goes on top with `particle_smoke` | a smoke-only world is a **hazard** (D-Fire's smoke-only class is positive); labels count the static puffs, particle smoke is never in a mask |
+| `hazard_style: 'mesh_flame'` | three nested shells of a procedurally generated jagged flame mesh (OBJ, 5–8 lofted tongues) | not our ellipsoids; mesh and parameters are drawn from the world's seed |
+| `hazard_style: 'billboard'` | three crossed double-sided planes with an alpha-textured flame sprite (procedural, hard-edged alpha; a third-party PNG can be passed) | the mask uses the same silhouette in flat magenta; **needs the Gazebo smoke test** (alpha textures), see the gate in the XD registration |
+| `clutter: False` | no movable clutter (realism ablation) | the random stream is unchanged, the pallet jack keeps its place |
+Generated meshes and textures go to `worlds/assets/generated` (git-ignored). `rescuemind/robust_scenes.py` only gained three guarded
+calls into these functions. `rescuemind.depot.k4_design_pose / k4_side_pose / k4_near_pose` give the nominal checkpoint, look-around and
+extra-view poses of a bay (0.2 m short of the waypoint, as in the arena), and `scripts/fire_mask_at_pose.py` now accepts the bay ids.
+
+### Claims that transfer, and claims that do not (for the paper; the evidence column says where it will come from)
+**Transfer (structural; the depot is a test of them, and a failure is reported as a failure).**
+| Claim | Why it should transfer | Test and criterion | Evidence |
+|---|---|---|---|
+| The supply check approves no wrong or missing supply (closed-set, two permuted passes) | it is a property of the decision rule and of the scoring, not of the room | XD-2 O4: 0 of 35 wrong- or missing-supply worlds approved (front and look-around) | arena: 0/407 (T2) |
+| Looking from the side reduces the misses of the front check | the side views are a second look at the same hazard; the look-around's misses are a subset of the front check's | XD-2 O1: fewer misses, exact McNemar p < 0.05 | arena: G 11 → 1 of 16 |
+| A small, partly hidden fire is harder than a large visible one | geometry (occlusion by the supply) | XD-2 O2: front-only miss rate small > big, Fisher one-sided p < 0.05 | arena: F, G, W |
+| The I-20 extra views never miss more than the fixed look-around and trigger on at most 15% of fire-free worlds | they can only add refusals | XD-2 O3 | arena: W Amendment 1 |
+| Advice may only reorder and tighten, so a delivery is never less safe than the check's own error budget (Prop. 2) | structural: there is no field through which advice can relax a check | X-s S2 (no audit failure), S3 (control safe), the unsafe count with its exact bound, X-m K3 | A (arena) |
+| Check-preserving memory saves visits, and the saving grows with k | closed form of `h_k_scaling.py`; the stale-proposal price is k − 1 | X-m K1, K2: sign-flip p < 0.05 and the registered 1.75-bay design prediction inside the bootstrap CI | H, V (k = 2) |
+| Truthful advice can cost a delivery (a caught fire at the steered bay loses the delivery the control would make), and scrutiny prices a false refusal | follows from "a hazard at a visited bay stops the mission" | X-s descriptive: deliveries lost, false refusals in the clean twins | not measurable in the k = 2 arena (needs duplicate supply) |
+
+**Do not transfer (re-estimated in the depot, reported next to the arena's numbers, never carried over).**
+| Quantity | Arena value | Why it should move | Where re-estimated |
+|---|---|---|---|
+| ε, the look-around miss rate; k·ε | G 1/16; W (pending) | clutter, racks, pallets, lighting, smoke change what the camera sees | XD-1 (pooled, per class, k·ε for k = 4) |
+| tau_h = 0.05 and tau_sus = 0.005 | frozen on development data | P2 already moved tau_h to 0.35 on real photographs | XD-4 recalibration on the calibration split; XD-R false alarms at 0.05, 0.35 and the depot value |
+| Correct approvals and false stops | 190/193; extra false stops (W) | clutter produces false alarms | XD-3 (C1: ≥ 80%) |
+| Which hazard appearance is hardest | our flame; smoke is the weak case on real photographs | smoke-only and non-arena flames were never in the development loop | XD-1 by class, P1 |
+| Seconds per extra bay (δ = 29.5 s), the wasted-visit price | measured in H, two bays 4 m apart | the bays are farther apart, the aisles longer | X-m: the depot's own δ (regression slope) |
+| The arrival-pose error of the controller | x 0.011, y 0.023 m, yaw 0.024 rad | longer legs, other approach directions | X-a/X-m ground-truth poses (to be compared with the XD assumption) |
+| The cost bound of advice-induced refusals (4/193 views at tau = 0.0113) | arena images | tied to the arena's false-alarm rate | recomputed from XD-4 at the caution threshold tau_h/5 (follow-up) |
+**Outside both studies (kept in the limitations paragraph).** Real smoke dynamics, real lighting noise and sensor noise, grasping and
+handover, a robot other than the diff-drive stand-in. XD-R (200 real fire-free warehouse photographs) is the only link to reality that is not our
+simulator; the real-camera recording of a monitor playing a fire clip is an optional follow-up.
+
+### Cost (nothing run; V100 host, no campaign running)
+| Study | Wall time | GPU hours |
+|---|---|---|
+| XD (smoke test 0.25 h, rendering 2.9 h, scoring 1.05 h, real photographs 0.1 h) | ≈ 4.3 h | ≈ 4.3 |
+| X (pilot 0.5 h, masks 0.5 h, 80 runs ≈ 4.8 h, re-runs 0.25 h; core 44 runs: 3.5 h) | ≈ 5.9 h | ≈ 7.3 (core 4.4) |
+| Total | ≈ 10 h | ≈ 11.6 |
+Order: XD smoke test (renders only), then XD (its recalibrated tau and its measured ε feed the X analysis), then the X pilot, X-a + X-m,
+and X-s. Scripts: `scripts/xd_render.sh`, `scripts/xd_eval.sh`, `scripts/x_run.sh`.
+
+### What the "Not done" list above becomes
+1. *Render the four bays' front views* — the XD smoke test (one world per class and ablation variant, colour and mask).
+2. *Drive the legs with the lidar guard on* and 3. *one full k = 4 recovery run with the audits* — the X mechanics pilot (9 runs).
+4. *The two-station depot render* — covered by the same smoke test only for the k = 4 bays; the two-station depot is left as is.
+5. *World sampler and registration for study X* — `scripts/make_protocol_x.py`, `PREREGISTRATION_X.md`; the image-level builder for the depot is
+   `scripts/build_testset_xd.py` (the arena-only builders `build_image_set`, `build_testset_t1` stay unchanged).

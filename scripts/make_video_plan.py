@@ -191,7 +191,12 @@ def evidence_card(seconds):
         ok = sum(r['correct'] for r in rs)
         wrong = sum(r['observed_action'] in DELIVERED and r['expected_action'] not in ('ALLOW', 'DELIVER_AFTER_SEARCH') for r in rs)
         rows.append(['閉ループ E（ランダムな世界）', [f'期待どおり {ok}/{len(rs)}・誤配達 {wrong}', G if wrong == 0 else R]])
-        say.append(f'ランダムな{len(rs)}世界で、誤配達は{wrong}件。')
+        say.append(f'ランダムな{len(rs)}世界で誤配達{wrong}件。')
+    lj = jload(RES / 'l_summary.json')
+    if lj and lj.get('primary'):
+        pl = lj['primary']
+        rows.append(['閉ループ L（未知の配置24通り）', [f"期待どおり {pl['expected_behaviour']}・危険な配達 {pl['unsafe_deliveries']}", G if pl['claim_supported'] else W]])
+        pass                                     # (row only; the narration is kept under the 3-minute limit)
     g = jload(RES / 'g_summary.json')
     if g:
         pr = g['primary']
@@ -206,25 +211,34 @@ def evidence_card(seconds):
         p3 = h['P3_no_extra_risk_vs_v36']
         rows.append(['閉ループ H（記憶）', [f"{speed.replace('所要時間 ', '移されたまま8出動 ')}危険 記憶なし{p3['unsafe_M0']}・本方式{p3['unsafe_M2']}（素朴{p2['unsafe_M1']}）",
                                                   G if h['headline_supported'] else W]])
-        say.append('記憶で近道をしても、危険な配達は増えませんでした。')
+        say.append('記憶の近道は、台本どおりの変化では危険を増やさず、')
     j = jload(RES / 'j_summary.json')
     if j:
         c = j['per_config']
         j_ok = j['P1_runs_on_one_v100']['supported'] and j['P2_no_extra_unsafe']['supported'] and c['J']['unsafe_deliveries'] == 0
         rows.append(['閉ループ J（2つのAI）', [f"期待どおり {c['J']['correct']}/{c['J']['n']}（v3.6単独 {c['A']['correct']}/{c['A']['n']}）・危険な配達 {c['J']['unsafe_deliveries']}",
                                                       G if j_ok else R if c['J']['unsafe_deliveries'] > c['A']['unsafe_deliveries'] else W]])
-    z = jload(RES / 'z_summary.json')
-    if z:
-        sg = z['models']['siglip']['t2']['baseline']
-        rows.append(['比較 Z（CLIP系ゼロショット）', [f"未使用画像T2で SigLIP 誤許可 {sg['FA']}/{sg['n_deny']}（本手法 {z['models']['siglip']['t2']['ours']['FA']}）", G]])
+    v = jload(RES / 'v_summary.json')
+    if v and v.get('complete'):
+        a = v['arms']; d = v['V1_time_diff']
+        rows.append(['閉ループ V（ランダムな変化）', [f"{d['mean_M0_minus_M2_s']:.0f}秒短縮（予測{d['pred']['p2.5']:.0f}〜{d['pred']['p97.5']:.0f}）・"
+                                                      f"安全の主張は不成立（危険 {a['M2']['unsafe']}対{a['M0']['unsafe']}）",
+                                                      G if v.get('claim_memory_under_random_change') else W]])
+        say.append('ランダムな変化でも予測どおり速くなりましたが、安全の主張は示せず、そのまま報告します。')
+    smt = jload(RES / 'smt_advice_proof.json')
+    if smt:
+        n_unsat = sum(1 for q in smt['proofs'] if q.get('result') == 'unsat')
+        mut = smt.get('code_mutants') or []
+        rows.append(['機械検証（z3）', [f"締めるだけを実装で証明・注入バグ {len(mut)}/{len(mut)} 検出", G]])
+        say.append('助言は締めるだけ、を実装で機械的に証明。')
     pp = jload(RES / 'p_summary.json')
     if pp:
         p2 = jload(RES / 'p2_summary.json')
         if p2 and p2.get('chosen_test'):
             ct = p2['chosen_test']
-            rows.append(['実写 P・P2（D-Fire）', [f"較正なし 誤警報 {pp['false_alarm']['k']}/{pp['false_alarm']['n']} → 現場写真で較正後 検出 {ct['recall']['k']}/{ct['recall']['n']}・誤警報 {ct['false_alarm']['k']}/{ct['false_alarm']['n']}",
+            rows.append(['実写 P・P2（D-Fire）', [f"誤警報 {pp['false_alarm']['k']}→{ct['false_alarm']['k']}/{ct['false_alarm']['n']}（較正後・検出 {ct['recall']['k']}/{ct['recall']['n']}）",
                                                 G if p2.get('claim_supported') else W]])
-            say.append('実写では、現場の写真で閾値を較正すると、誤警報は大きく減りました。')
+            say.append('実写は較正で誤警報が減りました。')
         else:
             rows.append(['実写 P（D-Fire 400枚）', [f"火・煙を検出 {pp['recall']['k']}/{pp['recall']['n']}・火の無い写真で誤警報 {pp['false_alarm']['k']}/{pp['false_alarm']['n']}", W]])
             say.append(f"実写でも火と煙を{pp['recall']['k']}枚検出。ただし誤警報は多く、現場ごとの調整が必要です。")

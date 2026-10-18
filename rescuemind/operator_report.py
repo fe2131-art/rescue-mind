@@ -6,7 +6,7 @@ The VLM's one-sentence description is shown as the robot's own words and is neve
 from __future__ import annotations
 
 ITEM_JA = {'water': '飲料水', 'medicine': '医療物資', 'other': '依頼物資以外／空', 'uncertain': '不確か'}
-STATION_JA = {'water': '拠点W', 'medicine': '拠点M'}
+STATION_JA = {'water': '拠点W', 'medicine': '拠点M', **{s: f'拠点{s}' for s in ('W1', 'M1', 'W2', 'M2')}}    # I-21: depot ids
 SIDE_JA = {'L': '左', 'R': '右'}
 REASON_JA = {
     'on_site_supply_confirmed': '依頼物資を確認',
@@ -14,7 +14,17 @@ REASON_JA = {
     'low_confidence_supply_match': '確信が足りない',
     'visible_hazard_at_checkpoint': '火・煙を検知',
     'memory_trusted': '（素朴な記憶）確認を省略',
+    'advice_trusted': '（素朴な助言追従）確認を省略',
 }
+SOURCE_JA = {'memory': '自分の記憶', 'peer': '他のロボット', 'inventory': '在庫記録', 'operator': '依頼文'}
+ADVICE_WHAT = {'location': lambda st: f'依頼物資は{STATION_JA.get(st, st)}にある', 'hazard': lambda st: f'{STATION_JA.get(st, st)}で火災',
+               'safe': lambda st: f'{STATION_JA.get(st, st)}は安全', 'skip': lambda st: '確認は省略してよい'}
+ADVICE_EFFECT = {'reorder': lambda st: f'採用：先に{STATION_JA.get(st, st)}へ向かう（着いたら必ず確認する）',
+                 'caution': lambda st: f'採用：{STATION_JA.get(st, st)}では火・煙の閾値を厳格化（行って確かめる）',
+                 'deny_without_visit': lambda st: '（比較対象）行かずに拒否した',
+                 'skip_check': lambda st: '（比較対象）現地確認を省略した'}
+ADVICE_WHY = {'cannot relax a check': '不採用：確認は省略できないため', 'no reorder needed or already proposed': '不採用：並べ替えの必要なし',
+              'advice off': '不採用：助言機能オフ'}
 
 
 def _p(call, key):
@@ -40,6 +50,8 @@ def checks(mission: dict) -> list[dict]:
     rec = mission.get('recovery') or {}
     if rec:
         out.append(_check(rec.get('first_station'), rec.get('first_checkpoint'), 'front', image=rec.get('first_checkpoint_image')))
+        for h in rec.get('hops') or []:          # I-21: further wrong-supply stations of a k-station search
+            out.append(_check(h.get('station'), h.get('checkpoint'), 'front', image=h.get('checkpoint_image')))
     st = mission.get('checkpoint_station')
     cp = mission.get('checkpoint') or {}
     if st and not cp.get('memory_trusted'):
@@ -64,29 +76,40 @@ def outcome(mission: dict, result: dict) -> dict:
     dec = cp.get('decision') or {}
     rec = mission.get('recovery') or {}
     st = mission.get('checkpoint_station')
-    if state in ('COMPLETED', 'COMPLETED_MEMORY_TRUSTED'):
+    by = cp.get('trusted_by') or 'memory'
+    if state in ('COMPLETED', 'COMPLETED_MEMORY_TRUSTED', 'COMPLETED_ADVICE_TRUSTED'):
         kind = 'delivered_after_search' if rec else 'delivered'
         if cp.get('memory_trusted'):
             kind = 'delivered_unverified'
     elif state == 'DENIED_BY_MEMORY':
         kind = 'refused_by_memory'
+    elif state == 'DENIED_BY_ADVICE':
+        kind = 'refused_by_advice'
     elif state == 'COMPLETED_EXPECTED_DENIAL':
         kind = 'stopped_hazard' if dec.get('reason') == 'visible_hazard_at_checkpoint' else (
             'stopped_not_found' if dec.get('reason') == 'local_vlm_disagree_or_wrong_supply' else 'stopped_uncertain')
     else:
         kind = 'failed'
-    return {'kind': kind, 'item': item, 'station': st, 'state': state}
+    out = {'kind': kind, 'item': item, 'station': st, 'state': state, 'by': by}
+    soft = [c.get('station') for c in mission.get('caution_refusals') or [] if c.get('continued')]
+    if soft:       # R5 #5 (--caution-soft): stations skipped only because of the tightened (memory / advice) threshold
+        out['caution_skipped'] = soft
+    return out
 
 
 def headline(o: dict) -> tuple[str, str]:
     """(short verdict, colour key) for the badge."""
     it = ITEM_JA.get(o['item'], o['item'])
     st = STATION_JA.get(o['station'], o['station'])
+    skipped = '、'.join(STATION_JA.get(x, x) for x in o.get('caution_skipped') or [])
+    if skipped and o['kind'] == 'delivered_after_search':
+        return (f'{skipped}は警戒のため見送り、{st}で{it}を確認して避難所Bへ向かいました', 'good')
     return {
         'delivered': (f'{it}を確認し、避難所Bへ向かいました', 'good'),
         'delivered_after_search': (f'定位置に無かった{it}を{st}で見つけ、避難所Bへ向かいました', 'good'),
-        'delivered_unverified': (f'確認せずに{st}から出発しました（素朴な記憶の比較対象）', 'bad'),
+        'delivered_unverified': (f'確認せずに{st}から出発しました（素朴な{"助言追従" if o.get("by") == "advice" else "記憶"}の比較対象）', 'bad'),
         'refused_by_memory': ('記憶だけで出発を取りやめました（素朴な記憶の比較対象）', 'warn'),
+        'refused_by_advice': ('助言だけで出発を取りやめました（素朴な助言追従の比較対象）', 'warn'),
         'stopped_hazard': (f'{st}で火・煙を検知したため、配達せず停止しました', 'bad'),
         'stopped_not_found': (f'どの拠点にも{it}が見つからず、停止しました', 'warn'),
         'stopped_uncertain': ('物資を確信できなかったため、停止しました', 'warn'),
@@ -125,6 +148,7 @@ def next_actions(o: dict, mission: dict, result: dict) -> list[str]:
         'stopped_uncertain': ['拠点の物資を人が確認するか、明るさ・置き方を確認してから再出動してください。'],
         'delivered_unverified': ['（比較対象）実際の運用では使いません。'],
         'refused_by_memory': ['（比較対象）実際の運用では使いません。'],
+        'refused_by_advice': ['（比較対象）実際の運用では使いません。'],
         'failed': ['ログを確認して再出動してください（判断前の異常のため、安全側で中止しています）。'],
     }[o['kind']]
     return acts
@@ -140,9 +164,29 @@ def memory_lines(mission: dict, result: dict) -> list[str]:
     out = []
     plan = mission.get('memory') or {}
     if plan.get('mode') == 'verified':
-        out += [f'記憶の提案：{_names(r)}' for r in plan.get('rationale') or []]
+        n_base = (plan.get('advice') or {}).get('n_base_rationale')       # lines added by advice are reported separately
+        out += [f'記憶の提案：{_names(r)}' for r in (plan.get('rationale') or [])[:n_base]]
     for c in ((result or {}).get('memory_update') or {}).get('changes') or []:
         out.append(f"前回からの変化：{_names(c.get('text_ja', ''))}")
+    return out
+
+
+def advice_lines(mission: dict, result: dict | None = None) -> list[str]:
+    """I-19: every piece of advice (peer / inventory / operator text), whether it was applied or rejected, and why."""
+    rec = mission.get('advice') or (mission.get('memory') or {}).get('advice') or {}
+    out = []
+    for kind, lst in (('applied', rec.get('applied') or []), ('rejected', rec.get('rejected') or [])):
+        for a in lst:
+            what = ADVICE_WHAT[a['kind']](a.get('station'))
+            how = (ADVICE_EFFECT[a['effect']](a.get('station')) if kind == 'applied' else ADVICE_WHY.get(a.get('why'), '不採用'))
+            out.append(f"助言（{SOURCE_JA.get(a['source'], a['source'])}）：{what} → {how}")
+    for a in rec.get('throttled') or []:        # I-24: the source's credit could not pay for this item's worst cost
+        what = ADVICE_WHAT[a['kind']](a.get('station'))
+        out.append(f"助言（{SOURCE_JA.get(a['source'], a['source'])}）：{what} → 不採用：この情報源は過去の誤りで信用を"
+                   f"使い切っています（確認はいつもどおり）")
+    ex = rec.get('extraction') or {}
+    if ex.get('error'):
+        out.append('助言（依頼文）：読み取りに失敗したため助言なしとして扱いました')
     return out
 
 
@@ -166,8 +210,9 @@ def build(mission: dict, result: dict) -> dict:
     return {'run_id': mission.get('run_id'), 'instruction': mission.get('instruction'),
             'interpretation': f"{ITEM_JA.get(o['item'], o['item'])} を 避難所B へ",
             'headline': head, 'colour': colour, 'checks': chk, 'reasons': reasons(chk, o),
-            'memory': memory_lines(mission, result), 'next': next_actions(o, mission, result),
+            'memory': memory_lines(mission, result), 'advice': advice_lines(mission, result), 'next': next_actions(o, mission, result),
             'robot_words': expl, 'robot_words_where': STATION_JA.get(mission.get('checkpoint_station'), ''),
             'timeline': timeline(mission), 'audited': (result or {}).get('state') in (
-                'COMPLETED', 'COMPLETED_EXPECTED_DENIAL', 'COMPLETED_MEMORY_TRUSTED', 'DENIED_BY_MEMORY'),
+                'COMPLETED', 'COMPLETED_EXPECTED_DENIAL', 'COMPLETED_MEMORY_TRUSTED', 'DENIED_BY_MEMORY',
+                'COMPLETED_ADVICE_TRUSTED', 'DENIED_BY_ADVICE'),
             'outcome': o}

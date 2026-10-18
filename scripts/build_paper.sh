@@ -12,6 +12,13 @@ if [ "${FINAL:-0}" = 1 ]; then
     grep '{\\TBD}' docs/paper/numbers.tex | sed 's/\\newcommand{\\\([A-Za-z]*\)}.*/  \1/' >&2
     exit 3
   fi
+  # a literal \TBD in the sources (not a result macro) also refuses; the LaTeX-level \PackageError in numbers.tex is the backstop
+  lit=$(grep -n '\\TBD' docs/paper/main.tex docs/paper/supplement.tex docs/paper/sec_formal.tex | grep -v -E '\\(newcommand|providecommand)|^[^:]*:[0-9]+:[[:space:]]*%' || true)
+  if [ -n "$lit" ]; then
+    echo "FINAL build refused: literal \\TBD in the sources:" >&2
+    echo "$lit" | cut -c1-140 >&2
+    exit 3
+  fi
 fi
 docker exec rm-dev rescuemind-entrypoint python3 scripts/make_paper_figures.py
 docker run --rm -u "$(id -u):$(id -g)" -v "$PWD/docs/paper:/w" -w /w rescuemind:latex \
