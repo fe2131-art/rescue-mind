@@ -55,7 +55,7 @@
 | W（小さく隠れた火 150＋双子 75、画像） | 見回しの取りこぼし上限と先行手法 | **完了**。見逃し 見回し 3/150（Wilson 上限 5.7% ≤ 15%、**成立**）、正面のみ 76/150（横からしか見えない火 23 件のうち 22 件）、双子の余計な停止 0/75（**成立**）。先行手法（同じ全体画像）：本方式 3/815、投票 9/815（Holm p=0.094）、KnowNo 風 α=0.05 は 1/815 で正しい許可が 303/384 に低下 → 判定規則そのものが優れる主張は**不成立（0/3）**。I-20（疑わしいとき視点を増やす）：見逃し 2/150、双子の損失 0/75 → 事前の規則を満たし v3.7 の既定にした |
 | I-22 Gazebo 確認 | 配送インターロックの実機（シミュレーション）確認 | **合格**（4 ミッション。許可証は承認時のみ、隠れた火＋「確認不要」の助言は拒否・停止）。動画の素材にした |
 | I-23 / I-24 | 命題 2 の z3 検証／助言の信用枠 | I-23：99 件が unsat、実関数との突き合わせ 9,000 件で不一致 0、変異 11/11 検出（F1〜F3 を修正）。I-24：命題 3、閉ループは B で測る |
-| **A（226 run、予備走行 27 run）** | 助言は検査を緩められるか、攻撃者が買えるもの | **予備走行は失敗**（2026-10-18 09:14〜）。依頼文で助言する経路（operator）の run がすべて意図ゲートで拒否された（v3.6 の意図プロンプト i35 が、拠点を「避難所 B 以外の届け先」と読む）→ **FINDINGS #30**。i38 は事前に固定した規則（I-25）で採用済み（`experiments/results/intent_i38_check.json`：保留 55/60 で両方同じ・危険 0、dev の注入で正しい受理 86→92/94・取り違え 0）。**Amendment 1**（`experiments/PREREGISTRATION_A.md`、コミット 2a1bab0）で A の全試行を i38 にし、最初のパイロット台帳は `campaign_A_pilot1_ledger.jsonl` に残した（27 試行：依頼文チャネル 12 件中 0 件が意図どおり、うち 6 件は意図の段で拒否、残りは取れた項目が設計と違った）。新しい台帳でパイロットをやり直し中。論文・補遺・README・報告に反映済み（`tab_amend.tex`、マクロ `APilot*` `AInt*`）。v3.6 の既定は i35 のまま、IF は i35 を測る |
+| **A（226 run、予備走行 27 run）** | 助言は検査を緩められるか、攻撃者が買えるもの | **予備走行は失敗**（2026-10-18 09:14〜）。依頼文で助言する経路（operator）の run がすべて意図ゲートで拒否された（v3.6 の意図プロンプト i35 が、拠点を「避難所 B 以外の届け先」と読む）→ **FINDINGS #30**。i38 は事前に固定した規則（I-25）で採用済み（`experiments/results/intent_i38_check.json`：保留 55/60 で両方同じ・危険 0、dev の注入で正しい受理 86→92/94・取り違え 0）。**Amendment 1**（`experiments/PREREGISTRATION_A.md`、コミット 2a1bab0）で A の全試行を i38 にし、最初のパイロット台帳は `campaign_A_pilot1_ledger.jsonl` に残した（27 試行：依頼文チャネル 12 件中 0 件が意図どおり、うち 6 件は意図の段で拒否、残りは取れた項目が設計と違った）。**Amendment 2**（コミット 1163eee、10:38）で予備走行の合格条件を「依頼文チャネルの意図の受理 9/12 以上」に変え、正確な取り出し（FINDINGS #31：最初の予備走行で 0/6）は報告項目にした。新しい台帳でやり直した予備走行は合格した（`A_PILOT_OK` 10:56：意図の受理 12/12、ファイルチャネル 12/12、正確な取り出し 0/12）。**本走行（226 試行）は 11:11 に開始し、実行中**（結果はまだ無い）。論文・補遺・README・報告に反映済み（`tab_amend.tex`、マクロ `APilot*` `AInt*` `ARerun*`）。v3.6 の既定は i35 のまま、IF は i35 を測る |
 | IF（72 文） | 依頼文で依頼物資を書き換えられるか | 登録済み・**未実行**（GPU 約 2 分） |
 | S（64 世界、276 画像） | 場面内の文字（貼り紙・看板）による注入 | 登録済み・**未実行**（約 2.4 時間。看板の確認 `sign_check_ok` は済み） |
 | B（48 run＋予備走行 6） | 信用枠（I-24）の閉ループ | 登録済み・**未実行**（約 1.5 時間。Amendment 2：両アームでインターロックを有効にする） |
@@ -64,14 +64,14 @@
 | Q（Wikimedia Commons 405 枚） | 実写の物資確認 | 登録済み・**未実行**（GPU 約 40 分。W の後の連鎖が .gitignore の衝突で止まり、一度も走っていない） |
 
 * 登録済み 7 本（A・B・IF・Q・S・X・XD）は統合マージ 09:08 で main に載り、A の予備走行が 09:14 に始まった時点で、IF・S・B・XD・X・Q は試行も推論もしていない。これらの登録ファイルには「DRAFT」の行が残るが、拘束力のある版は `docs/REGISTRATIONS.md` の表の版（ファイルは変えない。変更は日付とコミットつきの Amendment で追記する）。
-* テスト関数は 1270 件（`python3 scripts/count_tests.py` の静的な数え方）。FINDINGS は 30 件。
+* テスト関数は 1274 件（`python3 scripts/count_tests.py` の静的な数え方）。FINDINGS は 31 件。
 
 ### D. GPU の順番と、その動かし方
 
 **予定の順番**：i38 の確認 → **A（再実行）** → IF → S → B → XD → X → Q。GPU は同時に 1 本だけ（同じ ROS ドメイン／Gazebo パーティション／ポート 8765 を使うので並行しない）。
 
 **今の状態（10:00 ごろ）**
-* A のパイロット（`bash scripts/a_run.sh`、main のチェックアウトで 09:14 開始）が最後まで走っている。09:41 時点で台帳 `experiments/results/campaign_A_pilot_ledger.jsonl` は 20 行（27 試行の計画）。終わると `a_analysis.py --pilot` が不合格（依頼文チャネルの抽出が 12 件中 9 件に届かない）になり、`A_ABORT` で止まる（`a_pilot_ok` は作られない）。これは設計どおりの停止で、本番 A は始まらない。
+* （解決済み）A の最初のパイロットは 09:14 に始まり、i35 では依頼文チャネルが意図の段で拒否されて不合格になった（FINDINGS #30・#31）。i38 の採用（Amendment 1）と合格条件の変更（Amendment 2）のあと、パイロットは合格し（10:56）、本走行が 11:11 に始まった。
 * スクラッチパッドの連鎖 `i38_check_chain.sh`（実行中）が、`after_q.log` に `A_CHAIN_ABORT`（または `A_CHAIN_DONE`）が出るのを待つ → main に i21-depot をマージして push → サーバを i35 と i38 で順に起動し `scripts/intent_i38_check.py --tag i35|i38`（約 10 分）→ `--decide` → `I38_CHECK_DONE`。**採用規則は走らせる前に固定済み**（`scripts/intent_i38_check.py` の冒頭と FINDINGS #30。IMPROVEMENT_LOG にはまだ i38 の項が無い）：保留テスト集合（held_out_v34）で危険な誤りが増えず、正しい答えの減りが 1 件以内、かつ注入文の dev 半分で避難所の取り違えが 0 件のまま正しい受理が増えること。結果は `experiments/results/intent_i38_check.json`。
 * **このチェーンは main に `experiments/results/i38_stop_server.sh`・`i38_server_*.log`・`intent_i38_check.json` を作る（untracked）。** i21 側で同名のファイルを追跡しないこと。
 
@@ -208,7 +208,7 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 ## 7. 主要ファイルの地図
 
 * 現在地・履歴：このファイル。旧版の全文：`docs/HANDOFF_ARCHIVE.md`。
-* `docs/ARCHITECTURE.md`（全体フロー図）、`docs/DESIGN_DECISIONS.md`（D1–D15）、`docs/IMPROVEMENT_LOG.md`（I-01–I-24）、`docs/FINDINGS.md`（実行で見つけた30件）、`docs/REVIEW_AND_PLAN.md`（審査基準別レビュー）。
+* `docs/ARCHITECTURE.md`（全体フロー図）、`docs/DESIGN_DECISIONS.md`（D1–D15）、`docs/IMPROVEMENT_LOG.md`（I-01–I-24）、`docs/FINDINGS.md`（実行で見つけた31件）、`docs/REVIEW_AND_PLAN.md`（審査基準別レビュー）。
 * `docs/REGISTRATIONS.md`（事前登録の台帳：main に載った最初のコミットと sha256）、`docs/REPRODUCE.md`（クリーンな Ubuntu＋NVIDIA 環境での 3 段階の再現手順）、`docs/REPRODUCIBILITY.md`。
 * `docs/evaluations/`（第三者採点、第1〜8回と固定の指示文）、`docs/paper/`（論文・補足・`REVIEW_NOTES*.md`・`LITERATURE_*.md`・`PROOF_REVIEW.md`）、`docs/report/`（説明資料）、`docs/design/`（I-19〜I-24 の設計、動画 v5 の計画）。
 * `experiments/`（事前登録 `PREREGISTRATION_*.md`・プロトコル・開発セット・台帳 `results/campaign_*_ledger.jsonl`・要約 `results/*_summary.json`）。

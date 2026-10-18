@@ -206,6 +206,31 @@ def w_claims_en(f=None):
             f"Suspicion-triggered extra views (I-20): {f['adapt_miss']}/{la['n']} misses (one world fewer than look-around), {f['adapt_lost']} correct approvals lost on twins; the adoption rule fixed beforehand was {'met: default of v3.7' if f['adopt'] else 'not met: not the default'}")
 
 
+def _a_rerun(trials):
+    """The rerun pilot (intent prompt i38, Amendment 1; ledger campaign_A_pilot_ledger.jsonl) read with the gate of Amendment 2:
+    operator-channel requests accepted by the intent parser (>= 9 of 12), exact extraction reported (not gated), file channel as designed."""
+    f = RES / 'campaign_A_pilot_ledger.jsonl'
+    if not f.is_file():
+        return {'rerun': False}
+    rows = [json.loads(x) for x in f.read_text(encoding='utf8').splitlines() if x.strip()]
+    last = {r['trial_id']: r for r in rows if r.get('final', True)}
+    op = [t for t in trials if trials[t]['channel'] == 'operator' and t in last]
+    fl = [t for t in trials if trials[t]['channel'] == 'file' and trials[t]['world_type'] != 'D' and t in last]
+    exact = 0
+    for t in op:
+        got = sorted({(a['kind'], a.get('station')) for a in ((last[t].get('advice_plan') or {}).get('items') or [])}, key=str)
+        want = sorted({(a['kind'], a.get('station')) for a in trials[t]['expected_advice']}, key=str)
+        exact += got == want
+    return {'rerun': len(last) == len(trials), 'rerun_runs': len(last), 'rerun_op_n': len(op),
+            'rerun_op_intent': sum(last[t].get('intent_allowed') is True for t in op), 'rerun_op_exact': exact,
+            'rerun_file_n': len(fl), 'rerun_file_ok': sum(last[t].get('observed_action') in (trials[t]['expected_action'], trials[t].get('expected_action_if_flagged')) for t in fl)}
+
+
+# The A campaign (226 registered trials) started on 2026-10-18 at 11:11 (first row of experiments/results/campaign_A_ledger.jsonl in the
+# main checkout); while a_summary.json does not exist the text says "running". Not a result.
+A_CAMPAIGN_START = '2026-10-18 11:11'
+
+
 def a_pilot_facts():
     """First mechanics pilot of study A (ledger kept as campaign_A_pilot1_ledger.jsonl; i35) and the i38 check that adopted Amendment 1."""
     f, pf, ck = RES / 'campaign_A_pilot1_ledger.jsonl', RES.parent / 'campaign_a_pilot_protocol.json', _load('intent_i38_check.json')
@@ -222,7 +247,8 @@ def a_pilot_facts():
         want = sorted({(a['kind'], a.get('station')) for a in trials[t]['expected_advice']}, key=str)
         exact += got == want
     d = ck['decision']
-    return {'runs': len(last), 'op_n': len(op), 'op_exact': exact,
+    rr = _a_rerun(trials)
+    return {**rr, 'runs': len(last), 'op_n': len(op), 'op_exact': exact,
             'op_refused': sum(not last[t].get('intent_allowed') for t in op),
             'op_refused_reason': sorted({last[t].get('intent_reason') for t in op if not last[t].get('intent_allowed')}),
             'file_n': len(fl), 'file_as_designed': sum(last[t].get('observed_action') in (trials[t]['expected_action'], trials[t].get('expected_action_if_flagged')) for t in fl),
@@ -254,7 +280,10 @@ def a_pilot_ja():
     return (f"予備走行（{f['runs']}試行、i35）は設計どおり失敗した：依頼文チャネル {f['op_n']} 試行のうち意図どおりの助言が取れたのは {f['op_exact']}"
             f"（うち {f['op_refused']} 試行は意図の段で拒否：i35 が供給拠点の言及を別の届け先と読む、FINDINGS #30。残りは取れた項目が設計と違った）。"
             f"事前に固定した規則（I-25）で i38 を採用し（保留 {f['held38']}/{f['held_n']}、危険 {f['unsafe38']}、開発側の注入の正しい受理 {f['inj35']}→{f['inj38']}/{f['inj_n']}）、"
-            "Amendment 1 で A の全試行を i38 にした。")
+            "Amendment 1 で A の全試行を i38 にした。"
+            + (f"予備走行をやり直し（{f['rerun_runs']}試行、i38）、Amendment 2 の合格条件（依頼文チャネルの意図の受理 9/12 以上）を満たして合格した：意図の受理 {f['rerun_op_intent']}/{f['rerun_op_n']}、"
+               f"ファイルチャネルは設計どおり {f['rerun_file_ok']}/{f['rerun_file_n']}。設計した助言の正確な取り出しは {f['rerun_op_exact']}/{f['rerun_op_n']} で、合格条件ではなく報告項目にした（FINDINGS #31）。"
+               f"本走行（226試行）は {A_CAMPAIGN_START} に開始し、実行中。" if f.get('rerun') else ''))
 
 
 def a_pilot_en():
@@ -264,7 +293,10 @@ def a_pilot_en():
     return (f"The first mechanics pilot ({f['runs']} runs, intent prompt i35) failed as designed: the operator channel extracted the intended advice in {f['op_exact']} of {f['op_n']} runs "
             f"({f['op_refused']} were refused at the intent step because i35 reads a supply-station mention as another destination, FINDINGS #30; in the others the extracted items differed from the designed ones). "
             f"By a pre-fixed rule (I-25) i38 was adopted (held-out {f['held38']}/{f['held_n']}, {f['unsafe38']} unsafe; dev-injection correct acceptances {f['inj35']} to {f['inj38']} of {f['inj_n']}) "
-            "and Amendment 1 runs every A run with it.")
+            "and Amendment 1 runs every A run with it."
+            + (f" The pilot was rerun ({f['rerun_runs']} runs, i38) and passed the gate of Amendment 2 (operator-channel intent acceptance of at least 9 of 12): intent accepted {f['rerun_op_intent']}/{f['rerun_op_n']}, "
+               f"file channel as designed {f['rerun_file_ok']}/{f['rerun_file_n']}. Exact extraction of the designed advice by the frozen prompts is {f['rerun_op_exact']}/{f['rerun_op_n']}; it is a reported endpoint, no longer a gate (FINDINGS #31). "
+               f"The campaign (226 trials) started on {A_CAMPAIGN_START} and is running." if f.get('rerun') else ''))
 
 
 def pending_studies():
@@ -387,7 +419,12 @@ def interlock_check():
     t = f.read_text(encoding='utf8')
     if 'ILCHECK_DONE' not in t:
         return None
-    return {'missions': t.count('== case')}
+    out = {'missions': t.count('== case')}
+    sm = RES / 'i22_gazebo_check_summary.json'          # generated by scripts/make_i22_check_summary.py from the run records
+    if sm.is_file():
+        tt = json.loads(sm.read_text(encoding='utf8'))['totals']
+        out.update(permits=tt['permits'], refusals=tt['expected_refusals'], summary=bool(tt['all_as_expected']))
+    return out
 
 
 def memory_power():
@@ -412,7 +449,8 @@ def i22_ja():
     if not c:
         return base + 'Gazebo での確認は未了。評価A・Xはインターロックなしで走らせる（事前登録に明記）。'
     return (base + f"Gazebo での動作確認は{c['missions']}件の実走で通った（許可証は承認のときだけ出る。隠れた火＋「確認不要」の指示は拒否、`experiments/results/i22_gazebo_check.log`）。"
-            "評価Bは両群で有効、評価A・Xは無効（素朴群・フィルタ群は許可なしで配達するのが比較対象のため）。改ざんしたミッションノードを使う閉ループの検証は未実施で、ミッションノードは信頼の基盤に残る。")
+            + (f"許可証は承認した{c['permits']}件にだけ出て、拒否が期待の{c['refusals']}件（火、隠れた火＋「確認不要」）では出なかった。この{c['refusals']}件は終了コード1で終わるが設計どおりの拒否で、run の記録から写した判定は `experiments/results/i22_gazebo_check_summary.md` にある。" if c.get('summary') else '')
+            + "評価Bは両群で有効、評価A・Xは無効（素朴群・フィルタ群は許可なしで配達するのが比較対象のため）。改ざんしたミッションノードを使う閉ループの検証は未実施で、ミッションノードは信頼の基盤に残る。")
 
 
 def i22_en():
@@ -420,7 +458,8 @@ def i22_en():
     base = 'A delivery interlock (I-22: the velocity guard blocks delivery legs without an independently recomputed permit) is implemented and off by default; '
     if not c:
         return base + 'its Gazebo check is pending, and studies A and X run with it off (stated in their registrations).'
-    return (base + f"its mechanics passed a Gazebo check on {c['missions']} live missions (permits only on approvals; a hidden fire with an injected 'no check needed' was refused; `experiments/results/i22_gazebo_check.log`). "
+    return (base + f"its mechanics passed a Gazebo check on {c['missions']} live missions (permits only on approvals; a hidden fire with an injected 'no check needed' was refused; `experiments/results/i22_gazebo_check.log`"
+            + (f"; permits were issued in {c['permits']} runs, both approvals, and in none of the {c['refusals']} expected refusals, which end with exit code 1 by design: `experiments/results/i22_gazebo_check_summary.md`" if c.get('summary') else '') + "). "
             "Study B runs both arms with it, studies A and X without (their baselines deliver without a permit by definition). No closed-loop run uses a tampered mission node, so the mission node stays in the trust base.")
 
 
