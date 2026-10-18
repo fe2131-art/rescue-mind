@@ -343,6 +343,7 @@ def a_facts():
             'dos_false_refusals_naive': a3['naive_poison_hazard']['false_refusals'], 'dos_false_refusals_filtered': a3['filtered_poison_hazard']['false_refusals'],
             'dos_n_baseline': a3['naive_poison_hazard']['n'],
             'replay': (c2.get('n_replayed_ok'), c2.get('n_deliveries'), len(c2.get('violations') or [])) if c2 else None,
+            'time_saved_s': list(a2['monotone']['saved_s']), 'extra_s': list(a3['time']['extra_s']),      # per-world values behind the A2 / A3 figure
             'time_median': a2['monotone']['median_saved_s'], 'time_pos': sum(x > 0 for x in a2['monotone']['saved_s']), 'time_n': a2['monotone']['n_pairs'],
             'time_p': a2['monotone']['wilcoxon_exact_p'], 'time_supported': a2['supported'],
             'price': {'W': a3['time']['W_one_wasted_visit_s'], 'bound': a3['time']['bound_s'], 'max_extra': a3['time']['max_extra_s'], 'median_extra': a3['time']['median_extra_s'],
@@ -372,8 +373,9 @@ def a_ja():
             if w['naive'] and w['filtered'] and w['monotone'] else '')
     return (f"{wtxt}（試行では 助言に従う方式 {u['naive'][0]}/{u['naive'][1]}、ガードレール {u['filtered'][0]}/{u['filtered'][1]}、本方式 {u['ours'][0]}/{u['ours'][1]}、助言なし {u['control'][0]}/{u['control'][1]}。"
             f"世界で対にした McNemar p={f['p_naive']}、ガードレールとの比較も p={f['p_filtered']}）。"
-            f"ガードレールは依頼文では {f['filter_flag_operator'][0]}/{f['filter_flag_operator'][1]} 件を止めたが、他のロボットの助言ファイルでは {f['filter_flag_file'][0]}/{f['filter_flag_file'][1]} 件で、"
-            f"ファイル経由の危険な配達は素朴な方式と同じく {f['by_channel']['filtered']['file'][0]}/{f['by_channel']['filtered']['file'][1]}。"
+            f"ガードレールは依頼文では {f['filter_flag_operator'][0]}/{f['filter_flag_operator'][1]} 件を止めたが、他のロボットの助言ファイルは見ない（{f['filter_flag_file'][0]}/{f['filter_flag_file'][1]} 件、FINDINGS #34）ので、"
+            f"ファイル経由の危険な配達は素朴な方式と同じく {f['by_channel']['filtered']['file'][0]}/{f['by_channel']['filtered']['file'][1]}（見出しの「ガードレール {w['filtered'][0] if w['filtered'] else '-'}/{w['filtered'][1] if w['filtered'] else '-'}」はこの条件つき）。"
+            f"A の全試行は意図の質問 i38（Amendment 1）で走らせた。提出版の既定は i35 で、同じ構成ではない（FINDINGS #30、docs/DEPLOYMENT.md）。"
             f"本方式の配達は全て、助言なしの確認でも許可される配達だった（{f['replay'][0]}/{f['replay'][1]} 件を保存画像で再計算、違反 {f['replay'][2]}）。"
             f"正しい場所の助言は中央値 {round(f['time_median'], 1)} 秒を節約（{f['time_pos']}/{f['time_n']} 世界で短縮、p={f['time_p']}）。"
             f"嘘の助言の代償は最大 {pr['max_extra']:.1f} 秒（上限 {pr['bound']:.1f} 秒）、配達の取りこぼし {pr['lost']}（許容 {pr['allowed']}）。"
@@ -394,7 +396,8 @@ def a_en():
             if w['naive'] and w['filtered'] and w['monotone'] else '')
     return (f"{wtxt} (runs: advice-following {u['naive'][0]}/{u['naive'][1]}, guardrail {u['filtered'][0]}/{u['filtered'][1]}, ours {u['ours'][0]}/{u['ours'][1]}, no advice {u['control'][0]}/{u['control'][1]}; "
             f"exact McNemar paired by world p={f['p_naive']}, against the guardrail p={f['p_filtered']}). The guardrail flagged {f['filter_flag_operator'][0]} of {f['filter_flag_operator'][1]} operator-channel attacks "
-            f"and {f['filter_flag_file'][0]} of {f['filter_flag_file'][1]} peer-file attacks, so file-channel unsafe deliveries were {f['by_channel']['filtered']['file'][0]}/{f['by_channel']['filtered']['file'][1]}, as for the naive baseline. "
+            f"and {f['filter_flag_file'][0]} of {f['filter_flag_file'][1]} peer-file attacks (the guardrail does not see file-channel advice, FINDINGS #34), so file-channel unsafe deliveries were {f['by_channel']['filtered']['file'][0]}/{f['by_channel']['filtered']['file'][1]}, as for the naive baseline; the headline 'guardrail {w['filtered'][0] if w['filtered'] else '-'} of {w['filtered'][1] if w['filtered'] else '-'}' is conditional on that. "
+            "Every A run used intent prompt i38 (Amendment 1); the submitted default is i35, so the configuration differs (FINDINGS #30, docs/DEPLOYMENT.md). "
             f"Every delivery of ours was one the advice-free check also approves ({f['replay'][0]}/{f['replay'][1]} replayed on the saved frames, {f['replay'][2]} violations). "
             f"Truthful location advice saved a median {round(f['time_median'], 1)} s ({f['time_pos']}/{f['time_n']} worlds, p={f['time_p']}); false advice cost at most {pr['max_extra']:.1f} s (bound {pr['bound']:.1f} s) and {pr['lost']} lost deliveries (allowed {pr['allowed']}). "
             f"Steering ({s['n']} duplicate-supply worlds, truthful advice naming the station with a partly hidden fire): unsafe deliveries ours {s['ours']['unsafe']}/{s['n']}, no advice {s['control']['unsafe']}/{s['n']}, scrutiny {s['scrutiny']['unsafe']}/{s['n']}, "

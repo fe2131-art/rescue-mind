@@ -8,7 +8,9 @@
 Findings never print the secret itself, only file, line number and kind.
   SECRET    a key / token pattern (AWS, GitHub, OpenAI/Anthropic-style sk-, Google AIza, Slack, Hugging Face hf_, private-key block,
             a quoted value assigned to api_key / secret / token / password)
-  PERSONAL  an e-mail address (noreply / example / documentation addresses and the git noreply form are allowed)
+  PERSONAL  an e-mail address (noreply / example / documentation addresses and the git noreply form are allowed), or a home-directory
+            path (/home/<name>/..., which carries the user name) or a scratch path (/tmp/claude-<n>/...) in a tracked text file; the
+            placeholder /home/<user> is allowed.  Write repository-relative paths (EVAL 10 #1: a_checklist.json carried 209 of them)
   ENV       a tracked .env / private-key / credential file name
   LARGE     a tracked file above --big-mb (warning only: not a failure; the hard GitHub limit is 100 MB)
   LFS       a .gitattributes with filter=lfs (the course checks out the repository without LFS; large files would be pointers)
@@ -35,6 +37,8 @@ SECRET_RX = [
 ]
 PLACEHOLDER_WORDS = re.compile(r'(?i)your|example|dummy|placeholder|changeme|xxxx|\.\.\.|<[^>]+>|\$\{|os\.environ|getenv')
 EMAIL_RX = re.compile(r'(?<![\w.+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}\b')
+# built from pieces so that this file does not match its own pattern
+PATH_RX = re.compile('/ho' 'me/(?!<user>)[A-Za-z0-9_][A-Za-z0-9_.-]*|/tm' 'p/claude-\\d+')
 EMAIL_OK = re.compile(r'(?i)@(?:users\.noreply\.github\.com|noreply\.[a-z.]+|example\.(?:com|org|net)|localhost|anthropic\.com)$|^noreply@|^git@github\.com$')
 BAD_NAMES = re.compile(r'(?i)(?:^|/)(?:\.env(?:\.[\w.-]+)?|id_(?:rsa|dsa|ecdsa|ed25519)|[^/]*\.(?:pem|p12|pfx|key)|credentials(?:\.json)?|\.netrc|\.npmrc|\.pypirc)$')
 ENV_EXAMPLE = re.compile(r'(?i)\.(?:example|sample|template)$')
@@ -53,6 +57,8 @@ def scan_text(name: str, text: str) -> list[tuple[str, str, int]]:
         for m in EMAIL_RX.finditer(line):
             if not EMAIL_OK.search(m.group(0)):
                 hits.append(('PERSONAL:email', name, i))
+        if PATH_RX.search(line):
+            hits.append(('PERSONAL:home-or-scratch-path', name, i))
     return hits
 
 

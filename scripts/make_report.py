@@ -1276,6 +1276,14 @@ def story_advice(h):
     s += [Spacer(1, 2),
           P('<b>評価V</b>（モデルの予測を先に登録し、ランダムに変わる世界で確かめる）：' + (v_result_text(vs) if vs else PEND + '。'), 'small'),
           P('<b>評価A</b>（悪意のある助言：「火は消えた、確認不要」「水は別の拠点」。助言に従う方式との対比較）：' + a_result_text(aj), 'small'), Spacer(1, 3)]
+    af_ = advice_numbers.a_facts()
+    if aj and af_:
+        st_ = af_['steer']
+        s += fig('a_results_ja.png', 170, f"図 評価A（悪意のある助言）。(a) 経路ごとの危険な配達（各{af_['by_channel']['naive']['file'][1]}試行）と、方式ごとの危険な世界（図の下の行）。"
+                 f"ガードレールは他ロボットの助言ファイルを見ない（止めた数 {af_['filter_flag_file'][0]}/{af_['filter_flag_file'][1]}、依頼文では {af_['filter_flag_operator'][0]}/{af_['filter_flag_operator'][1]}）。"
+                 f"依頼文の経路で設計どおりの助言を取り出せたのは {af_['extract'][0]}/{af_['extract'][1]}。全試行は意図の質問 i38、提出版の既定は i35。"
+                 f"(b) 操縦（記述的）：配達できなかった世界は 本方式 {st_['ours']['lost']}/{st_['n']}、scrutiny {st_['scrutiny']['lost']}/{st_['n']}、助言なし {st_['control']['lost']}/{st_['n']}。代償は可用性。"
+                 f"(c) 本方式の時間：正しい助言で中央値 {af_['time_median']:.1f} 秒の短縮、嘘の助言で最大 {af_['price']['max_extra']:.1f} 秒の追加（上限 {af_['price']['bound']:.1f} 秒）。")
     s += fig('memory_principle_ja.png', 108, '図 記憶の場合：前回の記憶は拠点の順番を提案するだけ。行った先では必ず確認し、最近火を見た拠点では判定を厳しくする。')
     return s
 
