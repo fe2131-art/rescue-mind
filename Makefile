@@ -10,6 +10,8 @@ DEV      ?= rm-dev
 NEXT     ?= rm-next
 LATEX_IMG ?= rescuemind:latex
 NICE     ?= nice -n 19
+# Where `make verify` / `verify-quick` write their fresh result files (override on a shared host: make verify SMT_TMP=$$HOME/tmp)
+SMT_TMP  ?= /tmp
 # NB: no nice inside the container (nice drops LD_LIBRARY_PATH in the ROS shell, HANDOFF section 4)
 IN_DEV    = docker exec $(DEV) rescuemind-entrypoint
 FINAL    ?=
@@ -44,7 +46,7 @@ BUILD_LATEX = docker build -t $(LATEX_IMG) docker/latex
 NEED_DEV   = $(call REQ_CONT,$(DEV),$(START_DEV),$(BUILD_DEV))
 NEED_LATEX = $(call REQ_IMG,$(LATEX_IMG),$(BUILD_LATEX))
 
-.PHONY: help doctor test check verify-quick reproduce-help numbers figures paper report readme youtube all-docs finalize assets video-plan video \
+.PHONY: help doctor test check verify-quick reproduce-help numbers figures paper report readme youtube all-docs snapshot finalize assets video-plan video \
         study-D study-E study-F study-G study-H study-J study-V study-L study-A study-X study-W study-S study-XD \
         study-T1 study-T2 study-R study-P2 study-K
 
@@ -76,13 +78,13 @@ check: ## Consistency check: README, YouTube text, paper macros and report agree
 	$(NICE) python3 scripts/check_consistency.py
 
 verify: ## Re-check Proposition 2 on the implementation (z3 proof + model-vs-code differential + mutants, host python3; pip install -r requirements-verify.txt); compares the verdicts with the committed record
-	$(NICE) python3 scripts/verify_advice_smt.py --out /tmp/rescuemind_smt_fresh.json
-	$(NICE) python3 scripts/verify_compare.py /tmp/rescuemind_smt_fresh.json
+	$(NICE) python3 scripts/verify_advice_smt.py --out $(SMT_TMP)/rescuemind_smt_fresh.json
+	$(NICE) python3 scripts/verify_compare.py $(SMT_TMP)/rescuemind_smt_fresh.json
 	$(NICE) python3 -m pytest -q tests/test_i23_smt_refinement.py tests/test_advice_independent.py tests/test_i24_advice_credit.py
 
 verify-quick: ## Proposition 2: the z3 proofs only (about 20 s, no differential runs); compares the verdicts with the committed record
-	$(NICE) python3 scripts/verify_advice_smt.py --no-link --out /tmp/rescuemind_smt_quick.json
-	$(NICE) python3 scripts/verify_compare.py /tmp/rescuemind_smt_quick.json
+	$(NICE) python3 scripts/verify_advice_smt.py --no-link --out $(SMT_TMP)/rescuemind_smt_quick.json
+	$(NICE) python3 scripts/verify_compare.py $(SMT_TMP)/rescuemind_smt_quick.json
 
 reproduce-help: ## Print the three reproduction tiers (the full guide: docs/REPRODUCE.md)
 	@echo "RescueMind: reproduction in three tiers (full guide with expected outputs and timings: docs/REPRODUCE.md)"
@@ -104,8 +106,9 @@ reproduce-help: ## Print the three reproduction tiers (the full guide: docs/REPR
 	@echo "  make study-D study-E study-G study-H study-V ...                  # PRINT the registered campaign commands"
 	@echo "  registration predates results: python3 scripts/paper_numbers.py  -> docs/paper/tab_prereg.tex, or git merge-base --is-ancestor <registration> <results>"
 
-numbers: ## Regenerate docs/paper/numbers.tex and tab_*.tex from experiments/results (host python3, no docker)
+numbers: ## Regenerate docs/paper/numbers.tex and tab_*.tex from experiments/results (host python3, no docker) and the registration ledger docs/REGISTRATIONS.md (from git)
 	$(NICE) python3 scripts/paper_numbers.py
+	$(NICE) python3 scripts/make_registrations.py
 
 figures: ## Paper figures + graphical abstract + memory/advice diagrams (in rm-dev)
 	$(NEED_DEV)
@@ -134,6 +137,11 @@ youtube: ## Regenerate docs/YOUTUBE_DESCRIPTION.md (make_youtube_description.py)
 
 all-docs: numbers figures paper report readme youtube ## numbers, figures, paper, report, readme, youtube (in this order)
 	@echo "all-docs done."
+
+snapshot: ## Submission snapshot (studies without results read "registered, not yet run at submission"): paper, supplement, report, README text, YouTube text in docs/snapshot/ (untracked; SKIP_PDF=1 for texts only; FINAL=1 is the strict opposite)
+	$(NEED_DEV)
+	$(NEED_LATEX)
+	$(NICE) bash scripts/build_snapshot.sh
 
 finalize: ## After the campaigns: every result-dependent analysis (V/W/Q/A/S/X/XD gated on complete inputs), figures, paper, report, README, YouTube text, tests, consistency check (scripts/finalize_results.sh; commits nothing)
 	$(NEED_DEV)

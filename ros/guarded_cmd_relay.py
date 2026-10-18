@@ -14,6 +14,7 @@ ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
 from rescuemind.velocity_relay import VelocityRelay, planar_request_components
 from rescuemind.ros_qos import image_qos
+from rescuemind import real_profile as rp
 
 
 def run(args):
@@ -28,13 +29,21 @@ def run(args):
     class Guard(Node):
         def __init__(self):
             super().__init__('rescuemind_velocity_guard')
-            self.policy=VelocityRelay(started_at=time.monotonic(),latch_stale_zero=args.legacy_latch_zero)
+            # I-26 (default off): camera QoS and odometry frame suffixes for a real robot; without the flags the objects are
+            # exactly the ones used so far
+            cam_rel,odom_fr,base_fr=rp.guard_settings(args)
+            relay_kw={}
+            if odom_fr is not None or base_fr is not None:
+                from rescuemind.odom_health import OdomHealth
+                relay_kw['odom_health']=OdomHealth(odom_frame=odom_fr or 'odom',base_frame=base_fr or 'base_link')
+            self.policy=VelocityRelay(started_at=time.monotonic(),latch_stale_zero=args.legacy_latch_zero,**relay_kw)
             self.command_pub=self.create_publisher(Twist,'/cmd_vel',10)
             from rescuemind.ros_qos import control_qos
             self.status_pub=self.create_publisher(Bool,'/rescuemind/guard_ready',control_qos(args.control_qos))
             self.create_subscription(Twist,'/rescuemind/cmd_vel_request',self.on_request,control_qos(args.control_qos))
             self.create_subscription(Odometry,'/odom',self.on_odom,qos_profile_sensor_data)
-            self.create_subscription(Image,'/camera',self.on_camera,image_qos())
+            self.create_subscription(Image,'/camera',self.on_camera,
+                                     image_qos() if cam_rel=='reliable' else image_qos(reliability=cam_rel))
             self.create_subscription(LaserScan,'/scan',self.on_lidar,qos_profile_sensor_data)
             self.create_subscription(Bool,'/rescuemind/estop',self.on_estop,10)
             self.gate=None
@@ -137,4 +146,16 @@ if __name__=='__main__':
                         help='I-22: per-run waypoints.json whose B is the centre of the shelter geofence (non-zero velocity into it needs a permit whatever phase is claimed)')
     parser.add_argument('--geofence-radius',type=float,default=None,help='I-22: geofence radius in metres (default 0.5)')
     parser.add_argument('--permit-key-file',default=None,help='I-22: HMAC key shared with the interlock node (omit: unsigned permits)')
-    run(parser.parse_args())
+    parser.add_argument('--real-profile',action='store_true',
+                        help='I-26 (default off): the real-robot profile; required for --camera-qos best_effort')
+    parser.add_argument('--camera-qos',choices=['reliable','best_effort'],default='reliable',
+                        help='I-26: /camera subscription QoS (must be compatible with the driver; best_effort needs --real-profile)')
+    parser.add_argument('--odom-frame',default=None,help="I-26: /odom header.frame_id must end with this (default 'odom')")
+    parser.add_argument('--base-frame',default=None,help="I-26: /odom child_frame_id must end with this (default 'base_link')")
+    parser.add_argument('--site-config',default=None,help='I-26: site.json; supplies --odom-frame / --base-frame when they are not given')
+    ns=parser.parse_args()
+    try:
+        rp.guard_settings(ns)                    # validate before any ROS node exists
+    except rp.SiteConfigError as e:
+        parser.error(str(e))
+    run(ns)

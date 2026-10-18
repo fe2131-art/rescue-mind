@@ -44,9 +44,10 @@ def validate(path: Path, scenario: str, expected_run_id: str | None = None) -> d
         if typ=='local_vlm_live_mission':
             from .local_run_audit import audit_local_checkpoint
             try:
+                from .real_profile import audit_kwargs     # I-26: {} unless the run used --site-config
                 audit_local_checkpoint(record.get('checkpoint'),
                     next(e for e in stages if isinstance(e,dict) and e.get('stage')=='checkpoint_frame')['image_sha256'],
-                    expected=record['intent']['item'])
+                    expected=record['intent']['item'],**audit_kwargs(record))
             except (ValueError, KeyError, TypeError, StopIteration) as exc:
                 raise CompletionError('local model evidence failed: '+str(exc)) from exc
         else:

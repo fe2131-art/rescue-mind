@@ -57,7 +57,8 @@ def numbers():
         h = jl('h_summary.json')
         p2, p1 = h['P2_safety_naive_vs_verified'], h['P1_efficiency_relocation_persist']
         n['H'] = dict(naive=p2['unsafe_M1'], ours=p2['unsafe_M2'], n=p2['n_pairs'], m0=h['P3_no_extra_risk_vs_v36']['unsafe_M0'],
-                      t0=round(p1['time_M0_median_s']), t2=round(p1['time_M2_median_s']), npair=p1['n_pairs'])
+                      t0=round(p1['time_M0_median_s']), t2=round(p1['time_M2_median_s']), npair=p1['n_pairs'],
+                      a0=round(h['per_arm']['M0']['time_median_s']), a2=round(h['per_arm']['M2']['time_median_s']), nall=h['P3_no_extra_risk_vs_v36']['n_pairs'])
     except (TypeError, KeyError):
         n['H'] = None
     try:
@@ -71,8 +72,9 @@ def numbers():
     except (TypeError, KeyError):
         n['L'] = None
     try:  # study A (scripts/a_analysis.py): naive advice-following vs ours, unsafe deliveries
-        a = jl('a_summary.json')['A1_unsafe_naive_vs_monotone']['runs']
-        n['A'] = (a['naive']['unsafe'], a['naive']['n'], a['monotone']['unsafe'], a['monotone']['n'])
+        af_ = advice_numbers.a_facts()      # worlds in which a hostile-advice run ended unsafely (naive / LLM guardrail / ours) and the steering cost
+        w_, st_ = af_['worlds'], af_['steer']
+        n['A'] = (w_['naive'][0], w_['naive'][1], w_['monotone'][0], w_['monotone'][1], w_['filtered'][0], st_['ours']['lost'], st_['n'])
     except (TypeError, KeyError):
         n['A'] = None
     try:  # study X (scripts/x_analysis.py): four-station depot, memory vs none (visited bays), unsafe deliveries in hazard cells
@@ -112,15 +114,15 @@ T = {
   res_h='主な結果（事前登録・実測）', pend='結果待ち',
   L=('L  未知の配置24通り', '{ok}/{n}', '期待どおり・危険な配達 {u}'),
   G=('G  横から見直し', '{b}/{n} → {c}/{n}', '火があるのに配達した数（p={p:.3f}）'),
-  H=('H  記憶をまたぐ出動', '{t0}→{t2} 秒', '移されたまま続く{np}出動の所要時間（中央値）。危険な配達は下の図'),
-  A=('A  悪意ある助言', '{an}/{nn} → {ao}/{no}', '危険な配達：助言どおりに動く方式 → 本方式'),
+  H=('H  記憶をまたぐ出動', '{t0}→{t2} 秒', '移されたまま続く{np}出動の所要時間（中央値）。全{nall}出動では {a0}→{a2} 秒。危険な配達は下の図'),
+  A=('A  悪意ある助言', '{an}/{nn} → {ao}/{no}', '危険な配達が起きた世界：助言どおり（ガードレールも {fn}/{nn}）→ 本方式。真の助言で火の拠点へ誘導されると配達できない世界 {sl}/{sn}'),
   X=('X  現実的な倉庫（4拠点）', '{m0:.1f} → {m2:.1f} 拠点', '記憶なし → あり（訪問数）。火・煙の世界の危険な配達 {k}/{hn}'),
   W=('W  見回し（新しい{n}世界）', '{fr}/{n} → {la}/{n}', '小さく隠れた火の見逃し：正面のみ → 見回し（95%CI上限 {up:.1f}%）。横からしか見えない{sn}世界では {sk}/{sn}{allm}', '見逃し'),
   V=('V  記憶：時間の予測は成立', '−{d:.0f} 秒（予測 {lo:.0f}〜{hi:.0f} 秒の内）', 'H+V計{n}出動の危険な配達：記憶なし {m0}・検証つき記憶 {m2}・素朴な記憶 {m1}。差は示せず、原因は検出力と確認の誤り1件', '記憶の安全：不成立'),
-  PEND=('結果待ち（登録済み・未実行）', {'A': '悪意ある助言', 'S': '画像内の文字', 'X': '4拠点の倉庫', 'XD': '倉庫の画像', 'B': '信用枠', 'IF': '依頼文', 'Q': '実写真'}, '結果待ち'),
-  allm='（残る見逃しの全て）', nonem='',
+  PEND=('結果待ち（登録済み・未実行）', {'A': '悪意ある助言', 'S': '画像内の文字', 'X': '4拠点の倉庫', 'XD': '倉庫の画像', 'B': '信用枠', 'IF2': '依頼文の対策', 'Q': '実写真'}, '結果待ち'),
+  allm='', nonem='',
   P2=('P2  実写真（較正後）', '{r}/{rn}', '火・煙の検出。ただし火なしの誤警報は {f}/{fn}'),
-  strip='すべて事前登録・全試行公開・シミュレーション（実機なし）'),
+  strip='評価はすべて事前登録・機械検証と機構の確認は別枠・全試行公開・シミュレーションのみ'),
  'en': dict(
   title='RescueMind', sub='Advice may only tighten: a relief robot that checks before it delivers',
   prob_h='Problem', prob='In a disaster, the inventory and the scene disagree, and hazards hide',
@@ -128,7 +130,7 @@ T = {
   imgcap='Gazebo real render (overview + onboard cam)', solve='So: check, and stop if unsure',
   new_h='New: machine check, interlock, credit',
   new=['I-23 machine check: z3 {u} proofs, {c} cases, {d} mismatches, bugs caught {k}/{m}', 'I-22 interlock: passed {il} live Gazebo missions',
-       'I-24 credit: a liar costs +{ln} → +{ly} s (descriptive synthetic model; closed loop not yet checked)'],
+       'I-24 credit: a liar costs +{ln} → +{ly} s (synthetic model only)'],
   il_none='I-22 interlock: Gazebo check not done yet',
   mid_h='Three ideas, each building on the last',
   i1='Check on site, stop if unsure', i1d='Approve only if the answer-letter probabilities of every question agree; doubt = refuse.',
@@ -143,15 +145,15 @@ T = {
   res_h='Key results (pre-registered)', pend='pending',
   L=('L  24 unseen layouts', '{ok}/{n}', 'as expected; unsafe deliveries {u}'),
   G=('G  look again', '{b}/{n} → {c}/{n}', 'deliveries despite a fire (p={p:.3f})'),
-  H=('H  memory across missions', '{t0} → {t2} s', 'median mission time over {np} relocated runs. Unsafe deliveries: see below'),
-  A=('A  adversarial advice', '{an}/{nn} → {ao}/{no}', 'unsafe deliveries: advice-following baseline → ours'),
+  H=('H  memory across missions', '{t0} → {t2} s', 'median mission time over {np} relocated runs (all {nall} missions: {a0} → {a2} s). Unsafe deliveries: see below'),
+  A=('A  adversarial advice', '{an}/{nn} → {ao}/{no}', 'worlds with an unsafe delivery: advice-following baseline, and the same behind an LLM guardrail ({fn}/{nn}) → ours. Truthful advice that steers to the fire loses {sl}/{sn} deliveries (relative guarantee)'),
   X=('X  realistic depot (4 bays)', '{m0:.1f} → {m2:.1f} bays', 'visited, no memory → memory. Unsafe in fire/smoke worlds {k}/{hn}'),
   W=('W  look-around on {n} new worlds', '{fr}/{n} → {la}/{n}', 'misses of small hidden fires, front-only → look-around (95% CI upper {up:.1f}%). Side-only worlds: {sk}/{sn}{allm}', 'misses'),
   V=('V  memory: timing held', '−{d:.0f} s (predicted {lo:.0f}-{hi:.0f} s)', 'Unsafe, H+V over {n} missions: no memory {m0}, verified {m2}, naive {m1}. No difference shown (low power, one check error)', 'safety: not supported'),
-  PEND=('Pending (registered, not yet run)', {'A': 'adversarial advice', 'S': 'scene text', 'X': '4-bay depot', 'XD': 'depot images', 'B': 'credit', 'IF': 'request text', 'Q': 'real photos'}, 'pending'),
-  allm=' (all remaining misses)', nonem='',
+  PEND=('Pending (registered, not yet run)', {'A': 'adversarial advice', 'S': 'scene text', 'X': '4-bay depot', 'XD': 'depot images', 'B': 'credit', 'IF2': 'request fix', 'Q': 'real photos'}, 'pending'),
+  allm='', nonem='',
   P2=('P2  real photos (calibrated)', '{r}/{rn}', 'fire/smoke found. False alarms on no-fire photos {f}/{fn}'),
-  strip='All pre-registered | every trial published | simulation only (no real robot)'),
+  strip='Every evaluation pre-registered; machine proofs and the interlock check are separate | every trial published | simulation only'),
 }
 
 
@@ -411,7 +413,7 @@ def build(lang):
                       t['W'][2].format(up=100 * la['ci95'][1], sk=so['k'], sn=so['n'], allm=t['allm'] if so['k'] == la['k'] else ''), None))
     if n['H']:
         hn = n['H']
-        items.append((BLUE, t['H'][0], t['H'][1].format(t0=hn['t0'], t2=hn['t2']), t['H'][2].format(np=hn['npair']), None))
+        items.append((BLUE, t['H'][0], t['H'][1].format(t0=hn['t0'], t2=hn['t2']), t['H'][2].format(np=hn['npair'], nall=hn['nall'], a0=hn['a0'], a2=hn['a2']), None))
     if n['V']:
         vf, pm = n['V']
         bad = not vf['memory_claim']
@@ -419,16 +421,16 @@ def build(lang):
                       t['V'][2].format(n=pm['n'], m0=pm['unsafe']['M0'], m2=pm['unsafe']['M2'], m1=pm['unsafe']['M1']), (t['V'][3], RED) if bad else None))
     if n['A']:
         a = n['A']
-        items.append((BLUE, t['A'][0], t['A'][1].format(an=a[0], nn=a[1], ao=a[2], no=a[3]), t['A'][2], None))
+        items.append((BLUE, t['A'][0], t['A'][1].format(an=a[0], nn=a[1], ao=a[2], no=a[3]), t['A'][2].format(fn=a[4], nn=a[1], sl=a[5], sn=a[6]), None))
     if n['X']:
         x = n['X']
         items.append((PURPLE, t['X'][0], t['X'][1].format(m0=x[0], m2=x[1]), t['X'][2].format(k=x[2], hn=x[3]), None))
     if n['P2']:
         p = n['P2']
         items.append((ORANGE, t['P2'][0], t['P2'][1].format(r=p[0], rn=p[1]), t['P2'][2].format(f=p[2], fn=p[3]), None))
-    gap_r = 7
+    gap_r = 5
     y0 = top + 44
-    sf = font(19)
+    sf = font(17)
     for c, name, big, small, badge in items:
         nl = len(wrap(d, small, sf, maxw))
         nf, bf_ = fit(d, name, 22, maxw), fit(d, big, 38, maxw)
@@ -436,7 +438,7 @@ def build(lang):
             bf_ = fit(d, big, 34, maxw)
         one = (not badge) and d.textlength(name, font=nf) + d.textlength(big, font=bf_) + 30 <= maxw    # name and number share one row
         top_h = 50 if one else 84
-        ch = top_h + int(19 * 1.22) * nl + 12
+        ch = top_h + int(17 * 1.22) * nl + 10
         card(d, (rx0, y0, rx1, y0 + ch), fill=(255, 255, 255), outline=c, w=3)
         d.rectangle((rx0 + 2, y0 + 18, rx0 + 12, y0 + ch - 18), fill=c)
         bw_ = 0
@@ -459,13 +461,10 @@ def build(lang):
         pt = t['PEND']
         desc = '・'.join(f'{k} {pt[1][k]}' for k in pend)
         dl = wrap(d, desc, font(18), maxw)
-        ch = 6 + 28 + 54 + int(18 * 1.22) * len(dl) + 8
+        ch = 6 + 34 + int(18 * 1.22) * len(dl) + 10
         card(d, (rx0, y0, rx1, y0 + ch), fill=(246, 246, 244), outline=(150, 155, 162), w=3)
         d.text((rx0 + 28, y0 + 6), pt[0], font=fit(d, pt[0], 22, maxw), fill=MUTED)
-        xx = rx0 + 28
-        for k in pend:
-            xx = chip(d, (xx, y0 + 36), k, font(22, True), MUTED, (232, 232, 230), limit=rx1 - 14) + 8
-        paras(d, (rx0 + 28, y0 + 90), desc, font(18), maxw, MUTED, 1.22, tag='pending')
+        paras(d, (rx0 + 28, y0 + 40), desc, font(18), maxw, MUTED, 1.22, tag='pending')
         y0 += ch + gap_r
     if y0 - gap_r > bot + 2:
         WARN.append(f'right column overflows: {y0 - gap_r} > {bot}')

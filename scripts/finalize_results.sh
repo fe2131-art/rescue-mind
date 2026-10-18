@@ -108,6 +108,7 @@ step count_tests "${IN_RMDEV[@]}" python3 scripts/count_tests.py
 
 # ---------------------------------------------------------------- 2. paper (pending mode: unfinished results print a grey "(pending)")
 step paper_numbers python3 scripts/paper_numbers.py
+step make_registrations python3 scripts/make_registrations.py
 step make_paper_figures "${IN_RMDEV[@]}" python3 scripts/make_paper_figures.py
 step graphical_abstract "${IN_RMDEV[@]}" python3 scripts/make_graphical_abstract.py   # H/J numbers appear in the abstract automatically
 step build_paper bash scripts/build_paper.sh

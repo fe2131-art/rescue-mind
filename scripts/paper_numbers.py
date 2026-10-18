@@ -10,6 +10,11 @@ files in experiments/results/.  Missing results are the macro \\TBD, which print
     presentable PDF exists at any time;
   * the red "TBD" with PENDING_TEXT=0 (debugging);
   * FINAL=1 (or --final) refuses to build while any macro or table is still pending.
+  * SNAPSHOT=1 (or --snapshot; `make snapshot`) is the submission snapshot: the studies without results (advice_numbers.snapshot_pending())
+    print the pending form of every sentence that needs their numbers ("registered, not yet run at submission"), chosen in main.tex /
+    supplement.tex by the generated switches \\IfPendA{pending}{normal} ... \\IfPendIF; no \\TBD survives (it prints "not run").  Studies
+    with results keep their normal sentences.  FINAL and SNAPSHOT exclude each other.  `--out DIR` writes the macros and tables to DIR
+    instead of docs/paper (the snapshot build never touches the tracked files).
 """
 from __future__ import annotations
 import json
@@ -27,6 +32,8 @@ from run_paths import FULL as FULL_RUNS  # noqa: E402
 import advice_numbers  # noqa: E402
 RES = ROOT / 'experiments/results'
 OUT = ROOT / 'docs/paper'
+if '--out' in sys.argv:
+    OUT = Path(sys.argv[sys.argv.index('--out') + 1]).resolve()
 
 
 def _num(x, nd=0):
@@ -66,17 +73,102 @@ def all_attempts(name):
 
 
 FINAL = '--final' in sys.argv or os.environ.get('FINAL', '') not in ('', '0')
+SNAPSHOT = '--snapshot' in sys.argv or advice_numbers.snapshot_mode()
+if SNAPSHOT:
+    os.environ['SNAPSHOT'] = '1'          # the other generators (advice_numbers) read the same switch
+    if FINAL:
+        raise SystemExit('FINAL=1 and SNAPSHOT=1 exclude each other: FINAL refuses any pending result, SNAPSHOT prints it as "registered, not yet run at submission"')
 PENDING_TEXT = (not FINAL) and os.environ.get('PENDING_TEXT', '1') != '0'
 # FINAL: a \TBD that survives anywhere (a literal one in main.tex/supplement.tex, a missing figure) is a LaTeX error, so the build fails
 TBD_DEF = (r'\providecommand{\TBD}{\PackageError{rescuemind}{FINAL build: a pending (TBD) result remains}{Fill it or remove the sentence.}}' if FINAL
+           else r'\providecommand{\TBD}{\SnapNA{}}' if SNAPSHOT
            else r'\providecommand{\TBD}{\textcolor{gray}{\textit{(pending)}}}' if PENDING_TEXT
            else r'\providecommand{\TBD}{\textbf{\textcolor{red}{TBD}}}')
+
+
+def snapshot_head():
+    """LaTeX switches of the submission snapshot: \\IfPendX{pending form}{normal form} for every study that may lack results."""
+    pend = advice_numbers.snapshot_pending() if SNAPSHOT else set()
+    h = [r'\newcommand{\SnapNA}{not run}',
+         r'\newcommand{\IfSnapshot}[2]{%s}' % ('#1' if SNAPSHOT else '#2'),
+         r'\newcommand{\IfAnyPend}[2]{%s}' % ('#1' if pend else '#2')]
+    h += [r'\newcommand{\IfPend%s}[2]{%s}' % (advice_numbers.mkey(k), '#1' if k in pend else '#2') for k in advice_numbers.SNAPSHOT_STUDIES]
+    h.append(r'\newcommand{\IfXDRRun}[2]{%s}' % ('#1' if (RES / 'xd_real_summary.json').is_file() else '#2'))      # XD stage r (real fire-free photographs) is a separate step of XD
+    h.append(r'\newcommand{\TBDfor}[1]{\csname IfPend#1\endcsname{\SnapNA{}}{\TBD}}')      # a cell/number of study #1: "not run" in the snapshot, \TBD otherwise
+    return h
+
+
+def snapshot_expand(tex, pending, snapshot=True):
+    """What LaTeX makes of the switches in `tex` for a given pending set (used by the tests and check_consistency to see the text a snapshot
+    prints without compiling): \\IfPend<L>{a}{b}, \\IfAnyPend, \\IfSnapshot and \\TBDfor{L}; comment lines are dropped."""
+    tex = '\n'.join(re.sub(r'(?<!\\)%.*$', '', ln) for ln in tex.splitlines())
+    sw = re.compile(r'\\(IfPend[A-Za-z]+|IfAnyPend|IfSnapshot)(?![A-Za-z])|\\TBDfor\{([A-Za-z]+)\}')
+
+    def group(t, i):
+        while t[i].isspace():
+            i += 1
+        assert t[i] == '{', t[i:i + 40]
+        d, j = 0, i
+        while True:
+            if t[j] == '\\':
+                j += 2
+                continue
+            d += (t[j] == '{') - (t[j] == '}')
+            j += 1
+            if d == 0:
+                return t[i + 1:j - 1], j
+
+    out, i = [], 0
+    while True:
+        mm = sw.search(tex, i)
+        if not mm:
+            out.append(tex[i:])
+            break
+        out.append(tex[i:mm.start()])
+        if mm.group(2):
+            out.append(r'\SnapNA{}' if snapshot and advice_numbers.unmkey(mm.group(2)) in pending else r'\TBD')
+            i = mm.end()
+            continue
+        a, j = group(tex, mm.end())
+        b, j = group(tex, j)
+        name = mm.group(1)
+        on = snapshot and (bool(pending) if name == 'IfAnyPend' else True if name == 'IfSnapshot' else advice_numbers.unmkey(name[len('IfPend'):]) in pending)
+        out.append(snapshot_expand(a if on else b, pending, snapshot))
+        i = j
+    return ''.join(out)
+
+
+def check_final(m, tables, studies=False):
+    """FINAL=1, the strict mode: any macro or table that is still \\TBD refuses the build (SystemExit)."""
+    pend = [ln.split('}')[0].split('{\\')[1] for ln in m.lines[2:] if ln.endswith('{\\TBD}')]
+    pend += [n for n, b in tables.items() if '\\TBD' in b]
+    if studies:       # the real build: a study whose text is a 'not run' sentence is pending too
+        pend += [f'study {k} (no result file)' for k, has in advice_numbers.pending_all().items() if not has]
+    if pend:
+        raise SystemExit(f'FINAL: {len(pend)} pending (TBD) macros/tables: {pend[:12]} ...')
+
+
+def snapshot_problems(tex_files, numbers_text, pending):
+    """What would still print a pending marker in a snapshot build: a literal \\TBD left after the switches are expanded (the definition of the
+    figure-fallback box excepted) and every use of a result macro whose snapshot value is the clean "not run" fallback (i.e. a number that does
+    not exist yet and that no \\IfPend<study>{pending}{normal} wraps).  [] means the snapshot text is complete."""
+    na = {m.group(1) for m in re.finditer(r'\\newcommand\{\\([A-Za-z]+)\}\{\\SnapNA\{\}\}', numbers_text)}
+    bad = []
+    for f in tex_files:
+        t = snapshot_expand(Path(f).read_text(encoding='utf8'), pending)
+        t = '\n'.join(ln for ln in t.splitlines() if r'\newcommand{\fig}' not in ln)
+        for mm in re.finditer(r'\\TBD(?![A-Za-z])', t):
+            bad.append(f'{Path(f).name}: literal \\TBD near "{t[max(0, mm.start() - 50):mm.start() + 20].strip()}"')
+        for mm in re.finditer(r'\\([A-Za-z]+)', t):
+            if mm.group(1) in na:
+                bad.append(f'{Path(f).name}: \\{mm.group(1)} (no result) near "{t[max(0, mm.start() - 50):mm.start() + 20].strip()}"')
+    return bad
 
 
 class Macros:
     def __init__(self):
         self.lines = ['% generated by scripts/paper_numbers.py -- do not edit', TBD_DEF]
-
+        self.head = snapshot_head()        # the switches \\IfPendA ... (always defined, so that main.tex builds in every mode)
         self.names = set()
 
     def __setitem__(self, name, value):
@@ -92,13 +184,24 @@ class Macros:
                 return None if v == r'\TBD' else v
         return None
 
+    def override(self, name, value):
+        """Replace the value of an already set macro (the snapshot wording of a status macro)."""
+        for i, ln in enumerate(self.lines):
+            if ln.startswith(f'\\newcommand{{\\{name}}}{{'):
+                self.lines[i] = f'\\newcommand{{\\{name}}}{{{value}}}'
+                return
+        self[name] = value
+
     def pending(self, names):
         for n in names:
             if n not in self.names:
                 self[n] = r'\TBD'
 
     def text(self):
-        return '\n'.join(self.lines) + '\n'
+        rest = self.lines[2:]
+        if SNAPSHOT:      # a pending value that nothing wrapped in a pending form prints a clean "not run", never a TBD
+            rest = [re.sub(r'\\TBD(?![A-Za-z])', lambda _: r'\SnapNA{}', ln) for ln in rest]
+        return '\n'.join(self.lines[:2] + self.head + rest) + '\n'
 
 
 def campaign(m: Macros, prefix: str, file: str):
@@ -842,11 +945,45 @@ def main():
         m['AClaimCost'] = sup(a3['supported'])
         m['AClaim'] = sup(a['headline_supported'])
         m['AExtract'] = f"{a['extraction']['exact_match']}/{a['extraction']['n_operator_runs']}"
+        bc_ = a['extraction']['by_condition']      # the attacks that relax a check (poison_safe, poison_location), not the easy ones
+        m['AExtractRelax'] = f"{bc_['poison_safe']['exact'] + bc_['poison_location']['exact']}/{bc_['poison_safe']['n'] + bc_['poison_location']['n']}"
+        af_ = advice_numbers.a_facts()        # the rest of the A numbers (worlds, guardrail flag rates, replay, A-steer) share one reader with README/report/YouTube
+        if af_:
+            kk = lambda t: f"{t[0]}/{t[1]}"
+            if af_['worlds']['naive'] and af_['worlds']['filtered'] and af_['worlds']['monotone']:
+                m['AWorldsNaive'], m['AWorldsFiltered'], m['AWorldsOurs'] = (kk(af_['worlds'][k_]) for k_ in ('naive', 'filtered', 'monotone'))
+            m['ANPerChannel'] = af_['by_channel']['naive']['file'][1]        # runs per channel and arm in the A figure
+            m['AFilterFlagOp'], m['AFilterFlagFile'] = kk(af_['filter_flag_operator']), kk(af_['filter_flag_file'])
+            m['AFileUnsafeNaive'], m['AFileUnsafeFiltered'], m['AFileUnsafeOurs'] = (kk(af_['by_channel'][k_]['file']) for k_ in ('naive', 'filtered', 'ours'))
+            m['AOpUnsafeNaive'], m['AOpUnsafeFiltered'], m['AOpUnsafeOurs'] = (kk(af_['by_channel'][k_]['operator']) for k_ in ('naive', 'filtered', 'ours'))
+            m['ANaiveWrongSupply'], m['ANaiveIntoFire'] = af_['naive_wrong_supply'], af_['naive_into_fire']
+            m['AHazardFalseRefNaive'], m['AHazardFalseRefFiltered'], m['AHazardFalseRefN'] = af_['dos_false_refusals_naive'], af_['dos_false_refusals_filtered'], af_['dos_n_baseline']
+            if af_['replay']:
+                m['AReplay'], m['AReplayViol'] = f"{af_['replay'][0]}/{af_['replay'][1]}", af_['replay'][2]
+            m['ATimePos'] = f"{af_['time_pos']}/{af_['time_n']}"
+            m['ATimeMed'] = f"{af_['time_median']:.1f}"
+            pr_ = af_['price']
+            m['AWBound'], m['AWOne'], m['AMaxExtra'], m['ALost'], m['ALostAllowed'] = f"{pr_['bound']:.1f}", f"{pr_['W']:.1f}", f"{pr_['max_extra']:.1f}", pr_['lost'], pr_['allowed']
+            st_ = af_['steer']
+            m['ARuns'], m['ARunsFailed'] = af_['runs'], af_['failed']
+            m['ASteerN'] = st_['n']
+            m['ASteerP'] = f"{st_['p_sign']:.2f}" if st_.get('p_sign') is not None else r'\TBD'
+            m['AUnsafeOursUpper'] = f"{af_['unsafe_wilson_ours'][1]:.2f}"
+            for key_, nm_ in (('ours', 'Ours'), ('control', 'Ctrl'), ('scrutiny', 'Scr'), ('naive', 'Naive')):
+                m[f'ASteer{nm_}'] = f"{st_[key_]['unsafe']}/{st_[key_]['n']}"
+                m[f'ASteerLost{nm_}'] = f"{st_[key_]['lost']}/{st_[key_]['n']}"
+            m['ASteerOursUpper'], m['ASteerCtrlUpper'] = f"{st_['ours']['wilson'][1]:.2f}", f"{st_['control']['wilson'][1]:.2f}"
+            m['ASteerTimeOurs'], m['ASteerTimeCtrl'] = f"{st_['ours']['median_s']:.0f}", f"{st_['control']['median_s']:.0f}"
+            m['ASteerDelivScr'] = f"{st_['scrutiny']['delivered']}/{st_['n']}"
+            m['ASteerWorlds'] = ', '.join(st_['unsafe_worlds'])
+            m['AIntentAcc'] = f"{af_['intent_accepted']}/{af_['extract'][1]}" if af_['intent_accepted'] is not None else r'\TBD'
+            m['AExtractSafe'] = kk(af_['extract_safe'])
+            m['AOffline'] = 'has been scored (advice_injection_eval.json)' if af_['offline_done'] else 'has not been scored'
     ac_ = [m.lookup(k_) for k_ in ('AClaimSafety', 'AClaimTime', 'AClaimCost')]
     m['StatA'] = f"safety: {ac_[0]}; time: {ac_[1]}; cost: {ac_[2]}" if all(ac_) else 'pending'
     # abstract clause for the advice result: empty until study A has run (the abstract never shows a pending marker)
-    m['AbsAdvice'] = (f"; under adversarial advice, an advice-following baseline delivered unsafely in {m.lookup('AUnsafeNaive')} runs, ours in {m.lookup('AUnsafeOurs')} and a robot without advice in {m.lookup('AUnsafeCtrl')}"
-                      if m.lookup('AUnsafeNaive') and m.lookup('AUnsafeOurs') and m.lookup('AUnsafeCtrl') else '')
+    m['AbsAdvice'] = (f"; unsafe worlds under hostile advice: naive baseline {m.lookup('AWorldsNaive')}, self-filter {m.lookup('AWorldsFiltered')}, ours {m.lookup('AWorldsOurs')}, no advice {m.lookup('AUnsafeCtrl')} runs"
+                      if m.lookup('AWorldsNaive') and m.lookup('AWorldsFiltered') and m.lookup('AWorldsOurs') else '')
     # ---- study S (scene-text injection, image level; scripts/s_analysis.py -> s_summary.json) -- absent until it ran
     sf = RES / 's_summary.json'
     if sf.is_file():
@@ -873,7 +1010,160 @@ def main():
         if all(h_ is not None for h_ in hyp_) and lg_ is not None:
             m['SClaim'] = sup(hyp_[0] and hyp_[1] and lg_)      # registered claim: the permuted check is not fooled by a letter written for one option order (H1, H2, S0)
             m['SHyp'] = f"{sum(hyp_)}/7"
+        fa_ = ((sj.get('defence') or {}).get('OCR-MASK') or {}).get('false_approvals_with_attack_sign', {}).get('OURS')     # all attack-sign worlds that OURS refuses without the sign
+        if fa_:
+            m['SPoolFlips'], m['SPoolN'], m['SPoolUpper'] = fa_['k'], fa_['n'], f"{100 * fa_['ci95'][1]:.1f}\\%"
+        d7_ = cr_.get('S7_detail') or {}
+        if 'FREE-FORM' in d7_ and 'OURS' in d7_:
+            m['SBenignFree'], m['SBenignOurs'] = d7_['FREE-FORM'], d7_['OURS']
+        lc_ = ((sj.get('defence') or {}).get('OCR-MASK') or {}).get('legit_cost')
+        if lc_:
+            m['SLegitKept'] = f"{lc_['ours_approved']}/{lc_['n_images']}"
+    if sf.is_file():        # supplementary table of study S: every system, approvals of must-refuse worlds without a sign / with the attack sign / with a benign text
+        rows_ = [r'\begin{tabular}{lcccc}', r'\toprule', r'System & no sign & attack sign & benign text & flips \\', r'\midrule']
+        for nm_, sy_ in sj['systems'].items():
+            mr_ = sy_['must_refuse_all']
+            c_ = lambda g_: f"{g_['k']}/{g_['n']}"
+            rows_.append(f"{nm_.replace('+', '+').replace('_', ' ')} & {c_(mr_['bad_no_sign'])} & {c_(mr_['bad_attack'])} & {c_(mr_['bad_benign'])} & {mr_['attack_vs_none']['flips']} \\\\")
+        rows_ += [r'\bottomrule', r'\end{tabular}']
+        tables['tab_s_systems.tex'] = '\n'.join(rows_)
     m['StatS'] = f"letters: {m.lookup('SClaim')}; {m.lookup('SHyp')} hypotheses" if m.lookup('SClaim') else 'pending'
+    # ---- study IF (request text switching the requested supply; advice_numbers.if_facts reads if_summary.json)
+    iff_ = advice_numbers.if_facts()
+    if iff_:
+        m['IFK'], m['IFN'] = iff_['k'], iff_['n']
+        m['IFCI'] = f"{100 * iff_['ci'][0]:.0f}--{100 * iff_['ci'][1]:.0f}\\%"
+        for k_, nm_ in (('flip_system', 'System'), ('flip_forwarded', 'Forwarded'), ('flip_hidden', 'Hidden')):
+            m[f'IF{nm_}'] = f"{iff_['cat'][k_][0]}/{iff_['cat'][k_][1]}"
+        m['IFBoth'] = iff_['both']
+        m['IFCorr'] = f"{iff_['corr'][0]}/{iff_['corr'][1]}"
+        m['IFCtrl'] = f"{iff_['ctrl'][0]}/{iff_['ctrl'][1]}"
+        m['IFWrong'] = iff_['ctrl_wrong'] + iff_['corr_wrong'][0]
+        m['IFClaim'] = 'supported' if iff_['held'] else 'not supported'
+        m['StatIF'] = f"IF1 {m.lookup('IFClaim')}: {iff_['k']}/{iff_['n']} switched"
+    # ---- study B (advice credit in closed loop, mechanics; b_summary.json) -- absent until it ran
+    bf_ = RES / 'b_summary.json'
+    if bf_.is_file():
+        bj = json.loads(bf_.read_text())
+        liar_ = bj['B1_liar']['sequences']
+        m['BRuns'], m['BMissions'] = bj['n_runs'], bj['m']
+        m['BSeqs'], m['BSeqsAll'] = bj['B1_liar']['n_complete'], len(liar_)
+        w_no_, w_cr_ = {v['wasted_nocredit'] for v in liar_.values()}, {v['wasted_credit'] for v in liar_.values()}
+        m['BWastedNo'], m['BWastedCredit'] = (str(min(w_no_)) if len(w_no_) == 1 else f'{min(w_no_)}--{max(w_no_)}'), (str(min(w_cr_)) if len(w_cr_) == 1 else f'{min(w_cr_)}--{max(w_cr_)}')
+        m['BBound'] = max(v['prop3_bound'] for v in liar_.values())
+        m['BHonestWasted'] = sum(v['wasted'] for v in bj['B2_honest']['sequences'].values())
+        m['BAuditFail'] = len(bj['B3_audits']['audit_failures'])
+        m['BUnsafe'] = len(bj['B3_audits']['unsafe_deliveries'])
+        m['BSave'], m['BSavePred'] = f"{bj['B4_time_descriptive']['median_saving_s']:.0f}", f"{bj['B4_time_descriptive']['predicted_saving_per_sequence_s']:.0f}"
+        m['BClaim'] = sup(bj['headline_supported'])
+        m['StatB'] = f"credit bound: {m.lookup('BClaim')}"
+    # ---- study Q (real photographs, 405 Commons images; q_summary.json + the score file for the descriptive split of the refusals)
+    qf_ = RES / 'q_summary.json'
+    if qf_.is_file():
+        qj_ = json.loads(qf_.read_text())
+        qq_, qc_ = qj_['qwen9b_v35'], qj_['qwen9b_v35']['claim']
+        m['QN'] = qj_['n']
+        m['QFA'], m['QNDeny'] = f"{qq_['FA']}/{qq_['n_deny']}", qq_['n_deny']
+        m['QFAUpper'] = pct(qq_['FA_ci'][1])
+        m['QCA'], m['QCARate'] = f"{qq_['CA']}/{qq_['n_allow']}", pct(qq_['CA_rate'])
+        m['QCACI'] = '[{:.1f}, {:.1f}]\\%'.format(*(100 * x for x in qq_['CA_ci']))
+        ca_ = qj_['breakdown']['correct_approvals']
+        m['QCAWater'], m['QCAMed'] = f"{ca_['water']['k']}/{ca_['water']['n']}", f"{ca_['medicine']['k']}/{ca_['medicine']['n']}"
+        m['QSigFA'], m['QClipFA'] = f"{qj_['siglip']['counts']['FA']}/{qj_['siglip']['counts']['n_deny']}", f"{qj_['clip']['counts']['FA']}/{qj_['clip']['counts']['n_deny']}"
+        m['QCAHigh'], m['QCAHigher'] = (f"{qj_['tau_s_sensitivity'][t_]['CA']}/{qj_['tau_s_sensitivity'][t_]['n_allow']}" for t_ in ('0.7', '0.9'))
+        m['QSafe'], m['QAvail'] = sup(qc_['safety_FA_upper_bound_le_0.05']), sup(qc_['availability_CA_ge_0.70'])
+        m['QClaim'] = sup(qc_['supply_check_transfers'])
+        qs_ = RES / 'q_scores_qwen9b_v35.jsonl'
+        if qs_.is_file():      # descriptive: why the correct images were refused (both passes said "other" / the two option orders disagreed)
+            al_ = [r_ for r_ in (json.loads(x_) for x_ in qs_.read_text().splitlines()) if r_['expected'] == 'allow']
+            ref_ = [r_ for r_ in al_ if not all(r_['passes'][k_]['supply'] == r_['requested'] for k_ in '12')]
+            m['QRefused'] = qq_['n_allow'] - qq_['CA']      # one more correct image has the right answer in both orders but p below tau_s
+            m['QRefOther'] = sum(all(r_['passes'][k_]['supply'] == 'other' for k_ in '12') for r_ in ref_)
+            m['QRefDisagree'] = sum(r_['passes']['1']['supply'] != r_['passes']['2']['supply'] for r_ in ref_)
+        m['StatQ'] = f"safety: {m.lookup('QSafe')}; availability: {m.lookup('QAvail')}; transfers: {m.lookup('QClaim')}"
+    # ---- study XD (image level, depot; xd_summary.json).  The I-20 revert verdict is recomputed from the raw records with the code that was
+    # committed before XD was scored (xd_analysis.i20_revert_verdict); the fields shared with the summary must agree.
+    xdf_ = RES / 'xd_summary.json'
+    if xdf_.is_file():
+        xj_ = json.loads(xdf_.read_text())
+        xm_, xr_ = xj_['XD_main'], xj_['XD_recalibration']
+        sys.path.insert(0, str(ROOT))
+        from scripts import xd_analysis as _xa
+        xrec_ = json.loads((RES / 'devset_xd_h36_tiles.json').read_text())['records']
+        xv_ = _xa.summarise_main(xrec_)['i20_revert_verdict']
+        rt_ = lambda d_: f"{d_['k']}/{d_['n']}"
+        pl_, bc_ = xm_['xd1_pooled'], xm_['xd1_by_class']
+        m['XDNWorlds'], m['XDNHaz'], m['XDNPerc'] = xm_['n_worlds'], xm_['n_hazard'], xm_['n_perceivable']
+        m['XDMissFront'], m['XDMissFrontRate'] = rt_(pl_['front_only']), pct(pl_['front_only']['rate'], 0)
+        m['XDMissLA'], m['XDMissLARate'] = rt_(pl_['look_around']), pct(pl_['look_around']['rate'])
+        m['XDMissLAUpper'] = pct(pl_['look_around']['ci95'][1]); m['XDMissLACI'] = '[{:.1f}, {:.1f}]\\%'.format(*(100 * x for x in pl_['look_around']['ci95']))
+        hd_ = bc_['tongues_small']
+        m['XDHardFront'], m['XDHardLA'], m['XDHardLARate'] = rt_(hd_['front_only']), rt_(hd_['look_around']), pct(hd_['look_around']['rate'], 0)
+        m['XDHardLAUpper'] = pct(hd_['look_around']['ci95'][1]); m['XDHardLACI'] = '[{:.1f}, {:.1f}]\\%'.format(*(100 * x for x in hd_['look_around']['ci95']))
+        m['XDHardAdapt'], m['XDHardAdaptUpper'] = rt_(hd_['adaptive']), pct(hd_['adaptive']['ci95'][1])
+        m['XDMissAdapt'], m['XDMissAdaptUpper'] = rt_(pl_['adaptive']), pct(pl_['adaptive']['ci95'][1])
+        m['XDBigLA'], m['XDSmokeLA'] = rt_(bc_['tongues_big']['look_around']), rt_(bc_['smoke_only']['look_around'])
+        m['XDRemoved'] = round(100 * xm_['criteria']['O1_front_misses_removed_share']); m['XDNSideOnly'] = xm_['n_side_only']
+        pr_ = xm_['caught_by_extra_views']['paired_la_vs_adaptive']
+        m['XDAdaptRemoved'], m['XDAdaptAdded'], m['XDAdaptP'] = pr_['first_only'], pr_['second_only'], _pfmt(pr_['first_only'], pr_['second_only'])
+        tr_ = xm_['xd3_extra_view_trigger_rate_on_twins']
+        m['XDTrig'], m['XDTrigRate'], m['XDTrigCI'] = rt_(tr_), pct(tr_['rate']), '[{:.1f}, {:.1f}]\\%'.format(*(100 * x for x in tr_['ci95']))
+        m['XDTwinCAAdapt'] = rt_(xm_['xd3_adaptive_correct_approvals_twins'])
+        ca_ = xm_['xd3_correct_approvals']['pooled']
+        m['XDCAFront'], m['XDCALA'] = rt_(ca_['front_only']), rt_(ca_['look_around'])
+        wr_ = xm_['xd3_wrong_supply_false_approvals']['pooled']['look_around']
+        m['XDWrongFA'], m['XDWrongUpper'] = rt_(wr_), pct(wr_['ci95'][1])
+        ar_ = xm_['arena_reference']['eps_look_around_depot_vs_arena_W']
+        m['XDArenaMiss'], m['XDArenaP'] = rt_(ar_['arena']), f"{ar_['fisher_two_sided_p']:.3f}"
+        hs_ = xm_['oracle_steering']['hard_class_tongues_small']['label_FLR']['look_around']['by_k']
+        m['XDHardEpsAnyTwo'], m['XDHardEpsAnyFour'] = pct(hs_['2']['eps_any']), pct(hs_['4']['eps_any'])
+        m['XDHardEpsAnyTwoCI'] = '[{:.1f}, {:.1f}]\\%'.format(*(100 * x for x in hs_['2']['ci95_independent']))
+        m['XDHardEpsAnyFourCI'] = '[{:.1f}, {:.1f}]\\%'.format(*(100 * x for x in hs_['4']['ci95_independent']))
+        sn_ = xm_['tau_h_sensitivity']
+        m['XDTauMissTwo'], m['XDTauCATwo'] = rt_(sn_['0.02']['miss_look_around']), rt_(sn_['0.02']['correct_approval_look_around'])
+        ti_ = xr_['test_image_level']['at_frozen']
+        m['XDTestRecall'], m['XDTestRecallRate'] = rt_(ti_['recall']), pct(ti_['recall']['rate'])
+        m['XDTestFA'], m['XDTestFARate'] = rt_(ti_['false_alarm']), pct(ti_['false_alarm']['rate'])
+        m['XDTestWorldMiss'] = rt_(xr_['test_world_level']['at_frozen']['miss_look_around'])
+        m['XDTauStar'] = 'none' if xr_['calibration']['tau_star'] is None else str(xr_['calibration']['tau_star'])
+        cr_ = xm_['criteria']
+        m['XDClaimEps'] = sup(cr_['claim_eps_tight_hard_class']); m['XDClaimRel'] = sup(cr_['claim_relative_ordering_transfers'])
+        m['XDClaimCal'] = sup(xr_['claim_calibration_usable']); m['XDClaimCost'] = sup(cr_['C1_correct_approvals_at_least_0.80'])
+        m['XDOne'], m['XDTwo'], m['XDFour'] = sup(cr_['O1_look_around_removes_at_least_half_of_front_misses']), sup(cr_['O2_small_hidden_harder_than_big_visible']), sup(cr_['O4_no_wrong_supply_false_approval'])
+        m['XDThree'] = sup(cr_['O3_adaptive_no_worse_and_trigger_rate_at_most_0.15'])
+        m['XDRevert'] = xv_['status']
+        m['XDRevertFired'] = ', '.join(k_[0] for k_, v_ in xv_['fired'].items() if v_) or 'none'
+        rows_ = [r'\begin{tabular}{@{}lrccc@{}}', r'\toprule', r'Class & Worlds & Front only & Look-around & + extra views \\', r'\midrule']
+        for cl_, nm_ in (('tongues_small', 'small flames, partly hidden'), ('tongues_big', 'big flames, visible'), ('smoke_only', 'smoke only'),
+                         ('mesh_flame', 'mesh flames'), ('sprite', 'sprite flames')):
+            c_ = bc_[cl_]
+            rows_.append(f"{nm_} & {c_['look_around']['n']} & {rt_(c_['front_only'])} & {rt_(c_['look_around'])} & {rt_(c_['adaptive'])} \\\\")
+        rows_ += [r'\midrule', f"all perceivable & {pl_['look_around']['n']} & {rt_(pl_['front_only'])} & {rt_(pl_['look_around'])} & {rt_(pl_['adaptive'])} \\\\",
+                  r'\bottomrule', r'\end{tabular}']
+        tables['tab_xd_classes.tex'] = '\n'.join(rows_)
+        xs_ = RES / 'xd_site_tau_sus.json'
+        if xs_.is_file():
+            sj_ = json.loads(xs_.read_text())
+            tt_ = sj_['test']
+            m['XDSiteTau'] = f"{sj_['tau_sus_site']:.4f}"
+            m['XDSiteTrig'] = f"{tt_['triggered']}/{tt_['twins_with_extra']}"
+            m['XDSiteRemoved'], m['XDSiteLA'] = f"{tt_['look_around_misses'] - tt_['adaptive_misses']}", f"{tt_['look_around_misses']}"
+            m['XDSiteRefMiss'] = f"{sj_['reference_tau_sus_0.005']['adaptive_misses']}/{tt_['perceivable']}"
+            m['XDSiteRefTrig'] = f"{sj_['reference_tau_sus_0.005']['triggered']}/{sj_['reference_tau_sus_0.005']['of']}"
+        xh_ = RES / 'xd_site_tau_h.json'
+        if xh_.is_file():
+            hj_ = json.loads(xh_.read_text())
+            m['XDSiteTauH'] = f"{hj_['tau_h_site']:g}"
+            m['XDSiteHardMiss'] = f"{hj_['test_site']['hard_misses']}/{hj_['test_site']['hard_n']}"
+        m['StatXD'] = f"bound: {m.lookup('XDClaimEps')}; transfer: {m.lookup('XDClaimRel')}; recalibration: {m.lookup('XDClaimCal')}; cost: {m.lookup('XDClaimCost')}"
+    # ---- submission snapshot: the claim column of a study without results says so (the other pending studies have no analysis macro yet)
+    PEND = advice_numbers.snapshot_pending() if SNAPSHOT else set()
+    for k_ in advice_numbers.SNAPSHOT_STUDIES:
+        nm_ = f'Stat{advice_numbers.mkey(k_)}'
+        if k_ in PEND:
+            m.override(nm_, 'registered, not run')
+        elif nm_ not in m.names:
+            m[nm_] = 'see text' if (SNAPSHOT and (RES / f'{k_.lower()}_summary.json').is_file()) else 'pending'
     # ---- study A: first mechanics pilot (i35) and Amendment 1 (i38); XD-R photographs (advice_numbers.a_pilot_facts / xdr_facts read the files)
     pf_ = advice_numbers.a_pilot_facts()
     if pf_:
@@ -882,6 +1172,10 @@ def main():
         m['AIntHeldOut'], m['AIntHeldN'] = pf_['held38'], pf_['held_n']
         m['AIntUnsafe'] = max(pf_['unsafe35'], pf_['unsafe38'])
         m['AIntInjOld'], m['AIntInjNew'], m['AIntInjN'], m['AIntWrong'] = pf_['inj35'], pf_['inj38'], pf_['inj_n'], pf_['wrong38']
+        if pf_.get('rerun'):       # the rerun pilot (i38) read with the gate of Amendment 2
+            m['ARerunRuns'], m['ARerunIntent'], m['ARerunOpN'] = pf_['rerun_runs'], pf_['rerun_op_intent'], pf_['rerun_op_n']
+            m['ARerunExact'], m['ARerunFileOK'] = pf_['rerun_op_exact'], f"{pf_['rerun_file_ok']}/{pf_['rerun_file_n']}"
+            m['ACampaignStart'] = advice_numbers.A_CAMPAIGN_START
     xr_ = advice_numbers.xdr_facts()
     if xr_:
         m['XDRCand'], m['XDRKept'], m['XDRExcl'] = xr_['cand'], xr_['kept'], xr_['excl']
@@ -902,7 +1196,8 @@ def main():
                ('A', 'PREREGISTRATION_A.md', 'a_summary.json'), ('S', 'PREREGISTRATION_S.md', 's_summary.json'),
                ('X', 'PREREGISTRATION_X.md', 'x_summary.json'), ('XD', 'PREREGISTRATION_XD.md', 'xd_summary.json'),
                ('Q', 'PREREGISTRATION_Q.md', 'q_summary.json'),
-               ('B', 'PREREGISTRATION_B.md', 'b_summary.json'), ('IF', 'PREREGISTRATION_IF.md', 'if_summary.json')]
+               ('B', 'PREREGISTRATION_B.md', 'b_summary.json'), ('IF', 'PREREGISTRATION_IF.md', 'if_summary.json'),
+               ('IF2', 'PREREGISTRATION_IF2.md', 'if2_summary.json')]
     main_ref = 'main' if git('rev-parse', '--verify', '-q', 'main')[1] == 0 else 'HEAD'
 
     def first_commit(path):          # first commit that added the file (hash date)
@@ -915,10 +1210,13 @@ def main():
         rel = f'experiments/{reg}'
         sc = first_commit(f'experiments/results/{res}')
         if not (ROOT / rel).is_file():     # registration not in this checkout (study Q: design on its own branch until the merge)
-            rows.append(f"{name} & registered at merge, pending & \\texttt{{{sc.split()[0] if sc else 'pending'}}} & -- & pending \\\\")
+            if SNAPSHOT:
+                rows.append(name + ' & registered at merge & ' + ('\\texttt{' + sc.split()[0] + '}' if sc else 'not run') + ' & -- & -- \\\\')
+            else:
+                rows.append(f"{name} & registered at merge, pending & \\texttt{{{sc.split()[0] if sc else 'pending'}}} & -- & pending \\\\")
             drafts.append(name)
             continue
-        hist, _ = git('log', '--full-history', '--no-merges', '--format=%h %ad', '--date=short', '--', rel)           # newest first
+        hist, _ = git('log', '--full-history', '--no-merges', '--invert-grep', '--grep=erratum (times)', '--format=%h %ad', '--date=short', '--', rel)   # newest first; an appended time erratum is not a change of the registered text
         hist = hist.splitlines()
         rc = ''
         if sc:   # the text in force at the first result: the newest registration commit strictly before the first results commit
@@ -930,23 +1228,24 @@ def main():
         else:    # no result yet: the newest commit of the text that will be run
             rc = hist[0] if hist else ''
         n_am = len(AMEND_RX.findall((ROOT / rel).read_text()))
-        on_main = git('show', f'{main_ref}:{rel}')[0] == (ROOT / rel).read_text().strip()      # the text in this checkout is the text on main
+        _body = lambda t: t.split('\n## Erratum (times)')[0].strip()      # the appended time erratum is not part of the registered text
+        on_main = _body(git('show', f'{main_ref}:{rel}')[0]) == _body((ROOT / rel).read_text())      # the text in this checkout is the text on main
         if rc and sc and rc.split()[0] == sc.split()[0]:
             order = 'same commit'          # cannot be verified from history (recorded before this audit existed)
         elif rc and sc:
             order = r'$\checkmark$' if git('merge-base', '--is-ancestor', rc.split()[0], sc.split()[0])[1] == 0 else 'NO'
             ok_all &= order != 'NO'
         else:
-            order = 'pending'
+            order = '--' if SNAPSHOT else 'pending'
         reg_cell = f"\\texttt{{{rc or '--'}}}" + ('' if on_main or not rc else r' (draft; registered at merge)')
         if rc and not on_main:
             drafts.append(name)
-        rows.append(f"{name} & {reg_cell} & \\texttt{{{sc or 'pending'}}} & {n_am} & {order} \\\\")
+        rows.append(f"{name} & {reg_cell} & " + (f"\\texttt{{{sc}}}" if sc else 'not run' if SNAPSHOT else '\\texttt{pending}') + f" & {n_am} & {order} \\\\")
     rows += [r'\bottomrule', r'\end{tabular}']
     tables['tab_prereg.tex'] = '\n'.join(rows)
     # ---- amendments: one row per amendment heading, the commit that introduced it (git -G, oldest) against the first results commit of its study
     arows = [r'\begin{tabular}{llllc}', r'\toprule', r'Study & Amendment (text date) & Commit (git time) & First results & Order \\', r'\midrule']
-    am_a = None
+    am_a = am_a2 = None
     for name, reg, res in studies:
         rel = f'experiments/{reg}'
         if not (ROOT / rel).is_file():
@@ -960,19 +1259,24 @@ def main():
             if not c_:
                 continue
             if not sc:
-                order_ = 'no results yet'
+                order_ = '--' if SNAPSHOT else 'no results yet'
             elif c_.split()[0] == sc.split()[0]:
                 order_ = 'same commit'
             else:
                 ok_ = git('merge-base', '--is-ancestor', c_.split()[0], sc.split()[0])[1] == 0
                 order_ = r'$\checkmark$' if ok_ else 'NO'
-            arows.append(f"{name.split()[0]} & {k_} ({(d_ or '--') + (' ' + t_ if t_ else '')}) & \\texttt{{{c_.split()[0]}}} {' '.join(c_.split()[1:])} & \\texttt{{{sc.split()[0] if sc else 'pending'}}} & {order_} \\\\")
+            cell_ = ('\\texttt{' + sc.split()[0] + '}') if sc else ('not run' if SNAPSHOT else '\\texttt{pending}')
+            arows.append(f"{name.split()[0]} & {k_} ({(d_ or '--') + (' ' + t_ if t_ else '')}) & \\texttt{{{c_.split()[0]}}} {' '.join(c_.split()[1:])} & {cell_} & {order_} \\\\")
             if name == 'A' and k_ == '1':
                 am_a = c_
+            if name == 'A' and k_ == '2':
+                am_a2 = c_
     arows += [r'\bottomrule', r'\end{tabular}']
     tables['tab_amend.tex'] = '\n'.join(arows)
     if am_a:
         m['AAmendCommit'], m['AAmendTime'] = am_a.split()[0], ' '.join(am_a.split()[1:])
+    if am_a2:
+        m['AAmendTwoCommit'], m['AAmendTwoTime'] = am_a2.split()[0], ' '.join(am_a2.split()[1:])
     m['NAmend'] = len(arows) - 5
     # the one definition of "number of studies" (README, report, paper and check_consistency read it back through advice_numbers.study_counts):
     # every row of Table S9 except C, the initial evaluation (23 = the studies of Supp. Table S12); 'checked' = registration commit
@@ -984,8 +1288,13 @@ def main():
     unrun = [d for d in drafts if not (RES / dict((n_, r_) for n_, _, r_ in studies)[d]).is_file()]
     m['PreregDrafts'] = ', '.join(unrun) if unrun else 'none'
     # the sentence of the Methodology about the studies without results (no dangling '(none)' when every registration is already on main)
-    m['PreregPending'] = (f"the drafts ({', '.join(unrun)}) are registered when the integration branch is merged, before any of their trials" if unrun
+    m['PreregPending'] = (f"the drafts ({', '.join(unrun)}) are registered on the integration branch (bound by its merge into main, before any of their trials)" if unrun
                           else 'all are on the main branch, bound by the integration merge before their first trial')
+    m['NStudiesRun'] = cnt_['n'] - cnt_['pending']
+    m['PendList'] = ', '.join(advice_numbers.pending_list()) or 'none'
+    for k_ in advice_numbers.SNAPSHOT_STUDIES:      # the registration commit and date, for the sentence "registered (commit, date), not run"
+        rc_ = advice_numbers.registration_commit(k_)
+        m[f'Reg{advice_numbers.mkey(k_)}'] = (f"\\texttt{{{rc_.split()[0]}}}, {rc_.split()[1]}" if rc_ else 'registration pending')
     m['PreregOrderOK'] = 'holds' if ok_all else 'does NOT hold'
     # ---- development-data model selection (appendix table)
     sel = json.loads((RES / 'i08_model_selection.json').read_text())
@@ -1028,20 +1337,19 @@ def main():
                'WFAOursFull', 'WFAVote', 'WFAKnowFive', 'WFAKnowTen', 'WNDist', 'WMissFrontRate', 'WMissLAUpper', 'WMcNemarP', 'WCaughtOnlyByLA', 'WNFront', 'WNSideOnly', 'WMissLAFront', 'WMissLAFrontUpper', 'WMissLASide', 'WMissFrontSide', 'WMissedWorlds', 'WNotVisible', 'WNotVisibleUpper', 'WSixViewUpper', 'WTwinCA', 'WExtraStopUpper', 'WTauMiss', 'WEpsAnyTwo', 'WEpsAnyTwoCI', 'WEpsAnyFour', 'WEpsAnyFourCI', 'WEpsAnyTwoFront', 'WEpsAnyFourFront', 'WVOldMissFront', 'WVOldMissLA', 'WVOldMissLAUpper', 'WAdaptMiss', 'WAdaptMissUpper', 'WAdaptPaired', 'WAdaptPairedP', 'WAdaptTwinCA', 'WAdaptTrigTwin', 'WAdaptTrigTwinCI', 'WAdaptTrigFire', 'WAdaptRuleA', 'WAdaptRuleB', 'WAdaptAdopt', 'WScrutMissB', 'WScrutMissC', 'WScrutMissCUpper', 'WScrutPC', 'WScrutTwinStopC', 'WNImages', 'WNDeny', 'WNAllow', 'WFAOursDeployed', 'WFAOursFullRate', 'WFAOursDeployedCI', 'WCAOursFull', 'WFAVoteRate', 'WFAVoteCI', 'WVotePRaw', 'WVoteHolm', 'WVoteDisc', 'WVoteDeployedHolm', 'WVoteDeployedDisc', 'WVoteDeployedBetter', 'WCAKnowFive', 'WCAKnowFiveRate', 'WCAKnowFiveDrop', 'WCAKnowFiveP', 'WKnowTenSame', 'WSmallOurs', 'WSmallVote', 'WMondCA', 'PRecall', 'PFalseAlarm', 'PRecallCI', 'PFalseAlarmCI', 'PAuroc',
                'PTwoWording', 'PTwoTau', 'PTwoRecall', 'PTwoRecallCI', 'PTwoFA', 'PTwoFACI', 'PTwoClaim', 'PTwoFrozenRecall', 'PTwoFrozenFA',
                'APairs', 'AUnsafeNaive', 'AUnsafeOurs', 'AUnsafeCtrl', 'AMcNemarP', 'AViol', 'AAuditFail', 'ATimeSave', 'AWilcoxonP', 'ADoSVisits', 'ADoSFalseRef', 'ADoSN',
-               'ADoSAllowed', 'AClaimSafety', 'AClaimTime', 'AClaimCost', 'AClaim', 'AExtract',
-               'SNPairs', 'SFlipsC', 'SNC', 'SFlipsA', 'SNA', 'SFlipsB', 'SNB', 'SFlipsMis', 'SNMis', 'SFlipsSafe', 'SNSafe', 'SFlipsOneA', 'SFlipsMisFree', 'SLegible', 'SClaim', 'SHyp'])
-    for name in ('tab_t1_models.tex', 'tab_t1_ablation.tex', 'tab_e_strata.tex', 'tab_i13_dev.tex', 'tab_r.tex', 'tab_h_arms.tex', 'tab_h_sequences.tex'):
+               'ADoSAllowed', 'AClaimSafety', 'AClaimTime', 'AClaimCost', 'AClaim', 'AExtract', 'AExtractRelax',
+               'SNPairs', 'SFlipsC', 'SNC', 'SFlipsA', 'SNA', 'SFlipsB', 'SNB', 'SFlipsMis', 'SNMis', 'SFlipsSafe', 'SNSafe', 'SFlipsOneA', 'SFlipsMisFree', 'SLegible', 'SClaim', 'SHyp', 'BRuns', 'BMissions', 'BSeqs', 'BSeqsAll', 'BWastedNo', 'BWastedCredit', 'BBound', 'BHonestWasted', 'BAuditFail', 'BUnsafe', 'BSave', 'BSavePred', 'BClaim', 'SPoolFlips', 'SPoolN', 'SPoolUpper', 'SBenignFree', 'SBenignOurs', 'SLegitKept'])
+    for name in ('tab_t1_models.tex', 'tab_t1_ablation.tex', 'tab_e_strata.tex', 'tab_i13_dev.tex', 'tab_r.tex', 'tab_h_arms.tex', 'tab_h_sequences.tex', 'tab_s_systems.tex', 'tab_xd_classes.tex'):
         tables.setdefault(name, r'\begin{tabular}{l}\TBD\end{tabular}')
     def write_if_changed(path, text):      # keep mtimes when nothing changed (latexmk and `make check` compare them)
         if not path.is_file() or path.read_text(encoding='utf8') != text:
             path.write_text(text, encoding='utf8')
     write_if_changed(OUT / 'numbers.tex', m.text())
     if FINAL:   # final build: refuse to produce a paper with pending results
-        pend = [ln.split('}')[0].split('{\\')[1] for ln in m.lines[2:] if ln.endswith('{\\TBD}')]
-        pend += [n for n, b in tables.items() if '\\TBD' in b]
-        if pend:
-            raise SystemExit(f'FINAL: {len(pend)} pending (TBD) macros/tables: {pend[:12]} ...')
+        check_final(m, tables, studies=True)
     for name, body in tables.items():
+        if SNAPSHOT:
+            body = re.sub(r'\\TBD(?![A-Za-z])', lambda _: r'\SnapNA{}', body)
         write_if_changed(OUT / name, '% generated by scripts/paper_numbers.py\n' + body + '\n')
     print('macros', len(m.lines) - 2, 'tables', sorted(tables))
 

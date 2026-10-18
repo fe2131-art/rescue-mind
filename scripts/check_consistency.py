@@ -5,6 +5,11 @@ docs/paper/numbers.tex (macros) and the explanation report (docs/report/*.pdf) m
   python3 scripts/check_consistency.py                # table; exit 1 on any MISMATCH
   python3 scripts/check_consistency.py --no-report    # skip the report (no docker / pdftotext)
   python3 scripts/check_consistency.py --report-text FILE   # use already extracted report text
+  python3 scripts/check_consistency.py --snapshot     # the SUBMISSION SNAPSHOT (docs/snapshot/: README, YouTube text, paper, report; `make snapshot`)
+
+--snapshot: a registered study without results reads "registered, not yet run at submission" (登録済み・提出時点で未実施) in every document; that is
+accepted (no TBD, no "pending"), while a TBD, a "pending", a "running" / "結果待ち" for such a study, a result number that disagrees with the
+result files, or a number of a pending study that no sentence wraps is still a MISMATCH.
 
 Expected values are read from experiments/results/*.json (and the ledgers), never from the documents.
 Each fact has up to four cells: README, YouTube text, paper macro, report.  Cells: ok / MISMATCH (the document
@@ -17,12 +22,17 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import os
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
+SNAP = '--snapshot' in sys.argv
+if SNAP:
+    os.environ['SNAPSHOT'] = '1'          # before paper_numbers / advice_numbers are imported
 ROOT = Path(__file__).resolve().parents[1]
+SD = os.environ.get('SNAPSHOT_DIR') or 'docs/snapshot'      # where `make snapshot` writes (untracked); SNAPSHOT_DIR overrides (tests)
 sys.path.insert(0, str(ROOT / 'scripts'))
 RES = ROOT / 'experiments/results'
 LATEX_IMG = 'rescuemind:latex'
@@ -50,7 +60,8 @@ def read(p):
     return f.read_text(encoding='utf8') if f.is_file() else ''
 
 
-def macros(path='docs/paper/numbers.tex'):
+def macros(path=None):
+    path = path or (f'{SD}/paper/numbers.tex' if SNAP else 'docs/paper/numbers.tex')
     out = {}
     for ln in read(path).splitlines():
         m = re.match(r'\\newcommand\{\\([A-Za-z]+)\}\{(.*)\}$', ln)
@@ -93,13 +104,13 @@ def facts():
     if g:
         pr = g['primary']
         b, c, n = pr['wrong_deliveries_B'], pr['wrong_deliveries_C'], pr['n_world_pairs_fire_perceivable']
-        add('G deliveries despite fire', f'{b}/{n} -> {c}/{n}', [f'**{b}回 → {c}回**'], [f'{b}回、横から撮り直すと {c}回'], [],
+        add('G deliveries despite fire', f'{b}/{n} -> {c}/{n}', [f'**{b}/{n} → {c}/{n}**'], [f'{b}回、横から撮り直すと {c}回'], [],
             {'GWrongB': str(b), 'GWrongC': str(c), 'GPairs': str(n)})
     h = jload('h_summary.json')
     if h:
         p1, p2, p3 = h['P1_efficiency_relocation_persist'], h['P2_safety_naive_vs_verified'], h['P3_no_extra_risk_vs_v36']
         t0, t2 = round(p1['time_M0_median_s']), round(p1['time_M2_median_s'])
-        add('H median time M0 -> M2', f'{t0} -> {t2} s', [f'**{t0}秒 → {t2}秒**'], [f'記憶なし {t0}秒・検証つき記憶 {t2}秒'], [f'{t0}→{t2}秒'],
+        add('H median time M0 -> M2', f'{t0} -> {t2} s', [f'{t0}秒 → {t2}秒'], [f'記憶なし {t0}秒・検証つき記憶 {t2}秒'], [f'{t0}→{t2}秒'],
             {'HTimeMzero': str(t0), 'HTimeMtwo': str(t2)})
         add('H unsafe M0 / M1 / M2', f"{p3['unsafe_M0']} / {p2['unsafe_M1']} / {p2['unsafe_M2']} of {p2['n_pairs']}",
             [f"記憶なし {p3['unsafe_M0']}/{p3['n_pairs']}"], [f"素朴な記憶 {p2['unsafe_M1']}件"], [],
@@ -110,7 +121,7 @@ def facts():
         add('L expected behaviour (unseen layouts)', f"{pl['expected_behaviour']}, unsafe {pl['unsafe_deliveries']}",
             [f"期待どおり {pl['expected_behaviour']}、危険な配達 {pl['unsafe_deliveries']}件"], [f"期待どおり {pl['expected_behaviour']}、危険な配達 {pl['unsafe_deliveries']}件"],
             [f"期待どおり{pl['expected_behaviour']}"], {'LCorrect': pl['expected_behaviour'], 'LUnsafe': str(pl['unsafe_deliveries']),
-                                                       'LClaim': 'supported' if pl['claim_supported'] else 'not supported'})
+                                                       'LClaim': 'supported' if pl['claim_supported'] else 'not supported'}, yt_key='閉ループ評価L')   # dropped from the YouTube text by design in the snapshot (5000 bytes)
     import advice_numbers
     pf_ = advice_numbers.a_pilot_facts()
     if pf_:
@@ -181,7 +192,7 @@ def facts():
     if sf:
         add('I-23 z3 unsat queries / differential cases / injected bugs caught',
             f"{sf['unsat']} unsat of {sf['queries']}; {sf['cases']:,} cases, {sf['disagreements']} disagreements; {sf['caught']}/{sf['mutants']} caught",
-            [f"z3 の{sf['unsat']}件の問い", f"{sf['cases']:,}件で不一致 {sf['disagreements']}", f"{sf['caught']}個とも検出"], [],
+            [f"{sf['unsat']}件が反例なし", f"{sf['cases']:,}件で不一致 {sf['disagreements']}", f"{sf['caught']}/{sf['mutants']} を検出"], [],
             [f"{sf['unsat']}件", f"{sf['cases']:,}件で不一致{sf['disagreements']}", f"{sf['mutants']}個を{sf['caught']}個とも"], {})
     if cf:
         add('I-24 advice credit (descriptive model, k=4): liar / flooding', f"{cf['liar_no']:.0f} -> {cf['liar_yes']:.0f} s; {cf['flood_no']} -> {cf['flood_yes']}",
@@ -265,11 +276,12 @@ def main():
     ap.add_argument('--no-report', action='store_true', help='do not read the report / paper PDFs')
     ap.add_argument('--report-text', help='text file with the already extracted report text')
     ap.add_argument('--strict', action='store_true', help='treat skipped documents as failures')
+    ap.add_argument('--snapshot', action='store_true', help='check the submission snapshot in docs/snapshot/ (pending studies read "registered, not yet run at submission")')
     a = ap.parse_args()
     F = facts()
     mac = macros()
-    docs = {'readme': read('README.md'), 'yt': read('docs/YOUTUBE_DESCRIPTION.md'), 'report': None}
-    pdfs = sorted((ROOT / 'docs/report').glob('*.pdf'))
+    docs = {'readme': read(f'{SD}/README.md' if SNAP else 'README.md'), 'yt': read(f'{SD}/YOUTUBE_DESCRIPTION.md' if SNAP else 'docs/YOUTUBE_DESCRIPTION.md'), 'report': None}
+    pdfs = sorted((ROOT / (f'{SD}/report' if SNAP else 'docs/report')).glob('*.pdf'))
     if a.report_text:
         docs['report'] = Path(a.report_text).read_text(encoding='utf8')
     elif not a.no_report and pdfs:
@@ -284,9 +296,29 @@ def main():
         hit = re.search(rx, t)
         extra.append((f'no stale text in {doc} ({why})', 'MISMATCH' if hit else 'ok', f'matches {rx!r}' if hit else ''))
 
+    # README as GitHub renders it: no broken relative link / image / anchor (tracked files only); the first screen keeps its parts
+    if not SNAP:
+        import check_readme_links
+        _n, _bad, _ = check_readme_links.check(ROOT / 'README.md')
+        extra.append((f'README relative links ({_n} checked)', 'MISMATCH' if _bad else 'ok', '; '.join(_bad[:3])))
+    # the deployment guide: every measured number it prints is read back from the result files (scripts/deployment_facts.py)
+    import deployment_facts
+    extra += deployment_facts.check()
+    _dep = read('docs/DEPLOYMENT.md')
+    extra.append(('README links the deployment guide; the guide states the not-validated list and the English summary',
+                  'ok' if ('docs/DEPLOYMENT.md' in docs['readme'] and '## English summary' in _dep and '検証していないこと' in _dep) else 'MISMATCH', ''))
+    first = '\n'.join(docs['readme'].splitlines()[:32])
+    _video_ok = 'YouTube（提出時にURLを記載）' in first or re.search(r'<!--VIDEOURL-->\[YouTube\]\(https://www\.youtube\.com/watch\?v=[A-Za-z0-9_-]{11}\)<!--/VIDEOURL-->', first)   # placeholder, or the URL set by scripts/set_video_url.py
+    _miss = [k for k in ('hero_lookaround.gif', '<!-- KEY:START -->', 'main.pdf', 'REPRODUCE.md', '説明資料') if k not in first] + ([] if _video_ok else ['video placeholder/URL'])
+    extra.append(('README first screen (hero, key table, video placeholder, report, paper, REPRODUCE)', 'MISMATCH' if _miss else 'ok', ', '.join(_miss)))
     # video facts: chapters vs YouTube text vs README "what to watch" (no demo that is not in the video)
     ch = json.loads(read('docs/video_chapters.json') or '[]')
     if ch:
+        import youtube_chapters
+        _bad = youtube_chapters.validate(ch)
+        extra.append((f'video chapters are YouTube-valid ({len(ch)} chapters: 0:00 start, >= 3, ascending, each >= 10 s)', 'MISMATCH' if _bad else 'ok', '; '.join(_bad[:2])))
+        _yt_chars = len(docs['yt'].split('## 概要欄\n', 1)[-1].split('\n\n## 公開設定', 1)[0]) if docs['yt'] else 0
+        extra.append((f'YouTube description {_yt_chars} characters (limit 5000, margin kept)', 'MISMATCH' if _yt_chars > 4900 else 'ok', ''))
         total = ch[-1]['end_s']
         ytxt = docs['yt']
         want = f'約{int(total // 60)}分{int(round(total % 60)):02d}秒'
@@ -391,14 +423,62 @@ def main():
             with contextlib.redirect_stdout(io.StringIO()):
                 pn.main()
             pn.OUT, pn.PENDING_TEXT = old_out, old_pend
+            ref_ = ROOT / (f'{SD}/paper' if SNAP else 'docs/paper')
             stale = [f.name for f in sorted(Path(td).glob('*.tex'))
-                     if (ROOT / 'docs/paper' / f.name).read_text(encoding='utf8') != f.read_text(encoding='utf8')]
-        extra.append(('docs/paper/numbers.tex and tab_*.tex up to date', 'MISMATCH' if stale else 'ok', f'stale: {stale}' if stale else ''))
+                     if not (ref_ / f.name).is_file() or (ref_ / f.name).read_text(encoding='utf8') != f.read_text(encoding='utf8')]
+        extra.append((f'{"docs/snapshot/paper" if SNAP else "docs/paper"}/numbers.tex and tab_*.tex up to date', 'MISMATCH' if stale else 'ok', f'stale: {stale}' if stale else ''))
     except Exception as exc:       # noqa: BLE001
         extra.append(('docs/paper/numbers.tex up to date', 'skip', f'cannot regenerate: {exc}'))
 
+    # the registration ledger is generated from git (scripts/make_registrations.py)
+    try:
+        r_ = subprocess.run([sys.executable, str(ROOT / 'scripts/make_registrations.py'), '--check'], capture_output=True, text=True, cwd=ROOT)
+        extra.append(('docs/REGISTRATIONS.md up to date (scripts/make_registrations.py)', 'ok' if r_.returncode == 0 else 'MISMATCH', r_.stdout.strip() if r_.returncode else ''))
+    except Exception as exc:       # noqa: BLE001
+        extra.append(('docs/REGISTRATIONS.md up to date', 'skip', str(exc)))
+    # the FINDINGS count (rows of docs/FINDINGS.md) is the one stated in the prose of the other documents
+    import count_tests
+    nf_ = count_tests.n_findings()
+    for fn_, pats_ in (('README.md', [r'初めて分かった(\d+)件']), ('docs/FINDINGS.md', [r'以下の(\d+)件']), ('docs/HANDOFF.md', [r'FINDINGS は (\d+) 件', r'実行で見つけた(\d+)件'])):
+        for pat_ in pats_:
+            got_ = re.findall(pat_, read(fn_))
+            extra.append((f'{fn_}: FINDINGS count {nf_} ({pat_})', 'ok' if got_ and all(g_ == str(nf_) for g_ in got_) else 'MISMATCH', f'found {got_}' if not (got_ and all(g_ == str(nf_) for g_ in got_)) else ''))
+
+    # HANDOFF: the failed-claim count and list, and the latest third-party evaluation (round and score), are read back from advice_numbers.failed_claims() and docs/evaluations/
+    if not SNAP:
+        import advice_numbers as an_
+        _ho = read('docs/HANDOFF.md')
+        _fc = an_.failed_claims()
+        _m = re.search(r'不成立の主張は(\d+)件：([^。（）]*)', _ho)
+        _want = '・'.join(c['key'] for c in _fc)
+        _ok = bool(_m) and int(_m.group(1)) == len(_fc) and _m.group(2).strip() == _want
+        extra.append((f'docs/HANDOFF.md: failed registered claims = {len(_fc)} ({_want})', 'ok' if _ok else 'MISMATCH', '' if _ok else f'found {_m.groups() if _m else None}'))
+        _evs = sorted((ROOT / 'docs/evaluations').glob('EVAL_*_*.md'), key=lambda p_: (re.search(r'EVAL_(\d{4}-\d\d-\d\d)_', p_.name).group(1), int(re.search(r'_(\d+)\.md$', p_.name).group(1))))
+        if _evs:
+            _last = _evs[-1]
+            _round = int(re.search(r'_(\d+)\.md$', _last.name).group(1))
+            _row = re.search(r'\*\*合計 / 40\*\*[^\n]*', _last.read_text(encoding='utf8'))
+            _score = (re.search(r'\*\*(\d+(?:\.\d+)?)', _row.group(0)[len('**合計 / 40**'):]) or [None, None])[1] if _row else None
+            _got = re.search(r'最新は第(\d+)回 \*\*(\d+(?:\.\d+)?)/40\*\*', _ho)
+            _ok = bool(_got) and int(_got.group(1)) == _round and (_score is None or _got.group(2) == _score)
+            extra.append((f'docs/HANDOFF.md: latest evaluation = round {_round}, {_score}/40 ({_last.name})', 'ok' if _ok else 'MISMATCH', '' if _ok else f'found {_got.groups() if _got else None}'))
+        # the study A figure exists for the three documents that use it (scripts/make_a_figure.py)
+        if an_.a_facts():
+            _miss_f = [f_ for f_ in ('docs/paper/fig_a_results.pdf', 'docs/figures/a_results_ja.png', 'docs/figures/a_results_en.png') if not (ROOT / f_).is_file()]
+            extra.append(('study A figure files (paper supplement, README, report)', 'MISMATCH' if _miss_f else 'ok', ', '.join(_miss_f)))
+            extra.append(('README shows the study A figure', 'ok' if 'docs/figures/a_results_ja.png' in docs['readme'] else 'MISMATCH', ''))
+
+    # docs/SUBMISSION.md: the report's page counts are the measured ones (scripts/update_submission_facts.py writes them)
+    if not SNAP and not a.no_report and pdfs:
+        import update_submission_facts as usf_
+        _now = usf_.report_fact()
+        _have = re.search(r'<!--FACT:report-->(.*?)<!--/FACT:report-->', read('docs/SUBMISSION.md'), re.S)
+        _ok = bool(_now) and bool(_have) and _have.group(1) == _now
+        extra.append(('docs/SUBMISSION.md: report page counts = measured (run scripts/update_submission_facts.py)', 'ok' if _ok else 'MISMATCH',
+                      '' if _ok else f'file says {(_have.group(1) if _have else None)!r}, PDF is {_now!r}'))
+
     # the paper PDF: no red TBD, and no pending marker in the abstract
-    mp = ROOT / 'docs/paper/main.pdf'
+    mp = ROOT / (f'{SD}/paper/main.pdf' if SNAP else 'docs/paper/main.pdf')
     if mp.is_file() and not a.no_report:
         pt = pdf_text(mp)
         if pt is None:
@@ -416,8 +496,49 @@ def main():
             ab_txt = p1_[m_a.end():m_i.start()] if (m_a and m_i and m_i.start() > m_a.end()) else ''
             nw_ = len(ab_txt.split())
             extra.append((f'main.pdf: abstract length ({nw_} words; target <= 200)', 'ok' if nw_ <= 200 else 'warn', ''))
-            if (ROOT / 'docs/paper/numbers.tex').stat().st_mtime > mp.stat().st_mtime + 1:
+            if (ROOT / (f'{SD}/paper/numbers.tex' if SNAP else 'docs/paper/numbers.tex')).stat().st_mtime > mp.stat().st_mtime + 1:
                 extra.append(('main.pdf newer than numbers.tex', 'warn', 'rebuild the paper (make paper)'))
+
+    # ------------------------------------------------------------------ submission snapshot: pending = registered-not-run wording, never a TBD
+    if SNAP:
+        import advice_numbers
+        import paper_numbers as pn_
+        pend = advice_numbers.pending_list()
+        extra.append((f'snapshot: studies without results = {", ".join(pend) or "none"}', 'ok', 'wording: ' + advice_numbers.PENDING_EN))
+        word_rx = re.compile(r'TBD|\(pending\)|\bpending\b|\brunning\b|\bawaiting\b|実行中|結果待ち|実行待ち|評価中|not yet run(?! at submission)')
+        pdf_rx = re.compile(r'TBD|\(pending\)|\bpending\b|registered at merge')      # the paper's own prose may say "running the stack" / "not yet run" (adaptive views)
+        texts = {'README': docs['readme'], 'YouTube text': docs['yt'], 'report': docs.get('report')}
+        mp_ = ROOT / SD / 'paper/main.pdf'
+        if mp_.is_file() and not a.no_report:
+            texts['main.pdf'] = pdf_text(mp_)
+            sp_ = ROOT / SD / 'paper/supplement.pdf'
+            if sp_.is_file():
+                texts['supplement.pdf'] = pdf_text(sp_)
+        for nm_, t_ in texts.items():
+            if t_ is None:
+                if nm_ != 'report' and nm_ not in ('main.pdf', 'supplement.pdf'):
+                    extra.append((f'snapshot {nm_} exists', 'MISMATCH', 'not found: run make snapshot'))
+                continue
+            if not t_.strip():
+                extra.append((f'snapshot {nm_} exists', 'MISMATCH', 'empty: run make snapshot'))
+                continue
+            hits = sorted({m_.group(0) for m_ in (pdf_rx if nm_.endswith('.pdf') else word_rx).finditer(t_)})
+            extra.append((f'snapshot {nm_}: no TBD / pending / running / waiting marker', 'MISMATCH' if hits else 'ok', f'found {hits}' if hits else ''))
+            if pend and nm_ in ('README', 'report', 'YouTube text'):
+                has_ = advice_numbers.PENDING_JA in t_ or advice_numbers.PENDING_EN in t_
+                extra.append((f'snapshot {nm_}: says that {", ".join(pend)} are registered, not yet run at submission', 'ok' if has_ else 'MISMATCH', ''))
+        probs = pn_.snapshot_problems([ROOT / f'docs/paper/{f_}.tex' for f_ in ('main', 'supplement', 'sec_formal')], read(f'{SD}/paper/numbers.tex'), set(pend))
+        extra.append(('snapshot paper sources: every number of a pending study is wrapped in its pending form (\\IfPend<study>)', 'MISMATCH' if probs else 'ok', '; '.join(probs[:3])))
+        ex_ = pn_.snapshot_expand(read('docs/paper/main.tex'), set(pend))
+        ab_ = ex_.split(r'\begin{abstract}')[-1].split(r'\end{abstract}')[0]
+        if pend:
+            extra.append(('snapshot abstract says that the pending studies were not run', 'ok' if 'not run at submission' in ab_.lower() else 'MISMATCH', ''))
+            body_ = ex_.split(r'\section{Conclusion}')[-1]
+            extra.append(('snapshot conclusion words the claim on pending study A conditionally' if 'A' in pend else 'snapshot conclusion',
+                          'ok' if ('A' not in pend or 'not run at submission' in body_) else 'MISMATCH', ''))
+        sc_ = advice_numbers.study_counts()
+        if sc_:
+            extra.append(('snapshot Table S9: studies without results = registered, not run', 'ok' if sc_['pending'] == len(pend) else 'MISMATCH', f"table says {sc_['pending']}, result files say {len(pend)}"))
 
     # ------------------------------------------------------------------ print
     w0 = max(len(r[0]) for r in rows) + 2 if rows else 10

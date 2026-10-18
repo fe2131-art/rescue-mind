@@ -77,8 +77,17 @@ if __name__ == '__main__':
     p.add_argument('--max-life', type=float, default=240.0, help='longest time one record keeps being permitted (s)')
     p.add_argument('--log', default=None, help='JSONL of decisions (audited by the orchestrator)')
     p.add_argument('--image-root', default=None, help='the record images must lie under this directory')
-    p.add_argument('--hazard-threshold', type=float, default=0.05,
-                   help='the server tau_h every model call must record (v3.6: 0.05); a record under another value is denied')
+    p.add_argument('--hazard-threshold', type=float, default=None,
+                   help='the server tau_h every model call must record (default 0.05 = v3.6); a record under another value is denied; '
+                        'with --site-config the site value (a conflicting flag is an error)')
+    p.add_argument('--site-config', default=None, help='I-26: site.json with the site tau_h (the same file as the server and the mission)')
     p.add_argument('--require-look-around', action='store_true', help='refuse unless side views L and R were taken')
     p.add_argument('--require-adaptive', action='store_true', help='refuse unless the adaptive-view block exists')
-    run(p.parse_args())
+    ns = p.parse_args()
+    try:
+        from rescuemind import real_profile as rp
+        site = rp.load_site_config(ns.site_config) if ns.site_config else None
+        ns.hazard_threshold = rp.resolve('hazard-threshold', ns.hazard_threshold, site.hazard_threshold if site else None, 0.05)
+    except ValueError as e:        # SiteConfigError
+        p.error(str(e))
+    run(ns)

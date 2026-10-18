@@ -9,9 +9,16 @@ KEEP_LAST subscription is compatible and keeps freshness watchdogs truthful.
 """
 
 
-def image_qos(depth: int = 2):
+def image_qos(depth: int = 2, reliability: str = 'reliable'):
+    """Camera subscription QoS.  'reliable' (the default, used by every simulation run) is what the ros_gz bridge needs.
+    I-26: 'best_effort' exists only for the opt-in real-robot profile (`--camera-qos best_effort` with `--clock-source system`):
+    most camera drivers publish best-effort, and a Reliable subscriber never connects to them.  A best-effort subscriber
+    connects to both kinds of publishers; the freshness / stationarity checks that follow are unchanged."""
     from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
-    return QoSProfile(depth=depth, reliability=ReliabilityPolicy.RELIABLE,
+    if reliability not in ('reliable', 'best_effort'):
+        raise ValueError('image QoS must be reliable or best_effort')
+    policy = ReliabilityPolicy.RELIABLE if reliability == 'reliable' else ReliabilityPolicy.BEST_EFFORT
+    return QoSProfile(depth=depth, reliability=policy,
                       history=HistoryPolicy.KEEP_LAST, durability=DurabilityPolicy.VOLATILE)
 
 

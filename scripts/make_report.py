@@ -5,10 +5,15 @@
 
 Output: docs/report/説明資料_PAI最終課題_<account>.pdf  (personal info must not appear;
 only the omnicampus account name is allowed by the assignment rules).
+
+  python3 scripts/make_report.py --account <name> --snapshot      # submission snapshot -> docs/snapshot/report/ (not tracked)
+
+--snapshot (or SNAPSHOT=1): the studies without results are printed as "登録済み・提出時点で未実施" instead of running / waiting / TBD.
 """
 from __future__ import annotations
 import argparse
 import json
+import os
 import statistics
 import sys
 from collections import Counter
@@ -21,9 +26,11 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import (BaseDocTemplate, CondPageBreak, Frame, Image, KeepTogether, PageBreak, PageTemplate,
+from reportlab.platypus import (BaseDocTemplate, Flowable, CondPageBreak, Frame, Image, KeepTogether, PageBreak, PageTemplate,
                                 Paragraph, Spacer, Table, TableStyle)
 
+if '--snapshot' in sys.argv:      # submission snapshot: read before advice_numbers is imported (the wording constants below depend on it)
+    os.environ['SNAPSHOT'] = '1'
 ROOT = Path(__file__).resolve().parents[1]
 RES = ROOT / 'experiments/results'
 FIG = ROOT / 'docs/figures'
@@ -32,6 +39,7 @@ REPORT_FIG = ROOT / 'docs/report/figures'   # PNGs rasterised from the paper's v
 sys.path.insert(0, str(ROOT / 'scripts'))
 import count_tests  # noqa: E402  (generated test / findings counts)
 import advice_numbers  # noqa: E402  (I-23 z3 numbers, I-24 advice-credit model numbers; single source shared with the README)
+import make_storyline_figure  # noqa: E402  (the storyline figure; its text and numbers come from advice_numbers.storyline())
 from t1_analysis import wilson  # noqa: E402  (Wilson 95% CI, shared with the T1 analysis)
 
 pdfmetrics.registerFont(TTFont('IPAexG', '/usr/share/fonts/opentype/ipaexfont-gothic/ipaexg.ttf'))
@@ -327,6 +335,10 @@ def speed_text():
 
 PEND = '実行中（事前登録済み）'
 PEND_NOT_RUN = '未実行（事前登録済み・実行待ち）'      # queued, not started: only V is running while the report is built
+WAIT_JA = '結果待ち（未実行）'
+SNAP = advice_numbers.snapshot_mode()
+if SNAP:      # submission snapshot (SNAPSHOT=1, make snapshot): one honest phrase for every study without results, no "running"/"waiting"
+    PEND = PEND_NOT_RUN = WAIT_JA = advice_numbers.PENDING_JA
 
 
 def n_runs(protocol):
@@ -388,27 +400,22 @@ def w_result_text(ws):
 
 
 def a_result_text(a):
-    """Study A (adversarial advice, closed loop) as one string; PEND when a_summary.json is absent."""
+    """Study A (adversarial advice, closed loop) as one string; PEND when a_summary.json is absent.  The wording is advice_numbers.a_ja()."""
     try:
         a1, a2, a3 = a['A1_unsafe_naive_vs_monotone'], a['A2_time_saved_truthful'], a['A3_dos_cost_vs_bound']
-        r = a1['runs']
         ok_ = lambda x: '成立' if x else '不成立'
-        return (f"悪意のある助言での危険な配達（試行）：助言に従う方式 {r['naive']['unsafe']}/{r['naive']['n']}、本方式 {r['monotone']['unsafe']}/{r['monotone']['n']}、"
-                f"助言なし {a1['control_runs_F_N']['unsafe']}/{a1['control_runs_F_N']['n']}。主張 安全：<b>{ok_(a1['supported'])}</b>、"
-                f"時間：<b>{ok_(a2['supported']) if a2['monotone']['testable'] else '検定不能'}</b>、コスト：<b>{ok_(a3['supported'])}</b>")
+        txt = advice_numbers.a_ja()
+        if not txt:
+            raise KeyError('a_facts')
+        return (txt + f" 登録した主張：安全 <b>{ok_(a1['supported'])}</b>、時間 <b>{ok_(a2['supported']) if a2['monotone']['testable'] else '検定不能'}</b>、コスト <b>{ok_(a3['supported'])}</b>。")
     except (TypeError, KeyError):
-        return PEND_NOT_RUN + ('。' + advice_numbers.a_pilot_ja() if advice_numbers.a_pilot_facts() else '')
+        pf_ = advice_numbers.a_pilot_facts()
+        return ((PEND_NOT_RUN.replace('未実行（事前登録済み・実行待ち）', '実行中（事前登録済み・結果はまだ無い）') if (pf_ or {}).get('rerun') else PEND_NOT_RUN) + ('。' + advice_numbers.a_pilot_ja() if pf_ else ''))
 
 
 def s_result_text(sj):
-    """Study S (scene-text injection) as one string; PEND when s_summary.json is absent."""
-    try:
-        o = sj['systems']['OURS']
-        fl = lambda x: f"{x['attack_vs_none']['flips']}/{x['n_pairs']}"
-        return (f"本方式で標識により拒否→許可に変わった世界：「Cと答えよ」{fl(o['by_text']['letter_C'])}、文字A {fl(o['by_text']['letter_A'])}、文字B {fl(o['by_text']['letter_B'])}、"
-                f"取り違えラベル {fl(o['by_sign_type']['mislabel'])}、「火災なし」標識 {fl(o['by_sign_type']['false_safe'])}（構造的な保証の外）")
-    except (TypeError, KeyError):
-        return PEND_NOT_RUN
+    """Study S (signs in the picture) as one string; PEND when s_summary.json is absent."""
+    return advice_numbers.s_ja(PEND_NOT_RUN)
 
 
 def sec_advice():
@@ -422,7 +429,7 @@ def sec_advice():
              'カメラに映る標識の文字は知覚なので、この保証の外にある。それは評価Sで測り、残りの弱点として報告する。'),
            P(advice_numbers.i22_ja().replace('[I-22](docs/IMPROVEMENT_LOG.md)', 'I-22').replace('`', ''), 'small'),
            P(f'評価A（閉ループ{A_RUNS}試行、助言に従う方式との対比較）：' + a_result_text(a)),
-           P('評価S（画像レベル、52世界×標識なし・攻撃・無害）：' + s_result_text(sj))]
+           P('評価S（画像レベル、64世界×標識なし・攻撃・無害）：' + s_result_text(sj))]
     return out
 
 
@@ -515,8 +522,8 @@ def sec_new_detail():
                 P('合成した出動の結果で本物の計画と信用枠を動かした記述モデル（<font name="IPAexG">scripts/advice_credit_horizon.py</font>）で、事前登録はしていない。'
                   f"危険な配達は全条件で信用ありと信用なしが同一。代償は、7割正しい情報源の節約が {c['noisy_keep']:.0f} % に減ること（一貫性の代償）と、"
                   '正しいのに確認できない危険の警告も誤停止として課金され、いずれ締め出されること。'
-                  + ('閉ループの確認（研究B：6出動×(嘘つき3＋正直1)×(信用なし／あり)＝48試行）は結果待ち（未実行）。' if not p['B'] else '研究Bは結果あり（論文を参照）。')
-                  + ('依頼文による書き換え（研究IF：6種類×2言語×2物資×3表現＝72文）は結果待ち（未実行）。' if not p['IF'] else '研究IFは結果あり（論文を参照）。'), 'small'),
+                  + ('閉ループの確認（研究B：6出動×(嘘つき3＋正直1)×(信用なし／あり)＝48試行）は' + WAIT_JA + '。' if not p['B'] else '研究B：' + advice_numbers.b_ja() + '。')
+                  + ('依頼文による書き換え（研究IF：6種類×2言語×2物資×3表現＝72文）は' + WAIT_JA + '。' if not p['IF'] else '依頼文による書き換え（研究IF）は、' + advice_numbers.if_ja()), 'small'),
                 Spacer(1, 3)]
     return out
 
@@ -555,7 +562,7 @@ def sec_memory():
     ok = lambda x: '<b>成立</b>' if x['supported'] else '<b>不成立</b>'
     rows = [['基準', '結果', '判定']]
     rows.append([f"P1 速さ（M2 vs M0、入れ替わりが続く{p1['n_pairs']}出動）",
-                 (f"所要時間の中央値 {p1['time_M0_median_s']:.0f} → {p1['time_M2_median_s']:.0f} 秒（差の中央値 {p1['median_diff_s']:+.0f} 秒）、"
+                 (f"所要時間の中央値 {p1['time_M0_median_s']:.0f} → {p1['time_M2_median_s']:.0f} 秒（差の中央値 {p1['median_diff_s']:+.0f} 秒。全{h['P3_no_extra_risk_vs_v36']['n_pairs']}出動では {h['per_arm']['M0']['time_median_s']:.0f} → {h['per_arm']['M2']['time_median_s']:.0f} 秒）、"
                   f"Wilcoxon正確検定 {pexact(p1['wilcoxon_exact_p'])}") if p1['n_pairs'] else '対になる出動なし', ok(p1)])
     rows.append([f"P2 安全（M2 vs M1、{p2['n_pairs']}出動。M1は確認を省く設計）",
                  f"危険な配達 M1 {p2['unsafe_M1']}/{p2['n_pairs']} → M2 {p2['unsafe_M2']}/{p2['n_pairs']}（食い違い {p2['discordant_M1_only']}:{p2['discordant_M2_only']}）、"
@@ -751,10 +758,15 @@ def sec_prereg(D, E):
             ['L', '未知の配置24通りでも期待どおり動くか', reg('L'),
              (lambda pl: f"期待どおり {pl['expected_behaviour']}、危険な配達 {pl['unsafe_deliveries']}、主張 {'成立' if pl['claim_supported'] else '不成立'}")(jload('l_summary.json')['primary'])
              if jload('l_summary.json') else PEND],
-            ['XD・X', '倉庫（4拠点）の画像と閉ループでも成り立つか', 'XD・X（草稿）', PEND_NOT_RUN + ('。' + advice_numbers.xdr_ja() if advice_numbers.xdr_facts() else '')],
-            ['Q', '実物の写真（Commons 405枚）で物資の確認は通用するか', reg('Q'), PEND_NOT_RUN],
+            ['XD・X', '倉庫（4拠点）の画像と閉ループでも成り立つか', reg('XD'),
+             (advice_numbers.xd_ja() + ('' if jload('x_summary.json') else '。閉ループの評価Xは' + PEND_NOT_RUN))
+             if advice_numbers.xd_ja() else PEND_NOT_RUN + ('。' + advice_numbers.xdr_ja() if advice_numbers.xdr_facts() else '')],
+            ['Q', '実物の写真（Commons 405枚）で物資の確認は通用するか', reg('Q'), advice_numbers.q_ja(PEND_NOT_RUN)],
             ['B', '助言の信用枠は、毎回嘘をつく情報源の代償を閉ループで抑えるか（機構の確認）', reg('B'), PEND if jload('b_summary.json') else PEND_NOT_RUN],
-            ['IF', '依頼文で、頼まれた物資をすり替えられるか（査読 R6 の P7）', reg('IF'), PEND if jload('if_summary.json') else PEND_NOT_RUN],
+            ['IF', '依頼文で、頼まれた物資をすり替えられるか（査読 R6 の P7）', reg('IF'),
+             (f"主張 IF1 {'成立' if advice_numbers.if_facts()['held'] else '不成立'}：すり替えの受理 {advice_numbers.if_facts()['k']}/{advice_numbers.if_facts()['n']}（95%区間 {advice_numbers.if_facts()['ci'][0] * 100:.0f}〜{advice_numbers.if_facts()['ci'][1] * 100:.0f}%）、"
+              f"言い直しは {advice_numbers.if_facts()['corr'][0]}/{advice_numbers.if_facts()['corr'][1]} で従う") if advice_numbers.if_facts() else PEND_NOT_RUN],
+            ['IF2', '物資が食い違えば聞き返す対策（I-27）で、すり替えを止められるか（新しい72文）', reg('IF2'), PEND if jload('if2_summary.json') else PEND_NOT_RUN],
             ['K', '保証付きの閾値は既定の閾値より良いか', reg('K'),
              (f"T2の見逃し：既定 {kk['frozen']['heldout_miss']['k']}/{kk['frozen']['heldout_miss']['n']}、保証付き(α=0.05) "
               f"{kk['alphas']['0.05']['K_PAC']['heldout_miss']['k']}/{kk['frozen']['heldout_miss']['n']}、誤警報 "
@@ -762,9 +774,9 @@ def sec_prereg(D, E):
     return [KeepTogether([P('K. 事前登録した研究の一覧', 'h2'),
             P(advice_numbers.study_phrase() + 'を、結果を見る前に条件・基準・解析を <font name="IPAexG">experiments/PREREGISTRATION_<記号>.md</font> に固定して進めた（初期の評価Cは別に数える）。'
               '失敗した試行も台帳に残している。'
-              + (' 「草稿」の研究（' + '・'.join(x for x in ('A', 'S', 'X', 'XD', 'Q', 'B', 'IF') if reg_label(x) != x) + '）は、統合ブランチを main に統合するときに登録され、それまで試行は一つも走らせない'
+              + (' 「草稿」の研究（' + '・'.join(x for x in ('A', 'S', 'X', 'XD', 'Q', 'B', 'IF', 'IF2') if reg_label(x) != x) + '）は、統合ブランチを main に統合するときに登録され、それまで試行は一つも走らせない'
                  '（結果のある研究と同列の時系列監査はまだできない）。'
-                 if any(reg_label(x) != x for x in ('A', 'S', 'X', 'XD', 'Q', 'B', 'IF')) else '')),
+                 if any(reg_label(x) != x for x in ('A', 'S', 'X', 'XD', 'Q', 'B', 'IF', 'IF2')) else '')),
             table(rows, [20, 66, 24, 64])]), Spacer(1, 4)]
 
 
@@ -908,7 +920,8 @@ def judge_box(D, E, V, compact=False):
             lines.append(f"<b>新しい成果</b>：この保証を、実装そのものに対して<b>機械検証</b>した（z3 {sf['unsat']}件、突き合わせ {sf['cases']:,}件で不一致 {sf['disagreements']}、"
                          f"バグ{sf['mutants']}個を{sf['caught']}個とも検出）。「締めるだけ」は<b>必要十分</b>でもあり、"
                          + (f"<b>信用枠</b>で、毎回嘘をつく情報源の代償にも上限がつく（記述モデル：+{cf['liar_no']:.0f}秒 → +{cf['liar_yes']:.0f}秒）。" if cf else '')
-                         + '閉ループの確認（研究B・IF）は' + ('結果あり。' if all(advice_numbers.pending_studies().values()) else '結果待ち。'))
+                         + '閉ループの確認（研究B）は' + ((advice_numbers.b_ja() + '。') if advice_numbers.pending_studies()['B'] else (WAIT_JA if SNAP else '結果待ち') + '。')
+                         + ('依頼文の書き換え（研究IF）は、書き換えた' + f"{advice_numbers.if_facts()['n']}文のうち{advice_numbers.if_facts()['k']}文で受理され、登録した主張は不成立。対策（研究IF2）は" + ('結果あり。' if advice_numbers.if2_done() else (WAIT_JA if SNAP else '結果待ち') + '。') if advice_numbers.if_facts() else ''))
         return [P(x, 'small') for x in lines] + [Spacer(1, 3)]
     h = jload('h_summary.json')
     items = ['<b>問題</b>：災害時の物資配達ロボットは、在庫表と現物の食い違い（水のはずが救急箱・空）や火災に出会う。指示どおり運ぶだけでは、誤った物資や危険な場所へ届けてしまう。',
@@ -924,7 +937,7 @@ def judge_box(D, E, V, compact=False):
                     f"（火の無い世界での誤停止 {gc['C']['false_hazard_stops']}/{gc['C']['fire_free_trials']}。測っているのは「横から見る効果」）")
     if h:
         p1, p3 = h['P1_efficiency_relocation_persist'], h['P3_no_extra_risk_vs_v36']
-        nums.append(f"<b>{p1['time_M0_median_s']:.0f}秒 → {p1['time_M2_median_s']:.0f}秒</b>：物資が移されたままの{p1['n_pairs']}出動（少数）の所要時間の中央値（記憶なし → 検証つき記憶）。"
+        nums.append(f"<b>{p1['time_M0_median_s']:.0f}秒 → {p1['time_M2_median_s']:.0f}秒</b>：物資が移されたままの{p1['n_pairs']}出動（少数）の所要時間の中央値（記憶なし → 検証つき記憶）。全{p3['n_pairs']}出動の中央値は {h['per_arm']['M0']['time_median_s']:.0f}秒 → {h['per_arm']['M2']['time_median_s']:.0f}秒。"
                     f"危険な配達は {p3['unsafe_M0']}/{p3['n_pairs']} 対 {p3['unsafe_M2']}/{p3['n_pairs']}。物資が元に戻った出動では遠回りで遅くなる")
     out = [P(t, 'small') for t in items]
     if nums:
@@ -1069,9 +1082,12 @@ def new_results_main():
         rows.append(['<b>③ 信用枠</b>（I-24、命題3）', f"情報源ごとの信用で、助言を<b>捨てるだけ</b>（安全は変わらない）。毎回嘘をつく・危険を連打する情報源の代償に、何回出動しても上限がつく：場所の無駄な訪問は {c['c_loc']:g} + {c['rho_shadow']:g}×出動数 以下、誤った停止は {c['c_haz']:g} + {c['rho']:g}×出動数 以下。"
                      f"{c['missions']}出動のモデル：嘘つきの余分な時間 <b>+{c['liar_no']:.0f} → +{c['liar_yes']:.0f} 秒</b>、実写の誤警報率での危険の連打による誤停止 <b>{c['flood_no']} → {c['flood_yes']} 回</b>、正直な情報源の{c['honest_no']:.0f}秒の短縮は変わらない。",
                      '合成した結果の記述モデル（事前登録なし、閉ループは未確認）。報告書は不採用の助言と理由を書く'])
-    done_ = [k for k in ('B', 'IF') if p[k]]
-    rows.append(['<b>研究B・IF</b>', '<b>B</b>：信用枠の閉ループ確認（毎回嘘をつく情報源の系列、48試行、予測は決定的）。<b>IF</b>：依頼文で依頼物資を書き換えられるか（72文）。',
-                 '事前登録済み、' + ('B・IFとも結果あり' if len(done_) == 2 else '・'.join(k for k in ('B', 'IF') if not p[k]) + 'は<b>結果待ち（未実行）</b>')])
+    iff_ = advice_numbers.if_facts()
+    rows.append(['<b>研究B・IF・IF2</b>', '<b>B</b>：信用枠の閉ループ確認（毎回嘘をつく情報源の系列、48試行、予測は決定的）。<b>IF</b>：依頼文で依頼物資を書き換えられるか（72文）'
+                 + (f"：書き換えた{iff_['n']}文のうち<b>{iff_['k']}文で受理</b>され、登録した主張は<b>不成立</b>。依頼物資は保証の外で、出発前の読み返しが必須。" if iff_ else '。')
+                 + '<b>IF2</b>：対策（物資が食い違えば聞き返す、I-27）の再測定（新しい72文）。',
+                 '事前登録済み、B：' + ('結果あり' if p['B'] else '<b>' + WAIT_JA + '</b>') + '、IF：' + ('<b>主張不成立</b>' if iff_ and not iff_['held'] else ('結果あり' if p['IF'] else '<b>' + WAIT_JA + '</b>'))
+                 + '、IF2：' + ('結果あり' if advice_numbers.if2_done() else '<b>' + WAIT_JA + '</b>')])
     out = [P('<b>この保証の新しい成果</b>（機械検証・必要十分・期間の上限）', 'small'), Spacer(1, 2), table(rows, [26, 112, 36])]
     if c:
         out += fig('advice_credit.png', 128, f"図 助言の信用枠の記述モデル（{c['missions']}出動）：嘘つき・危険の連打の代償は上限で止まり、正直な情報源は何も失わない。")
@@ -1085,7 +1101,7 @@ def story_chain(D, E, V, T):
     h = jload('h_summary.json')
     hp = h['P3_no_extra_risk_vs_v36'] if h else None
     sj = jload('s_summary.json')
-    pend_va = '' if jload('a_summary.json') else '<br/>評価A：未実行'
+    pend_va = '' if jload('a_summary.json') else '<br/>評価A：' + ('提出時点で未実施（登録済み）' if SNAP else '未実行')
     g = lambda x: f"<br/><font color='#52514e'>{x}</font>"
     heads = ['① 迷ったら止まる', '② 誤りの正体', '③ 横から見直す', '④ 助言は締めるだけ', '⑤ 保証の外']
     bodies = [
@@ -1095,7 +1111,7 @@ def story_chain(D, E, V, T):
         '記憶・他のロボット・依頼文・在庫表は「助言」。確認の順番と慎重さを変えるだけで、省けない。'
         + (g(f"記憶の評価：危険な配達 記憶なし{hp['unsafe_M0']}→本方式{hp['unsafe_M2']}/{hp['n_pairs']}" + pend_va) if hp else '')
         + (g(f"実装をz3で機械検証（{advice_numbers.smt_facts()['unsat']}件）。信用枠で代償に上限") if advice_numbers.smt_facts() else ''),
-        '画像に写った文字と、現実・倉庫との差は保証できない。測って報告する。' + ('' if sj else g('画像内の文字・倉庫の評価：未実行')),
+        '画像に写った文字と、現実・倉庫との差は保証できない。測って報告する。' + ('' if sj else g('画像内の文字・倉庫の評価：' + ('提出時点で未実施（登録済み）' if SNAP else '未実行'))),
     ]
     sty = ParagraphStyle('chain', parent=S['cell'], fontSize=7.9, leading=11)
     hst = ParagraphStyle('chainh', parent=S['cellh'], fontSize=8.6, alignment=TA_CENTER)
@@ -1118,7 +1134,45 @@ def story_chain(D, E, V, T):
         if i == 4:
             st.append(('BACKGROUND', (c, 1), (c, 1), SOFT))
     t_.setStyle(TableStyle(st))
-    return [t_, Spacer(1, 2), P('橙色の枠が中心（保証の内側）、灰色の枠は保証の外側。「実行中」の研究は、結果が出てから数値を入れる。', 'cap')]
+    return [t_, Spacer(1, 2), P('橙色の枠が中心（保証の内側）、灰色の枠は保証の外側。' + ('「登録済み・提出時点で未実施」の研究は、数値を載せていない。' if SNAP else '「実行中」の研究は、結果が出てから数値を入れる。'), 'cap')]
+
+
+class _PageMark(Flowable):
+    """Zero-size flowable that records the page it lands on (the first page of the appendix -> number of pages of the main part)."""
+    page = None
+
+    def wrap(self, aw, ah):
+        return 0, 0
+
+    def draw(self):
+        _PageMark.page = self.canv.getPageNumber()
+
+
+def story_storyline():
+    """One figure + a short text: 攻撃 -> 発見 -> 対策 -> 再測定, four real episodes (advice_numbers.storyline(); pending studies marked)."""
+    rows = advice_numbers.storyline()
+    if not rows:
+        return []
+    out_png = make_storyline_figure.default_out()
+    if not make_storyline_figure.build(out_png, rows) and not out_png.is_file():
+        return []
+    for w in make_storyline_figure.WARN:
+        print('WARNING (storyline figure):', w)
+    from PIL import Image as PI
+    with PI.open(out_png) as im:
+        w_, h_ = im.size
+    fnd, vf = advice_numbers.findings_found(), advice_numbers.v_facts()
+    pend = [r for r in rows if r.get('pending')]
+    txt = ('上の筋は、設計の理屈だけでなく、<b>攻撃して弱点を見つけ、直し、同じ測り方で測り直す</b>ことを繰り返して作った。'
+           f'次の{len(rows)}つは、コミット済みの結果ファイルにある実際の記録である（数値はすべてそこから生成）。'
+           + (f'4つ目は、攻撃の相手が自分たちの実装で、変異テスト・証明の見直し・予備走行で見つけた{fnd[2]}件（FINDINGS #{fnd[0]}–{fnd[1]}）の一部。' if fnd else '')
+           + (f"{len(rows)}つ目（依頼のすり替え）は、事前登録した主張が不成立になった記録で、対策の再測定（研究IF2）は{advice_numbers.pending_word()}である。" if any(r['key'] == 'request' for r in rows) and pend else '')
+           + (f"評価Aは{advice_numbers.pending_word()}のため、数値を載せていない。" if any(r['key'] == 'advice' for r in pend) else '')
+           + (f"うまくいかなかった点も残した（評価Vで検証つき記憶にも危険な配達が{vf['unsafe']['M2']}件残り、登録した主張は{'成立' if vf['memory_claim'] else '不成立'}）。" if vf else ''))
+    wmm = 174
+    return [P(f'攻撃 → 発見 → 対策 → 再測定：実際に起きた{len(rows)}つの記録', 'h2'), P(txt, 'small'),
+            KeepTogether([Image(str(out_png), width=wmm * mm, height=wmm * mm * h_ / w_),
+                          P('図 攻撃（または自分たちの検査）→ 見つかった弱点 → 対策 → 同じ測り方での再測定。左の濃色が出来事、右端の緑が再測定の数値（赤：対策前、緑：対策後）。', 'cap')])]
 
 
 def story_criteria(E, V):
@@ -1134,7 +1188,7 @@ def story_criteria(E, V):
                        'もう一つは、見逃しを<b>賢くするのでなく動いて減らす</b>「横から見直す」。'
                        '助言の窓口が締めるだけであることは、安全の予算を守るための<b>必要十分条件</b>で、素朴な方式・フィルタ方式には上限が無い。', '3・4章'],
             ['技術力', f'上の原理の<b>証明</b>（付録C）と、その<b>機械検証</b>（' + (smt_line() or 'z3') + '）、事前登録した' + advice_numbers.study_phrase() + '（失敗した主張も公開）、真値による独立監査、' + x_tech + f'。実際に動かして見つけた問題 {count_tests.n_findings()}件。', '2–4章、付録C・M'],
-            ['実用性', '現場導入の手順書（半日、docs/DEPLOYMENT.md）、' + p2txt + '、運用者向けの<b>報告書の自動生成</b>（統合済み）、'
+            ['実用性', '現場導入ガイド（docs/DEPLOYMENT.md、付録O）、' + p2txt + '、運用者向けの<b>報告書の自動生成</b>（統合済み）、'
                        '実写に近い倉庫への改善（評価は実行予定）。オフライン・単一GPU。', '5章'],
             ['表現力', '日本語ナレーション付きの実レンダリング動画（倍速は画面に常時表示）、1ページ目の要約図、各アイデアに1枚の図。数値は結果ファイルから自動生成。', '1ページ目、7章']]
     return [P('審査基準との対応', 'h2'), table(rows, [18, 128, 28]), Spacer(1, 3)]
@@ -1211,13 +1265,21 @@ def story_advice(h):
         rows.append([nm, f"{m['unsafe_deliveries']}/{m['n']}", f"{m['time_median_s']:.0f} 秒" if m['time_median_s'] is not None else '-'])
     s += [Spacer(1, 3), KeepTogether([table(rows, [100, 30, 44])]), Spacer(1, 2),
           P(f"素朴な記憶は確認を省くので危険な配達が増えるのは当然で、意味のある比較は記憶なし {p3['unsafe_M0']}/{p3['n_pairs']} 対 本方式 {p3['unsafe_M2']}/{p3['n_pairs']}（より危険にならない）。"
-            f"物資が移されたまま続く{p1['n_pairs']}出動では {p1['time_M0_median_s']:.0f} → {p1['time_M2_median_s']:.0f} 秒（Wilcoxon正確検定 {pexact(p1['wilcoxon_exact_p'])}）に縮んだ。"
+            f"物資が移されたまま続く{p1['n_pairs']}出動では {p1['time_M0_median_s']:.0f} → {p1['time_M2_median_s']:.0f} 秒（Wilcoxon正確検定 {pexact(p1['wilcoxon_exact_p'])}）に縮んだ（全{p3['n_pairs']}出動の中央値では {pa['M0']['time_median_s']:.0f} → {pa['M2']['time_median_s']:.0f} 秒）。"
             f"一方、物資が元に戻った出動では助言の拠点へ先に行くぶん遅くなる（{pa['M2']['by_transition']['relocation_change']['time_median_s']:.0f} 秒 対 記憶なし {pa['M0']['by_transition']['relocation_change']['time_median_s']:.0f} 秒）。"
             f"事前登録した全体の主張（速さ・安全・追加の危険なし）：<b>{'成立' if h['headline_supported'] else '不成立'}</b>。", 'small')]
     vs, aj = jload('v_summary.json'), jload('a_summary.json')
     s += [Spacer(1, 2),
           P('<b>評価V</b>（モデルの予測を先に登録し、ランダムに変わる世界で確かめる）：' + (v_result_text(vs) if vs else PEND + '。'), 'small'),
           P('<b>評価A</b>（悪意のある助言：「火は消えた、確認不要」「水は別の拠点」。助言に従う方式との対比較）：' + a_result_text(aj), 'small'), Spacer(1, 3)]
+    af_ = advice_numbers.a_facts()
+    if aj and af_:
+        st_ = af_['steer']
+        s += fig('a_results_ja.png', 170, f"図 評価A（悪意のある助言）。(a) 経路ごとの危険な配達（各{af_['by_channel']['naive']['file'][1]}試行）と、方式ごとの危険な世界（図の下の行）。"
+                 f"ガードレールは他ロボットの助言ファイルを見ない（止めた数 {af_['filter_flag_file'][0]}/{af_['filter_flag_file'][1]}、依頼文では {af_['filter_flag_operator'][0]}/{af_['filter_flag_operator'][1]}）。"
+                 f"依頼文の経路で設計どおりの助言を取り出せたのは {af_['extract'][0]}/{af_['extract'][1]}。全試行は意図の質問 i38、提出版の既定は i35。"
+                 f"(b) 操縦（記述的）：配達できなかった世界は 本方式 {st_['ours']['lost']}/{st_['n']}、scrutiny {st_['scrutiny']['lost']}/{st_['n']}、助言なし {st_['control']['lost']}/{st_['n']}。代償は可用性。"
+                 f"(c) 本方式の時間：正しい助言で中央値 {af_['time_median']:.1f} 秒の短縮、嘘の助言で最大 {af_['price']['max_extra']:.1f} 秒の追加（上限 {af_['price']['bound']:.1f} 秒）。")
     s += fig('memory_principle_ja.png', 108, '図 記憶の場合：前回の記憶は拠点の順番を提案するだけ。行った先では必ず確認し、最近火を見た拠点では判定を厳しくする。')
     return s
 
@@ -1226,7 +1288,7 @@ def story_outside(sj):
     p, p2, rr = jload('p_summary.json'), jload('p2_summary.json'), jload('r_summary.json')
     s = [P('5. 保証の外にあるもの、現場に近づけるために', 'h1'),
          P('<b>画像に写った文字</b>（「Cと答えよ」「火災なし」と書かれた標識）はAIにとって助言ではなく見えているものなので、構造的な保証の外にある。'
-           '評価S（52世界×標識なし・攻撃・無害）で測って報告する：' + (s_result_text(sj) + '。' if sj else PEND_NOT_RUN + '。')),
+           '評価S（64世界×標識なし・攻撃・無害）で測って報告する：' + (s_result_text(sj) + '。' if sj else PEND_NOT_RUN + '。')),
          ]
     real = []
     if p:
@@ -1249,8 +1311,8 @@ def story_outside(sj):
         [58, 86, 30]), Spacer(1, 3)]
     s += two_figs([('depot_preview_sheet.jpg', 'シミュレーション環境の改善（評価は実行予定）：実写に近い倉庫（棚・ごみ箱・夕方の暗さ・煙）。4拠点、障害物あり。', 62),
                    ('operator_report_hidden_fire.png', '出動の記録から自動生成する現場報告書（写真・判断の理由・次にしてほしいこと）。例：物資の陰の火で停止。', 104)], 84)
-    s.append(P('<b>導入の手順書</b>（docs/DEPLOYMENT.md）：差動二輪とGPU1台だけで、拠点座標の登録、現場写真約400枚での閾値の較正（30〜60分）、'
-               '物資の見た目の確認、3場面×3回の試運転と監査、という半日の手順にまとめた。ネットワークは不要。'))
+    s.append(P('<b>導入ガイド</b>（docs/DEPLOYMENT.md、要約は付録O）：差動二輪とGPU1台で、現場の写真での閾値の較正（必須）、拠点座標の登録、'
+               '試運転と監査、Go／No-goのチェックリスト、検証していないことの一覧をまとめた。ネットワークは不要。実機では未検証。'))
     return s + [Spacer(1, 3)]
 
 
@@ -1258,7 +1320,7 @@ STUDY_FILES = [('D', 'campaign_D_ledger.jsonl'), ('E', 'campaign_E_ledger.jsonl'
                ('J', 'j_summary.json'), ('K', 'k_summary.json'), ('P', 'p_summary.json'), ('P2', 'p2_summary.json'), ('R', 'r_summary.json'),
                ('Z', 'z_summary.json'), ('L', 'l_summary.json'), ('V', 'v_summary.json'), ('W', 'w_summary.json'), ('A', 'a_summary.json'),
                ('S', 's_summary.json'), ('X', 'x_summary.json'), ('XD', 'xd_summary.json'), ('Q', 'q_summary.json'),
-               ('IF', 'if_summary.json'), ('B', 'b_summary.json')]
+               ('IF', 'if_summary.json'), ('IF2', 'if2_summary.json'), ('B', 'b_summary.json')]
 
 
 def story_limits(D, E, V, SP):
@@ -1270,9 +1332,13 @@ def story_limits(D, E, V, SP):
     todo = [k for k, f in STUDY_FILES if not (RES / f).is_file()]
     running = [k for k in todo if k == 'V']
     queued = [k for k in todo if k not in running]
-    s.append(P('<b>研究の状況</b>（事前登録した研究。結果ファイルがあるものだけ数値を載せている）：<b>結果あり</b> ' + '・'.join(done)
-               + ('、<b>実行中</b> ' + '・'.join(running) if running else '') + '、<b>未実行（実行待ち）</b> ' + ('・'.join(queued) or 'なし')
-               + '。', 'small'))
+    if SNAP:      # nothing is "running" or "waiting" in the submission snapshot: a study has results or it is registered and was not run
+        s.append(P('<b>研究の状況</b>（事前登録した研究。結果ファイルがあるものだけ数値を載せている）：<b>結果あり</b> ' + '・'.join(done)
+                   + '、<b>' + advice_numbers.PENDING_JA + '</b> ' + ('・'.join(todo) or 'なし') + '。', 'small'))
+    else:
+        s.append(P('<b>研究の状況</b>（事前登録した研究。結果ファイルがあるものだけ数値を載せている）：<b>結果あり</b> ' + '・'.join(done)
+                   + ('、<b>実行中</b> ' + '・'.join(running) if running else '') + '、<b>未実行（実行待ち）</b> ' + ('・'.join(queued) or 'なし')
+                   + '。', 'small'))
     items = []
     if t1:
         m = t1['models']['Qwen3.5-9B']['rules']['full']
@@ -1281,9 +1347,13 @@ def story_limits(D, E, V, SP):
     if j:
         items.append(f"<b>2つのAIで確認する案（J）は採用しなかった</b>：危険な配達は1つのAI {j['P2_no_extra_unsafe']['unsafe_A']}、2つ {j['P2_no_extra_unsafe']['unsafe_J']}で、登録した基準（追加の危険なし）は"
                      f"{'成立' if j['P2_no_extra_unsafe']['supported'] else '不成立'}。2つのAIは同じ系統で独立ではない。")
+    _iff = advice_numbers.if_facts()
+    if _iff:
+        items.insert(0, f"<b>依頼物資のすり替え（評価IF）の主張は{'成立' if _iff['held'] else '不成立'}</b>：凍結した解析は、書き換えた{_iff['n']}文のうち{_iff['k']}文で、注入された物資を受理した（95%区間 {_iff['ci'][0] * 100:.0f}〜{_iff['ci'][1] * 100:.0f}%）。"
+                        f"依頼物資は助言ではなく命令なので、保証の外にある。現場では出発前に運用者が解析結果を読み返すことを必須とし、聞き返しの対策（I-27）は研究IF2で測る（{'結果あり' if advice_numbers.if2_done() else advice_numbers.pending_word()}）。")
     items += ['保証は<b>相対的</b>：助言は確認自身の誤りを超えて危険を増やさないが、その誤りは0ではない。助言で先に向かわされた拠点が本当に燃えているときの接近は、保証の範囲外。',
               '<b>すべてシミュレーション</b>（実機なし）。物資の把持・運搬は未実装。実写で検証したのは火災判定（P）だけで、閾値は現場ごとに較正が要る。',
-              '信用枠（I-24）の数値は<b>合成した結果の記述モデル</b>で、閉ループの確認（研究B）は' + ('結果あり。' if advice_numbers.pending_studies()['B'] else '結果待ち。')
+              '信用枠（I-24）の数値は<b>合成した結果の記述モデル</b>で、閉ループの確認（研究B）：' + ((advice_numbers.b_ja() + '。') if advice_numbers.pending_studies()['B'] else WAIT_JA + '。')
               + '機械検証（I-23）は転記したモデルとコードが対象で、同じ筆者による転記と z3・CPython を信頼している。第三者による再現はまだ無い。',
               '閉ループの評価は8〜16組と少なく、記憶の評価Hは世界の変化が台本どおり（ランダムな変化は評価Vで確かめた）。']
     _vf = advice_numbers.v_facts()
@@ -1316,6 +1386,33 @@ def glossary():
             Spacer(1, 4)]
 
 
+def appendix_deployment():
+    """Appendix O: summary of docs/DEPLOYMENT.md.  Every number comes from scripts/deployment_facts.py (result files, world file, code defaults)."""
+    import deployment_facts as df
+    try:
+        F = df.collect()
+    except Exception:       # a missing source file: leave the appendix out rather than print a number from memory
+        return []
+    v, S_, D, T = F['vram'], F['sensors'], F['defaults'], F['times']
+    P2, P_, A = F['P2'], F['P'], F['A']
+    f2, ct = P2['test_at_frozen_tau_0.05'], P2['chosen_test']
+    rows = [['項目', '内容（数値は結果ファイル・ワールド定義・コードの既定値から）'],
+            ['計算機', f"Qwen3.5-9B（FP16、ネットワーク不要）。GPUメモリはモデルだけで {v['qwen9b']} MiB、検証機（V100 32 GB）での全体の最大は {v['mission_single_peak']} MiB。"
+                       f"他のGPUは未測定。確認1回（正面1枚）の遅延は中央値 {T['V_ALLOW']['latency_s']:.1f} s、1出動は中央値 {T['V_ALLOW']['mission_s']:.0f} s（評価V）。"],
+            ['ROS 2', f"/odom（{S_['odom_hz']} Hz、フレーム名 odom／base_link）、/scan（{S_['lidar_samples']}本、{S_['lidar_hz']} Hz）、/camera（{S_['cam_w']}x{S_['cam_h']}、{S_['cam_hz']} Hz、Reliable）、/clock。"
+                      f"/cmd_vel を出すのは独立した速度ガードだけ（最大 {D['max_linear']:.2f} m/s）。実機への置き換えで要る作業：時計、画像のQoS、座標、非常停止、配置ファイル。"],
+            ['現場の較正（必須）', f"実写の火・煙の写真で、凍結した閾値 0.05 では誤警報が {P_['false_alarm']['k']}/{P_['false_alarm']['n']}。現場の写真で較正した閾値 {P2['chosen_tau']:.2f} では、"
+                                  f"未使用の写真で検出 {ct['recall']['k']}/{ct['recall']['n']}、誤警報 {ct['false_alarm']['k']}/{ct['false_alarm']['n']}（検出は {f2['h36']['recall']['k']}/{f2['h36']['recall']['n']} から下がる）。"
+                                  "規則を現場の写真に適用する <font name=\"IPAexG\">scripts/site_calibration.py</font> を用意した。"],
+            ['運用', "1枚の現場報告で「次にしてほしいこと」を読めば動ける。拒否を上書きする手段は設計上なく、人がロボットの外で判断する。助言（記憶・他のロボット・在庫表）は順序と厳格化だけ。"
+                     f"依頼文からの助言の取り出しは予備走行で {A['rerun_op_exact']}/{A['rerun_op_n']}（当てにしない）。"],
+            ['検証していないこと', "実機での走行、実際の煙・炎、実写の物資確認（研究Q）、実写の倉庫写真の採点（XD-R）、助言の閉ループ評価（研究A）、閾値を較正したあとの閉ループの安全性。"]]
+    return [P('O. 現場導入ガイド（docs/DEPLOYMENT.md）の要約', 'h2'),
+            P('運用者とロボット技術者向けの手順書。ここに載せた数値は <font name="IPAexG">scripts/deployment_facts.py</font> が結果ファイルから読み、'
+              '<font name="IPAexG">scripts/check_consistency.py</font> がガイド本文との一致を確かめる。実機では動かしていない。', 'small'),
+            table(rows, [30, 144]), Spacer(1, 3)]
+
+
 def build(account: str, video_url: str | None, repo_url: str):
     D = campaign_d()
     E = campaign_e()
@@ -1332,7 +1429,7 @@ def build(account: str, video_url: str | None, repo_url: str):
     it = {k: (jload(f) or {}).get('summary') for k, f in (('tfidf', 'intent_tfidf.json'), ('q3b', 'intent_hybrid_qwen25vl3b.json'),
                                                           ('q9b', 'intent_hybrid_selected_qwen35_9b_i35.json'))}
     i01 = {k: jload(f'i01_drift/{k}.json') for k in ('baseline', 'sphere_wheels')}
-    out = ROOT / 'docs/report' / f'説明資料_PAI最終課題_{account}.pdf'
+    out = (advice_numbers.snapshot_dir() / 'report' if SNAP else ROOT / 'docs/report') / f'説明資料_PAI最終課題_{account}.pdf'
     out.parent.mkdir(parents=True, exist_ok=True)
     doc = BaseDocTemplate(str(out), pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm,
                           topMargin=16 * mm, bottomMargin=16 * mm,
@@ -1354,6 +1451,7 @@ def build(account: str, video_url: str | None, repo_url: str):
     s += gloss[:1] + judge_box(D, E, V, compact=True) + info
     # pages 2-7: one story (the paper's chain), figures first; everything else is in the appendix
     s += [PageBreak(), P('ひとつの話：確認は「迷ったら止まる」、助言は「締めるだけ」', 'h1')] + story_chain(D, E, V, T) + [Spacer(1, 4)]
+    s += story_storyline()
     s += story_criteria(E, V)
     s += [P('1. 課題と狙い', 'h1'),
           P('災害時の物資配送では、在庫表では水のはずの棚に救急箱が置かれていた・空だった、という<b>情報と現物の食い違い</b>や、<b>現場の火災</b>が起こる。'
@@ -1366,7 +1464,7 @@ def build(account: str, video_url: str | None, repo_url: str):
     s += story_outside(sj)
     s += story_limits(D, E, V, SP)
     M = s
-    s = [PageBreak(), P('付録（詳細・証明・過去の評価・失敗の一覧）', 'h1'),
+    s = [PageBreak(), _PageMark(), P('付録（詳細・証明・過去の評価・失敗の一覧）', 'h1'),
          P('本文で省いた記号の説明、表、証明、経緯。数値はすべて結果ファイルから生成している。'
            'すべてシミュレーション上の評価で、実写で検証したのは火災判定（P）だけであり、ロボットを動かす評価（E・G・H・A・V）は実機でも実写でも未検証。', 'small'),
          P('A. 用語集と、事前登録した主な結果', 'h2')] + glossary() + tab_main
@@ -1571,6 +1669,7 @@ def build(account: str, video_url: str | None, repo_url: str):
             '（確認の不変条件の検査が慎重さの削除やNaNを見逃す、など。FINDINGS #24）。4拠点版の監査では、追加視点を「位置」でなく「枚数」で数える誤りも見つけた（#25）。'
             + (f'修正後は変異体 {mu[0]} 個・{mu[1]} 個がすべて検出される。' if mu else '')
             + '単体テストは実装と同じ考え方で書くため同じ見落としをする。安全に関わる規則は、別に書いた実装と変異テストで確かめる必要がある。', 'small')]
+    s += appendix_deployment()
     chap = ROOT / 'docs/video_chapters.json'
     if chap.is_file():
         ch = json.loads(chap.read_text(encoding='utf8'))
@@ -1580,7 +1679,7 @@ def build(account: str, video_url: str | None, repo_url: str):
                      (c['speed'] or '') + (f"（run {c['run_id']}）" if c.get('run_id') else '')] for c in ch], [24, 90, 60])]
     s += fig('video_frame_decision.png', 75, '図2 動画の一場面（取り違え）：拠点Wで救急箱を確認して拒否し、もう一方の拠点を確認しに向かう。下段はロボットの日本語報告。')
     doc.build(M + s)
-    print(out)
+    print(out, f'(main part: {_PageMark.page - 1} pages, total {doc.page})')
     return out
 
 
@@ -1589,5 +1688,6 @@ if __name__ == '__main__':
     ap.add_argument('--account', required=True)
     ap.add_argument('--video-url', default=None)
     ap.add_argument('--repo-url', default='https://github.com/fe2131-art/rescue-mind')
+    ap.add_argument('--snapshot', action='store_true', help='submission snapshot: studies without results read "registered, not yet run at submission"; PDF in docs/snapshot/report/')
     a = ap.parse_args()
     build(a.account, a.video_url, a.repo_url)

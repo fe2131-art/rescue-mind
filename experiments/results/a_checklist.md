@@ -23,7 +23,7 @@ Ledger 226 of 226 final rows
 * C6: W 33.73 s, bound 50.59 s, max extra 41.74, lost 0 (allowed 4) -> PASS
 * C7: steering direction observed but not significant
 * C8: operator exact 36/72, intent accepted 72/72
-* C9: failed A claims []; Nfailed 7 -> 7
+* C9: A adds no failed claim; the paper's total of failed registered claims is 7 (T1, F, T2, J, V4, W-b, IF1), unchanged by A
 
 ## Unsafe deliveries of the monotone family (C2 replay; images)
 
