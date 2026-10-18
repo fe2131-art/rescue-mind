@@ -328,6 +328,33 @@ def speed_plan(run, spec):
 
 
 STATION_JA = {'water': '拠点W', 'medicine': '拠点M'}
+
+
+def station_ja(st):
+    """The arena's two stations are 拠点W / 拠点M; the depot's four bays keep their ids (拠点W1, 拠点M1, 拠点W2, 拠点M2)."""
+    return STATION_JA.get(st) or f'拠点{st}'
+
+
+def overlay_labels(mission, spec):
+    """[((x, y, z), text, colour)] for the overview image: the stations, the shelter and the hazard (the depot: four bays)."""
+    from rescuemind.robust_scenes import hazard_xy
+    ws = ((mission.get('world_variant') or {}).get('world_spec')) or {}
+    if (ws.get('depot') or {}).get('stations') == 4:
+        from rescuemind import depot
+        centers = {i: (c[0], c[1]) for i, c in depot.K4_CENTERS.items()}
+        labels = [((x, y, 1.05), station_ja(i), WATER if i.startswith('W') else MED) for i, (x, y) in centers.items()]
+    else:
+        centers = None
+        labels = [((2.0, 2.0, 1.05), '物資拠点 W', WATER), ((-2.0, 2.0, 1.05), '物資拠点 M', MED)]
+    labels.append(((3.0, -2.0, 0.95), '避難所 B', GOOD))
+    hz = (mission.get('world_variant') or {}).get('hazard_at') or spec.get('hazard_at')
+    if hz:
+        geom = tuple(ws.get('hazard_geom') or (0.75, 0.5))
+        hx, hy = hazard_xy(hz, *geom[:2], stations=centers)
+        labels.append(((hx, hy, 1.25), '火災', BAD))
+    return labels
+
+
 SIDE_JA = {'L': '左', 'R': '右'}
 
 
@@ -338,13 +365,7 @@ def mission_segment(run_dir: Path, spec: dict, cam: FilmCamera, emit, narr=None,
     plan = speed_plan(run, spec)
     item = mission['intent']['item']
     route_pts = [(0.0, 0.0)] + [tuple(r[2]) for r in mission['route']]
-    labels = [((2.0, 2.0, 1.05), '物資拠点 W', WATER), ((-2.0, 2.0, 1.05), '物資拠点 M', MED),
-              ((3.0, -2.0, 0.95), '避難所 B', GOOD)]
-    hz = (mission.get('world_variant') or {}).get('hazard_at') or spec.get('hazard_at')
-    if hz:
-        from rescuemind.robust_scenes import hazard_xy
-        hx, hy = hazard_xy(hz)
-        labels.append(((hx, hy, 1.25), '火災', BAD))
+    labels = overlay_labels(mission, spec)
     instr = mission['instruction']
     intent_gate = mission.get('intent_gate') or {}
     total = spec.get('total', 3)
@@ -434,13 +455,13 @@ def mission_segment(run_dir: Path, spec: dict, cam: FilmCamera, emit, narr=None,
                     if e.get('peek'):
                         msg = f"横から見直し（{SIDE_JA[e['peek']]}）：{'火・煙なし' if ok else '火を検知'}"
                     else:
-                        msg = f"確認（{STATION_JA[e['station']]}・正面）：{'許可' if ok else '依頼物資なし → 別拠点へ'}"
+                        msg = f"確認（{station_ja(e['station'])}・正面）：{'許可' if ok else '依頼物資なし → 別拠点へ'}"
                     text(d, (1362, y), msg, 21, MUTED)
                     y += 28
             if active is None:
                 text(d, (1362, y), '物資拠点へ移動中 …', 22, INK)
             else:
-                where = f"横から見直し（{SIDE_JA[active['peek']]} 0.4 m）" if active.get('peek') else f"現地確認：{STATION_JA[active['station']]}"
+                where = f"横から見直し（{SIDE_JA[active['peek']]} 0.4 m）" if active.get('peek') else f"現地確認：{station_ja(active['station'])}"
                 text(d, (1362, y), f"{where}  {mission.get('model_label') or spec.get('model_label', '')}", 21, INK)
                 y += 32
                 if t >= active['decision_t']:
@@ -592,7 +613,13 @@ def main(argv=None):
     narr = Narration(a.narrate) if a.narrate is not None else None
     out = Path(a.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    cam = FilmCamera(ROOT / 'worlds/film/film_camera_overview.sdf', 1280, 720)
+    cams = {}      # the depot's missions are filmed with another static camera pose (part['film_camera'], scripts/film_depot.sh)
+
+    def camera_for(part):
+        path = part.get('film_camera') or 'worlds/film/film_camera_overview.sdf'
+        if path not in cams:
+            cams[path] = FilmCamera(ROOT / path, 1280, 720)
+        return cams[path]
     ff = subprocess.Popen(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24',
                            '-s', f'{W}x{H}', '-r', str(FPS), '-i', '-', '-c:v', 'libx264', '-preset', 'medium',
                            '-crf', '20', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', str(out)],
@@ -620,7 +647,7 @@ def main(argv=None):
             table_card(part['title'], part['sub'], part['header'], rows, part.get('notes', []),
                        part['seconds'], emit)
         elif kind == 'mission':
-            mission_segment(ROOT / part['run_dir'], part, cam, emit, narr=narr, now=now)
+            mission_segment(ROOT / part['run_dir'], part, camera_for(part), emit, narr=narr, now=now)
         print(f"{kind}: total {count['n'] / FPS:.1f}s", flush=True)
         label = part.get('title') if kind != 'mission' else f"デモ{part['index']}：{part.get('title') or SCENE_JA[part['scene']]}"
         chapters.append({'start_s': round(start, 2), 'end_s': round(count['n'] / FPS, 2), 'title': label,
