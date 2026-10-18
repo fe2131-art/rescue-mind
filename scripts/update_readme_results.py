@@ -272,10 +272,8 @@ T1 で分かった弱点に、結果を見る前に固定した条件で段階�
 
 PENDING = '実行中（事前登録済み）'
 PENDING_NOT_RUN = '結果待ち（事前登録済み・未実行）'
-I22_JA = ('配送インターロック（[I-22](docs/IMPROVEMENT_LOG.md)：許可証が無ければ速度ガードが配送区間を通さない）は実装済み・既定はオフで、'
-          'Gazebo での確認は未了。評価A・Xはインターロックなしで走らせる（事前登録に明記）。')
-I22_EN = ('A delivery interlock (I-22: the velocity guard blocks delivery legs without an independently recomputed permit) is implemented and off by default; '
-          'its Gazebo check is pending, and studies A and X run with it off (stated in their registrations).')
+I22_JA = advice_numbers.i22_ja()      # from experiments/results/i22_gazebo_check.log (single source, also read by the paper)
+I22_EN = advice_numbers.i22_en()
 
 
 def n_runs(protocol):
@@ -395,7 +393,8 @@ def v_idea_text():
     s = (f"出動ごとに物資と火がランダムに変わる10系列×6出動で、先に登録した予測を確かめた。モデルの予測は**{'成立' if f['model_claim'] else '不成立'}**（M0−M2の時間差 {f['diff']:.0f} 秒、予測区間 {f['pred_lo']:.0f}〜{f['pred_hi']:.0f} 秒の内側）。")
     if not f['memory_claim']:
         s += (f"一方、**記憶は安全という主張は不成立**：余裕の条件（M2−M0 = {f['m2_minus_m0']} 件、余裕 {f['margin']} 件以下）は成立したが、系列単位のMcNemar検定が p={f['mcnemar_p']:.4f}（{f['disc'][0]}対{f['disc'][1]}）で基準 0.05 に届かなかった。"
-              "原因は10系列という検出力の不足と、M2の唯一の危険な配達が記憶ではなく確認の誤り（到着位置のぶれ）だったこと。失敗として残している。詳細は[結果](#結果)の評価V・[FINDINGS](docs/FINDINGS.md) #29。")
+              "原因は検出力の不足（M1に危険な配達のあった系列でM2が1件も出さない場合にしか基準を満たせない設計で、M2の予測は中央値1件）と、M2の唯一の危険な配達が記憶ではなく確認の誤り（到着位置のぶれ）だったこと。所要時間の絶対値はM0・M2とも予測区間の外（差は区間の内側）。失敗として残している。詳細は[結果](#結果)の評価V・[FINDINGS](docs/FINDINGS.md) #29。")
+    s += ' ' + (advice_numbers.pooled_memory_ja() + '。' if advice_numbers.pooled_memory() else '')
     return s
 
 
@@ -523,7 +522,7 @@ def section_judge(e):
              '**新しさ（一本の筋：助言は厳しくすることしかできない）**',
              '',
              '1. **届ける前に確かめ、迷ったら止まる**。判断はその場のカメラだけで決める（判断の根拠は、答えの選択肢の確率。自由な文章は使わない）。',
-             '2. **誤りの大半は「物資の陰に隠れた火」**。だから**横へ動いて撮り直す**（見回し）。疑わしいときだけ視点を足す案（I-20）は結果待ち。',
+             '2. **誤りの大半は「物資の陰に半ば隠れた小さな火」**。だから**横へ動いて撮り直す**（見回し）。' + advice_numbers.i20_ja() + '。',
              '3. **ロボットが自分で見ていないもの（記憶・他のロボット・依頼文の言葉・在庫表）は「助言」**。助言は、拠点を見る順序を変えることと、判断を厳しくすることしかできず、**確認を省くことはできない**。'
              'だから助言が悪意のあるものでも、危険な配達の確率は「確認そのものの誤許可の上限」の内側に収まる（命題2。実測：記憶は評価H、悪意のある助言は評価A）。',
              '4. **新しい成果：この保証を、機械で確かめ、必要十分にし、何回出動しても代償が膨らまないようにした**（下の3点）。',
@@ -574,7 +573,7 @@ def section_novelty():
 ![信頼できない入力は「締める」だけ：助言は順序と厳しさを変えるだけで、確認は省けない（I-19）](docs/figures/advice_principle_ja.png)
 
 * **1. 届ける前に、その場で確かめる**：VLMに文章を書かせず、答えの選択肢（A/B/C、はい/いいえ）の確率だけを読む。2問で選択肢の順序を入れ替えて合意を取り、火や煙の問いも別に立てる。1つでも失敗すれば拒否（止まる）。速度指令は別プロセスの独立したガードだけが出す。測定は[結果](#結果)の評価E（ランダムな世界）など。
-* **2. 誤りの大半は「物資の陰の小さな火」なので、横から見直す**（[I-14](docs/IMPROVEMENT_LOG.md)）：{gtxt}。表は[結果](#結果)の評価G。疑わしいときだけ視点を足す案（[I-20](docs/IMPROVEMENT_LOG.md)）は評価Wの副次解析で測る：結果待ち（事前登録済み・未実行）
+* **2. 誤りの大半は「物資の陰の小さな火」なので、横から見直す**（[I-14](docs/IMPROVEMENT_LOG.md)）：{gtxt}。表は[結果](#結果)の評価G。{advice_numbers.i20_ja().replace('（I-20）','（[I-20](docs/IMPROVEMENT_LOG.md)）',1)}
 * **3. 見ていないものは「厳しくする」ことしかできない**（[I-19](docs/IMPROVEMENT_LOG.md)・[D18](docs/DESIGN_DECISIONS.md)、論文の命題2）：記憶・他のロボット・在庫・依頼文の言葉はすべて「助言」で、拠点の順序と閾値の強化にしか使えない。「安全」「確認不要」は何の効果も持たない。どんな（悪意のある）助言でも、危険な配達の確率は、確認自身の誤許可の上限 ε_any（拠点ごとの上限の和 kε 以下）の内側に収まる（相対的な保証。確認の誤りそのものは消えない）。代償は上限つき（1拠点の無駄足と、慎重な閾値による誤拒否）。
   * 記憶は助言の一例（[I-15](docs/IMPROVEMENT_LOG.md)・[D13](docs/DESIGN_DECISIONS.md)）：前回の物資の場所は「先に行く拠点」を決めるだけで、行った先で必ず確認する。火を見た拠点は閾値を厳しくする。同じ画像なら記憶ありの許可は記憶なしの許可の部分集合になる（コードで強制）。{h_text(True)}
 
@@ -595,7 +594,7 @@ def section_novelty():
   * 信用枠の閉ループ確認と、依頼文の書き換え：{pending_ifb_text()}。
   * 悪意のある助言の閉ループ評価（評価A）：{a_text()}
   * {I22_JA}
-* **この安全の規則そのものを、どう試したか**（[FINDINGS](docs/FINDINGS.md) #24・#25）：規則の実装の単体テストは、実装と同じ考え方で書くので同じ見落としをする。そこで、規則を仕様から**独立に書き直した参照実装**と突き合わせ、わざと壊した実装（**変異テスト**）とでたらめな入力（ファズ）で確かめた。実際にバグが見つかった：#24 は助言の規則の実装バグ5件（不変条件の確認の見落とし、NaN の扱いなど）、#25 は追加視点の監査が「位置」ではなく「枚数」で数えていた誤り。すべて修正し、回帰テストを追加した。その後、命題2は z3 で機械検証した（上の機械検証）。
+* **この安全の規則そのものを、どう試したか**（[FINDINGS](docs/FINDINGS.md) #24・#25）：規則の実装の単体テストは、実装と同じ考え方で書くので同じ見落としをする。そこで、規則を{advice_numbers.SECOND_IMPL_JA.replace('仕様から','仕様から**',1).replace('第2の実装','第2の実装**',1)}と突き合わせ（独立ではない：同じ仕様の読み違いは共有する）、わざと壊した実装（**変異テスト**）とでたらめな入力（ファズ）で確かめた。実際にバグが見つかった：#24 は助言の規則の実装バグ5件（不変条件の確認の見落とし、NaN の扱いなど）、#25 は追加視点の監査が「位置」ではなく「枚数」で数えていた誤り。すべて修正し、回帰テストを追加した。その後、命題2は z3 で機械検証した（上の機械検証）。
 * **保証の外：画像に映る文字と、現実との差**：画像に映る文字は知覚なので構造的な保証の外にあり、評価Sで実測する。{s_text()}。現実との差は、散らかった倉庫の世界（4拠点、[I-21](docs/IMPROVEMENT_LOG.md)）で測る（評価XD・X）：{x_text()}。下の図は描画の確認用で、ロボットの結果ではない。
 
   ![倉庫の世界の描画プレビュー（I-21）。上から 通常・煙・暗い照明と障害物、列は別のカメラ位置。描画の確認であり結果ではない](docs/figures/depot_preview_sheet.jpg)
@@ -707,11 +706,11 @@ def section_en(e, v):
          "vision-language model (Qwen3.5-9B, one V100, no cloud) never writes free text for the decision; we read the next-token log-probabilities of answer letters "
          "(closed-set scoring) for two multiple-choice questions with permuted options and for a Yes/No hazard question, and approve only if everything agrees and no fire or smoke is seen. "
          "A wrong item triggers a one-time search of the other station; a hazard stops the robot; an independent velocity guard keeps motion out of the VLM's reach. "
-         "(2) The check's errors are dominated by **fires hidden behind the supply**, so before approving the robot **looks again from 0.4 m to either side** (study G); extra views only when a score is suspicious (I-20) are pending. "
+         "(2) The check's errors come mostly from **small fires partly hidden behind the supply**, so before approving the robot **looks again from 0.4 m to either side** (study G); " + advice_numbers.i20_en() + ". "
          "(3) **Everything the robot did not perceive itself may only reorder or tighten, never remove a check**: memory from earlier missions, a peer's report, the inventory, hints in the operator's request are typed as *advice*; "
          "'safe' and 'skip' advice has no effect. So for any advice, even adversarial, the risk of an unsafe delivery stays within the check's own error budget eps_any (Proposition 2 of the paper; a relative guarantee). "
-         "Memory (H) is the measured example; adversarial advice (A) is pending. "
-         + en_new() + I22_EN + " The rule itself was tested against an independent reference implementation, mutation tests and fuzzing, which found real bugs (FINDINGS #24, #25). "
+         "Memory (H, V) is the measured example (" + advice_numbers.pooled_memory_en() + "); adversarial advice (A) is pending. "
+         + en_new() + I22_EN + " The rule itself was tested with " + advice_numbers.SECOND_IMPL_EN + ", mutation tests and fuzzing, which found real bugs (FINDINGS #24, #25); the proof itself is machine-checked with z3 against a transcription of the implementation. "
          "(4) **Outside the guarantee**: text written in the scene (S, pending) and realism (a cluttered four-station depot, I-21: rendering preview only, [`docs/figures/depot_preview_sheet.jpg`](docs/figures/depot_preview_sheet.jpg); XD/X pending) are measured, not claimed. "
          "(5) **Honest limits** are listed below. " + advice_numbers.study_phrase_en() + " (`experiments/PREREGISTRATION_*.md`); every trial is audited against simulator ground truth and a ROS bag.",
          '', 'Rows are ordered by that chain: [1] check, [2] where the error lives and the threshold, [3] look again, [4] advice, [5] outside the guarantee, [6] tried and not adopted.',

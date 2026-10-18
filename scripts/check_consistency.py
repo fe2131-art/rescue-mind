@@ -331,6 +331,42 @@ def main():
             adopt_ok = any(('v3.7' in t[i:i + 1400] or 'I-20' in t[i:i + 1400]) for i in seg)
             extra.append((f'{doc}: the I-20 decision after study W is stated', 'ok' if adopt_ok else 'MISMATCH', ''))
 
+    # R8 claim hygiene: one list of failed registered claims, one memory pooling, no stale interlock / implementation / "(none)" wording
+    mac_ = macros()
+    nf_ = advice_numbers.n_failed_word()
+    extra.append(('paper: \\Nfailed equals the length of the generated failure list', 'ok' if mac_.get('Nfailed') == nf_ else 'MISMATCH', f"{mac_.get('Nfailed')} vs {nf_}"))
+    main_tex = read('docs/paper/main.tex')
+    extra.append(('main.tex: Nfailed is not hand-defined and the Discussion prints \\FailedList',
+                  'ok' if (r'\newcommand{\Nfailed}' not in main_tex and r'\FailedList' in main_tex) else 'MISMATCH', ''))
+    pm_ = advice_numbers.pooled_memory()
+    if pm_:
+        okp = (mac_.get('MemPoolzero') == str(pm_['unsafe']['M0']) and mac_.get('MemPooltwo') == str(pm_['unsafe']['M2'])
+               and mac_.get('MemPoolone') == str(pm_['unsafe']['M1']) and mac_.get('MemPoolN') == str(pm_['n']))
+        extra.append(('paper: pooled H+V unsafe deliveries (macros) equal the result files', 'ok' if okp else 'MISMATCH', str(pm_['unsafe'])))
+        ab_ = main_tex.split(r'\begin{abstract}')[-1].split(r'\end{abstract}')[0]
+        extra.append(('main.tex: abstract reports the pooled memory result (H and V)', 'ok' if r'\MemPoolN' in ab_ else 'MISMATCH', ''))
+        concl_ = main_tex.split(r'\section{Conclusion}')[-1]
+        extra.append(('main.tex: conclusion reports V next to H', 'ok' if (r'\StatV' in concl_ and r'\MemPooltwo' in concl_) else 'MISMATCH', ''))
+        yt_, rd_ = docs['yt'], docs['readme']
+        for doc, t in (('readme', rd_), ('yt', yt_)):
+            extra.append((f'{doc}: pooled memory safety (H and V) is stated', 'ok' if (advice_numbers.pooled_memory_ja() in t or advice_numbers.pooled_memory_en() in t or advice_numbers.pooled_memory_short_ja() in t) else 'MISMATCH', ''))
+    stale_ = {'README.md': ['independent reference implementation', 'Gazebo check is pending', 'Gazebo での確認は未了', '独立に書き直した参照実装', 'are pending. (3)'],
+              'docs/paper/main.tex': ['Gazebo check is pending', 'machine-checked on the implementation', 'Moving beats thinking harder', r'(\PreregDrafts', 'dominated by fires hidden from the front view'],
+              'docs/paper/supplement.tex': ['Gazebo check is still pending', 'check is still pending']}
+    for fn_, needles in stale_.items():
+        t_ = read(fn_)
+        bad_ = [n_ for n_ in needles if n_ in t_]
+        extra.append((f'{fn_}: no stale wording ({len(needles)} phrases)', 'MISMATCH' if bad_ else 'ok', ', '.join(bad_)))
+    if (RES / 'i22_gazebo_check.log').is_file() and advice_numbers.interlock_check():
+        extra.append(('paper macro IlcheckN equals the number of missions in i22_gazebo_check.log',
+                      'ok' if mac_.get('IlcheckN') == str(advice_numbers.interlock_check()['missions']) else 'MISMATCH', ''))
+    wf2_ = advice_numbers.w_facts() if (RES / 'w_summary.json').is_file() else None
+    if wf2_:
+        up4_ = float(mac_.get('WEpsAnyFourUpper', '0').rstrip('\\%'))
+        stated_ = r'WEpsAnyFourUpper' in main_tex and 'registered for one station' in main_tex
+        extra.append(('main.tex: eps_any(4) upper limit is stated against the registered 15% line when it exceeds it', 'ok' if (up4_ <= 15 or stated_) else 'MISMATCH', f'upper {up4_}%'))
+        extra.append(('main.tex: the side-only subclass of W is printed next to the headline miss rate', 'ok' if (r'\WMissLASide' in main_tex and r'\WMissLASideCI' in main_tex) else 'MISMATCH', ''))
+
     # numbers.tex is what scripts/paper_numbers.py generates now
     try:
         import paper_numbers as pn
@@ -359,6 +395,15 @@ def main():
             abstract = re.split(r'(?i)introduction', pt, maxsplit=1)[0][:6000]
             extra.append(('main.pdf: abstract without pending marker', 'MISMATCH' if re.search(r'TBD|\(pending\)', abstract) else 'ok', ''))
             extra.append(('main.pdf: no red "TBD" text', 'MISMATCH' if 'TBD' in pt else 'ok', ''))
+            try:   # page 1 in reading order (not -layout: that interleaves the two columns)
+                p1_ = subprocess.run(['docker', 'run', '--rm', '-v', f'{mp.parent}:/w:ro', LATEX_IMG, 'pdftotext', '-f', '1', '-l', '1', f'/w/{mp.name}', '-'],
+                                     capture_output=True, text=True).stdout
+            except FileNotFoundError:
+                p1_ = ''
+            m_a, m_i = re.search(r'Abstract\s*[\u2014-]*', p1_), re.search(r'I\.\s*I\s*NTRODUCTION|INTRODUCTION', p1_)
+            ab_txt = p1_[m_a.end():m_i.start()] if (m_a and m_i and m_i.start() > m_a.end()) else ''
+            nw_ = len(ab_txt.split())
+            extra.append((f'main.pdf: abstract length ({nw_} words; target <= 200)', 'ok' if nw_ <= 200 else 'warn', ''))
             if (ROOT / 'docs/paper/numbers.tex').stat().st_mtime > mp.stat().st_mtime + 1:
                 extra.append(('main.pdf newer than numbers.tex', 'warn', 'rebuild the paper (make paper)'))
 

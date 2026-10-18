@@ -547,6 +547,26 @@ def main():
         m['VSeqP'] = f"{v['V4_safety']['seq_mcnemar_M1_vs_M2_p']:.4f}"
         m['VClaimModel'] = 'supported' if v['claim_model_predicts'] else 'not supported'
         m['VClaimMemory'] = 'supported' if v['claim_memory_under_random_change'] else 'not supported'
+        mp_ = advice_numbers.memory_power()
+        m['VSeqMone'] = mp_['m1_seqs']; m['VSeqMtwo'] = v['V4_safety']['seq_unsafe']['M2']
+        m['VMinP'] = f"{mp_['p_min']:.3f}"
+        m['VPredMtwoMed'] = mp_['pred_m2_median']; m['VPredMtwoPI'] = f"{mp_['pred_m2_lo']}--{mp_['pred_m2_hi']}"
+        for k_, kk_ in (('M0', 'zero'), ('M2', 'two')):
+            m[f'VAbsTime{kk_}'] = f"{mp_['mean_time'][k_]:.1f}"
+            m[f'VAbsTimePI{kk_}'] = f"{mp_['pred_time'][k_][0]:.1f}--{mp_['pred_time'][k_][1]:.1f}"
+        late_ = [mp_['mean_time'][k_] - mp_['pred_time_p50'][k_] for k_ in ('M0', 'M2')]
+        m['VAbsLate'] = f"{min(late_):.0f}--{max(late_):.0f}"
+    pm_ = advice_numbers.pooled_memory()
+    if pm_:
+        m['MemPoolN'] = pm_['n']
+        for k_, kk_ in (('M0', 'zero'), ('M1', 'one'), ('M2', 'two')):
+            m[f'MemPool{kk_}'] = pm_['unsafe'][k_]
+        m['MemPoolCI'] = '[{:.1f}, {:.1f}]\\%'.format(*(100 * x for x in wilson(pm_['unsafe']['M2'], pm_['n'])))
+    ilc_ = advice_numbers.interlock_check()
+    if ilc_:
+        m['IlcheckN'] = ilc_['missions']
+    m['Nfailed'] = advice_numbers.n_failed_word()
+    m['FailedList'] = advice_numbers.failed_list_tex()
     # ---- study Z (zero-shot contrastive baselines)
     zf = RES / 'z_summary.json'
     if zf.is_file():
@@ -726,11 +746,18 @@ def main():
             m['WEpsAnyTwo'] = pct(oa['2']['eps_any']); m['WEpsAnyTwoCI'] = '[{:.1f}, {:.1f}]\\%'.format(*(100 * x for x in oa['2']['ci95_independent']))
             m['WEpsAnyFour'] = pct(oa['4']['eps_any']); m['WEpsAnyFourCI'] = '[{:.1f}, {:.1f}]\\%'.format(*(100 * x for x in oa['4']['ci95_independent']))
             m['WEpsAnyTwoFront'] = pct(of['2']['eps_any']); m['WEpsAnyFourFront'] = pct(of['4']['eps_any'])
+            m['WEpsAnyTwoUpper'] = pct(oa['2']['ci95_independent'][1]); m['WEpsAnyFourUpper'] = pct(oa['4']['ci95_independent'][1])
+            sd_ = wa['miss_look_around_side_only']
+            m['WMissLASideRate'] = pct(sd_['rate']); m['WMissLASideCI'] = ci(sd_['k'], sd_['n'])
+            fvis_ = wa['miss_front_only']['k'] - wa['miss_front_only_side_only']['k']      # front-only misses among fires the front view shows
+            m['WMissFrontVis'] = f"{fvis_}/{wa['miss_front_only']['k']}"; m['WMissFrontVisN'] = wa['n_front_perceivable']
             v35 = w.get('W-a_v35_reference')
             if isinstance(v35, dict):
                 m['WVOldMissFront'] = f"{v35['miss_front_only']['k']}/{v35['miss_front_only']['n']}"
                 m['WVOldMissLA'] = f"{v35['miss_look_around']['k']}/{v35['miss_look_around']['n']}"
                 m['WVOldMissLAUpper'] = pct(v35['miss_look_around']['ci95'][1])
+                m['WMoveRemoved'] = v35['miss_front_only']['k'] - v35['miss_look_around']['k']
+                m['WWordRemoved'] = v35['miss_look_around']['k'] - wa['miss_look_around']['k']
         ad = w.get('W-a_adaptive')
         if isinstance(ad, dict):
             m['WAdaptMiss'] = f"{ad['perceivable_FLR']['miss_adaptive']['k']}/{ad['perceivable_FLR']['miss_adaptive']['n']}"
@@ -913,6 +940,9 @@ def main():
     m['NStudiesPending'] = cnt_['pending']
     unrun = [d for d in drafts if not (RES / dict((n_, r_) for n_, _, r_ in studies)[d]).is_file()]
     m['PreregDrafts'] = ', '.join(unrun) if unrun else 'none'
+    # the sentence of the Methodology about the studies without results (no dangling '(none)' when every registration is already on main)
+    m['PreregPending'] = (f"the drafts ({', '.join(unrun)}) are registered when the integration branch is merged, before any of their trials" if unrun
+                          else 'all are on the main branch, bound by the integration merge before their first trial')
     m['PreregOrderOK'] = 'holds' if ok_all else 'does NOT hold'
     # ---- development-data model selection (appendix table)
     sel = json.loads((RES / 'i08_model_selection.json').read_text())
@@ -948,7 +978,9 @@ def main():
                'JCorrectA', 'JCorrectJ', 'JUnsafeA', 'JUnsafeJ', 'JFalseRefA', 'JFalseRefJ', 'JFailedA', 'JFailedJ', 'JLatA', 'JLatJ',
                'JPeakVram', 'JMcNemarP', 'JClaim', 'JUnsafeJUpper', 'JUnsafeAUpper', 'LCorrect', 'LCorrectCI', 'LUnsafe', 'LClaim',
                'VPredDiff', 'VPredDiffPI', 'VObsDiff', 'VPredUnsafezero', 'VPredUnsafeone', 'VPredUnsafetwo', 'VUnsafeMzero', 'VUnsafeMone', 'VUnsafeMtwo',
-               'VSeqP', 'VClaimModel', 'VClaimMemory',
+               'VSeqP', 'VClaimModel', 'VClaimMemory', 'VSeqMone', 'VSeqMtwo', 'VMinP', 'VPredMtwoMed', 'VPredMtwoPI', 'VAbsTimezero', 'VAbsTimetwo', 'VAbsTimePIzero', 'VAbsTimePItwo', 'VAbsLate',
+               'MemPoolN', 'MemPoolzero', 'MemPoolone', 'MemPooltwo', 'MemPoolCI', 'IlcheckN',
+               'WEpsAnyTwoUpper', 'WEpsAnyFourUpper', 'WMissLASideRate', 'WMissLASideCI', 'WMissFrontVis', 'WMissFrontVisN', 'WMoveRemoved', 'WWordRemoved',
                'WNPerc', 'WMissLA', 'WMissFront', 'WMissLARate', 'WMissLACI', 'WExtraStop', 'WClaimEps', 'WClaimCost',
                'WFAOursFull', 'WFAVote', 'WFAKnowFive', 'WFAKnowTen', 'WNDist', 'WMissFrontRate', 'WMissLAUpper', 'WMcNemarP', 'WCaughtOnlyByLA', 'WNFront', 'WNSideOnly', 'WMissLAFront', 'WMissLAFrontUpper', 'WMissLASide', 'WMissFrontSide', 'WMissedWorlds', 'WNotVisible', 'WNotVisibleUpper', 'WSixViewUpper', 'WTwinCA', 'WExtraStopUpper', 'WTauMiss', 'WEpsAnyTwo', 'WEpsAnyTwoCI', 'WEpsAnyFour', 'WEpsAnyFourCI', 'WEpsAnyTwoFront', 'WEpsAnyFourFront', 'WVOldMissFront', 'WVOldMissLA', 'WVOldMissLAUpper', 'WAdaptMiss', 'WAdaptMissUpper', 'WAdaptPaired', 'WAdaptPairedP', 'WAdaptTwinCA', 'WAdaptTrigTwin', 'WAdaptTrigTwinCI', 'WAdaptTrigFire', 'WAdaptRuleA', 'WAdaptRuleB', 'WAdaptAdopt', 'WScrutMissB', 'WScrutMissC', 'WScrutMissCUpper', 'WScrutPC', 'WScrutTwinStopC', 'WNImages', 'WNDeny', 'WNAllow', 'WFAOursDeployed', 'WFAOursFullRate', 'WFAOursDeployedCI', 'WCAOursFull', 'WFAVoteRate', 'WFAVoteCI', 'WVotePRaw', 'WVoteHolm', 'WVoteDisc', 'WVoteDeployedHolm', 'WVoteDeployedDisc', 'WVoteDeployedBetter', 'WCAKnowFive', 'WCAKnowFiveRate', 'WCAKnowFiveDrop', 'WCAKnowFiveP', 'WKnowTenSame', 'WSmallOurs', 'WSmallVote', 'WMondCA', 'PRecall', 'PFalseAlarm', 'PRecallCI', 'PFalseAlarmCI', 'PAuroc',
                'PTwoWording', 'PTwoTau', 'PTwoRecall', 'PTwoRecallCI', 'PTwoFA', 'PTwoFACI', 'PTwoClaim', 'PTwoFrozenRecall', 'PTwoFrozenFA',

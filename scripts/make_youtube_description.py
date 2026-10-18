@@ -291,7 +291,8 @@ def headline_block(res):
     try:
         p1, p3 = h['P1_efficiency_relocation_persist'], h['P3_no_extra_risk_vs_v36']
         nums.append(f"③記憶で先に向かう拠点を決めると、物資が移されたままの{p1['n_pairs']}出動で所要時間（中央値）{p1['time_M0_median_s']:.0f}秒→{p1['time_M2_median_s']:.0f}秒。"
-                    f"確認は省かないので危険な配達は 記憶なし {p3['unsafe_M0']}/{p3['n_pairs']}・記憶つき {p3['unsafe_M2']}/{p3['n_pairs']}。物資が元に戻った出動は遠回りで遅い（動画外。README・資料に掲載）")
+                    f"確認は省かないので危険な配達は 記憶なし {p3['unsafe_M0']}/{p3['n_pairs']}・記憶つき {p3['unsafe_M2']}/{p3['n_pairs']}。元に戻った出動は遠回りで遅い（README参照）。"
+                    + (advice_numbers.pooled_memory_short_ja() if advice_numbers.pooled_memory() else ''))
     except (TypeError, KeyError):
         pass
     if nums:
