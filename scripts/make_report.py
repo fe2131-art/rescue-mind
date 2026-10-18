@@ -1184,7 +1184,7 @@ def story_criteria(E, V):
                        'もう一つは、見逃しを<b>賢くするのでなく動いて減らす</b>「横から見直す」。'
                        '助言の窓口が締めるだけであることは、安全の予算を守るための<b>必要十分条件</b>で、素朴な方式・フィルタ方式には上限が無い。', '3・4章'],
             ['技術力', f'上の原理の<b>証明</b>（付録C）と、その<b>機械検証</b>（' + (smt_line() or 'z3') + '）、事前登録した' + advice_numbers.study_phrase() + '（失敗した主張も公開）、真値による独立監査、' + x_tech + f'。実際に動かして見つけた問題 {count_tests.n_findings()}件。', '2–4章、付録C・M'],
-            ['実用性', '現場導入の手順書（半日、docs/DEPLOYMENT.md）、' + p2txt + '、運用者向けの<b>報告書の自動生成</b>（統合済み）、'
+            ['実用性', '現場導入ガイド（docs/DEPLOYMENT.md、付録O）、' + p2txt + '、運用者向けの<b>報告書の自動生成</b>（統合済み）、'
                        '実写に近い倉庫への改善（評価は実行予定）。オフライン・単一GPU。', '5章'],
             ['表現力', '日本語ナレーション付きの実レンダリング動画（倍速は画面に常時表示）、1ページ目の要約図、各アイデアに1枚の図。数値は結果ファイルから自動生成。', '1ページ目、7章']]
     return [P('審査基準との対応', 'h2'), table(rows, [18, 128, 28]), Spacer(1, 3)]
@@ -1299,8 +1299,8 @@ def story_outside(sj):
         [58, 86, 30]), Spacer(1, 3)]
     s += two_figs([('depot_preview_sheet.jpg', 'シミュレーション環境の改善（評価は実行予定）：実写に近い倉庫（棚・ごみ箱・夕方の暗さ・煙）。4拠点、障害物あり。', 62),
                    ('operator_report_hidden_fire.png', '出動の記録から自動生成する現場報告書（写真・判断の理由・次にしてほしいこと）。例：物資の陰の火で停止。', 104)], 84)
-    s.append(P('<b>導入の手順書</b>（docs/DEPLOYMENT.md）：差動二輪とGPU1台だけで、拠点座標の登録、現場写真約400枚での閾値の較正（30〜60分）、'
-               '物資の見た目の確認、3場面×3回の試運転と監査、という半日の手順にまとめた。ネットワークは不要。'))
+    s.append(P('<b>導入ガイド</b>（docs/DEPLOYMENT.md、要約は付録O）：差動二輪とGPU1台で、現場の写真での閾値の較正（必須）、拠点座標の登録、'
+               '試運転と監査、Go／No-goのチェックリスト、検証していないことの一覧をまとめた。ネットワークは不要。実機では未検証。'))
     return s + [Spacer(1, 3)]
 
 
@@ -1368,6 +1368,33 @@ def glossary():
               '<b>v3.x</b>＝改良段階の版名（v3.6が提出版、横から見直しを含む）。<b>M0・M1・M2</b>＝記憶なし・素朴な記憶・本方式（記憶は助言だけ）。'
               '<b>h36・tiles</b>＝小さな火を明示した火の質問と拡大切り出し。<b>I-xx・D・E・F・G…</b>＝改善項目と事前登録した研究の記号（一覧は付録A・K）。', 'small'),
             Spacer(1, 4)]
+
+
+def appendix_deployment():
+    """Appendix O: summary of docs/DEPLOYMENT.md.  Every number comes from scripts/deployment_facts.py (result files, world file, code defaults)."""
+    import deployment_facts as df
+    try:
+        F = df.collect()
+    except Exception:       # a missing source file: leave the appendix out rather than print a number from memory
+        return []
+    v, S_, D, T = F['vram'], F['sensors'], F['defaults'], F['times']
+    P2, P_, A = F['P2'], F['P'], F['A']
+    f2, ct = P2['test_at_frozen_tau_0.05'], P2['chosen_test']
+    rows = [['項目', '内容（数値は結果ファイル・ワールド定義・コードの既定値から）'],
+            ['計算機', f"Qwen3.5-9B（FP16、ネットワーク不要）。GPUメモリはモデルだけで {v['qwen9b']} MiB、検証機（V100 32 GB）での全体の最大は {v['mission_single_peak']} MiB。"
+                       f"他のGPUは未測定。確認1回（正面1枚）の遅延は中央値 {T['V_ALLOW']['latency_s']:.1f} s、1出動は中央値 {T['V_ALLOW']['mission_s']:.0f} s（評価V）。"],
+            ['ROS 2', f"/odom（{S_['odom_hz']} Hz、フレーム名 odom／base_link）、/scan（{S_['lidar_samples']}本、{S_['lidar_hz']} Hz）、/camera（{S_['cam_w']}x{S_['cam_h']}、{S_['cam_hz']} Hz、Reliable）、/clock。"
+                      f"/cmd_vel を出すのは独立した速度ガードだけ（最大 {D['max_linear']:.2f} m/s）。実機への置き換えで要る作業：時計、画像のQoS、座標、非常停止、配置ファイル。"],
+            ['現場の較正（必須）', f"実写の火・煙の写真で、凍結した閾値 0.05 では誤警報が {P_['false_alarm']['k']}/{P_['false_alarm']['n']}。現場の写真で較正した閾値 {P2['chosen_tau']:.2f} では、"
+                                  f"未使用の写真で検出 {ct['recall']['k']}/{ct['recall']['n']}、誤警報 {ct['false_alarm']['k']}/{ct['false_alarm']['n']}（検出は {f2['h36']['recall']['k']}/{f2['h36']['recall']['n']} から下がる）。"
+                                  "規則を現場の写真に適用する <font name=\"IPAexG\">scripts/site_calibration.py</font> を用意した。"],
+            ['運用', "1枚の現場報告で「次にしてほしいこと」を読めば動ける。拒否を上書きする手段は設計上なく、人がロボットの外で判断する。助言（記憶・他のロボット・在庫表）は順序と厳格化だけ。"
+                     f"依頼文からの助言の取り出しは予備走行で {A['rerun_op_exact']}/{A['rerun_op_n']}（当てにしない）。"],
+            ['検証していないこと', "実機での走行、実際の煙・炎、実写の物資確認（研究Q）、実写の倉庫写真の採点（XD-R）、助言の閉ループ評価（研究A）、閾値を較正したあとの閉ループの安全性。"]]
+    return [P('O. 現場導入ガイド（docs/DEPLOYMENT.md）の要約', 'h2'),
+            P('運用者とロボット技術者向けの手順書。ここに載せた数値は <font name="IPAexG">scripts/deployment_facts.py</font> が結果ファイルから読み、'
+              '<font name="IPAexG">scripts/check_consistency.py</font> がガイド本文との一致を確かめる。実機では動かしていない。', 'small'),
+            table(rows, [30, 144]), Spacer(1, 3)]
 
 
 def build(account: str, video_url: str | None, repo_url: str):
@@ -1626,6 +1653,7 @@ def build(account: str, video_url: str | None, repo_url: str):
             '（確認の不変条件の検査が慎重さの削除やNaNを見逃す、など。FINDINGS #24）。4拠点版の監査では、追加視点を「位置」でなく「枚数」で数える誤りも見つけた（#25）。'
             + (f'修正後は変異体 {mu[0]} 個・{mu[1]} 個がすべて検出される。' if mu else '')
             + '単体テストは実装と同じ考え方で書くため同じ見落としをする。安全に関わる規則は、別に書いた実装と変異テストで確かめる必要がある。', 'small')]
+    s += appendix_deployment()
     chap = ROOT / 'docs/video_chapters.json'
     if chap.is_file():
         ch = json.loads(chap.read_text(encoding='utf8'))

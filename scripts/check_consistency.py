@@ -301,6 +301,12 @@ def main():
         import check_readme_links
         _n, _bad, _ = check_readme_links.check(ROOT / 'README.md')
         extra.append((f'README relative links ({_n} checked)', 'MISMATCH' if _bad else 'ok', '; '.join(_bad[:3])))
+    # the deployment guide: every measured number it prints is read back from the result files (scripts/deployment_facts.py)
+    import deployment_facts
+    extra += deployment_facts.check()
+    _dep = read('docs/DEPLOYMENT.md')
+    extra.append(('README links the deployment guide; the guide states the not-validated list and the English summary',
+                  'ok' if ('docs/DEPLOYMENT.md' in docs['readme'] and '## English summary' in _dep and '検証していないこと' in _dep) else 'MISMATCH', ''))
     first = '\n'.join(docs['readme'].splitlines()[:32])
     _video_ok = 'YouTube（提出時にURLを記載）' in first or re.search(r'<!--VIDEOURL-->\[YouTube\]\(https://www\.youtube\.com/watch\?v=[A-Za-z0-9_-]{11}\)<!--/VIDEOURL-->', first)   # placeholder, or the URL set by scripts/set_video_url.py
     _miss = [k for k in ('hero_lookaround.gif', '<!-- KEY:START -->', 'main.pdf', 'REPRODUCE.md', '説明資料') if k not in first] + ([] if _video_ok else ['video placeholder/URL'])
