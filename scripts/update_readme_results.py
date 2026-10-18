@@ -504,7 +504,7 @@ def i24_text():
 def pending_ifb_text():
     p = advice_numbers.pending_studies()
     iff = advice_numbers.if_facts()
-    ja = ['研究B（信用枠の閉ループ確認：毎回嘘をつく情報源の系列。予測は決定的）：' + ('結果ファイルあり（論文を参照）' if p['B'] else PENDING_NOT_RUN.replace('・未実行', ''))]
+    ja = ['研究B（信用枠の閉ループ確認：毎回嘘をつく情報源の系列。予測は決定的）：' + (advice_numbers.b_ja() if p['B'] else PENDING_NOT_RUN.replace('・未実行', ''))]
     if iff:
         ja.append(f"研究IF（依頼文で依頼物資を書き換えられるか、72文）：登録した主張は{'成立' if iff['held'] else '不成立'}（書き換え{iff['n']}文のうち{iff['k']}文で受理。論文を参照）")
     else:

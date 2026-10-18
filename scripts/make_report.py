@@ -522,7 +522,7 @@ def sec_new_detail():
                 P('合成した出動の結果で本物の計画と信用枠を動かした記述モデル（<font name="IPAexG">scripts/advice_credit_horizon.py</font>）で、事前登録はしていない。'
                   f"危険な配達は全条件で信用ありと信用なしが同一。代償は、7割正しい情報源の節約が {c['noisy_keep']:.0f} % に減ること（一貫性の代償）と、"
                   '正しいのに確認できない危険の警告も誤停止として課金され、いずれ締め出されること。'
-                  + ('閉ループの確認（研究B：6出動×(嘘つき3＋正直1)×(信用なし／あり)＝48試行）は' + WAIT_JA + '。' if not p['B'] else '研究Bは結果あり（論文を参照）。')
+                  + ('閉ループの確認（研究B：6出動×(嘘つき3＋正直1)×(信用なし／あり)＝48試行）は' + WAIT_JA + '。' if not p['B'] else '研究B：' + advice_numbers.b_ja() + '。')
                   + ('依頼文による書き換え（研究IF：6種類×2言語×2物資×3表現＝72文）は' + WAIT_JA + '。' if not p['IF'] else '依頼文による書き換え（研究IF）は、' + advice_numbers.if_ja()), 'small'),
                 Spacer(1, 3)]
     return out
@@ -918,7 +918,7 @@ def judge_box(D, E, V, compact=False):
             lines.append(f"<b>新しい成果</b>：この保証を、実装そのものに対して<b>機械検証</b>した（z3 {sf['unsat']}件、突き合わせ {sf['cases']:,}件で不一致 {sf['disagreements']}、"
                          f"バグ{sf['mutants']}個を{sf['caught']}個とも検出）。「締めるだけ」は<b>必要十分</b>でもあり、"
                          + (f"<b>信用枠</b>で、毎回嘘をつく情報源の代償にも上限がつく（記述モデル：+{cf['liar_no']:.0f}秒 → +{cf['liar_yes']:.0f}秒）。" if cf else '')
-                         + '閉ループの確認（研究B）は' + ('結果あり。' if advice_numbers.pending_studies()['B'] else (WAIT_JA if SNAP else '結果待ち') + '。')
+                         + '閉ループの確認（研究B）は' + ((advice_numbers.b_ja() + '。') if advice_numbers.pending_studies()['B'] else (WAIT_JA if SNAP else '結果待ち') + '。')
                          + ('依頼文の書き換え（研究IF）は、書き換えた' + f"{advice_numbers.if_facts()['n']}文のうち{advice_numbers.if_facts()['k']}文で受理され、登録した主張は不成立。対策（研究IF2）は" + ('結果あり。' if advice_numbers.if2_done() else (WAIT_JA if SNAP else '結果待ち') + '。') if advice_numbers.if_facts() else ''))
         return [P(x, 'small') for x in lines] + [Spacer(1, 3)]
     h = jload('h_summary.json')
@@ -1351,7 +1351,7 @@ def story_limits(D, E, V, SP):
                         f"依頼物資は助言ではなく命令なので、保証の外にある。現場では出発前に運用者が解析結果を読み返すことを必須とし、聞き返しの対策（I-27）は研究IF2で測る（{'結果あり' if advice_numbers.if2_done() else advice_numbers.pending_word()}）。")
     items += ['保証は<b>相対的</b>：助言は確認自身の誤りを超えて危険を増やさないが、その誤りは0ではない。助言で先に向かわされた拠点が本当に燃えているときの接近は、保証の範囲外。',
               '<b>すべてシミュレーション</b>（実機なし）。物資の把持・運搬は未実装。実写で検証したのは火災判定（P）だけで、閾値は現場ごとに較正が要る。',
-              '信用枠（I-24）の数値は<b>合成した結果の記述モデル</b>で、閉ループの確認（研究B）は' + ('結果あり。' if advice_numbers.pending_studies()['B'] else WAIT_JA + '。')
+              '信用枠（I-24）の数値は<b>合成した結果の記述モデル</b>で、閉ループの確認（研究B）：' + ((advice_numbers.b_ja() + '。') if advice_numbers.pending_studies()['B'] else WAIT_JA + '。')
               + '機械検証（I-23）は転記したモデルとコードが対象で、同じ筆者による転記と z3・CPython を信頼している。第三者による再現はまだ無い。',
               '閉ループの評価は8〜16組と少なく、記憶の評価Hは世界の変化が台本どおり（ランダムな変化は評価Vで確かめた）。']
     _vf = advice_numbers.v_facts()

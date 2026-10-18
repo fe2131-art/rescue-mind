@@ -1040,6 +1040,22 @@ def main():
         m['IFWrong'] = iff_['ctrl_wrong'] + iff_['corr_wrong'][0]
         m['IFClaim'] = 'supported' if iff_['held'] else 'not supported'
         m['StatIF'] = f"IF1 {m.lookup('IFClaim')}: {iff_['k']}/{iff_['n']} switched"
+    # ---- study B (advice credit in closed loop, mechanics; b_summary.json) -- absent until it ran
+    bf_ = RES / 'b_summary.json'
+    if bf_.is_file():
+        bj = json.loads(bf_.read_text())
+        liar_ = bj['B1_liar']['sequences']
+        m['BRuns'], m['BMissions'] = bj['n_runs'], bj['m']
+        m['BSeqs'], m['BSeqsAll'] = bj['B1_liar']['n_complete'], len(liar_)
+        w_no_, w_cr_ = {v['wasted_nocredit'] for v in liar_.values()}, {v['wasted_credit'] for v in liar_.values()}
+        m['BWastedNo'], m['BWastedCredit'] = (str(min(w_no_)) if len(w_no_) == 1 else f'{min(w_no_)}--{max(w_no_)}'), (str(min(w_cr_)) if len(w_cr_) == 1 else f'{min(w_cr_)}--{max(w_cr_)}')
+        m['BBound'] = max(v['prop3_bound'] for v in liar_.values())
+        m['BHonestWasted'] = sum(v['wasted'] for v in bj['B2_honest']['sequences'].values())
+        m['BAuditFail'] = len(bj['B3_audits']['audit_failures'])
+        m['BUnsafe'] = len(bj['B3_audits']['unsafe_deliveries'])
+        m['BSave'], m['BSavePred'] = f"{bj['B4_time_descriptive']['median_saving_s']:.0f}", f"{bj['B4_time_descriptive']['predicted_saving_per_sequence_s']:.0f}"
+        m['BClaim'] = sup(bj['headline_supported'])
+        m['StatB'] = f"credit bound: {m.lookup('BClaim')}"
     # ---- submission snapshot: the claim column of a study without results says so (the other pending studies have no analysis macro yet)
     PEND = advice_numbers.snapshot_pending() if SNAPSHOT else set()
     for k_ in advice_numbers.SNAPSHOT_STUDIES:
@@ -1222,7 +1238,7 @@ def main():
                'PTwoWording', 'PTwoTau', 'PTwoRecall', 'PTwoRecallCI', 'PTwoFA', 'PTwoFACI', 'PTwoClaim', 'PTwoFrozenRecall', 'PTwoFrozenFA',
                'APairs', 'AUnsafeNaive', 'AUnsafeOurs', 'AUnsafeCtrl', 'AMcNemarP', 'AViol', 'AAuditFail', 'ATimeSave', 'AWilcoxonP', 'ADoSVisits', 'ADoSFalseRef', 'ADoSN',
                'ADoSAllowed', 'AClaimSafety', 'AClaimTime', 'AClaimCost', 'AClaim', 'AExtract', 'AExtractRelax',
-               'SNPairs', 'SFlipsC', 'SNC', 'SFlipsA', 'SNA', 'SFlipsB', 'SNB', 'SFlipsMis', 'SNMis', 'SFlipsSafe', 'SNSafe', 'SFlipsOneA', 'SFlipsMisFree', 'SLegible', 'SClaim', 'SHyp', 'SPoolFlips', 'SPoolN', 'SPoolUpper', 'SBenignFree', 'SBenignOurs', 'SLegitKept'])
+               'SNPairs', 'SFlipsC', 'SNC', 'SFlipsA', 'SNA', 'SFlipsB', 'SNB', 'SFlipsMis', 'SNMis', 'SFlipsSafe', 'SNSafe', 'SFlipsOneA', 'SFlipsMisFree', 'SLegible', 'SClaim', 'SHyp', 'BRuns', 'BMissions', 'BSeqs', 'BSeqsAll', 'BWastedNo', 'BWastedCredit', 'BBound', 'BHonestWasted', 'BAuditFail', 'BUnsafe', 'BSave', 'BSavePred', 'BClaim', 'SPoolFlips', 'SPoolN', 'SPoolUpper', 'SBenignFree', 'SBenignOurs', 'SLegitKept'])
     for name in ('tab_t1_models.tex', 'tab_t1_ablation.tex', 'tab_e_strata.tex', 'tab_i13_dev.tex', 'tab_r.tex', 'tab_h_arms.tex', 'tab_h_sequences.tex', 'tab_s_systems.tex'):
         tables.setdefault(name, r'\begin{tabular}{l}\TBD\end{tabular}')
     def write_if_changed(path, text):      # keep mtimes when nothing changed (latexmk and `make check` compare them)

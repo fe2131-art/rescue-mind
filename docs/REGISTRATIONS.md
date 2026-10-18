@@ -36,7 +36,7 @@ Verify any row: `git log 587f033^1 --first-parent --format='%h %cI' --diff-filte
 | X | `587f033` 2026-10-18T09:08 | `d283f926675fcb86` | -- | -- | no results yet | `2e8972d` 2026-10-17T23:13 | `d283f926675fcb86` (= bound) |
 | XD | `587f033` 2026-10-18T09:08 | `5cd006c872c61619` | -- | -- | no results yet | `5535660` 2026-10-17T22:43 | `5cd006c872c61619` (= bound) |
 | Q | `587f033` 2026-10-18T09:08 | `7af0a5ac72d46fd4` | -- | -- | no results yet | `c7d06b3` 2026-10-17T20:58 | `7af0a5ac72d46fd4` (= bound) |
-| B | `587f033` 2026-10-18T09:08 | `7416ff27901695cf` | -- | -- | no results yet | `1c04256` 2026-10-18T03:10 | `1fdb07115f3c5501` + erratum |
+| B | `587f033` 2026-10-18T09:08 | `7416ff27901695cf` | `eb5b91b` 2026-10-18T22:31 | `7416ff27901695cf` | yes | `1c04256` 2026-10-18T03:10 | `1fdb07115f3c5501` + erratum |
 | IF | `587f033` 2026-10-18T09:08 | `38e510bfab955f30` | `26e2347` 2026-10-18T18:02 | `38e510bfab955f30` | yes | `051e530` 2026-10-17T23:59 | `38e510bfab955f30` (= bound) |
 | IF2 | `878cbc7` 2026-10-18T18:04 | `5c14671d2358568a` | -- | -- | no results yet | `878cbc7` 2026-10-18T18:04 | `5c14671d2358568a` (= bound) |
 
@@ -60,8 +60,8 @@ One row per `Amendment` heading in a registration file (the rows of the amendmen
 | P2 | 1 | `2910b2e` 2026-10-17T12:09 | -- | -- | `f96af5f` 2026-10-17T20:10 | yes |
 | A | 1 | `2a1bab0` 2026-10-18T10:09 | 2026-10-18 10:30 | later than the commit; the commit time is binding | `d540165` 2026-10-18T18:01 | yes |
 | A | 2 | `1163eee` 2026-10-18T10:38 | 2026-10-18 10:55 | later than the commit; the commit time is binding | `d540165` 2026-10-18T18:01 | yes |
-| B | 1 | `ed8e48b` 2026-10-18T01:38 | 2026-10-18 | no | none yet | no results yet |
-| B | 2 | `1c04256` 2026-10-18T03:10 | 2026-10-18 03:20 | later than the commit; the commit time is binding | none yet | no results yet |
+| B | 1 | `ed8e48b` 2026-10-18T01:38 | 2026-10-18 | no | `eb5b91b` 2026-10-18T22:31 | yes |
+| B | 2 | `1c04256` 2026-10-18T03:10 | 2026-10-18 03:20 | later than the commit; the commit time is binding | `eb5b91b` 2026-10-18T22:31 | yes |
 
 * Study A: the A campaign (226 trials) started 2026-10-18 11:11 JST (first trial A001): after both amendments and after the commits above.
 

@@ -620,6 +620,20 @@ def study_phrase_en():
 _NUMWORD = {0: 'zero', 1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six', 7: 'seven', 8: 'eight', 9: 'nine', 10: 'ten', 11: 'eleven', 12: 'twelve'}
 
 
+def b_ja(none=None):
+    """Study B (advice credit in closed loop; a mechanics check) as one Japanese sentence; `none` when b_summary.json is absent."""
+    bj = _load('b_summary.json')
+    try:
+        liar = bj['B1_liar']['sequences']
+        no, cr = sorted({v['wasted_nocredit'] for v in liar.values()}), sorted({v['wasted_credit'] for v in liar.values()})
+        rng = lambda x: str(x[0]) if len(x) == 1 else f'{x[0]}〜{x[-1]}'
+        return (f"毎回嘘をつく情報源は、{bj['m']}出動で信用枠なし {rng(no)}回・あり {rng(cr)}回の無駄足（{bj['B1_liar']['n_complete']}系列すべて、上限 {max(v['prop3_bound'] for v in liar.values())}）。"
+                f"正直な情報源は止められず、{bj['n_runs']}試行で監査の失敗 {len(bj['B3_audits']['audit_failures'])}・危険な配達 {len(bj['B3_audits']['unsafe_deliveries'])}。"
+                f"信用枠で系列あたり中央値 {bj['B4_time_descriptive']['median_saving_s']:.0f} 秒短縮（予測 {bj['B4_time_descriptive']['predicted_saving_per_sequence_s']:.0f} 秒）。決定的な機構の確認で、率の推定ではない")
+    except (TypeError, KeyError):
+        return none
+
+
 def s_ja(none=None):
     """Study S (signs in the picture) as one Japanese sentence group for README / report; `none` when s_summary.json is absent."""
     sj = _load('s_summary.json')
