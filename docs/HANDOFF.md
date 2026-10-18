@@ -19,6 +19,8 @@
 * **提出の手順（ご本人用）**：[`SUBMISSION_CHECKLIST.md`](SUBMISSION_CHECKLIST.md)（最終確認 → YouTube → `scripts/set_video_url.py` → public 化 → フォーム）。動画の URL の差し込みは `python3 scripts/set_video_url.py <URL> --apply`、公開前の検査は `python3 scripts/secret_scan.py --history`。
 * 締切前の保険：`make snapshot`（結果の出ていない研究は「登録済み・提出時点で未実施」と表記される）。
 
+* **落とし穴（10/18）**：`scripts/build_paper.sh` は `docker exec rm-dev … make_paper_figures.py` を呼ぶ。rm-dev は **main の作業ツリー**で動くので、worktree から実行すると main の図の PDF が再生成される。worktree では latexmk を直接呼ぶか、`docker exec -w <worktree>` を使う。
+
 ### A. ユーザーの方針（必ず守る）
 
 * **サブエージェントはちょうど1つ（Sonnet 5.5、`model: sonnet`）を常に動かす。** 同時に2つにしない。終わったら次を起動する。止まったら SendMessage で続きから再開させる。
