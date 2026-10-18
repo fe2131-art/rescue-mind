@@ -57,7 +57,8 @@ def numbers():
         h = jl('h_summary.json')
         p2, p1 = h['P2_safety_naive_vs_verified'], h['P1_efficiency_relocation_persist']
         n['H'] = dict(naive=p2['unsafe_M1'], ours=p2['unsafe_M2'], n=p2['n_pairs'], m0=h['P3_no_extra_risk_vs_v36']['unsafe_M0'],
-                      t0=round(p1['time_M0_median_s']), t2=round(p1['time_M2_median_s']), npair=p1['n_pairs'])
+                      t0=round(p1['time_M0_median_s']), t2=round(p1['time_M2_median_s']), npair=p1['n_pairs'],
+                      a0=round(h['per_arm']['M0']['time_median_s']), a2=round(h['per_arm']['M2']['time_median_s']), nall=h['P3_no_extra_risk_vs_v36']['n_pairs'])
     except (TypeError, KeyError):
         n['H'] = None
     try:
@@ -112,7 +113,7 @@ T = {
   res_h='主な結果（事前登録・実測）', pend='結果待ち',
   L=('L  未知の配置24通り', '{ok}/{n}', '期待どおり・危険な配達 {u}'),
   G=('G  横から見直し', '{b}/{n} → {c}/{n}', '火があるのに配達した数（p={p:.3f}）'),
-  H=('H  記憶をまたぐ出動', '{t0}→{t2} 秒', '移されたまま続く{np}出動の所要時間（中央値）。危険な配達は下の図'),
+  H=('H  記憶をまたぐ出動', '{t0}→{t2} 秒', '移されたまま続く{np}出動の所要時間（中央値）。全{nall}出動では {a0}→{a2} 秒。危険な配達は下の図'),
   A=('A  悪意ある助言', '{an}/{nn} → {ao}/{no}', '危険な配達：助言どおりに動く方式 → 本方式'),
   X=('X  現実的な倉庫（4拠点）', '{m0:.1f} → {m2:.1f} 拠点', '記憶なし → あり（訪問数）。火・煙の世界の危険な配達 {k}/{hn}'),
   W=('W  見回し（新しい{n}世界）', '{fr}/{n} → {la}/{n}', '小さく隠れた火の見逃し：正面のみ → 見回し（95%CI上限 {up:.1f}%）。横からしか見えない{sn}世界では {sk}/{sn}{allm}', '見逃し'),
@@ -120,7 +121,7 @@ T = {
   PEND=('結果待ち（登録済み・未実行）', {'A': '悪意ある助言', 'S': '画像内の文字', 'X': '4拠点の倉庫', 'XD': '倉庫の画像', 'B': '信用枠', 'IF': '依頼文', 'Q': '実写真'}, '結果待ち'),
   allm='（残る見逃しの全て）', nonem='',
   P2=('P2  実写真（較正後）', '{r}/{rn}', '火・煙の検出。ただし火なしの誤警報は {f}/{fn}'),
-  strip='すべて事前登録・全試行公開・シミュレーション（実機なし）'),
+  strip='評価はすべて事前登録・機械検証と機構の確認は別枠・全試行公開・シミュレーションのみ'),
  'en': dict(
   title='RescueMind', sub='Advice may only tighten: a relief robot that checks before it delivers',
   prob_h='Problem', prob='In a disaster, the inventory and the scene disagree, and hazards hide',
@@ -143,7 +144,7 @@ T = {
   res_h='Key results (pre-registered)', pend='pending',
   L=('L  24 unseen layouts', '{ok}/{n}', 'as expected; unsafe deliveries {u}'),
   G=('G  look again', '{b}/{n} → {c}/{n}', 'deliveries despite a fire (p={p:.3f})'),
-  H=('H  memory across missions', '{t0} → {t2} s', 'median mission time over {np} relocated runs. Unsafe deliveries: see below'),
+  H=('H  memory across missions', '{t0} → {t2} s', 'median mission time over {np} relocated runs (all {nall} missions: {a0} → {a2} s). Unsafe deliveries: see below'),
   A=('A  adversarial advice', '{an}/{nn} → {ao}/{no}', 'unsafe deliveries: advice-following baseline → ours'),
   X=('X  realistic depot (4 bays)', '{m0:.1f} → {m2:.1f} bays', 'visited, no memory → memory. Unsafe in fire/smoke worlds {k}/{hn}'),
   W=('W  look-around on {n} new worlds', '{fr}/{n} → {la}/{n}', 'misses of small hidden fires, front-only → look-around (95% CI upper {up:.1f}%). Side-only worlds: {sk}/{sn}{allm}', 'misses'),
@@ -151,7 +152,7 @@ T = {
   PEND=('Pending (registered, not yet run)', {'A': 'adversarial advice', 'S': 'scene text', 'X': '4-bay depot', 'XD': 'depot images', 'B': 'credit', 'IF': 'request text', 'Q': 'real photos'}, 'pending'),
   allm=' (all remaining misses)', nonem='',
   P2=('P2  real photos (calibrated)', '{r}/{rn}', 'fire/smoke found. False alarms on no-fire photos {f}/{fn}'),
-  strip='All pre-registered | every trial published | simulation only (no real robot)'),
+  strip='Every evaluation pre-registered; machine proofs and the interlock check are separate | every trial published | simulation only'),
 }
 
 
@@ -411,7 +412,7 @@ def build(lang):
                       t['W'][2].format(up=100 * la['ci95'][1], sk=so['k'], sn=so['n'], allm=t['allm'] if so['k'] == la['k'] else ''), None))
     if n['H']:
         hn = n['H']
-        items.append((BLUE, t['H'][0], t['H'][1].format(t0=hn['t0'], t2=hn['t2']), t['H'][2].format(np=hn['npair']), None))
+        items.append((BLUE, t['H'][0], t['H'][1].format(t0=hn['t0'], t2=hn['t2']), t['H'][2].format(np=hn['npair'], nall=hn['nall'], a0=hn['a0'], a2=hn['a2']), None))
     if n['V']:
         vf, pm = n['V']
         bad = not vf['memory_claim']

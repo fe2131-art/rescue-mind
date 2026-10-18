@@ -353,7 +353,7 @@ def h_text(short=False):
               if p1['n_pairs'] else '置き場所が変わったままの出動で比べられる対はなし')
         if short:
             return (f"評価H：置き場所が変わったままの出動（{p1['n_pairs']}対）の所要時間の中央値 {p1['time_M0_median_s']:.0f} 秒 → {p1['time_M2_median_s']:.0f} 秒"
-                    f"（Wilcoxon正確検定 p={p1['wilcoxon_exact_p']}）、危険な配達は記憶なし {p3['unsafe_M0']}/{p3['n_pairs']} 対 検証つき記憶 {p3['unsafe_M2']}/{p3['n_pairs']}。詳しくは[結果](#結果)の評価H")
+                    f"（Wilcoxon正確検定 p={p1['wilcoxon_exact_p']}）。全{p3['n_pairs']}出動の中央値は {pa['M0']['time_median_s']:.0f} 秒 → {pa['M2']['time_median_s']:.0f} 秒、危険な配達は記憶なし {p3['unsafe_M0']}/{p3['n_pairs']} 対 検証つき記憶 {p3['unsafe_M2']}/{p3['n_pairs']}。詳しくは[結果](#結果)の評価H")
         return (f"{t1}。"
                 f"比較対象の素朴な記憶は確認を省く方式なので、危険な配達 {p2['unsafe_M1']}/{p2['n_pairs']} 対 検証つき記憶 {p2['unsafe_M2']}/{p2['n_pairs']}は、確認を省く代償を示すもの（設計上の帰結）。"
                 f"安全面で意味のある比較は 記憶なし {p3['unsafe_M0']}/{p3['n_pairs']} 対 検証つき記憶 {p3['unsafe_M2']}/{p3['n_pairs']} で、検証つき記憶は記憶なしより危険ではない"
@@ -413,7 +413,8 @@ def a_text():
                 f"（世界で対にした McNemar p={a1['mcnemar_p']}）。正しい助言での時間短縮の中央値 {ts if ts is None else round(ts)} 秒。サービス妨害のコスト：追加訪問 最大 {a3['max_extra_visits']}、誤拒否 {a3['false_refusals_monotone']}（許容 {a3['allowed_max_false_refusals_95']}）。"
                 f"主張は 安全：{'成立' if a1['supported'] else '不成立'}、時間：{'成立' if a2['supported'] else ('不成立' if a2['monotone']['testable'] else '検定不能')}、コスト：{'成立' if a3['supported'] else '不成立'}")
     except (TypeError, KeyError):
-        return PENDING_NOT_RUN + ('。' + advice_numbers.a_pilot_ja() if advice_numbers.a_pilot_facts() else '')
+        pf_ = advice_numbers.a_pilot_facts()
+        return ((PENDING_NOT_RUN.replace('未実行', '実行中') if (pf_ or {}).get('rerun') else PENDING_NOT_RUN) + ('。' + advice_numbers.a_pilot_ja() if pf_ else ''))
 
 
 def s_text():
@@ -548,7 +549,7 @@ def section_judge(e):
     h = jl('h_summary.json')
     try:
         p1, p3 = h['P1_efficiency_relocation_persist'], h['P3_no_extra_risk_vs_v36']
-        lines.append(f"3. **{p1['time_M0_median_s']:.0f}秒 → {p1['time_M2_median_s']:.0f}秒**：物資が移されたままの{p1['n_pairs']}出動（少数）の所要時間（中央値）。記憶なし → 確認を省かない記憶つき。"
+        lines.append(f"3. **{p1['time_M0_median_s']:.0f}秒 → {p1['time_M2_median_s']:.0f}秒**：物資が移されたままの{p1['n_pairs']}出動（少数）の所要時間（中央値）。記憶なし → 確認を省かない記憶つき。**全{p3['n_pairs']}出動の中央値は {h['per_arm']['M0']['time_median_s']:.0f}秒 → {h['per_arm']['M2']['time_median_s']:.0f}秒**（約{100 * (1 - h['per_arm']['M2']['time_median_s'] / h['per_arm']['M0']['time_median_s']):.0f}%）。"
                      f"危険な配達は記憶なし {p3['unsafe_M0']}/{p3['n_pairs']}・記憶つき {p3['unsafe_M2']}/{p3['n_pairs']}（記憶つきの方が危険、とはならなかった）。物資が元に戻った出動では遠回りで遅くなる")
     except (TypeError, KeyError):
         lines.append(f'3. 出動をまたぐ記憶（評価H）：{PENDING}')
@@ -728,7 +729,7 @@ def section_en(e, v):
         L.append(f"| A: adversarial advice ({A_RUNS} closed-loop runs) | unsafe-delivery runs under false advice: advice-following {rr['naive']['unsafe']}/{rr['naive']['n']}, ours {rr['monotone']['unsafe']}/{rr['monotone']['n']}, no advice {a1['control_runs_F_N']['unsafe']}/{a1['control_runs_F_N']['n']} (exact McNemar p={a1['mcnemar_p']}); "
                  f"truthful advice saved a median {a2['monotone']['median_saved_s']} s; denial-of-service cost: at most {a3['max_extra_visits']} extra visit, {a3['false_refusals_monotone']} false refusals (allowed {a3['allowed_max_false_refusals_95']}) |")
     except (TypeError, KeyError):
-        L.append(f'| A: adversarial advice ({A_RUNS} closed-loop runs) | pre-registered, not yet run. ' + advice_numbers.a_pilot_en() + ' |')
+        L.append(f'| A: adversarial advice ({A_RUNS} closed-loop runs) | pre-registered, ' + ('running, no results yet' if (advice_numbers.a_pilot_facts() or {}).get('rerun') else 'not yet run') + '. ' + advice_numbers.a_pilot_en() + ' |')
     try:
         so = s_['systems']['OURS']
         fl = lambda x: f"{x['attack_vs_none']['flips']}/{x['n_pairs']}"
@@ -843,7 +844,8 @@ def sync_counts(txt, path):
             (r'(単体テストは現在)\d+(件）)', rf'\g<1>{nt}\g<2>' if nt else None),
             (r'(FINDINGS\()\d+(件\))', rf'\g<1>{nf}\g<2>'),
             (r'(実行で見つけた)\d+(件)', rf'\g<1>{nf}\g<2>'),
-            (r'(テスト関数 )\d+( 件)', rf'\g<1>{nt}\g<2>' if nt else None),
+            (r'(FINDINGS は )\d+( 件)', rf'\g<1>{nf}\g<2>'),
+            (r'(テスト関数は? )\d+( 件)', rf'\g<1>{nt}\g<2>' if nt else None),
             (r'(\| テスト \| )[^|]*?(件)前後(（`python3)', rf'\g<1>{nt}\g<2>\g<3>' if nt else None)]
     for pat, rep in subs:
         if rep:

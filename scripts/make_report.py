@@ -397,7 +397,8 @@ def a_result_text(a):
                 f"助言なし {a1['control_runs_F_N']['unsafe']}/{a1['control_runs_F_N']['n']}。主張 安全：<b>{ok_(a1['supported'])}</b>、"
                 f"時間：<b>{ok_(a2['supported']) if a2['monotone']['testable'] else '検定不能'}</b>、コスト：<b>{ok_(a3['supported'])}</b>")
     except (TypeError, KeyError):
-        return PEND_NOT_RUN + ('。' + advice_numbers.a_pilot_ja() if advice_numbers.a_pilot_facts() else '')
+        pf_ = advice_numbers.a_pilot_facts()
+        return ((PEND_NOT_RUN.replace('未実行（事前登録済み・実行待ち）', '実行中（事前登録済み・結果はまだ無い）') if (pf_ or {}).get('rerun') else PEND_NOT_RUN) + ('。' + advice_numbers.a_pilot_ja() if pf_ else ''))
 
 
 def s_result_text(sj):
@@ -555,7 +556,7 @@ def sec_memory():
     ok = lambda x: '<b>成立</b>' if x['supported'] else '<b>不成立</b>'
     rows = [['基準', '結果', '判定']]
     rows.append([f"P1 速さ（M2 vs M0、入れ替わりが続く{p1['n_pairs']}出動）",
-                 (f"所要時間の中央値 {p1['time_M0_median_s']:.0f} → {p1['time_M2_median_s']:.0f} 秒（差の中央値 {p1['median_diff_s']:+.0f} 秒）、"
+                 (f"所要時間の中央値 {p1['time_M0_median_s']:.0f} → {p1['time_M2_median_s']:.0f} 秒（差の中央値 {p1['median_diff_s']:+.0f} 秒。全{h['P3_no_extra_risk_vs_v36']['n_pairs']}出動では {h['per_arm']['M0']['time_median_s']:.0f} → {h['per_arm']['M2']['time_median_s']:.0f} 秒）、"
                   f"Wilcoxon正確検定 {pexact(p1['wilcoxon_exact_p'])}") if p1['n_pairs'] else '対になる出動なし', ok(p1)])
     rows.append([f"P2 安全（M2 vs M1、{p2['n_pairs']}出動。M1は確認を省く設計）",
                  f"危険な配達 M1 {p2['unsafe_M1']}/{p2['n_pairs']} → M2 {p2['unsafe_M2']}/{p2['n_pairs']}（食い違い {p2['discordant_M1_only']}:{p2['discordant_M2_only']}）、"
@@ -924,7 +925,7 @@ def judge_box(D, E, V, compact=False):
                     f"（火の無い世界での誤停止 {gc['C']['false_hazard_stops']}/{gc['C']['fire_free_trials']}。測っているのは「横から見る効果」）")
     if h:
         p1, p3 = h['P1_efficiency_relocation_persist'], h['P3_no_extra_risk_vs_v36']
-        nums.append(f"<b>{p1['time_M0_median_s']:.0f}秒 → {p1['time_M2_median_s']:.0f}秒</b>：物資が移されたままの{p1['n_pairs']}出動（少数）の所要時間の中央値（記憶なし → 検証つき記憶）。"
+        nums.append(f"<b>{p1['time_M0_median_s']:.0f}秒 → {p1['time_M2_median_s']:.0f}秒</b>：物資が移されたままの{p1['n_pairs']}出動（少数）の所要時間の中央値（記憶なし → 検証つき記憶）。全{p3['n_pairs']}出動の中央値は {h['per_arm']['M0']['time_median_s']:.0f}秒 → {h['per_arm']['M2']['time_median_s']:.0f}秒。"
                     f"危険な配達は {p3['unsafe_M0']}/{p3['n_pairs']} 対 {p3['unsafe_M2']}/{p3['n_pairs']}。物資が元に戻った出動では遠回りで遅くなる")
     out = [P(t, 'small') for t in items]
     if nums:
@@ -1211,7 +1212,7 @@ def story_advice(h):
         rows.append([nm, f"{m['unsafe_deliveries']}/{m['n']}", f"{m['time_median_s']:.0f} 秒" if m['time_median_s'] is not None else '-'])
     s += [Spacer(1, 3), KeepTogether([table(rows, [100, 30, 44])]), Spacer(1, 2),
           P(f"素朴な記憶は確認を省くので危険な配達が増えるのは当然で、意味のある比較は記憶なし {p3['unsafe_M0']}/{p3['n_pairs']} 対 本方式 {p3['unsafe_M2']}/{p3['n_pairs']}（より危険にならない）。"
-            f"物資が移されたまま続く{p1['n_pairs']}出動では {p1['time_M0_median_s']:.0f} → {p1['time_M2_median_s']:.0f} 秒（Wilcoxon正確検定 {pexact(p1['wilcoxon_exact_p'])}）に縮んだ。"
+            f"物資が移されたまま続く{p1['n_pairs']}出動では {p1['time_M0_median_s']:.0f} → {p1['time_M2_median_s']:.0f} 秒（Wilcoxon正確検定 {pexact(p1['wilcoxon_exact_p'])}）に縮んだ（全{p3['n_pairs']}出動の中央値では {pa['M0']['time_median_s']:.0f} → {pa['M2']['time_median_s']:.0f} 秒）。"
             f"一方、物資が元に戻った出動では助言の拠点へ先に行くぶん遅くなる（{pa['M2']['by_transition']['relocation_change']['time_median_s']:.0f} 秒 対 記憶なし {pa['M0']['by_transition']['relocation_change']['time_median_s']:.0f} 秒）。"
             f"事前登録した全体の主張（速さ・安全・追加の危険なし）：<b>{'成立' if h['headline_supported'] else '不成立'}</b>。", 'small')]
     vs, aj = jload('v_summary.json'), jload('a_summary.json')

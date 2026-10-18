@@ -882,6 +882,10 @@ def main():
         m['AIntHeldOut'], m['AIntHeldN'] = pf_['held38'], pf_['held_n']
         m['AIntUnsafe'] = max(pf_['unsafe35'], pf_['unsafe38'])
         m['AIntInjOld'], m['AIntInjNew'], m['AIntInjN'], m['AIntWrong'] = pf_['inj35'], pf_['inj38'], pf_['inj_n'], pf_['wrong38']
+        if pf_.get('rerun'):       # the rerun pilot (i38) read with the gate of Amendment 2
+            m['ARerunRuns'], m['ARerunIntent'], m['ARerunOpN'] = pf_['rerun_runs'], pf_['rerun_op_intent'], pf_['rerun_op_n']
+            m['ARerunExact'], m['ARerunFileOK'] = pf_['rerun_op_exact'], f"{pf_['rerun_file_ok']}/{pf_['rerun_file_n']}"
+            m['ACampaignStart'] = advice_numbers.A_CAMPAIGN_START
     xr_ = advice_numbers.xdr_facts()
     if xr_:
         m['XDRCand'], m['XDRKept'], m['XDRExcl'] = xr_['cand'], xr_['kept'], xr_['excl']
@@ -918,7 +922,7 @@ def main():
             rows.append(f"{name} & registered at merge, pending & \\texttt{{{sc.split()[0] if sc else 'pending'}}} & -- & pending \\\\")
             drafts.append(name)
             continue
-        hist, _ = git('log', '--full-history', '--no-merges', '--format=%h %ad', '--date=short', '--', rel)           # newest first
+        hist, _ = git('log', '--full-history', '--no-merges', '--invert-grep', '--grep=erratum (times)', '--format=%h %ad', '--date=short', '--', rel)   # newest first; an appended time erratum is not a change of the registered text
         hist = hist.splitlines()
         rc = ''
         if sc:   # the text in force at the first result: the newest registration commit strictly before the first results commit
@@ -930,7 +934,8 @@ def main():
         else:    # no result yet: the newest commit of the text that will be run
             rc = hist[0] if hist else ''
         n_am = len(AMEND_RX.findall((ROOT / rel).read_text()))
-        on_main = git('show', f'{main_ref}:{rel}')[0] == (ROOT / rel).read_text().strip()      # the text in this checkout is the text on main
+        _body = lambda t: t.split('\n## Erratum (times)')[0].strip()      # the appended time erratum is not part of the registered text
+        on_main = _body(git('show', f'{main_ref}:{rel}')[0]) == _body((ROOT / rel).read_text())      # the text in this checkout is the text on main
         if rc and sc and rc.split()[0] == sc.split()[0]:
             order = 'same commit'          # cannot be verified from history (recorded before this audit existed)
         elif rc and sc:
@@ -946,7 +951,7 @@ def main():
     tables['tab_prereg.tex'] = '\n'.join(rows)
     # ---- amendments: one row per amendment heading, the commit that introduced it (git -G, oldest) against the first results commit of its study
     arows = [r'\begin{tabular}{llllc}', r'\toprule', r'Study & Amendment (text date) & Commit (git time) & First results & Order \\', r'\midrule']
-    am_a = None
+    am_a = am_a2 = None
     for name, reg, res in studies:
         rel = f'experiments/{reg}'
         if not (ROOT / rel).is_file():
@@ -969,10 +974,14 @@ def main():
             arows.append(f"{name.split()[0]} & {k_} ({(d_ or '--') + (' ' + t_ if t_ else '')}) & \\texttt{{{c_.split()[0]}}} {' '.join(c_.split()[1:])} & \\texttt{{{sc.split()[0] if sc else 'pending'}}} & {order_} \\\\")
             if name == 'A' and k_ == '1':
                 am_a = c_
+            if name == 'A' and k_ == '2':
+                am_a2 = c_
     arows += [r'\bottomrule', r'\end{tabular}']
     tables['tab_amend.tex'] = '\n'.join(arows)
     if am_a:
         m['AAmendCommit'], m['AAmendTime'] = am_a.split()[0], ' '.join(am_a.split()[1:])
+    if am_a2:
+        m['AAmendTwoCommit'], m['AAmendTwoTime'] = am_a2.split()[0], ' '.join(am_a2.split()[1:])
     m['NAmend'] = len(arows) - 5
     # the one definition of "number of studies" (README, report, paper and check_consistency read it back through advice_numbers.study_counts):
     # every row of Table S9 except C, the initial evaluation (23 = the studies of Supp. Table S12); 'checked' = registration commit

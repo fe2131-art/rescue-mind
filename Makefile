@@ -104,8 +104,9 @@ reproduce-help: ## Print the three reproduction tiers (the full guide: docs/REPR
 	@echo "  make study-D study-E study-G study-H study-V ...                  # PRINT the registered campaign commands"
 	@echo "  registration predates results: python3 scripts/paper_numbers.py  -> docs/paper/tab_prereg.tex, or git merge-base --is-ancestor <registration> <results>"
 
-numbers: ## Regenerate docs/paper/numbers.tex and tab_*.tex from experiments/results (host python3, no docker)
+numbers: ## Regenerate docs/paper/numbers.tex and tab_*.tex from experiments/results (host python3, no docker) and the registration ledger docs/REGISTRATIONS.md (from git)
 	$(NICE) python3 scripts/paper_numbers.py
+	$(NICE) python3 scripts/make_registrations.py
 
 figures: ## Paper figures + graphical abstract + memory/advice diagrams (in rm-dev)
 	$(NEED_DEV)

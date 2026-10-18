@@ -397,6 +397,20 @@ def main():
     except Exception as exc:       # noqa: BLE001
         extra.append(('docs/paper/numbers.tex up to date', 'skip', f'cannot regenerate: {exc}'))
 
+    # the registration ledger is generated from git (scripts/make_registrations.py)
+    try:
+        r_ = subprocess.run([sys.executable, str(ROOT / 'scripts/make_registrations.py'), '--check'], capture_output=True, text=True, cwd=ROOT)
+        extra.append(('docs/REGISTRATIONS.md up to date (scripts/make_registrations.py)', 'ok' if r_.returncode == 0 else 'MISMATCH', r_.stdout.strip() if r_.returncode else ''))
+    except Exception as exc:       # noqa: BLE001
+        extra.append(('docs/REGISTRATIONS.md up to date', 'skip', str(exc)))
+    # the FINDINGS count (rows of docs/FINDINGS.md) is the one stated in the prose of the other documents
+    import count_tests
+    nf_ = count_tests.n_findings()
+    for fn_, pats_ in (('README.md', [r'初めて分かった(\d+)件']), ('docs/FINDINGS.md', [r'以下の(\d+)件']), ('docs/HANDOFF.md', [r'FINDINGS は (\d+) 件', r'実行で見つけた(\d+)件'])):
+        for pat_ in pats_:
+            got_ = re.findall(pat_, read(fn_))
+            extra.append((f'{fn_}: FINDINGS count {nf_} ({pat_})', 'ok' if got_ and all(g_ == str(nf_) for g_ in got_) else 'MISMATCH', f'found {got_}' if not (got_ and all(g_ == str(nf_) for g_ in got_)) else ''))
+
     # the paper PDF: no red TBD, and no pending marker in the abstract
     mp = ROOT / 'docs/paper/main.pdf'
     if mp.is_file() and not a.no_report:
