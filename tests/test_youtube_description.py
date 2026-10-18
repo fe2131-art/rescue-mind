@@ -47,9 +47,12 @@ class YoutubeDescription(unittest.TestCase):
         self.assertIn('約2分31秒（`docs/video_chapters.json` の終端 151 秒）', text)
         self.assertIn('デモは3場面：①言い換えた指示でも配達 ②欠品 → 停止 ③前回の記憶を使って最短で配達。', text)
         self.assertIn('走行区間は8倍速、確認動作は3倍速、AI判断の瞬間（画像取得〜判断）は等速です', text)
-        for line in ('0:00 RescueMind', '0:06 デモ1：言い換えた指示でも配達', '1:25 デモ3：前回の記憶を使って最短で配達',
-                     '2:10 証拠のまとめ', '2:25 RescueMind'):
+        # the 6 s cards are merged into their neighbours: YouTube ignores a list with a chapter shorter than 10 s
+        for line in ('0:00 RescueMind ＋ デモ1：言い換えた指示でも配達', '0:40 デモ2：欠品 → 停止', '1:25 デモ3：前回の記憶を使って最短で配達',
+                     '2:10 証拠のまとめ ＋ RescueMind'):
             self.assertIn(line, text)
+        self.assertEqual(facts['warnings'], [])
+        self.assertEqual(len(facts['chapters']), 4)
         self.assertEqual(facts['n_tables'], 1)
 
     def test_fixed_parts_kept(self):
@@ -106,7 +109,13 @@ class YoutubeDescription(unittest.TestCase):
         self.assertEqual(mk.main(args + ['--check']), 1)
         self.assertEqual(mk.main(args), 0)
         self.assertEqual(mk.main(args + ['--check']), 0)
-        self.assertIn('2:25 RescueMind', out.read_text(encoding='utf8'))
+        self.assertIn('2:10 証拠のまとめ ＋ RescueMind', out.read_text(encoding='utf8'))
+
+    def test_description_limit_counts_characters(self):
+        text, _ = mk.build_description(CHAPTERS, self.res)
+        body = text.split('## 概要欄\n', 1)[1].split('\n\n## 公開設定', 1)[0]
+        self.assertLessEqual(len(body), mk.LIMIT)
+        self.assertLess(mk.LIMIT, 5000)
 
     def test_repo_files_are_current(self):
         """The committed description and submission notes match the committed chapters and result files."""

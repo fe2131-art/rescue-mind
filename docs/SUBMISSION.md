@@ -16,7 +16,7 @@
 <!-- VIDEO:START -->
 * **動画の4デモ**：①言い換えた指示でも配達 ②物資の取り違え → 別の拠点を探索して配達 ③出動をまたぐ記憶 → 直行 ④「確認不要」と言われても → 横から見て停止。
 * **倍速の明記**：走行8倍速・確認動作3倍速・AI判断の瞬間は等速（画面左上に常時表示。YouTube概要欄にも記載）。
-* **動画の長さと章立て**：約2分53秒（1〜3分の枠内）、章10個、評価の表1枚。章立ては `docs/video_chapters.json`（`scripts/make_demo_video.py` が出力）、概要欄は `scripts/make_youtube_description.py` が再生成。
+* **動画の長さと章立て**：約2分53秒（1〜3分の枠内）、章5個、評価の表1枚。章立ては `docs/video_chapters.json`（`scripts/make_demo_video.py` が出力）、概要欄は `scripts/make_youtube_description.py` が再生成。
 <!-- VIDEO:END -->
 * **主な数値**（事前登録した評価。提出版 v3.6 の開発時点の数値で、V・W・I-20（v3.7）など後の結果は README と論文。`experiments/results/` の結果ファイルから生成）：
   * 評価E（ランダムな世界の閉ループ60試行）：期待どおり 60/60、誤配達 0件

@@ -28,6 +28,8 @@ from PIL import Image, ImageDraw, ImageFont
 ROOT = Path(__file__).resolve().parents[1]
 import sys  # noqa: E402
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / 'scripts'))
+import youtube_chapters  # noqa: E402
 W, H, FPS = 1920, 1080, 30
 FONT_R = '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc'
 FONT_B = '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc'
@@ -670,6 +672,7 @@ def main(argv=None):
                 '-c:a', 'aac', '-b:a', '160k', '-t', f"{count['n'] / FPS:.2f}", '-movflags', '+faststart', str(out)]
         subprocess.run(cmd, check=True)
         silent.unlink()
+    chapters = youtube_chapters.merge_short(chapters)      # YouTube ignores a chapter list with a chapter < 10 s: short cards are merged
     (ROOT / 'docs/video_chapters.json').write_text(json.dumps(chapters, ensure_ascii=False, indent=1) + '\n', encoding='utf8')
     print(json.dumps({'out': str(out), 'seconds': round(count['n'] / FPS, 2)}))
 
