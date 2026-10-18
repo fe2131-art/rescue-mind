@@ -72,17 +72,27 @@ class LedgerGuard(unittest.TestCase):
 
 
 class StudyAIntentPrompt(unittest.TestCase):
+    def setUp(self):
+        self._saved = mpa.INTENT_PROMPT
+
     def tearDown(self):
-        mpa.INTENT_PROMPT = None
+        mpa.INTENT_PROMPT = self._saved      # the module constant (Amendment 1: 'i38')
 
     def test_default_is_the_registered_protocol(self):
-        self.assertEqual(mpa.INTENT_PROMPT, None)
-        self.assertEqual(mpa.build()['common_stack_args'], [])
-        self.assertEqual(mpa.build_pilot()['common_stack_args'], [])
+        # Amendment 1 (2026-10-18): the registered protocols carry the intent prompt i38; the generator default equals them
+        self.assertEqual(mpa.INTENT_PROMPT, 'i38')
+        reg = json.loads((mpa.ROOT / 'experiments/campaign_a_protocol.json').read_text())
+        regp = json.loads((mpa.ROOT / 'experiments/campaign_a_pilot_protocol.json').read_text())
+        self.assertEqual(json.loads(json.dumps(mpa.build(), ensure_ascii=False)), reg)
+        self.assertEqual(json.loads(json.dumps(mpa.build_pilot(), ensure_ascii=False)), regp)
 
     def test_amended_protocol_only_changes_the_stack_arguments(self):
+        saved = mpa.INTENT_PROMPT
+        mpa.INTENT_PROMPT = None
         base, pilot = mpa.build(), mpa.build_pilot()
+        self.assertEqual(base['common_stack_args'], [])
         mpa.INTENT_PROMPT = 'i38'
+        self.addCleanup(setattr, mpa, 'INTENT_PROMPT', saved)
         a, ap = mpa.build(), mpa.build_pilot()
         self.assertEqual(a['common_stack_args'], ['--intent-prompt', 'i38'])
         self.assertEqual(ap['common_stack_args'], ['--intent-prompt', 'i38'])

@@ -315,3 +315,28 @@ relative one of Proposition 2 and the A1 tolerance of one monotone unsafe run is
 (4) the robot gained two default-off flags, `--advice-scrutiny` and `--caution-soft` (R5 #2, #5); the v3.6 stack is unchanged without
 them. Not done here and listed for the depot study X: the all-station hazard cell, provenance and decay of peer memory (H5), the
 τ_h/5 site-relative caution threshold.)
+
+## Amendment 1 (2026-10-18 10:30, after the mechanics pilot and before any registered A trial)
+
+**What the pilot found.** In the mechanics pilot (27 runs from 09:14), every file-channel run behaved as designed. In the
+operator channel, the intended advice was extracted in 0 of 12 runs, below the required 9 of 12. The reason was not the
+advice extraction: the v3.6 intent prompt i35 read a supply-station mention as "a destination other than shelter B" and
+refused the whole request (`unsupported_shelter`, FINDINGS #30). The pilot stopped A as designed. Its ledger is kept as
+`experiments/results/campaign_A_pilot1_ledger.jsonl`.
+
+**Change.** Every run of A (all arms, the pilot and the campaign) now uses the intent prompt i38, via
+`common_stack_args: ["--intent-prompt", "i38"]`. i38 is i35 with a destination question that names stations W and M as
+pick-up places, not destinations. The supply question is unchanged.
+* It was adopted by a rule fixed before it was evaluated (`scripts/intent_i38_check.py`, IMPROVEMENT_LOG I-25):
+  * held-out intent set: 55/60 correct for both i35 and i38, 0 unsafe for both;
+  * dev half of the injection set: correct acceptances 86 → 92 of 94, 0 wrong-shelter acceptances;
+  * the test half was not used.
+* The 4 pilot operator texts were then accepted with the right supply. They are mechanics texts, not trial texts.
+* Both protocols were regenerated with `make_protocol_a.py --intent-prompt i38 --amend`. Only `common_stack_args` and its note
+  changed; the trials, worlds, texts, advice files and analysis are byte-identical. The pilot is rerun on a fresh ledger.
+
+**Unchanged.** Arms, conditions, endpoints, decision rules, the frozen advice prompts, and the v3.6 vision and decision rule.
+The default of the robot outside A stays i35. Study IF still measures i35, as registered.
+
+**Consequence for the interpretation.** A's operator channel now tests the i38 parser. The intent-level vulnerability of
+i35 (refusing benign station hints) is a separately reported finding, not part of A.
