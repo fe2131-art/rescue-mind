@@ -265,8 +265,16 @@ def line_w(res):
         return None
     ok = lambda x: '成立' if x else '不成立'
     up = 100 * f['la']['ci95'][1]
+    xd = advice_numbers.xd_facts()
+    i20 = ('採用規則を満たしたが、倉庫の評価XDの撤回規則で既定にしない' if xd else '採用規則を満たす') if f['adopt'] else '採用しない'
     return (f"・画像評価W：見逃し 正面のみ{f['front']['k']}/{f['front']['n']}→見回し{f['la']['k']}/{f['la']['n']}（上限{up:.1f}%、{ok(f['claim_eps'])}）。"
-            f"先行手法との区別は{ok(f['n_dist'] > 0)}（{f['n_dist']}/3）。I-20は{'採用規則を満たす' if f['adopt'] else '採用しない'}")
+            f"先行手法との区別は{ok(f['n_dist'] > 0)}（{f['n_dist']}/3）。I-20は{i20}")
+
+
+def line_xd(res):
+    """Studies XD (depot images) and Q (real photographs): failed registered claims stated with their numbers."""
+    xd, q = advice_numbers.xd_ja(), advice_numbers.q_ja()
+    return '\n'.join(('・' + t) for t in (xd, q) if t) or None
 
 
 def line_j(res):
@@ -325,7 +333,7 @@ def line_pending(res):
 
 
 def number_lines(res):
-    fns = (line_t1, line_t2, line_z, line_r, line_p, line_l, line_h, line_v, line_w, line_a, line_if, line_j, line_pending)
+    fns = (line_t1, line_t2, line_z, line_r, line_p, line_l, line_h, line_v, line_w, line_xd, line_a, line_if, line_j, line_pending)
     return [x for x in (f(res) for f in fns) if x]
 
 
