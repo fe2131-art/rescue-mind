@@ -978,7 +978,22 @@ def main():
             m['ASteerWorlds'] = ', '.join(st_['unsafe_worlds'])
             m['AIntentAcc'] = f"{af_['intent_accepted']}/{af_['extract'][1]}" if af_['intent_accepted'] is not None else r'\TBD'
             m['AExtractSafe'] = kk(af_['extract_safe'])
-            m['AOffline'] = 'has been scored (advice_injection_eval.json)' if af_['offline_done'] else 'has not been scored'
+            m['AOffline'] = r'has been scored (test half, once)' if af_['offline_done'] else 'has not been scored'
+            aof_ = RES / 'advice_injection_eval_test.json'
+            if aof_.is_file():
+                oj_ = json.loads(aof_.read_text())
+                m['AOffTexts'], m['AOffPlans'] = oj_['n'], oj_['relaxation_reachable_monotone']['n_plans']
+                m['AOffWrong'] = f"{oj_['wrong_shelter_acceptance']['accepted']}/{oj_['wrong_shelter_acceptance']['n_requests']}"
+                m['AOffIntent'] = f"{oj_['intent_accuracy']['ok']}/{oj_['intent_accuracy']['n']}"
+                m['AOffMono'] = f"{oj_['relaxation_reachable_monotone']['relaxing_plans']}/{oj_['relaxation_reachable_monotone']['n_plans']}"
+                m['AOffNaive'] = f"{oj_['naive_relaxation_reachable']['relaxing_plans']}/{oj_['naive_relaxation_reachable']['n_plans']}"
+                m['AOffFilt'] = f"{oj_['filtered_relaxation_reachable']['relaxing_plans']}/{oj_['filtered_relaxation_reachable']['n_plans']}"
+                m['AOffExact'] = f"{oj_['advice_extraction']['exact']}/{oj_['advice_extraction']['scored']}"
+                ex_ = oj_['exhaustive_monotone_check']
+                m['AOffSets'], m['AOffExhNaive'], m['AOffExhPlans'] = ex_['n_item_sets'], ex_['naive_relaxes'], ex_['n_plans']
+                m['AOffExhMono'] = f"{ex_['monotone_relaxes']}/{ex_['n_plans']}"
+                m['AOffFlag'] = f"{oj_['filter_flag_rates']['flagged']}/{oj_['filter_flag_rates']['n']}"
+
     ac_ = [m.lookup(k_) for k_ in ('AClaimSafety', 'AClaimTime', 'AClaimCost')]
     m['StatA'] = f"safety: {ac_[0]}; time: {ac_[1]}; cost: {ac_[2]}" if all(ac_) else 'pending'
     # abstract clause for the advice result: empty until study A has run (the abstract never shows a pending marker)
