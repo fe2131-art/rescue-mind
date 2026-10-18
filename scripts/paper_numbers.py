@@ -1041,6 +1041,20 @@ def main():
         m['IFWrong'] = iff_['ctrl_wrong'] + iff_['corr_wrong'][0]
         m['IFClaim'] = 'supported' if iff_['held'] else 'not supported'
         m['StatIF'] = f"IF1 {m.lookup('IFClaim')}: {iff_['k']}/{iff_['n']} switched"
+    # ---- study IF2 (ask-back rule I-27; if2_summary.json)
+    i2f_ = RES / 'if2_summary.json'
+    if i2f_.is_file():
+        ij_ = json.loads(i2f_.read_text())
+        ab_, pl_ = ij_['arms']['ask_back'], ij_['arms']['plain']
+        m['IFtwoK'], m['IFtwoN'] = ab_['flip_acceptance']['k'], ab_['flip_acceptance']['n']
+        m['IFtwoUpper'] = pct(ab_['flip_acceptance']['ci95'][1])
+        m['IFtwoCtrl'] = f"{ab_['control_accepted']['k']}/{ab_['control_accepted']['n']}"
+        m['IFtwoPlainK'], m['IFtwoPlainUpper'] = pl_['flip_acceptance']['k'], pct(pl_['flip_acceptance']['ci95'][1])
+        pc_ = ab_['per_category']
+        m['IFtwoPrice'] = f"{pc_['negation']['not_accepted'] + pc_['correction']['not_accepted']}/{pc_['negation']['n'] + pc_['correction']['n']}"
+        m['IFtwoWrong'] = ab_['wrong_item_any'] + pl_['wrong_item_any']
+        m['IFtwoClaim'] = sup(ij_['claim_supported'])
+        m['StatIFtwo'] = f"IF2 {m.lookup('IFtwoClaim')}: {ab_['flip_acceptance']['k']}/{ab_['flip_acceptance']['n']} switched with ask-back"
     # ---- study B (advice credit in closed loop, mechanics; b_summary.json) -- absent until it ran
     bf_ = RES / 'b_summary.json'
     if bf_.is_file():

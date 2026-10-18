@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
 import advice_numbers  # noqa: E402
 
-ALL = 'X,IF2'                                         # the studies without a result file (A has results since 2026-10-18 18:00, IF since the evening: IF1 failed; S since 20:16, B since 22:30, XD since 2026-10-19 04:21, Q since 04:54)
+ALL = 'X'                                         # the studies without a result file (A has results since 2026-10-18 18:00, IF since the evening: IF1 failed; S since 20:16, B since 22:30, XD since 2026-10-19 04:21, Q since 04:54, IF2 since 05:17)
 TEX = [ROOT / 'docs/paper' / f for f in ('main.tex', 'supplement.tex', 'sec_formal.tex')]
 
 
@@ -64,7 +64,9 @@ class TestSnapshotNumbers(unittest.TestCase):
         self.assertNotIn('not run', rows['A'].split(' & ')[2])                         # A: first-results commit is shown
         for k_ in ('XD', 'Q'):
             self.assertNotIn('not run', rows[k_].split(' & ')[2])                       # first-results commit is shown
-        for k in ('X', 'IF2'):
+        for k_ in ('IF2',):
+            self.assertNotIn('not run', rows[k_].split(' & ')[2])
+        for k in ('X',):
             self.assertIn('not run', rows[k].split(' & ')[2], k)               # first-results cell
             self.assertRegex(rows[k].split(' & ')[1], r'\\texttt\{[0-9a-f]{7} \d{4}-\d\d-\d\d\}')   # registered (commit, date)
 
@@ -77,7 +79,7 @@ class TestSnapshotNumbers(unittest.TestCase):
         c = advice_numbers.study_counts_from_rows(rows)
         self.assertEqual(c['pending'], len(ALL.split(',')))
         self.assertIn(f"\\newcommand{{\\NStudiesPending}}{{{c['pending']}}}", self.num)
-        self.assertIn('\\newcommand{\\PendList}{X, IF2}', self.num)
+        self.assertIn('\\newcommand{\\PendList}{X}', self.num)
 
     def test_default_build_prints_the_normal_form(self):
         with tempfile.TemporaryDirectory() as td:
@@ -198,7 +200,7 @@ class TestSnapshotDocuments(unittest.TestCase):
             self.assertIn('登録済み・提出時点で未実施', t)
             self.assertNotRegex(t, r'TBD|\(pending\)|\bpending\b|実行中（事前登録済み）|結果待ち|実行待ち|pre-registered, running|not yet run(?! at submission)')
         self.assertIn('registered, not yet run at submission', self.readme)
-        self.assertIn('X・IF2', self.yt)
+        self.assertIn('X', self.yt)
         self.assertLessEqual(len(self.yt.split('## 概要欄\n', 1)[1].split('\n\n## 公開設定', 1)[0]), 4900)
 
     def test_tracked_documents_are_untouched(self):

@@ -509,7 +509,7 @@ def pending_ifb_text():
         ja.append(f"研究IF（依頼文で依頼物資を書き換えられるか、72文）：登録した主張は{'成立' if iff['held'] else '不成立'}（書き換え{iff['n']}文のうち{iff['k']}文で受理。論文を参照）")
     else:
         ja.append('研究IF（依頼文で依頼物資を書き換えられるか、72文）：' + PENDING_NOT_RUN.replace('・未実行', ''))
-    ja.append('研究IF2（対策 I-27：物資が食い違えば聞き返す、新しい72文）：' + ('結果ファイルあり（論文を参照）' if advice_numbers.if2_done() else PENDING_NOT_RUN.replace('・未実行', '')))
+    ja.append('研究IF2（対策 I-27：物資が食い違えば聞き返す、新しい72文）：' + (advice_numbers.if2_text('ja') if advice_numbers.if2_done() else PENDING_NOT_RUN.replace('・未実行', '')))
     return '。'.join(ja)
 
 
@@ -857,7 +857,7 @@ def section_en(e, v):
         L.append(f"| I-24: advice credit (descriptive model, {cf_['missions']} missions, synthetic outcomes; not registered) | liar's extra time {cf_['liar_no']:.0f} s -> {cf_['liar_yes']:.0f} s; flooding at the photo false-alarm rate {cf_['flood_no']} -> {cf_['flood_yes']} false refusals; honest channel unchanged; unsafe deliveries equal with and without credit |")
     L.append('| B: advice credit in the closed loop (48 runs) | ' + ('result file exists; see the paper' if advice_numbers.pending_studies()['B'] else 'pre-registered, not yet run') + ' |')
     L.append('| IF: request text switching the supply (72 texts) | ' + (advice_numbers.if_en() if advice_numbers.if_facts() else 'pre-registered, not yet run') + ' |')
-    L.append('| IF2: ask back on a supply conflict (I-27; 72 new texts) | ' + ('result file exists; see the paper' if advice_numbers.if2_done() else 'pre-registered, not yet run') + ' |')
+    L.append('| IF2: ask back on a supply conflict (I-27; 72 new texts) | ' + (advice_numbers.if2_text('en') if advice_numbers.if2_done() else 'pre-registered, not yet run') + ' |')
     xj = x_text()
     L.append('| X, XD: cluttered four-station depot (I-21) | ' + ('pre-registered, not yet run (a rendering preview exists, not a result; the XD-R photographs are frozen, not scored)' if xj.startswith(PENDING_NOT_RUN) else ((advice_numbers.xd_en() + '; the closed-loop study X ' + ('has results (see the paper)' if (RES / 'x_summary.json').is_file() else 'is ' + advice_numbers.PENDING_EN)) if advice_numbers.xd_en() else 'result files exist; see the paper')) + ' |')
     stage = {'E': 1, 'L': 1, 'Z': 1, 'T1': 2, 'K': 2, 'G': 3, 'W': 3, 'H': 4, 'V': 4, 'A': 4, 'S': 5, 'P': 5, 'R': 5, 'Q': 5, 'X, XD': 5, 'J': 6, 'I-23': 4, 'I-24': 4, 'B': 4, 'IF': 4, 'IF2': 4}
