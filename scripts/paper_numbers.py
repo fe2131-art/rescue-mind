@@ -979,7 +979,7 @@ def main():
     ac_ = [m.lookup(k_) for k_ in ('AClaimSafety', 'AClaimTime', 'AClaimCost')]
     m['StatA'] = f"safety: {ac_[0]}; time: {ac_[1]}; cost: {ac_[2]}" if all(ac_) else 'pending'
     # abstract clause for the advice result: empty until study A has run (the abstract never shows a pending marker)
-    m['AbsAdvice'] = (f"; unsafe worlds under hostile advice: naive baseline {m.lookup('AWorldsNaive')}, LLM guardrail {m.lookup('AWorldsFiltered')}, ours {m.lookup('AWorldsOurs')}"
+    m['AbsAdvice'] = (f"; unsafe worlds under hostile advice: naive baseline {m.lookup('AWorldsNaive')}, self-filter {m.lookup('AWorldsFiltered')}, ours {m.lookup('AWorldsOurs')}, no advice {m.lookup('AUnsafeCtrl')} runs"
                       if m.lookup('AWorldsNaive') and m.lookup('AWorldsFiltered') and m.lookup('AWorldsOurs') else '')
     # ---- study S (scene-text injection, image level; scripts/s_analysis.py -> s_summary.json) -- absent until it ran
     sf = RES / 's_summary.json'
