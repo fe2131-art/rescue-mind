@@ -444,6 +444,39 @@ def main():
             got_ = re.findall(pat_, read(fn_))
             extra.append((f'{fn_}: FINDINGS count {nf_} ({pat_})', 'ok' if got_ and all(g_ == str(nf_) for g_ in got_) else 'MISMATCH', f'found {got_}' if not (got_ and all(g_ == str(nf_) for g_ in got_)) else ''))
 
+    # HANDOFF: the failed-claim count and list, and the latest third-party evaluation (round and score), are read back from advice_numbers.failed_claims() and docs/evaluations/
+    if not SNAP:
+        import advice_numbers as an_
+        _ho = read('docs/HANDOFF.md')
+        _fc = an_.failed_claims()
+        _m = re.search(r'不成立の主張は(\d+)件：([^。（）]*)', _ho)
+        _want = '・'.join(c['key'] for c in _fc)
+        _ok = bool(_m) and int(_m.group(1)) == len(_fc) and _m.group(2).strip() == _want
+        extra.append((f'docs/HANDOFF.md: failed registered claims = {len(_fc)} ({_want})', 'ok' if _ok else 'MISMATCH', '' if _ok else f'found {_m.groups() if _m else None}'))
+        _evs = sorted((ROOT / 'docs/evaluations').glob('EVAL_*_*.md'), key=lambda p_: (re.search(r'EVAL_(\d{4}-\d\d-\d\d)_', p_.name).group(1), int(re.search(r'_(\d+)\.md$', p_.name).group(1))))
+        if _evs:
+            _last = _evs[-1]
+            _round = int(re.search(r'_(\d+)\.md$', _last.name).group(1))
+            _row = re.search(r'\*\*合計 / 40\*\*[^\n]*', _last.read_text(encoding='utf8'))
+            _score = (re.search(r'\*\*(\d+(?:\.\d+)?)', _row.group(0)[len('**合計 / 40**'):]) or [None, None])[1] if _row else None
+            _got = re.search(r'最新は第(\d+)回 \*\*(\d+(?:\.\d+)?)/40\*\*', _ho)
+            _ok = bool(_got) and int(_got.group(1)) == _round and (_score is None or _got.group(2) == _score)
+            extra.append((f'docs/HANDOFF.md: latest evaluation = round {_round}, {_score}/40 ({_last.name})', 'ok' if _ok else 'MISMATCH', '' if _ok else f'found {_got.groups() if _got else None}'))
+        # the study A figure exists for the three documents that use it (scripts/make_a_figure.py)
+        if an_.a_facts():
+            _miss_f = [f_ for f_ in ('docs/paper/fig_a_results.pdf', 'docs/figures/a_results_ja.png', 'docs/figures/a_results_en.png') if not (ROOT / f_).is_file()]
+            extra.append(('study A figure files (paper supplement, README, report)', 'MISMATCH' if _miss_f else 'ok', ', '.join(_miss_f)))
+            extra.append(('README shows the study A figure', 'ok' if 'docs/figures/a_results_ja.png' in docs['readme'] else 'MISMATCH', ''))
+
+    # docs/SUBMISSION.md: the report's page counts are the measured ones (scripts/update_submission_facts.py writes them)
+    if not SNAP and not a.no_report and pdfs:
+        import update_submission_facts as usf_
+        _now = usf_.report_fact()
+        _have = re.search(r'<!--FACT:report-->(.*?)<!--/FACT:report-->', read('docs/SUBMISSION.md'), re.S)
+        _ok = bool(_now) and bool(_have) and _have.group(1) == _now
+        extra.append(('docs/SUBMISSION.md: report page counts = measured (run scripts/update_submission_facts.py)', 'ok' if _ok else 'MISMATCH',
+                      '' if _ok else f'file says {(_have.group(1) if _have else None)!r}, PDF is {_now!r}'))
+
     # the paper PDF: no red TBD, and no pending marker in the abstract
     mp = ROOT / (f'{SD}/paper/main.pdf' if SNAP else 'docs/paper/main.pdf')
     if mp.is_file() and not a.no_report:

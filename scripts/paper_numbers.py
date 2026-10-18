@@ -947,6 +947,7 @@ def main():
             kk = lambda t: f"{t[0]}/{t[1]}"
             if af_['worlds']['naive'] and af_['worlds']['filtered'] and af_['worlds']['monotone']:
                 m['AWorldsNaive'], m['AWorldsFiltered'], m['AWorldsOurs'] = (kk(af_['worlds'][k_]) for k_ in ('naive', 'filtered', 'monotone'))
+            m['ANPerChannel'] = af_['by_channel']['naive']['file'][1]        # runs per channel and arm in the A figure
             m['AFilterFlagOp'], m['AFilterFlagFile'] = kk(af_['filter_flag_operator']), kk(af_['filter_flag_file'])
             m['AFileUnsafeNaive'], m['AFileUnsafeFiltered'], m['AFileUnsafeOurs'] = (kk(af_['by_channel'][k_]['file']) for k_ in ('naive', 'filtered', 'ours'))
             m['AOpUnsafeNaive'], m['AOpUnsafeFiltered'], m['AOpUnsafeOurs'] = (kk(af_['by_channel'][k_]['operator']) for k_ in ('naive', 'filtered', 'ours'))

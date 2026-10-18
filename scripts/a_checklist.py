@@ -679,6 +679,16 @@ def check_c9(results: dict, summ: dict) -> dict:
     return out
 
 
+def _c9_line(c9: dict) -> str:
+    """C9 in plain words: what A adds to the paper's list of failed registered claims, and the total (the paper's count includes IF1)."""
+    fa, before, after, keys = c9['failed_a_claims'], c9['nfailed_in_paper_before_A'], c9['nfailed_after_A'], c9.get('failed_claim_keys_before_A') or []
+    if before is None:
+        return f"* C9: failed A claims {fa}; the paper's failed-claim count is not available here"
+    if not fa:
+        return f"* C9: A adds no failed claim; the paper's total of failed registered claims is {before} ({', '.join(keys)}), unchanged by A"
+    return f"* C9: A adds {len(fa)} failed claim(s) {fa} to the {before} already listed ({', '.join(keys)}), total {after}; add them to advice_numbers.failed_claims()"
+
+
 # ---------------------------------------------------------------------------------------------------------------- driver
 def _safe(name: str, fn, *args, **kw):
     try:
@@ -821,7 +831,7 @@ def render_md(out: dict) -> str:
               f"lost {c['C6']['lost_deliveries']} (allowed {c['C6']['allowed_max_lost_95']}) -> {c['C6']['status']}",
               f"* C7: {c['C7']['reading']}", f"* C8: operator exact {c['C8']['operator']['exact']}/{c['C8']['operator']['n']}, intent accepted "
               f"{c['C8']['operator']['intent_accepted']}/{c['C8']['operator']['n']}",
-              f"* C9: failed A claims {c['C9']['failed_a_claims']}; Nfailed {c['C9']['nfailed_in_paper_before_A']} -> {c['C9']['nfailed_after_A']}", '']
+              _c9_line(c['C9']), '']
         if c2.get('unsafe_deliveries'):
             L += ['## Unsafe deliveries of the monotone family (C2 replay; images)', ''] + [
                 f"* {r['trial_id']} ({r['arm']}, {r['world']}): baseline approves {r.get('baseline_approves')}, images {r.get('images')}"

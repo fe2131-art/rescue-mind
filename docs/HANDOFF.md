@@ -14,6 +14,9 @@
   * 悪意ある助言のもとで危険な配達があった世界は、素朴 12/12、LLM フィルタ 12/12、本方式 0/12（McNemar p=0.0005）。
   * 本方式の配達 43 件はすべて、助言なしの確認でも許可されるものだった。
   * 正しい助言で中央値 27 秒短縮。
+  * 読むときの条件：A の全試行は意図の質問 i38（Amendment 1）で走らせた。提出版の既定は i35（FINDINGS #30、DEPLOYMENT）。LLM フィルタはファイル経由の助言を見ない（止めた数：依頼文 7/12、ファイル 0/12、FINDINGS #34）ので、「フィルタ 12/12」はこの条件つき。
+  * 代償（記述的）：真の助言で火のある拠点へ誘導されると、配達できなかった世界は 本方式 14/16・scrutiny 11/16・助言なし 0/16。
+  * A の図：`scripts/make_a_figure.py`（論文は補足 S9 の図、README と説明資料は `docs/figures/a_results_ja.png`。本文 8 頁に収まらないので補足に置いた）。
 * **IF は主張不成立**：すり替えの受理が 12/36（FINDINGS #32）。→ 対策 I-27（物資が食い違えば聞き返す）を研究 IF2 として事前登録した。
   * IF の結果は論文（失敗した登録済みの主張は 7 件目の IF1）・補足・README・説明資料・YouTube 説明・DEPLOYMENT（出発前の読み返しが必須）・storyline の 5 行目に反映済み（コミットの接頭辞 `study IF:`）。IF2 は登録済み・結果待ち（`bash scripts/if2_run.sh`）で、結果が出たら `advice_numbers.if_facts` と同じ形で IF2 の読み取りを足す。I-27 の判断は IF2 の結果まで保留。
 * **残りの GPU の順番**（自動。ログは scratchpad）：
@@ -41,7 +44,7 @@
 * **メインの自分も改善作業をする**（サブエージェント任せにしない）。結果を分析し、最大の弱点に絞って、事前登録した評価で確かめる。だらだら改善を続けない。ユーザーが「ストップ」と言うまで自律的に改善を続ける。
 * リポジトリの**公開設定（private → public）は絶対に変更しない**。公開と YouTube 投稿は**ユーザーが行う**。push は可。
 * ユーザーへの質問・説明は**日本語・簡潔**に。omnicampus のアカウント名は `tetsutetsu`。
-* **事前登録してから走らせる。失敗した主張も消さずに載せる**（論文で不成立の主張は六つ：T1 の「2% 未満」、F、T2、J、V4、W-b）。改善は `docs/IMPROVEMENT_LOG.md` に「動機→仮説→変更→計測(Before/After)→判断」で書き、**コミットの先頭は `I-xx`**。コミットは必ず push する。
+* **事前登録してから走らせる。失敗した主張も消さずに載せる**（論文で不成立の主張は7件：T1・F・T2・J・V4・W-b・IF1。件数と一覧は `scripts/check_consistency.py` が `advice_numbers.failed_claims()` と突き合わせる）。改善は `docs/IMPROVEMENT_LOG.md` に「動機→仮説→変更→計測(Before/After)→判断」で書き、**コミットの先頭は `I-xx`**。コミットは必ず push する。
 * **sudo は使わない**（docker グループ権限だけで全て動く）。必要になったらユーザーに依頼する。
 * **`rm` は使わない**（2026-10-18 ユーザー指示。`rm -rf`・`git clean`・`unlink`・`find -delete` も同じ）。消したいものは `~/rescue-mind-trash/<日時>/` に相対パスのまま移し、移したものをユーザーに伝える。削除はユーザーが確認してから行う。サブエージェントへの指示にも必ず書く。
 * **個人情報を入れない**（ホームのパス、スクラッチパッドのパスは `tests/test_no_personal_paths.py` が落とす。文書では `<scratchpad>`、`<user>` と書く）。
@@ -50,7 +53,7 @@
 * 評価基準（創造性・技術力・実用性・表現力）と、論文として通用する水準を常に意識する。実機は用意できない → シミュレーションでできることはすべてやる。
 * 当初計画（Jev＋Qwen の 2 つの AI による確認）から勝手に外れない（Jev の役割はローカルの Clef-Flash。J で実装・検証し、採用しなかった結果を論文に載せた）。
 * 評価（GPU キャンペーン）の実行中は、重い処理（ビルド・テスト・図・動画）と実行時コードの編集をしない。CPU を使うときは `nice -n 19`。
-* 第三者採点（Sonnet 5.5 に `docs/evaluations/EVALUATOR_PROMPT.md` で採点させる）を定期的に行い、点数を上げる改善点トップ5に沿って直す。最新は第8回 **34.0/40**（`docs/evaluations/EVAL_2026-10-18_8.md`）。模擬査読は R8 まで（`docs/paper/REVIEW_NOTES_R8.md`、判定は borderline）。
+* 第三者採点（Sonnet 5.5 に `docs/evaluations/EVALUATOR_PROMPT.md` で採点させる）を定期的に行い、点数を上げる改善点トップ5に沿って直す。最新は第10回 **35.5/40**（`docs/evaluations/EVAL_2026-10-18_10.md`。回と点数は `check_consistency.py` が最新の評価ファイルと突き合わせる）。模擬査読は R8 まで（`docs/paper/REVIEW_NOTES_R8.md`、判定は borderline）。
 
 ### B. ブランチの考え方
 
@@ -91,7 +94,7 @@
 | Q（Wikimedia Commons 405 枚） | 実写の物資確認 | 登録済み・**未実行**（GPU 約 40 分。W の後の連鎖が .gitignore の衝突で止まり、一度も走っていない） |
 
 * 登録済み 7 本（A・B・IF・Q・S・X・XD）は統合マージ 09:08 で main に載り、A の予備走行が 09:14 に始まった時点で、IF・S・B・XD・X・Q は試行も推論もしていない。これらの登録ファイルには「DRAFT」の行が残るが、拘束力のある版は `docs/REGISTRATIONS.md` の表の版（ファイルは変えない。変更は日付とコミットつきの Amendment で追記する）。
-* テスト関数は 1398 件（`python3 scripts/count_tests.py` の静的な数え方）。FINDINGS は 34 件。
+* テスト関数は 1416 件（`python3 scripts/count_tests.py` の静的な数え方）。FINDINGS は 34 件。
 
 ### D. GPU の順番と、その動かし方
 

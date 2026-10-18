@@ -438,6 +438,16 @@ def a_text():
         return ((PENDING_NOT_RUN.replace('未実行', '実行中') if (pf_ or {}).get('rerun') else PENDING_NOT_RUN) + ('。' + advice_numbers.a_pilot_ja() if pf_ else ''))
 
 
+def a_figure_md():
+    """The study A figure (docs/figures/a_results_ja.png, scripts/make_a_figure.py) under the A bullet; empty until a_summary.json exists."""
+    f = advice_numbers.a_facts()
+    if not f or not (ROOT / 'docs/figures/a_results_ja.png').is_file():
+        return ''
+    s = f['steer']
+    return (f"\n\n    ![評価A：(a) 経路ごとの危険な配達（各{f['by_channel']['naive']['file'][1]}試行）と方式ごとの危険な世界、(b) 操縦で配達できなかった世界（素朴 {s['naive']['lost']}/{s['n']}・本方式 {s['ours']['lost']}/{s['n']}・scrutiny {s['scrutiny']['lost']}/{s['n']}・助言なし {s['control']['lost']}/{s['n']}）、"
+            f"(c) 時間（正しい助言の短縮と、嘘の助言の追加）。ガードレールはファイル経由の助言を見ない。(b) は記述的](docs/figures/a_results_ja.png)")
+
+
 def s_text():
     """Study S (scene-text injection, image level) -> Japanese table cell; s_summary.json missing -> pending."""
     sj = jl('s_summary.json')
@@ -565,7 +575,9 @@ def section_key(e, t):
         a1 = a['A1_unsafe_naive_vs_monotone']
         r_ = a1['runs']
         af_ = advice_numbers.a_facts()
-        wtxt_ = f"（{af_['worlds']['naive'][1]}世界で危険な配達が起きた世界は 素朴 {af_['worlds']['naive'][0]}・ガードレール {af_['worlds']['filtered'][0]}・本方式 {af_['worlds']['monotone'][0]}）" if af_ and af_['worlds']['naive'] else ''
+        wtxt_ = (f"（{af_['worlds']['naive'][1]}世界で危険な配達が起きた世界は 素朴 {af_['worlds']['naive'][0]}・ガードレール {af_['worlds']['filtered'][0]}・本方式 {af_['worlds']['monotone'][0]}。"
+                 f"ガードレールはファイル経由の助言を見ず（止めた数 {af_['filter_flag_file'][0]}/{af_['filter_flag_file'][1]}、依頼文では {af_['filter_flag_operator'][0]}/{af_['filter_flag_operator'][1]}）、"
+                 "A は意図の質問 i38 で走らせ、提出版の既定は i35）") if af_ and af_['worlds']['naive'] else ""
         steer_ = (f"。操縦の16世界では本方式の危険な配達 {af_['steer']['ours']['unsafe']}/{af_['steer']['n']}（確認の誤り、有意でない）、配達の取りこぼし {af_['steer']['ours']['lost']}/{af_['steer']['n']}（相対的な保証で、被ばくと可用性は上限の外）" if af_ else '')
         rows.append(f"| 悪意のある助言でも危険にならない（評価A、閉ループ） | 危険な配達（試行）：助言に従う方式 {r_['naive']['unsafe']}/{r_['naive']['n']}、本方式 {r_['monotone']['unsafe']}/{r_['monotone']['n']}{wtxt_}{steer_} | **{'支持' if a1['supported'] else '不成立'}** |")
     except (TypeError, KeyError):
@@ -629,7 +641,7 @@ def section_novelty():
     ![助言の信用枠：嘘つき・危険の連打の代償は上限で止まり、正直な情報源は何も失わない（記述モデル、I-24）](docs/figures/advice_credit.png)
 
   * 信用枠の閉ループ確認と、依頼文の書き換え：{pending_ifb_text()}。
-  * 悪意のある助言の閉ループ評価（評価A）：{a_text()}
+  * 悪意のある助言の閉ループ評価（評価A）：{a_text()}{a_figure_md()}
   * {I22_JA}
 * **この安全の規則そのものを、どう試したか**（[FINDINGS](docs/FINDINGS.md) #24・#25）：規則の実装の単体テストは、実装と同じ考え方で書くので同じ見落としをする。そこで、規則を{advice_numbers.SECOND_IMPL_JA.replace('仕様から','仕様から**',1).replace('第2の実装','第2の実装**',1)}と突き合わせ（独立ではない：同じ仕様の読み違いは共有する）、わざと壊した実装（**変異テスト**）とでたらめな入力（ファズ）で確かめた。実際にバグが見つかった：#24 は助言の規則の実装バグ5件（不変条件の確認の見落とし、NaN の扱いなど）、#25 は追加視点の監査が「位置」ではなく「枚数」で数えていた誤り。すべて修正し、回帰テストを追加した。その後、命題2は z3 で機械検証した（上の機械検証）。
 * **保証の外：画像に映る文字と、現実との差**：画像に映る文字は知覚なので構造的な保証の外にあり、評価Sで実測する。{s_text()}。依頼文から解析した依頼物資も保証の外にある。{(advice_numbers.if_short_ja() + '。出発前に解析結果を運用者へ読み返すことを必須とする（[現場導入](docs/DEPLOYMENT.md)）。') if advice_numbers.if_facts() else ''}現実との差は、散らかった倉庫の世界（4拠点、[I-21](docs/IMPROVEMENT_LOG.md)）で測る（評価XD・X）：{x_text()}。下の図は描画の確認用で、ロボットの結果ではない。
