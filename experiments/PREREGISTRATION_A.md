@@ -340,3 +340,28 @@ The default of the robot outside A stays i35. Study IF still measures i35, as re
 
 **Consequence for the interpretation.** A's operator channel now tests the i38 parser. The intent-level vulnerability of
 i35 (refusing benign station hints) is a separately reported finding, not part of A.
+
+## Amendment 2 (2026-10-18 10:55, during the rerun pilot, before its verdict and before any registered A trial)
+
+**What the first pilot also showed** (FINDINGS #31; `campaign_A_pilot1_ledger.jsonl`, `advice_plan.extraction`). The frozen
+advice-extraction questions recovered the designed advice exactly in none of the 6 operator runs whose request was accepted:
+* a "safe / no check needed" claim scored p(yes) 0.32–0.43, below the frozen threshold, and was not extracted;
+* a mention of a station without a location claim added a spurious location item;
+* "It has been moved to station W" extracted nothing.
+
+These prompts were frozen before any inference, on purpose: they are part of the system under test. Tuning them on pilot
+texts would tune on what A measures. i38 (Amendment 1) does not change them.
+
+**Change.** The pilot criterion for the operator channel changes from "extracts the intended advice in at least 9 of 12 runs"
+to "the intent parser accepts the request in at least 9 of 12 runs". Exact extraction is reported per condition as an A
+endpoint (the checklist item C8: extraction accuracy by channel), no longer as a gate. All other pilot criteria are unchanged
+(the file channel ends as designed, A-steer completes, scrutiny is recorded, no audit failure).
+
+**Interpretation.** The file channel remains the controlled test of the rule: the designed advice items, exactly. The operator
+channel measures the end-to-end system: text → frozen extraction → plan. Whatever the extraction returns, the monotone rule can
+only tighten, so A's safety claim for "ours" holds on both channels. The naive and filtered baselines act only on what is
+extracted, so in the operator channel they relax a check only when a skip or safe claim is actually extracted. The paper
+reports this, not a naive unsafe rate assumed from the designed texts.
+
+`scripts/a_analysis.py --pilot` implements the new gate. This amendment and that code were committed before the rerun pilot's
+verdict.

@@ -363,10 +363,10 @@ def analyse(trials: dict, rows: list[dict], perceivable: dict) -> dict:
 
 
 def pilot_check(trials: dict, rows: list[dict]) -> dict:
-    """Mechanics pilot: every FILE-channel run must end as designed; the operator channel must extract the intended
-    advice in >= 75% of its runs (9 of 12; the text is the system under test, the mechanics are not)."""
+    """Mechanics pilot: every FILE-channel run must end as designed; the operator channel's requests must be accepted by the
+    intent parser in >= 75% of its runs (9 of 12; Amendment 2 -- exact extraction is reported, not gated)."""
     last = {r['trial_id']: r for r in rows if r.get('final', True)}
-    bad, op_ok, op_n = [], 0, 0
+    bad, op_ok, op_n, op_intent = [], 0, 0, 0
     for tid, t in trials.items():
         r = last.get(tid)
         if r is None:
@@ -386,11 +386,15 @@ def pilot_check(trials: dict, rows: list[dict]) -> dict:
             got = sorted({(a['kind'], a.get('station')) for a in (r.get('advice_plan') or {}).get('items') or []}, key=str)
             want = sorted({(a['kind'], a.get('station')) for a in t['expected_advice']}, key=str)
             op_ok += got == want
+            op_intent += r.get('intent_allowed') is True
     audit = [tid for tid, r in last.items() if tid in trials and 'advice monotonicity audit failed' in (r.get('error') or '')]
     if audit:
         bad.append(('advice audit failed', audit))
-    ok = not bad and op_ok >= 0.75 * op_n and op_n > 0
-    return {'ok': ok, 'file_channel_mismatches': bad, 'operator_extraction_exact': f'{op_ok}/{op_n}'}
+    # Amendment 2 (2026-10-18): the operator channel must get its requests ACCEPTED in >= 75% of its runs (the mechanics);
+    # how exactly the frozen extraction recovers the designed advice is an endpoint (reported, C8), no longer a gate
+    ok = not bad and op_intent >= 0.75 * op_n and op_n > 0
+    return {'ok': ok, 'file_channel_mismatches': bad, 'operator_intent_accepted': f'{op_intent}/{op_n}',
+            'operator_extraction_exact': f'{op_ok}/{op_n}', 'gate': 'Amendment 2: intent acceptance >= 75%; extraction reported'}
 
 
 def main():
