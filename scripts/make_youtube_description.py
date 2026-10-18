@@ -252,6 +252,12 @@ def line_a(res):
     return f"・悪意のある助言の評価A（226試行）：{t}" if t else None
 
 
+def line_if(res):
+    """Study IF (request text switching the supply): a failed registered claim, stated with its countermeasure status."""
+    t = advice_numbers.if_short_ja()
+    return f"・{t}。依頼物資は保証の外なので、出発前に運用者が解析結果を読み返す運用を必須としている" if t else None
+
+
 def line_w(res):
     """Study W (image level), short: bound claim, prior-art separation (failed), I-20 decision."""
     f = advice_numbers.w_facts()
@@ -319,7 +325,7 @@ def line_pending(res):
 
 
 def number_lines(res):
-    fns = (line_t1, line_t2, line_z, line_r, line_p, line_l, line_h, line_v, line_w, line_a, line_j, line_pending)
+    fns = (line_t1, line_t2, line_z, line_r, line_p, line_l, line_h, line_v, line_w, line_a, line_if, line_j, line_pending)
     return [x for x in (f(res) for f in fns) if x]
 
 

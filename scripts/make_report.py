@@ -529,7 +529,7 @@ def sec_new_detail():
                   f"危険な配達は全条件で信用ありと信用なしが同一。代償は、7割正しい情報源の節約が {c['noisy_keep']:.0f} % に減ること（一貫性の代償）と、"
                   '正しいのに確認できない危険の警告も誤停止として課金され、いずれ締め出されること。'
                   + ('閉ループの確認（研究B：6出動×(嘘つき3＋正直1)×(信用なし／あり)＝48試行）は' + WAIT_JA + '。' if not p['B'] else '研究Bは結果あり（論文を参照）。')
-                  + ('依頼文による書き換え（研究IF：6種類×2言語×2物資×3表現＝72文）は' + WAIT_JA + '。' if not p['IF'] else '研究IFは結果あり（論文を参照）。'), 'small'),
+                  + ('依頼文による書き換え（研究IF：6種類×2言語×2物資×3表現＝72文）は' + WAIT_JA + '。' if not p['IF'] else '依頼文による書き換え（研究IF）は、' + advice_numbers.if_ja()), 'small'),
                 Spacer(1, 3)]
     return out
 
@@ -767,7 +767,10 @@ def sec_prereg(D, E):
             ['XD・X', '倉庫（4拠点）の画像と閉ループでも成り立つか', 'XD・X（草稿）', PEND_NOT_RUN + ('。' + advice_numbers.xdr_ja() if advice_numbers.xdr_facts() else '')],
             ['Q', '実物の写真（Commons 405枚）で物資の確認は通用するか', reg('Q'), PEND_NOT_RUN],
             ['B', '助言の信用枠は、毎回嘘をつく情報源の代償を閉ループで抑えるか（機構の確認）', reg('B'), PEND if jload('b_summary.json') else PEND_NOT_RUN],
-            ['IF', '依頼文で、頼まれた物資をすり替えられるか（査読 R6 の P7）', reg('IF'), PEND if jload('if_summary.json') else PEND_NOT_RUN],
+            ['IF', '依頼文で、頼まれた物資をすり替えられるか（査読 R6 の P7）', reg('IF'),
+             (f"主張 IF1 {'成立' if advice_numbers.if_facts()['held'] else '不成立'}：すり替えの受理 {advice_numbers.if_facts()['k']}/{advice_numbers.if_facts()['n']}（95%区間 {advice_numbers.if_facts()['ci'][0] * 100:.0f}〜{advice_numbers.if_facts()['ci'][1] * 100:.0f}%）、"
+              f"言い直しは {advice_numbers.if_facts()['corr'][0]}/{advice_numbers.if_facts()['corr'][1]} で従う") if advice_numbers.if_facts() else PEND_NOT_RUN],
+            ['IF2', '物資が食い違えば聞き返す対策（I-27）で、すり替えを止められるか（新しい72文）', reg('IF2'), PEND if jload('if2_summary.json') else PEND_NOT_RUN],
             ['K', '保証付きの閾値は既定の閾値より良いか', reg('K'),
              (f"T2の見逃し：既定 {kk['frozen']['heldout_miss']['k']}/{kk['frozen']['heldout_miss']['n']}、保証付き(α=0.05) "
               f"{kk['alphas']['0.05']['K_PAC']['heldout_miss']['k']}/{kk['frozen']['heldout_miss']['n']}、誤警報 "
@@ -775,9 +778,9 @@ def sec_prereg(D, E):
     return [KeepTogether([P('K. 事前登録した研究の一覧', 'h2'),
             P(advice_numbers.study_phrase() + 'を、結果を見る前に条件・基準・解析を <font name="IPAexG">experiments/PREREGISTRATION_<記号>.md</font> に固定して進めた（初期の評価Cは別に数える）。'
               '失敗した試行も台帳に残している。'
-              + (' 「草稿」の研究（' + '・'.join(x for x in ('A', 'S', 'X', 'XD', 'Q', 'B', 'IF') if reg_label(x) != x) + '）は、統合ブランチを main に統合するときに登録され、それまで試行は一つも走らせない'
+              + (' 「草稿」の研究（' + '・'.join(x for x in ('A', 'S', 'X', 'XD', 'Q', 'B', 'IF', 'IF2') if reg_label(x) != x) + '）は、統合ブランチを main に統合するときに登録され、それまで試行は一つも走らせない'
                  '（結果のある研究と同列の時系列監査はまだできない）。'
-                 if any(reg_label(x) != x for x in ('A', 'S', 'X', 'XD', 'Q', 'B', 'IF')) else '')),
+                 if any(reg_label(x) != x for x in ('A', 'S', 'X', 'XD', 'Q', 'B', 'IF', 'IF2')) else '')),
             table(rows, [20, 66, 24, 64])]), Spacer(1, 4)]
 
 
@@ -921,7 +924,8 @@ def judge_box(D, E, V, compact=False):
             lines.append(f"<b>新しい成果</b>：この保証を、実装そのものに対して<b>機械検証</b>した（z3 {sf['unsat']}件、突き合わせ {sf['cases']:,}件で不一致 {sf['disagreements']}、"
                          f"バグ{sf['mutants']}個を{sf['caught']}個とも検出）。「締めるだけ」は<b>必要十分</b>でもあり、"
                          + (f"<b>信用枠</b>で、毎回嘘をつく情報源の代償にも上限がつく（記述モデル：+{cf['liar_no']:.0f}秒 → +{cf['liar_yes']:.0f}秒）。" if cf else '')
-                         + '閉ループの確認（研究B・IF）は' + ('結果あり。' if all(advice_numbers.pending_studies().values()) else (WAIT_JA if SNAP else '結果待ち') + '。'))
+                         + '閉ループの確認（研究B）は' + ('結果あり。' if advice_numbers.pending_studies()['B'] else (WAIT_JA if SNAP else '結果待ち') + '。')
+                         + ('依頼文の書き換え（研究IF）は、書き換えた' + f"{advice_numbers.if_facts()['n']}文のうち{advice_numbers.if_facts()['k']}文で受理され、登録した主張は不成立。対策（研究IF2）は" + ('結果あり。' if advice_numbers.if2_done() else (WAIT_JA if SNAP else '結果待ち') + '。') if advice_numbers.if_facts() else ''))
         return [P(x, 'small') for x in lines] + [Spacer(1, 3)]
     h = jload('h_summary.json')
     items = ['<b>問題</b>：災害時の物資配達ロボットは、在庫表と現物の食い違い（水のはずが救急箱・空）や火災に出会う。指示どおり運ぶだけでは、誤った物資や危険な場所へ届けてしまう。',
@@ -1082,9 +1086,12 @@ def new_results_main():
         rows.append(['<b>③ 信用枠</b>（I-24、命題3）', f"情報源ごとの信用で、助言を<b>捨てるだけ</b>（安全は変わらない）。毎回嘘をつく・危険を連打する情報源の代償に、何回出動しても上限がつく：場所の無駄な訪問は {c['c_loc']:g} + {c['rho_shadow']:g}×出動数 以下、誤った停止は {c['c_haz']:g} + {c['rho']:g}×出動数 以下。"
                      f"{c['missions']}出動のモデル：嘘つきの余分な時間 <b>+{c['liar_no']:.0f} → +{c['liar_yes']:.0f} 秒</b>、実写の誤警報率での危険の連打による誤停止 <b>{c['flood_no']} → {c['flood_yes']} 回</b>、正直な情報源の{c['honest_no']:.0f}秒の短縮は変わらない。",
                      '合成した結果の記述モデル（事前登録なし、閉ループは未確認）。報告書は不採用の助言と理由を書く'])
-    done_ = [k for k in ('B', 'IF') if p[k]]
-    rows.append(['<b>研究B・IF</b>', '<b>B</b>：信用枠の閉ループ確認（毎回嘘をつく情報源の系列、48試行、予測は決定的）。<b>IF</b>：依頼文で依頼物資を書き換えられるか（72文）。',
-                 '事前登録済み、' + ('B・IFとも結果あり' if len(done_) == 2 else '・'.join(k for k in ('B', 'IF') if not p[k]) + 'は<b>' + WAIT_JA + '</b>')])
+    iff_ = advice_numbers.if_facts()
+    rows.append(['<b>研究B・IF・IF2</b>', '<b>B</b>：信用枠の閉ループ確認（毎回嘘をつく情報源の系列、48試行、予測は決定的）。<b>IF</b>：依頼文で依頼物資を書き換えられるか（72文）'
+                 + (f"：書き換えた{iff_['n']}文のうち<b>{iff_['k']}文で受理</b>され、登録した主張は<b>不成立</b>。依頼物資は保証の外で、出発前の読み返しが必須。" if iff_ else '。')
+                 + '<b>IF2</b>：対策（物資が食い違えば聞き返す、I-27）の再測定（新しい72文）。',
+                 '事前登録済み、B：' + ('結果あり' if p['B'] else '<b>' + WAIT_JA + '</b>') + '、IF：' + ('<b>主張不成立</b>' if iff_ and not iff_['held'] else ('結果あり' if p['IF'] else '<b>' + WAIT_JA + '</b>'))
+                 + '、IF2：' + ('結果あり' if advice_numbers.if2_done() else '<b>' + WAIT_JA + '</b>')])
     out = [P('<b>この保証の新しい成果</b>（機械検証・必要十分・期間の上限）', 'small'), Spacer(1, 2), table(rows, [26, 112, 36])]
     if c:
         out += fig('advice_credit.png', 128, f"図 助言の信用枠の記述モデル（{c['missions']}出動）：嘘つき・危険の連打の代償は上限で止まり、正直な情報源は何も失わない。")
@@ -1161,12 +1168,13 @@ def story_storyline():
     fnd, vf = advice_numbers.findings_found(), advice_numbers.v_facts()
     pend = [r for r in rows if r.get('pending')]
     txt = ('上の筋は、設計の理屈だけでなく、<b>攻撃して弱点を見つけ、直し、同じ測り方で測り直す</b>ことを繰り返して作った。'
-           '次の4つは、コミット済みの結果ファイルにある実際の記録である（数値はすべてそこから生成）。'
+           f'次の{len(rows)}つは、コミット済みの結果ファイルにある実際の記録である（数値はすべてそこから生成）。'
            + (f'4つ目は、攻撃の相手が自分たちの実装で、変異テスト・証明の見直し・予備走行で見つけた{fnd[2]}件（FINDINGS #{fnd[0]}–{fnd[1]}）の一部。' if fnd else '')
-           + ('評価Aは' + advice_numbers.pending_word() + 'のため、数値を載せていない。' if pend else '')
+           + (f"{len(rows)}つ目（依頼のすり替え）は、事前登録した主張が不成立になった記録で、対策の再測定（研究IF2）は{advice_numbers.pending_word()}である。" if any(r['key'] == 'request' for r in rows) and pend else '')
+           + (f"評価Aは{advice_numbers.pending_word()}のため、数値を載せていない。" if any(r['key'] == 'advice' for r in pend) else '')
            + (f"うまくいかなかった点も残した（評価Vで検証つき記憶にも危険な配達が{vf['unsafe']['M2']}件残り、登録した主張は{'成立' if vf['memory_claim'] else '不成立'}）。" if vf else ''))
     wmm = 174
-    return [P('攻撃 → 発見 → 対策 → 再測定：実際に起きた4つの記録', 'h2'), P(txt, 'small'),
+    return [P(f'攻撃 → 発見 → 対策 → 再測定：実際に起きた{len(rows)}つの記録', 'h2'), P(txt, 'small'),
             KeepTogether([Image(str(out_png), width=wmm * mm, height=wmm * mm * h_ / w_),
                           P('図 攻撃（または自分たちの検査）→ 見つかった弱点 → 対策 → 同じ測り方での再測定。左の濃色が出来事、右端の緑が再測定の数値（赤：対策前、緑：対策後）。', 'cap')])]
 
@@ -1308,7 +1316,7 @@ STUDY_FILES = [('D', 'campaign_D_ledger.jsonl'), ('E', 'campaign_E_ledger.jsonl'
                ('J', 'j_summary.json'), ('K', 'k_summary.json'), ('P', 'p_summary.json'), ('P2', 'p2_summary.json'), ('R', 'r_summary.json'),
                ('Z', 'z_summary.json'), ('L', 'l_summary.json'), ('V', 'v_summary.json'), ('W', 'w_summary.json'), ('A', 'a_summary.json'),
                ('S', 's_summary.json'), ('X', 'x_summary.json'), ('XD', 'xd_summary.json'), ('Q', 'q_summary.json'),
-               ('IF', 'if_summary.json'), ('B', 'b_summary.json')]
+               ('IF', 'if_summary.json'), ('IF2', 'if2_summary.json'), ('B', 'b_summary.json')]
 
 
 def story_limits(D, E, V, SP):
@@ -1335,6 +1343,10 @@ def story_limits(D, E, V, SP):
     if j:
         items.append(f"<b>2つのAIで確認する案（J）は採用しなかった</b>：危険な配達は1つのAI {j['P2_no_extra_unsafe']['unsafe_A']}、2つ {j['P2_no_extra_unsafe']['unsafe_J']}で、登録した基準（追加の危険なし）は"
                      f"{'成立' if j['P2_no_extra_unsafe']['supported'] else '不成立'}。2つのAIは同じ系統で独立ではない。")
+    _iff = advice_numbers.if_facts()
+    if _iff:
+        items.insert(0, f"<b>依頼物資のすり替え（評価IF）の主張は{'成立' if _iff['held'] else '不成立'}</b>：凍結した解析は、書き換えた{_iff['n']}文のうち{_iff['k']}文で、注入された物資を受理した（95%区間 {_iff['ci'][0] * 100:.0f}〜{_iff['ci'][1] * 100:.0f}%）。"
+                        f"依頼物資は助言ではなく命令なので、保証の外にある。現場では出発前に運用者が解析結果を読み返すことを必須とし、聞き返しの対策（I-27）は研究IF2で測る（{'結果あり' if advice_numbers.if2_done() else advice_numbers.pending_word()}）。")
     items += ['保証は<b>相対的</b>：助言は確認自身の誤りを超えて危険を増やさないが、その誤りは0ではない。助言で先に向かわされた拠点が本当に燃えているときの接近は、保証の範囲外。',
               '<b>すべてシミュレーション</b>（実機なし）。物資の把持・運搬は未実装。実写で検証したのは火災判定（P）だけで、閾値は現場ごとに較正が要る。',
               '信用枠（I-24）の数値は<b>合成した結果の記述モデル</b>で、閉ループの確認（研究B）は' + ('結果あり。' if advice_numbers.pending_studies()['B'] else WAIT_JA + '。')
