@@ -942,11 +942,42 @@ def main():
         m['AClaimCost'] = sup(a3['supported'])
         m['AClaim'] = sup(a['headline_supported'])
         m['AExtract'] = f"{a['extraction']['exact_match']}/{a['extraction']['n_operator_runs']}"
+        af_ = advice_numbers.a_facts()        # the rest of the A numbers (worlds, guardrail flag rates, replay, A-steer) share one reader with README/report/YouTube
+        if af_:
+            kk = lambda t: f"{t[0]}/{t[1]}"
+            if af_['worlds']['naive'] and af_['worlds']['filtered'] and af_['worlds']['monotone']:
+                m['AWorldsNaive'], m['AWorldsFiltered'], m['AWorldsOurs'] = (kk(af_['worlds'][k_]) for k_ in ('naive', 'filtered', 'monotone'))
+            m['AFilterFlagOp'], m['AFilterFlagFile'] = kk(af_['filter_flag_operator']), kk(af_['filter_flag_file'])
+            m['AFileUnsafeNaive'], m['AFileUnsafeFiltered'], m['AFileUnsafeOurs'] = (kk(af_['by_channel'][k_]['file']) for k_ in ('naive', 'filtered', 'ours'))
+            m['AOpUnsafeNaive'], m['AOpUnsafeFiltered'], m['AOpUnsafeOurs'] = (kk(af_['by_channel'][k_]['operator']) for k_ in ('naive', 'filtered', 'ours'))
+            m['ANaiveWrongSupply'], m['ANaiveIntoFire'] = af_['naive_wrong_supply'], af_['naive_into_fire']
+            m['AHazardFalseRefNaive'], m['AHazardFalseRefFiltered'], m['AHazardFalseRefN'] = af_['dos_false_refusals_naive'], af_['dos_false_refusals_filtered'], af_['dos_n_baseline']
+            if af_['replay']:
+                m['AReplay'], m['AReplayViol'] = f"{af_['replay'][0]}/{af_['replay'][1]}", af_['replay'][2]
+            m['ATimePos'] = f"{af_['time_pos']}/{af_['time_n']}"
+            m['ATimeMed'] = f"{af_['time_median']:.1f}"
+            pr_ = af_['price']
+            m['AWBound'], m['AWOne'], m['AMaxExtra'], m['ALost'], m['ALostAllowed'] = f"{pr_['bound']:.1f}", f"{pr_['W']:.1f}", f"{pr_['max_extra']:.1f}", pr_['lost'], pr_['allowed']
+            st_ = af_['steer']
+            m['ARuns'], m['ARunsFailed'] = af_['runs'], af_['failed']
+            m['ASteerN'] = st_['n']
+            m['ASteerP'] = f"{st_['p_sign']:.2f}" if st_.get('p_sign') is not None else r'\TBD'
+            m['AUnsafeOursUpper'] = f"{af_['unsafe_wilson_ours'][1]:.2f}"
+            for key_, nm_ in (('ours', 'Ours'), ('control', 'Ctrl'), ('scrutiny', 'Scr'), ('naive', 'Naive')):
+                m[f'ASteer{nm_}'] = f"{st_[key_]['unsafe']}/{st_[key_]['n']}"
+                m[f'ASteerLost{nm_}'] = f"{st_[key_]['lost']}/{st_[key_]['n']}"
+            m['ASteerOursUpper'], m['ASteerCtrlUpper'] = f"{st_['ours']['wilson'][1]:.2f}", f"{st_['control']['wilson'][1]:.2f}"
+            m['ASteerTimeOurs'], m['ASteerTimeCtrl'] = f"{st_['ours']['median_s']:.0f}", f"{st_['control']['median_s']:.0f}"
+            m['ASteerDelivScr'] = f"{st_['scrutiny']['delivered']}/{st_['n']}"
+            m['ASteerWorlds'] = ', '.join(st_['unsafe_worlds'])
+            m['AIntentAcc'] = f"{af_['intent_accepted']}/{af_['extract'][1]}" if af_['intent_accepted'] is not None else r'\TBD'
+            m['AExtractSafe'] = kk(af_['extract_safe'])
+            m['AOffline'] = 'has been scored (advice_injection_eval.json)' if af_['offline_done'] else 'has not been scored'
     ac_ = [m.lookup(k_) for k_ in ('AClaimSafety', 'AClaimTime', 'AClaimCost')]
     m['StatA'] = f"safety: {ac_[0]}; time: {ac_[1]}; cost: {ac_[2]}" if all(ac_) else 'pending'
     # abstract clause for the advice result: empty until study A has run (the abstract never shows a pending marker)
-    m['AbsAdvice'] = (f"; under adversarial advice, an advice-following baseline delivered unsafely in {m.lookup('AUnsafeNaive')} runs, ours in {m.lookup('AUnsafeOurs')} and a robot without advice in {m.lookup('AUnsafeCtrl')}"
-                      if m.lookup('AUnsafeNaive') and m.lookup('AUnsafeOurs') and m.lookup('AUnsafeCtrl') else '')
+    m['AbsAdvice'] = (f"; unsafe worlds under hostile advice: naive baseline {m.lookup('AWorldsNaive')}, LLM guardrail {m.lookup('AWorldsFiltered')}, ours {m.lookup('AWorldsOurs')}"
+                      if m.lookup('AWorldsNaive') and m.lookup('AWorldsFiltered') and m.lookup('AWorldsOurs') else '')
     # ---- study S (scene-text injection, image level; scripts/s_analysis.py -> s_summary.json) -- absent until it ran
     sf = RES / 's_summary.json'
     if sf.is_file():

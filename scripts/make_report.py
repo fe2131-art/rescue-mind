@@ -400,14 +400,14 @@ def w_result_text(ws):
 
 
 def a_result_text(a):
-    """Study A (adversarial advice, closed loop) as one string; PEND when a_summary.json is absent."""
+    """Study A (adversarial advice, closed loop) as one string; PEND when a_summary.json is absent.  The wording is advice_numbers.a_ja()."""
     try:
         a1, a2, a3 = a['A1_unsafe_naive_vs_monotone'], a['A2_time_saved_truthful'], a['A3_dos_cost_vs_bound']
-        r = a1['runs']
         ok_ = lambda x: '成立' if x else '不成立'
-        return (f"悪意のある助言での危険な配達（試行）：助言に従う方式 {r['naive']['unsafe']}/{r['naive']['n']}、本方式 {r['monotone']['unsafe']}/{r['monotone']['n']}、"
-                f"助言なし {a1['control_runs_F_N']['unsafe']}/{a1['control_runs_F_N']['n']}。主張 安全：<b>{ok_(a1['supported'])}</b>、"
-                f"時間：<b>{ok_(a2['supported']) if a2['monotone']['testable'] else '検定不能'}</b>、コスト：<b>{ok_(a3['supported'])}</b>")
+        txt = advice_numbers.a_ja()
+        if not txt:
+            raise KeyError('a_facts')
+        return (txt + f" 登録した主張：安全 <b>{ok_(a1['supported'])}</b>、時間 <b>{ok_(a2['supported']) if a2['monotone']['testable'] else '検定不能'}</b>、コスト <b>{ok_(a3['supported'])}</b>。")
     except (TypeError, KeyError):
         pf_ = advice_numbers.a_pilot_facts()
         return ((PEND_NOT_RUN.replace('未実行（事前登録済み・実行待ち）', '実行中（事前登録済み・結果はまだ無い）') if (pf_ or {}).get('rerun') else PEND_NOT_RUN) + ('。' + advice_numbers.a_pilot_ja() if pf_ else ''))

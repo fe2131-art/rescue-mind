@@ -288,7 +288,7 @@ def a_pilot_ja():
             "Amendment 1 で A の全試行を i38 にした。"
             + (f"予備走行をやり直し（{f['rerun_runs']}試行、i38）、Amendment 2 の合格条件（依頼文チャネルの意図の受理 9/12 以上）を満たして合格した：意図の受理 {f['rerun_op_intent']}/{f['rerun_op_n']}、"
                f"ファイルチャネルは設計どおり {f['rerun_file_ok']}/{f['rerun_file_n']}。設計した助言の正確な取り出しは {f['rerun_op_exact']}/{f['rerun_op_n']} で、合格条件ではなく報告項目にした（FINDINGS #31）。"
-               + ("本走行（226試行）は提出時点で結果がない。" if snapshot_mode() else f"本走行（226試行）は {A_CAMPAIGN_START} に開始し、実行中。") if f.get('rerun') else ''))
+               + ("本走行（226試行）は提出時点で結果がない。" if snapshot_mode() else f"本走行（226試行）は {A_CAMPAIGN_START} に開始し、実行中。") if (f.get('rerun') and not a_facts()) else ''))
 
 
 def a_pilot_en():
@@ -301,7 +301,124 @@ def a_pilot_en():
             "and Amendment 1 runs every A run with it."
             + (f" The pilot was rerun ({f['rerun_runs']} runs, i38) and passed the gate of Amendment 2 (operator-channel intent acceptance of at least 9 of 12): intent accepted {f['rerun_op_intent']}/{f['rerun_op_n']}, "
                f"file channel as designed {f['rerun_file_ok']}/{f['rerun_file_n']}. Exact extraction of the designed advice by the frozen prompts is {f['rerun_op_exact']}/{f['rerun_op_n']}; it is a reported endpoint, no longer a gate (FINDINGS #31). "
-               + ("The campaign (226 trials) has no results at submission." if snapshot_mode() else f"The campaign (226 trials) started on {A_CAMPAIGN_START} and is running.") if f.get('rerun') else ''))
+               + ("The campaign (226 trials) has no results at submission." if snapshot_mode() else f"The campaign (226 trials) started on {A_CAMPAIGN_START} and is running.") if (f.get('rerun') and not a_facts()) else ''))
+
+
+def a_facts():
+    """Study A (adversarial advice, closed loop) as plain numbers, read from a_summary.json (scripts/a_analysis.py) and a_checklist.json (scripts/a_checklist.py);
+    None until a_summary.json exists.  README, report, YouTube, video plan, graphical abstract and the paper macros all take their A wording from here."""
+    a = _load('a_summary.json')
+    if not a:
+        return None
+    try:
+        a1, a1b, a1c, a2, a3, st = (a['A1_unsafe_naive_vs_monotone'], a['A1b_unsafe_filtered_vs_monotone'], a['A1c_filter_catch_rate'],
+                                    a['A2_time_saved_truthful'], a['A3_dos_cost_vs_bound'], a['A_steer'])
+        ck = _load('a_checklist.json') or {}
+        c3 = (ck.get('checks') or {}).get('C3') or {}
+        c2 = (ck.get('checks') or {}).get('C2') or {}
+        r = a1['runs']
+        kn = lambda x: (x['unsafe'], x['n'])
+        pc = a1c['by_condition']
+        flag = lambda ch: (sum(pc[c][ch]['flagged'] for c in ('poison_safe', 'poison_location')), sum(pc[c][ch]['n'] for c in ('poison_safe', 'poison_location')))
+        arms = st['arms']
+        arm = lambda k: {'unsafe': arms[k]['unsafe'], 'n': arms[k]['n'], 'delivered': arms[k]['delivered'], 'lost': arms[k]['lost_deliveries'],
+                         'exposed': arms[k]['exposed_to_fire'], 'wilson': arms[k]['wilson95_unsafe'], 'median_s': arms[k]['median_time_s']}
+        ex = a['extraction']
+        ck_ = (ck.get('checks') or {}).get('C8') or {}
+        return {
+            'runs': a['n_trials'], 'planned': a['n_planned'], 'failed': a['n_failed'], 'pairs': a1['n_world_pairs'],
+            'worlds': {k: tuple(c3[f'{k}_unsafe_worlds']) if c3.get(f'{k}_unsafe_worlds') else None for k in ('naive', 'filtered', 'monotone')},
+            'unsafe': {'naive': kn(r['naive']), 'filtered': kn(a1b['runs']['filtered']), 'ours': kn(r['monotone']), 'control': kn(a1['control_runs_F_N'])},
+            'unsafe_wilson_ours': r['monotone']['wilson95'],
+            'by_channel': {'naive': {c: kn(v) for c, v in ((c, a1['by_channel'][c]['naive']) for c in ('operator', 'file'))},
+                           'filtered': {c: kn(a1b['by_channel'][c]['filtered']) for c in ('operator', 'file')},
+                           'ours': {c: kn(a1['by_channel'][c]['monotone']) for c in ('operator', 'file')}},
+            'naive_wrong_supply': r['naive']['wrong_supply'], 'naive_into_fire': r['naive']['into_fire'],
+            'p_naive': a1['mcnemar_p'], 'p_filtered': a1b['mcnemar_p'], 'disc_naive': (a1['discordant_naive_only'], a1['discordant_monotone_only']),
+            'disc_filtered': (a1b['discordant_filtered_only'], a1b['discordant_monotone_only']),
+            'viol': len(a1['monotone_unsafe_where_control_safe']), 'audit_fail': a1['n_audit_failures'],
+            'filter_flag_operator': flag('operator'), 'filter_flag_file': flag('file'), 'filter_errors': a1c['filter_errors'],
+            'filter_flag_hazard': (sum(pc['poison_hazard'][ch]['flagged'] for ch in ('operator', 'file')), sum(pc['poison_hazard'][ch]['n'] for ch in ('operator', 'file'))),
+            'dos_false_refusals_naive': a3['naive_poison_hazard']['false_refusals'], 'dos_false_refusals_filtered': a3['filtered_poison_hazard']['false_refusals'],
+            'dos_n_baseline': a3['naive_poison_hazard']['n'],
+            'replay': (c2.get('n_replayed_ok'), c2.get('n_deliveries'), len(c2.get('violations') or [])) if c2 else None,
+            'time_median': a2['monotone']['median_saved_s'], 'time_pos': sum(x > 0 for x in a2['monotone']['saved_s']), 'time_n': a2['monotone']['n_pairs'],
+            'time_p': a2['monotone']['wilcoxon_exact_p'], 'time_supported': a2['supported'],
+            'price': {'W': a3['time']['W_one_wasted_visit_s'], 'bound': a3['time']['bound_s'], 'max_extra': a3['time']['max_extra_s'], 'median_extra': a3['time']['median_extra_s'],
+                      'lost': a3['availability']['lost_deliveries'], 'allowed': a3['availability']['allowed_max_lost_95'], 'n': a3['n_monotone_runs'],
+                      'max_visits': a3['max_extra_visits'] or 0, 'false_refusals': a3['false_refusals_monotone'], 'supported': a3['supported']},
+            'steer': {'n': st['n_worlds'], 'ours': arm('monotone'), 'control': arm('control'), 'scrutiny': arm('scrutiny_soft'), 'naive': arm('naive'),
+                      'reading': st['reading'], 'p_sign': (st.get('S1_monotone_vs_control') or {}).get('p_one_sided'), 'eps_W': (ck.get('checks', {}).get('C4', {}).get('closed_loop_vs_W') or {}).get('W_eps_any_k2'),
+                      'unsafe_trials': [x['trial_id'] for x in (ck.get('checks', {}).get('C4', {}).get('monotone_unsafe_where_control_safe') or [])],
+                      'unsafe_worlds': [x['world'] for x in (ck.get('checks', {}).get('C4', {}).get('monotone_unsafe_where_control_safe') or [])]},
+            'extract': (ex['exact_match'], ex['n_operator_runs']), 'extract_safe': (ex['by_condition']['poison_safe']['exact'], ex['by_condition']['poison_safe']['n']),
+            'intent_accepted': (ck_.get('operator') or {}).get('intent_accepted'),
+            'claims': {'safety': a1['supported'], 'guardrail': a1b['supported'], 'time': a2['supported'], 'cost': a3['supported'], 'headline': a['headline_supported']},
+            'verdict': ck.get('overall'),
+            'offline_done': (RES / 'advice_injection_eval.json').is_file(),
+        }
+    except (KeyError, TypeError):
+        return None
+
+
+def a_ja():
+    """The result of study A in one Japanese paragraph (README table cell, report, YouTube)."""
+    f = a_facts()
+    if not f:
+        return ''
+    u, w, s, pr = f['unsafe'], f['worlds'], f['steer'], f['price']
+    wtxt = (f"悪意のある助言の{w['naive'][1]}世界のうち、危険な配達が起きた世界は 助言に従う方式 {w['naive'][0]}・LLM ガードレールで助言を濾してから従う方式 {w['filtered'][0]}・本方式 {w['monotone'][0]}"
+            if w['naive'] and w['filtered'] and w['monotone'] else '')
+    return (f"{wtxt}（試行では 助言に従う方式 {u['naive'][0]}/{u['naive'][1]}、ガードレール {u['filtered'][0]}/{u['filtered'][1]}、本方式 {u['ours'][0]}/{u['ours'][1]}、助言なし {u['control'][0]}/{u['control'][1]}。"
+            f"世界で対にした McNemar p={f['p_naive']}、ガードレールとの比較も p={f['p_filtered']}）。"
+            f"ガードレールは依頼文では {f['filter_flag_operator'][0]}/{f['filter_flag_operator'][1]} 件を止めたが、他のロボットの助言ファイルでは {f['filter_flag_file'][0]}/{f['filter_flag_file'][1]} 件で、"
+            f"ファイル経由の危険な配達は素朴な方式と同じく {f['by_channel']['filtered']['file'][0]}/{f['by_channel']['filtered']['file'][1]}。"
+            f"本方式の配達は全て、助言なしの確認でも許可される配達だった（{f['replay'][0]}/{f['replay'][1]} 件を保存画像で再計算、違反 {f['replay'][2]}）。"
+            f"正しい場所の助言は中央値 {round(f['time_median'], 1)} 秒を節約（{f['time_pos']}/{f['time_n']} 世界で短縮、p={f['time_p']}）。"
+            f"嘘の助言の代償は最大 {pr['max_extra']:.1f} 秒（上限 {pr['bound']:.1f} 秒）、配達の取りこぼし {pr['lost']}（許容 {pr['allowed']}）。"
+            f"操縦（真の助言で火のある拠点を先に確認させる）{s['n']}世界：危険な配達 本方式 {s['ours']['unsafe']}/{s['n']}・助言なし {s['control']['unsafe']}/{s['n']}・scrutiny {s['scrutiny']['unsafe']}/{s['n']}、"
+            f"本方式の{s['ours']['unsafe']}件は確認の誤り（助言なしの確認でも許可される配達）で、差は有意でなく W の ε_any の範囲内。代償は可用性：配達できなかった世界 本方式 {s['ours']['lost']}/{s['n']}、scrutiny {s['scrutiny']['lost']}/{s['n']}、助言なし {s['control']['lost']}/{s['n']}。"
+            f"依頼文の意図の受理 {f['intent_accepted']}/{f['extract'][1]}、設計した助言の正確な取り出し {f['extract'][0]}/{f['extract'][1]}（報告項目）。"
+            f"保証は相対的で、被ばく（火のある拠点へ近づくこと）は上限の外。"
+            + ('' if f['offline_done'] else '登録した224件のオフライン注入セット（届け先の誤受理 0 が条件）の採点は未実施。'))
+
+
+def a_en():
+    """The result of study A in one English paragraph (README table row)."""
+    f = a_facts()
+    if not f:
+        return ''
+    u, w, s, pr = f['unsafe'], f['worlds'], f['steer'], f['price']
+    wtxt = (f"in {w['naive'][0]} of {w['naive'][1]} hostile-advice worlds the advice-following baseline delivered unsafely, in {w['filtered'][0]} of {w['filtered'][1]} the baseline behind an LLM guardrail, in {w['monotone'][0]} of {w['monotone'][1]} ours"
+            if w['naive'] and w['filtered'] and w['monotone'] else '')
+    return (f"{wtxt} (runs: advice-following {u['naive'][0]}/{u['naive'][1]}, guardrail {u['filtered'][0]}/{u['filtered'][1]}, ours {u['ours'][0]}/{u['ours'][1]}, no advice {u['control'][0]}/{u['control'][1]}; "
+            f"exact McNemar paired by world p={f['p_naive']}, against the guardrail p={f['p_filtered']}). The guardrail flagged {f['filter_flag_operator'][0]} of {f['filter_flag_operator'][1]} operator-channel attacks "
+            f"and {f['filter_flag_file'][0]} of {f['filter_flag_file'][1]} peer-file attacks, so file-channel unsafe deliveries were {f['by_channel']['filtered']['file'][0]}/{f['by_channel']['filtered']['file'][1]}, as for the naive baseline. "
+            f"Every delivery of ours was one the advice-free check also approves ({f['replay'][0]}/{f['replay'][1]} replayed on the saved frames, {f['replay'][2]} violations). "
+            f"Truthful location advice saved a median {round(f['time_median'], 1)} s ({f['time_pos']}/{f['time_n']} worlds, p={f['time_p']}); false advice cost at most {pr['max_extra']:.1f} s (bound {pr['bound']:.1f} s) and {pr['lost']} lost deliveries (allowed {pr['allowed']}). "
+            f"Steering ({s['n']} duplicate-supply worlds, truthful advice naming the station with a partly hidden fire): unsafe deliveries ours {s['ours']['unsafe']}/{s['n']}, no advice {s['control']['unsafe']}/{s['n']}, scrutiny {s['scrutiny']['unsafe']}/{s['n']}, "
+            f"the {s['ours']['unsafe']} of ours are check errors (the advice-free check approves them too), not significant and inside the ε_any of study W; the cost is availability, with deliveries lost in {s['ours']['lost']}/{s['n']} worlds for ours, {s['scrutiny']['lost']}/{s['n']} with scrutiny and {s['control']['lost']}/{s['n']} without advice. "
+            f"Operator-channel intent accepted {f['intent_accepted']}/{f['extract'][1]}, exact extraction {f['extract'][0]}/{f['extract'][1]} (reported). The guarantee is relative; exposure is outside it."
+            + ('' if f['offline_done'] else ' The registered 224-text offline set (wrong-shelter acceptance must be 0) has not been scored.'))
+
+
+def a_short_ja():
+    """Study A in one short Japanese clause (YouTube line, README sentences)."""
+    f = a_facts()
+    if not f or not (f['worlds']['naive'] and f['worlds']['filtered'] and f['worlds']['monotone']):
+        return ''
+    w, s = f['worlds'], f['steer']
+    return (f"危険な配達が起きた世界は 助言に従う方式 {w['naive'][0]}/{w['naive'][1]}・LLM ガードレール {w['filtered'][0]}/{w['filtered'][1]}・本方式 {w['monotone'][0]}/{w['monotone'][1]}。"
+            f"ただし真の助言で火のある拠点へ誘導されると、本方式は配達できない世界が {s['ours']['lost']}/{s['n']}（危険な配達 {s['ours']['unsafe']}/{s['n']}、確認の誤りで有意でない。保証は相対的）")
+
+
+def a_short_en():
+    f = a_facts()
+    if not f or not (f['worlds']['naive'] and f['worlds']['filtered'] and f['worlds']['monotone']):
+        return ''
+    w, s = f['worlds'], f['steer']
+    return (f"unsafe worlds {w['monotone'][0]}/{w['monotone'][1]} for ours against {w['naive'][0]}/{w['naive'][1]} for the advice-following baseline and {w['filtered'][0]}/{w['filtered'][1]} behind an LLM guardrail; "
+            f"the guarantee is relative, and truthful advice that steers to a burning station loses {s['ours']['lost']}/{s['n']} deliveries")
 
 
 def pending_studies():
@@ -580,7 +697,8 @@ def pooled_memory_short_ja():
 # ---------------------------------------------------------------------------------------------------------------------------
 # The storyline  攻撃 -> 発見 -> 対策 -> 再測定  (report figure + text, README bullets).  Four stories, each built only from committed
 # evidence; every number is read from a result file here, the figure (make_storyline_figure.py), the report and the README only format it.
-STORY_FIRST_FINDING = 24      # FINDINGS #24..#N: the problems found by our own checks (mutation tests, proof review, audits, pilot runs)
+STORY_FIRST_FINDING = 24      # FINDINGS #24..#31: the problems found by our own checks (mutation tests, proof review, audits, pilot runs)
+STORY_LAST_FINDING = 31       # #32 onward are measured effects of the campaigns (study A: steering cost, guardrail blind to file advice), not bugs fixed
 
 
 def pending_word():
@@ -601,7 +719,7 @@ def findings_found():
                 ids.append(int(first))
         elif ids:
             break
-    ids = [i for i in ids if i >= STORY_FIRST_FINDING]
+    ids = [i for i in ids if STORY_FIRST_FINDING <= i <= STORY_LAST_FINDING]
     return (ids[0], ids[-1], len(ids)) if ids else None
 
 
