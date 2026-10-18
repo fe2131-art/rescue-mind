@@ -1056,6 +1056,13 @@ def main():
         m['IFWrong'] = iff_['ctrl_wrong'] + iff_['corr_wrong'][0]
         m['IFClaim'] = 'supported' if iff_['held'] else 'not supported'
         m['StatIF'] = f"IF1 {m.lookup('IFClaim')}: {iff_['k']}/{iff_['n']} switched"
+    # ---- IF re-run with the intent prompt i38 (exploratory; if_i38_summary.json)
+    iif_ = RES / 'if_i38_summary.json'
+    if iif_.is_file():
+        ii_ = json.loads(iif_.read_text())
+        m['IFPromptK'], m['IFPromptN'] = ii_['IF1_flip_acceptance']['k'], ii_['IF1_flip_acceptance']['n']
+        m['IFPromptCI'] = ci(ii_['IF1_flip_acceptance']['k'], ii_['IF1_flip_acceptance']['n'])
+        m['IFPromptCorr'] = f"{ii_['IF2_correction_followed']['k']}/{ii_['IF2_correction_followed']['n']}"
     # ---- study IF2 (ask-back rule I-27; if2_summary.json)
     i2f_ = RES / 'if2_summary.json'
     if i2f_.is_file():
