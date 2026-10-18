@@ -242,6 +242,17 @@ def line_v(res):
     return t
 
 
+def line_w(res):
+    """Study W (image level), short: bound claim, prior-art separation (failed), I-20 decision."""
+    f = advice_numbers.w_facts()
+    if not f:
+        return None
+    ok = lambda x: '成立' if x else '不成立'
+    up = 100 * f['la']['ci95'][1]
+    return (f"・画像評価W：見逃し 正面のみ{f['front']['k']}/{f['front']['n']}→見回し{f['la']['k']}/{f['la']['n']}（上限{up:.1f}%、{ok(f['claim_eps'])}）。"
+            f"先行手法との区別は{ok(f['n_dist'] > 0)}（{f['n_dist']}/3）。I-20は{'採用規則を満たす' if f['adopt'] else '採用しない'}")
+
+
 def line_j(res):
     j = jload(Path(res) / 'j_summary.json')
     try:
@@ -289,7 +300,7 @@ def headline_block(res):
 
 
 def number_lines(res):
-    fns = (line_t1, line_t2, line_z, line_r, line_p, line_l, line_h, line_v, line_j)
+    fns = (line_t1, line_t2, line_z, line_r, line_p, line_l, line_h, line_v, line_w, line_j)
     return [x for x in (f(res) for f in fns) if x]
 
 

@@ -707,6 +707,53 @@ def main():
             m['WMissLARate'] = pct(la['rate']); m['WMissLACI'] = ci(la['k'], la['n'])
             m['WExtraStop'] = f"{tw['k']}/{tw['n']}"
             m['WClaimEps'] = sup(wa['criteria']['claim_eps_tight']); m['WClaimCost'] = sup(wa['criteria']['claim_cost_acceptable'])
+            m['WMissFrontRate'] = pct(fr['rate']); m['WMissLAUpper'] = pct(la['ci95'][1])
+            m['WMcNemarP'] = _pfmt(wa['front_vs_look_around']['first_only'], wa['front_vs_look_around']['second_only'])
+            m['WCaughtOnlyByLA'] = wa['front_vs_look_around']['first_only']
+            m['WNFront'] = wa['n_front_perceivable']; m['WNSideOnly'] = wa['n_side_only']
+            m['WMissLAFront'] = f"{wa['miss_look_around_front_perceivable']['k']}/{wa['miss_look_around_front_perceivable']['n']}"
+            m['WMissLAFrontUpper'] = pct(wa['miss_look_around_front_perceivable']['ci95'][1])
+            m['WMissLASide'] = f"{wa['miss_look_around_side_only']['k']}/{wa['miss_look_around_side_only']['n']}"
+            m['WMissFrontSide'] = f"{wa['miss_front_only_side_only']['k']}/{wa['miss_front_only_side_only']['n']}"
+            m['WMissedWorlds'] = ', '.join(wa['missed_worlds'])
+            m['WNotVisible'] = f"{wa['six_view']['n_not_visible_from_any_view']}/{wa['n_fire_worlds']}"
+            m['WNotVisibleUpper'] = pct(wa['six_view']['share_not_visible_from_any_view']['ci95'][1])
+            m['WSixViewUpper'] = pct(wa['six_view']['miss_look_around']['ci95'][1])
+            m['WTwinCA'] = f"{wa['twins']['correct_approval_look_around']['k']}/{wa['twins']['correct_approval_look_around']['n']}"
+            m['WExtraStopUpper'] = pct(wa['twins']['extra_false_stop_from_side_views']['ci95'][1])
+            m['WTauMiss'] = '/'.join(str(wa['tau_h_sensitivity'][t]['miss_look_around']['k']) for t in ('0.02', '0.05', '0.1', '0.2'))
+            oa = wa['oracle_steering']['label_FLR']['look_around']['by_k']; of = wa['oracle_steering']['label_FLR']['front_only']['by_k']
+            m['WEpsAnyTwo'] = pct(oa['2']['eps_any']); m['WEpsAnyTwoCI'] = '[{:.1f}, {:.1f}]\\%'.format(*(100 * x for x in oa['2']['ci95_independent']))
+            m['WEpsAnyFour'] = pct(oa['4']['eps_any']); m['WEpsAnyFourCI'] = '[{:.1f}, {:.1f}]\\%'.format(*(100 * x for x in oa['4']['ci95_independent']))
+            m['WEpsAnyTwoFront'] = pct(of['2']['eps_any']); m['WEpsAnyFourFront'] = pct(of['4']['eps_any'])
+            v35 = w.get('W-a_v35_reference')
+            if isinstance(v35, dict):
+                m['WVOldMissFront'] = f"{v35['miss_front_only']['k']}/{v35['miss_front_only']['n']}"
+                m['WVOldMissLA'] = f"{v35['miss_look_around']['k']}/{v35['miss_look_around']['n']}"
+                m['WVOldMissLAUpper'] = pct(v35['miss_look_around']['ci95'][1])
+        ad = w.get('W-a_adaptive')
+        if isinstance(ad, dict):
+            m['WAdaptMiss'] = f"{ad['perceivable_FLR']['miss_adaptive']['k']}/{ad['perceivable_FLR']['miss_adaptive']['n']}"
+            m['WAdaptMissUpper'] = pct(ad['perceivable_FLR']['miss_adaptive']['ci95'][1])
+            m['WAdaptPaired'] = f"{ad['perceivable_FLR']['paired']['first_only']} vs {ad['perceivable_FLR']['paired']['second_only']}"
+            m['WAdaptPairedP'] = _pfmt(ad['perceivable_FLR']['paired']['first_only'], ad['perceivable_FLR']['paired']['second_only'])
+            m['WAdaptTwinCA'] = f"{ad['twins']['correct_approval_adaptive']['k']}/{ad['twins']['correct_approval_adaptive']['n']}"
+            m['WAdaptTrigTwin'] = f"{ad['twins']['extra_view_trigger_rate']['k']}/{ad['twins']['extra_view_trigger_rate']['n']}"
+            m['WAdaptTrigTwinCI'] = ci(ad['twins']['extra_view_trigger_rate']['k'], ad['twins']['extra_view_trigger_rate']['n'])
+            m['WAdaptTrigFire'] = f"{ad['fire_trigger_rate']['k']}/{ad['fire_trigger_rate']['n']}"
+            # the rule written in docs/IMPROVEMENT_LOG.md (I-20) before the scores: (1) fewer misses, paired, at least one world; (2) twin correct approvals drop by at most 3 of 75
+            pr = ad['perceivable_FLR']['paired']; tw_ = ad['twins']
+            r1 = pr['second_only'] == 0 and pr['first_only'] >= 1
+            r2 = tw_['correct_approval_look_around']['k'] - tw_['correct_approval_adaptive']['k'] <= 3
+            m['WAdaptRuleA'] = sup(r1); m['WAdaptRuleB'] = sup(r2); m['WAdaptAdopt'] = 'adopted as the v3.7 default' if (r1 and r2) else 'not adopted'
+        sp = w.get('W-a_scrutiny_policies')
+        if isinstance(sp, dict):
+            pol = sp['policies']
+            m['WScrutMissB'] = f"{pol['b_caution']['miss_perceivable_FLR']['k']}/{pol['b_caution']['miss_perceivable_FLR']['n']}"
+            m['WScrutMissC'] = f"{pol['c_caution_extra_always']['miss_perceivable_FLR']['k']}/{pol['c_caution_extra_always']['miss_perceivable_FLR']['n']}"
+            m['WScrutMissCUpper'] = pct(pol['c_caution_extra_always']['miss_perceivable_FLR']['ci95'][1])
+            m['WScrutPC'] = _pfmt(pol['c_caution_extra_always']['miss_perceivable_FLR_vs_a']['first_only'], pol['c_caution_extra_always']['miss_perceivable_FLR_vs_a']['second_only'])
+            m['WScrutTwinStopC'] = f"{pol['c_caution_extra_always']['twins_extra_false_stop_vs_a']['k']}/{pol['c_caution_extra_always']['twins_extra_false_stop_vs_a']['n']}"
         if isinstance(wb, dict):
             S, nd = wb['systems'], wb['n_deny']
             fa = lambda name: f"{S[name]['false_approvals']}/{nd}"
@@ -714,6 +761,29 @@ def main():
             for key, name in zip(('Vote', 'KnowFive', 'KnowTen'), wb['primary_baselines']):
                 m[f'WFA{key}'] = fa(name)
             m['WNDist'] = sum(bool(S[n_].get('mechanism_matters')) for n_ in wb['primary_baselines'])
+            m['WNImages'] = wb['n_images']; m['WNDeny'] = wb['n_deny']; m['WNAllow'] = wb['n_allow']
+            m['WFAOursDeployed'] = fa(wb['secondary_reference'])
+            m['WFAOursFullRate'] = pct(S[wb['primary_reference']]['fa_rate'], 2)
+            m['WFAOursDeployedCI'] = '[{:.2f}, {:.2f}]\\%'.format(*(100 * x for x in S[wb['secondary_reference']]['fa_ci95']))
+            m['WCAOursFull'] = f"{S[wb['primary_reference']]['correct_approvals']}/{wb['n_allow']}"
+            vote, kf, kt = (S[n_] for n_ in wb['primary_baselines'])
+            m['WFAVoteRate'] = pct(vote['fa_rate'], 2); m['WFAVoteCI'] = ci(vote['false_approvals'], wb['n_deny'], 2)
+            m['WVotePRaw'] = f"{vote['vs_ours_full']['false_approval']['mcnemar_p']:.3f}"
+            m['WVoteHolm'] = f"{vote['primary_holm_p_false_approval']:.3f}"
+            m['WVoteDisc'] = f"{vote['vs_ours_full']['false_approval']['baseline_only']} vs {vote['vs_ours_full']['false_approval']['ours_only']}"
+            m['WVoteDeployedHolm'] = f"{vote['secondary_holm_p_false_approval']:.3f}"
+            m['WVoteDeployedDisc'] = f"{vote['vs_ours_deployed']['false_approval']['baseline_only']} vs {vote['vs_ours_deployed']['false_approval']['ours_only']}"
+            m['WVoteDeployedBetter'] = sup(bool(vote['deployed_better']))
+            m['WCAKnowFive'] = f"{kf['correct_approvals']}/{wb['n_allow']}"
+            m['WCAKnowFiveRate'] = pct(kf['ca_rate'])
+            m['WCAKnowFiveDrop'] = kf['vs_ours_full']['correct_approval']['ours_only']
+            m['WCAKnowFiveP'] = _pfmt(kf['vs_ours_full']['correct_approval']['ours_only'], kf['vs_ours_full']['correct_approval']['baseline_only'])
+            m['WKnowTenSame'] = 'identical' if (kt['false_approvals'] == S[wb['primary_reference']]['false_approvals'] and kt['vs_ours_full']['false_approval']['ours_only'] == 0 == kt['vs_ours_full']['false_approval']['baseline_only'] and kt['vs_ours_full']['correct_approval']['ours_only'] == 0 == kt['vs_ours_full']['correct_approval']['baseline_only']) else 'different'
+            m['WSmallOurs'] = f"{S[wb['secondary_reference']]['small_fires']['approved']}/{S[wb['secondary_reference']]['small_fires']['small_fires_correct_supply']}"
+            m['WSmallVote'] = f"{vote['small_fires']['approved']}/{vote['small_fires']['small_fires_correct_supply']}"
+            mond = S.get('KnowNo-Mondrian q1_h35 alpha=0.05')
+            if mond:
+                m['WMondCA'] = f"{mond['correct_approvals']}/{wb['n_allow']}"
     wce, wcc, wnd = m.lookup('WClaimEps'), m.lookup('WClaimCost'), m.lookup('WNDist')
     m['StatW'] = f"bound: {wce}; cost: {wcc}; prior art distinguished: {wnd}/3" if (wce and wcc and wnd is not None) else 'pending'
     # ---- study A (adversarial advice, closed loop; scripts/a_analysis.py -> a_summary.json) -- absent until it ran
@@ -880,7 +950,7 @@ def main():
                'VPredDiff', 'VPredDiffPI', 'VObsDiff', 'VPredUnsafezero', 'VPredUnsafeone', 'VPredUnsafetwo', 'VUnsafeMzero', 'VUnsafeMone', 'VUnsafeMtwo',
                'VSeqP', 'VClaimModel', 'VClaimMemory',
                'WNPerc', 'WMissLA', 'WMissFront', 'WMissLARate', 'WMissLACI', 'WExtraStop', 'WClaimEps', 'WClaimCost',
-               'WFAOursFull', 'WFAVote', 'WFAKnowFive', 'WFAKnowTen', 'WNDist', 'PRecall', 'PFalseAlarm', 'PRecallCI', 'PFalseAlarmCI', 'PAuroc',
+               'WFAOursFull', 'WFAVote', 'WFAKnowFive', 'WFAKnowTen', 'WNDist', 'WMissFrontRate', 'WMissLAUpper', 'WMcNemarP', 'WCaughtOnlyByLA', 'WNFront', 'WNSideOnly', 'WMissLAFront', 'WMissLAFrontUpper', 'WMissLASide', 'WMissFrontSide', 'WMissedWorlds', 'WNotVisible', 'WNotVisibleUpper', 'WSixViewUpper', 'WTwinCA', 'WExtraStopUpper', 'WTauMiss', 'WEpsAnyTwo', 'WEpsAnyTwoCI', 'WEpsAnyFour', 'WEpsAnyFourCI', 'WEpsAnyTwoFront', 'WEpsAnyFourFront', 'WVOldMissFront', 'WVOldMissLA', 'WVOldMissLAUpper', 'WAdaptMiss', 'WAdaptMissUpper', 'WAdaptPaired', 'WAdaptPairedP', 'WAdaptTwinCA', 'WAdaptTrigTwin', 'WAdaptTrigTwinCI', 'WAdaptTrigFire', 'WAdaptRuleA', 'WAdaptRuleB', 'WAdaptAdopt', 'WScrutMissB', 'WScrutMissC', 'WScrutMissCUpper', 'WScrutPC', 'WScrutTwinStopC', 'WNImages', 'WNDeny', 'WNAllow', 'WFAOursDeployed', 'WFAOursFullRate', 'WFAOursDeployedCI', 'WCAOursFull', 'WFAVoteRate', 'WFAVoteCI', 'WVotePRaw', 'WVoteHolm', 'WVoteDisc', 'WVoteDeployedHolm', 'WVoteDeployedDisc', 'WVoteDeployedBetter', 'WCAKnowFive', 'WCAKnowFiveRate', 'WCAKnowFiveDrop', 'WCAKnowFiveP', 'WKnowTenSame', 'WSmallOurs', 'WSmallVote', 'WMondCA', 'PRecall', 'PFalseAlarm', 'PRecallCI', 'PFalseAlarmCI', 'PAuroc',
                'PTwoWording', 'PTwoTau', 'PTwoRecall', 'PTwoRecallCI', 'PTwoFA', 'PTwoFACI', 'PTwoClaim', 'PTwoFrozenRecall', 'PTwoFrozenFA',
                'APairs', 'AUnsafeNaive', 'AUnsafeOurs', 'AUnsafeCtrl', 'AMcNemarP', 'AViol', 'AAuditFail', 'ATimeSave', 'AWilcoxonP', 'ADoSVisits', 'ADoSFalseRef', 'ADoSN',
                'ADoSAllowed', 'AClaimSafety', 'AClaimTime', 'AClaimCost', 'AClaim', 'AExtract',
