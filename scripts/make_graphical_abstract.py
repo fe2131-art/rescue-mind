@@ -83,6 +83,9 @@ def numbers():
             n['X'] = None
     except (TypeError, KeyError):
         n['X'] = None
+    wf, vf, pm = advice_numbers.w_facts(), advice_numbers.v_facts(), advice_numbers.pooled_memory()
+    n['W'] = wf    # study W (look-around on 150 new worlds), study V (model prediction, memory safety), pooled H+V
+    n['V'] = (vf, pm) if vf and pm else None
     return n
 
 
@@ -92,8 +95,10 @@ T = {
   prob_h='問題', prob='災害時、\n在庫表と現場は違い、\n危険は隠れる',
   chips=[('在庫表 ≠ 現場', RED), ('危険は見えにくい', ORANGE), ('助言も当てにならない', PURPLE)],
   imgcap='Gazebo実レンダリング（俯瞰＋搭載カメラ）', solve='だから、確かめ、迷えば止まる',
-  new_h='新：保証の機械検証と期間の上限',
-  new='命題2を実装で機械検証：z3 {u}件、{c}件で不一致{d}、バグ{k}/{m}検出。締めるだけが必要十分。嘘つきの代償 +{ln}→+{ly}秒（信用枠の合成モデル（記述）。閉ループ未確認）{pend}',
+  new_h='新：機械検証・インターロック・信用枠',
+  new=['I-23 機械検証：z3 {u}件、{c}件で不一致{d}、バグ{k}/{m}検出', 'I-22 インターロック：Gazebo実走{il}件で通過',
+       'I-24 信用枠：嘘つきの代償 +{ln}→+{ly}秒（合成モデルの記述。閉ループは未確認）'],
+  il_none='I-22 インターロック：Gazebo確認は未了',
   mid_h='3つの工夫（上から順に積み上げる）',
   i1='その場で確かめ、迷えば止まる', i1d='選択式の質問と火の質問の確率を読み、全部そろったときだけ許可。迷えば拒否。',
   i2='横から見直す', i2d='正面で見落とす小さな火を、0.4 m 横へ動いて撮り直して見つける。',
@@ -107,11 +112,13 @@ T = {
   res_h='主な結果（事前登録・実測）', pend='結果待ち',
   L=('L  未知の配置24通り', '{ok}/{n}', '期待どおり・危険な配達 {u}'),
   G=('G  横から見直し', '{b}/{n} → {c}/{n}', '火があるのに配達した数（p={p:.3f}）'),
-  H=('H  記憶をまたぐ出動', '{t0}→{t2} 秒', '移されたまま続く{np}出動の所要時間。危険な配達：記憶なし {m0}/{n}・本方式 {b}/{n}・確認を省く記憶 {a}/{n}（設計上）'),
+  H=('H  記憶をまたぐ出動', '{t0}→{t2} 秒', '移されたまま続く{np}出動の所要時間（中央値）。危険な配達は下の図'),
   A=('A  悪意ある助言', '{an}/{nn} → {ao}/{no}', '危険な配達：助言どおりに動く方式 → 本方式'),
-  A_p='危険な配達：助言どおりに動く方式 対 本方式（閉ループ）',
   X=('X  現実的な倉庫（4拠点）', '{m0:.1f} → {m2:.1f} 拠点', '記憶なし → あり（訪問数）。火・煙の世界の危険な配達 {k}/{hn}'),
-  X_p='4拠点の倉庫で記憶あり対なし（閉ループ）',
+  W=('W  見回し（新しい{n}世界）', '{fr}/{n} → {la}/{n}', '小さく隠れた火の見逃し：正面のみ → 見回し（95%CI上限 {up:.1f}%）。横からしか見えない{sn}世界では {sk}/{sn}{allm}', '見逃し'),
+  V=('V  記憶：時間の予測は成立', '−{d:.0f} 秒（予測 {lo:.0f}〜{hi:.0f} 秒の内）', 'H+V計{n}出動の危険な配達：記憶なし {m0}・検証つき記憶 {m2}・素朴な記憶 {m1}。差は示せず、原因は検出力と確認の誤り1件', '記憶の安全：不成立'),
+  PEND=('結果待ち（登録済み・未実行）', {'A': '悪意ある助言', 'S': '画像内の文字', 'X': '4拠点の倉庫', 'XD': '倉庫の画像', 'B': '信用枠', 'IF': '依頼文', 'Q': '実写真'}, '結果待ち'),
+  allm='（残る見逃しの全て）', nonem='',
   P2=('P2  実写真（較正後）', '{r}/{rn}', '火・煙の検出。ただし火なしの誤警報は {f}/{fn}'),
   strip='すべて事前登録・全試行公開・シミュレーション（実機なし）'),
  'en': dict(
@@ -119,6 +126,10 @@ T = {
   prob_h='Problem', prob='In a disaster, the inventory and the scene disagree, and hazards hide',
   chips=[('Inventory ≠ reality', RED), ('Hazards hide', ORANGE), ('Advice may be wrong', PURPLE)],
   imgcap='Gazebo real render (overview + onboard cam)', solve='So: check, and stop if unsure',
+  new_h='New: machine check, interlock, credit',
+  new=['I-23 machine check: z3 {u} proofs, {c} cases, {d} mismatches, bugs caught {k}/{m}', 'I-22 interlock: passed {il} live Gazebo missions',
+       'I-24 credit: a liar costs +{ln} → +{ly} s (descriptive synthetic model; closed loop not yet checked)'],
+  il_none='I-22 interlock: Gazebo check not done yet',
   mid_h='Three ideas, each building on the last',
   i1='Check on site, stop if unsure', i1d='Approve only if the answer-letter probabilities of every question agree; doubt = refuse.',
   i2='Look again from the side', i2d='Move 0.4 m sideways and re-shoot to catch a small fire missed from the front.',
@@ -132,11 +143,13 @@ T = {
   res_h='Key results (pre-registered)', pend='pending',
   L=('L  24 unseen layouts', '{ok}/{n}', 'as expected; unsafe deliveries {u}'),
   G=('G  look again', '{b}/{n} → {c}/{n}', 'deliveries despite a fire (p={p:.3f})'),
-  H=('H  memory across missions', '{t0} → {t2} s', 'mission time over {np} relocated runs. Unsafe: no memory {m0}/{n}, ours {b}/{n}, naive memory {a}/{n} (by design)'),
+  H=('H  memory across missions', '{t0} → {t2} s', 'median mission time over {np} relocated runs. Unsafe deliveries: see below'),
   A=('A  adversarial advice', '{an}/{nn} → {ao}/{no}', 'unsafe deliveries: advice-following baseline → ours'),
-  A_p='unsafe deliveries: advice-following baseline vs ours (closed loop)',
   X=('X  realistic depot (4 bays)', '{m0:.1f} → {m2:.1f} bays', 'visited, no memory → memory. Unsafe in fire/smoke worlds {k}/{hn}'),
-  X_p='verified memory vs none in a four-bay depot (closed loop)',
+  W=('W  look-around on {n} new worlds', '{fr}/{n} → {la}/{n}', 'misses of small hidden fires, front-only → look-around (95% CI upper {up:.1f}%). Side-only worlds: {sk}/{sn}{allm}', 'misses'),
+  V=('V  memory: timing held', '−{d:.0f} s (predicted {lo:.0f}-{hi:.0f} s)', 'Unsafe, H+V over {n} missions: no memory {m0}, verified {m2}, naive {m1}. No difference shown (low power, one check error)', 'safety: not supported'),
+  PEND=('Pending (registered, not yet run)', {'A': 'adversarial advice', 'S': 'scene text', 'X': '4-bay depot', 'XD': 'depot images', 'B': 'credit', 'IF': 'request text', 'Q': 'real photos'}, 'pending'),
+  allm=' (all remaining misses)', nonem='',
   P2=('P2  real photos (calibrated)', '{r}/{rn}', 'fire/smoke found. False alarms on no-fire photos {f}/{fn}'),
   strip='All pre-registered | every trial published | simulation only (no real robot)'),
 }
@@ -241,38 +254,42 @@ def build(lang):
     card(d, (lx0, top, lx1, bot), outline=BLUE)
     d.text((lx0 + 28, top + 20), t['prob_h'], font=font(34, True), fill=BLUE)
     iw_ = lx1 - lx0 - 56
-    y = paras(d, (lx0 + 28, top + 74), t['prob'], font(38, True), iw_, tag='prob', lh=1.3)
+    y = paras(d, (lx0 + 28, top + 64), t['prob'], font(33, True), iw_, tag='prob', lh=1.25)
     hero = Image.open(FIG / 'hero_gazebo.png').convert('RGB')
-    hw_ = int(iw_ * (0.56 if 'new' in t else 1.0))      # smaller picture: the bottom of the panel carries the new I-23 / I-24 results
+    hw_ = int(iw_ * 0.5)      # smaller picture: the bottom of the panel carries the new I-23 / I-24 results
     hh = int(hw_ * hero.height / hero.width)
     y += 14 if 'new' in t else 18
     im.paste(hero.resize((hw_, hh), Image.LANCZOS), (lx0 + 28, y))
     d.rectangle((lx0 + 28, y, lx0 + 28 + hw_, y + hh), outline=(180, 185, 190), width=2)
     y += hh + 10
     y = paras(d, (lx0 + 28, y), t['imgcap'], font(21), iw_, MUTED, 1.3, tag='imgcap') + 16
-    f = font(30, True)
+    f = font(26, True)
     x = lx0 + 28
     for text, col in t['chips']:  # flow layout: wrap to the next line instead of overflowing
         w = d.textlength(text, font=f) + 36
         if x + w > lx1 - 28 and x > lx0 + 28:
-            x, y = lx0 + 28, y + 68
+            x, y = lx0 + 28, y + 58
         x = chip(d, (x, y), text, f, col, PALE[col], limit=lx1 - 28) + 12
-    y += 70 if 'new' in t else 82
+    y += 62
     arrow(d, lx0 + 28, lx0 + 74, y + 18, GREEN)
     d.text((lx0 + 90, y), t['solve'], font=fit(d, t['solve'], 28, lx1 - 28 - (lx0 + 90)), fill=GREEN)
     if y + 40 > bot:
         WARN.append(f'left column overflows: {y + 40} > {bot}')
-    sf, cf_ = advice_numbers.smt_facts(), advice_numbers.credit_facts()    # new in I-23 / I-24 (machine check, advice credit)
-    if sf and 'new' in t:     # Japanese version only (the English card has no room)
-        by0 = y + 46
-        card(d, (lx0 + 20, by0, lx1 - 20, bot - 14), fill=PALE[PURPLE], outline=PURPLE, r=16, w=3)
-        d.text((lx0 + 36, by0 + 8), t['new_h'], font=font(24, True), fill=PURPLE)
-        body = t['new'].format(u=sf['unsat'], c=f"{sf['cases']:,}", d=sf['disagreements'], k=sf['caught'], m=sf['mutants'],
-                               ln=round(cf_['liar_no']) if cf_ else '-', ly=round(cf_['liar_yes']) if cf_ else '-',
-                               pend=('。' + '・'.join(k for k, v in advice_numbers.pending_studies().items() if not v) + '：結果待ち') if not all(advice_numbers.pending_studies().values()) else '')
-        yy = paras(d, (lx0 + 36, by0 + 40), body, font(21), lx1 - lx0 - 72, INK, 1.2, tag='new')
-        if yy > bot - 14:
-            WARN.append(f'new-results card overflows: {yy} > {bot - 14}')
+    sf, cf_, ilc = advice_numbers.smt_facts(), advice_numbers.credit_facts(), advice_numbers.interlock_check()   # I-23 machine check, I-24 credit model, I-22 interlock check
+    if sf:
+        by0 = y + 44
+        card(d, (lx0 + 20, by0, lx1 - 20, bot - 12), fill=PALE[PURPLE], outline=PURPLE, r=16, w=3)
+        d.text((lx0 + 36, by0 + 6), t['new_h'], font=fit(d, t['new_h'], 24, lx1 - lx0 - 72), fill=PURPLE)
+        yy = by0 + 38
+        for k, line in enumerate(t['new']):
+            if k == 1 and not ilc:
+                line = t['il_none']
+            body = line.format(u=sf['unsat'], c=f"{sf['cases']:,}", d=sf['disagreements'], k=sf['caught'], m=sf['mutants'],
+                               il=ilc['missions'] if ilc else '-', ln=round(cf_['liar_no']) if cf_ else '-', ly=round(cf_['liar_yes']) if cf_ else '-')
+            d.ellipse((lx0 + 38, yy + 9, lx0 + 48, yy + 19), fill=PURPLE)
+            yy = paras(d, (lx0 + 58, yy), body, font(20), lx1 - lx0 - 100, INK, 1.2, tag='new') + 4
+        if yy > bot - 12:
+            WARN.append(f'new-results card overflows: {yy} > {bot - 12}')
     # ---- centre: three ideas as a chain
     cx0, cx1 = 525, 1340
     d.text((cx0, top - 4), t['mid_h'], font=fit(d, t['mid_h'], 34, cx1 - cx0), fill=INK)
@@ -382,43 +399,73 @@ def build(lang):
     rx0, rx1 = 1365, 1960
     d.text((rx0, top - 4), t['res_h'], font=fit(d, t['res_h'], 34, rx1 - rx0), fill=INK)
     maxw = rx1 - rx0 - 52
-    items = []
+    items = []          # (colour, name, big, small, badge or None); a study without a result file is not drawn here but listed in the pending card
     if n['L']:
-        items.append((GREEN, t['L'][0], t['L'][1].format(ok=n['L'][0], n=n['L'][1]), t['L'][2].format(u=n['L'][2]), False))
+        items.append((GREEN, t['L'][0], t['L'][1].format(ok=n['L'][0], n=n['L'][1]), t['L'][2].format(u=n['L'][2]), None))
     if n['G']:
-        items.append((ORANGE, t['G'][0], t['G'][1].format(b=n['G'][0], c=n['G'][1], n=n['G'][2]), t['G'][2].format(p=n['G'][3]), False))
+        items.append((ORANGE, t['G'][0], t['G'][1].format(b=n['G'][0], c=n['G'][1], n=n['G'][2]), t['G'][2].format(p=n['G'][3]), None))
+    if n['W']:
+        w = n['W']
+        so, la = w['so_la'], w['la']
+        items.append((ORANGE, t['W'][0].format(n=w['n']), t['W'][1].format(fr=w['front']['k'], la=la['k'], n=w['n']),
+                      t['W'][2].format(up=100 * la['ci95'][1], sk=so['k'], sn=so['n'], allm=t['allm'] if so['k'] == la['k'] else ''), None))
     if n['H']:
         hn = n['H']
-        items.append((BLUE, t['H'][0], t['H'][1].format(t0=hn['t0'], t2=hn['t2']),
-                      t['H'][2].format(np=hn['npair'], m0=hn['m0'], n=hn['n'], b=hn['ours'], a=hn['naive']), False))
+        items.append((BLUE, t['H'][0], t['H'][1].format(t0=hn['t0'], t2=hn['t2']), t['H'][2].format(np=hn['npair']), None))
+    if n['V']:
+        vf, pm = n['V']
+        bad = not vf['memory_claim']
+        items.append((BLUE, t['V'][0], t['V'][1].format(d=vf['diff'], lo=vf['pred_lo'], hi=vf['pred_hi']),
+                      t['V'][2].format(n=pm['n'], m0=pm['unsafe']['M0'], m2=pm['unsafe']['M2'], m1=pm['unsafe']['M1']), (t['V'][3], RED) if bad else None))
     if n['A']:
         a = n['A']
-        items.append((BLUE, t['A'][0], t['A'][1].format(an=a[0], nn=a[1], ao=a[2], no=a[3]), t['A'][2], False))
-    else:
-        items.append((BLUE, t['A'][0], t['pend'], t['A_p'], True))
+        items.append((BLUE, t['A'][0], t['A'][1].format(an=a[0], nn=a[1], ao=a[2], no=a[3]), t['A'][2], None))
     if n['X']:
         x = n['X']
-        items.append((PURPLE, t['X'][0], t['X'][1].format(m0=x[0], m2=x[1]), t['X'][2].format(k=x[2], hn=x[3]), False))
-    else:
-        items.append((PURPLE, t['X'][0], t['pend'], t['X_p'], True))
+        items.append((PURPLE, t['X'][0], t['X'][1].format(m0=x[0], m2=x[1]), t['X'][2].format(k=x[2], hn=x[3]), None))
     if n['P2']:
         p = n['P2']
-        items.append((ORANGE, t['P2'][0], t['P2'][1].format(r=p[0], rn=p[1]), t['P2'][2].format(f=p[2], fn=p[3]), False))
-    gap_r = 8
-    y0 = top + 46
-    sf = font(20)
-    for c, name, big, small, pending in items:
+        items.append((ORANGE, t['P2'][0], t['P2'][1].format(r=p[0], rn=p[1]), t['P2'][2].format(f=p[2], fn=p[3]), None))
+    gap_r = 7
+    y0 = top + 44
+    sf = font(19)
+    for c, name, big, small, badge in items:
         nl = len(wrap(d, small, sf, maxw))
-        ch = 8 + 30 + 52 + int(20 * 1.25) * nl + 10
-        fill, col = ((246, 246, 244), (150, 155, 162)) if pending else ((255, 255, 255), c)
-        card(d, (rx0, y0, rx1, y0 + ch), fill=fill, outline=col, w=3)
-        d.rectangle((rx0 + 2, y0 + 18, rx0 + 12, y0 + ch - 18), fill=col)
-        d.text((rx0 + 28, y0 + 8), name, font=fit(d, name, 23, maxw), fill=col)
-        if pending:
-            chip(d, (rx0 + 28, y0 + 40), big, font(26, True), MUTED, (232, 232, 230))
+        nf, bf_ = fit(d, name, 22, maxw), fit(d, big, 38, maxw)
+        if d.textlength(name, font=nf) + d.textlength(big, font=bf_) + 30 > maxw or badge:
+            bf_ = fit(d, big, 34, maxw)
+        one = (not badge) and d.textlength(name, font=nf) + d.textlength(big, font=bf_) + 30 <= maxw    # name and number share one row
+        top_h = 50 if one else 84
+        ch = top_h + int(19 * 1.22) * nl + 12
+        card(d, (rx0, y0, rx1, y0 + ch), fill=(255, 255, 255), outline=c, w=3)
+        d.rectangle((rx0 + 2, y0 + 18, rx0 + 12, y0 + ch - 18), fill=c)
+        bw_ = 0
+        if badge:      # a failed registered claim is a first-class item, not a footnote
+            bf = font(20, True)
+            bw_ = int(d.textlength(badge[0], font=bf)) + 32
+            d.rounded_rectangle((rx1 - 14 - bw_, y0 + 7, rx1 - 14, y0 + 7 + 34), 12, fill=badge[1])
+            d.text((rx1 - 14 - bw_ // 2, y0 + 24), badge[0], font=bf, fill='white', anchor='mm')
+        if one:
+            d.text((rx0 + 28, y0 + 12), name, font=nf, fill=c)
+            d.text((rx1 - 20, y0 + 4), big, font=bf_, fill=INK, anchor='ra')
         else:
-            d.text((rx0 + 28, y0 + 38), big, font=fit(d, big, 40, maxw), fill=INK)
-        paras(d, (rx0 + 28, y0 + 90), small, sf, maxw, MUTED, 1.25, tag=f'res {name}')
+            d.text((rx0 + 28, y0 + 6), name, font=fit(d, name, 22, maxw - bw_ - 8), fill=c)
+            d.text((rx0 + 28, y0 + 34), big, font=bf_, fill=INK)
+        paras(d, (rx0 + 28, y0 + top_h), small, sf, maxw, MUTED, 1.22, tag=f'res {name}')
+        y0 += ch + gap_r
+    # pending studies: registered, no result file yet (they turn into cards above once a_summary.json etc. exist)
+    pend = [k for k, v in advice_numbers.pending_all().items() if not v]
+    if pend:
+        pt = t['PEND']
+        desc = '・'.join(f'{k} {pt[1][k]}' for k in pend)
+        dl = wrap(d, desc, font(18), maxw)
+        ch = 6 + 28 + 54 + int(18 * 1.22) * len(dl) + 8
+        card(d, (rx0, y0, rx1, y0 + ch), fill=(246, 246, 244), outline=(150, 155, 162), w=3)
+        d.text((rx0 + 28, y0 + 6), pt[0], font=fit(d, pt[0], 22, maxw), fill=MUTED)
+        xx = rx0 + 28
+        for k in pend:
+            xx = chip(d, (xx, y0 + 36), k, font(22, True), MUTED, (232, 232, 230), limit=rx1 - 14) + 8
+        paras(d, (rx0 + 28, y0 + 90), desc, font(18), maxw, MUTED, 1.22, tag='pending')
         y0 += ch + gap_r
     if y0 - gap_r > bot + 2:
         WARN.append(f'right column overflows: {y0 - gap_r} > {bot}')
