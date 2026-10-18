@@ -450,6 +450,34 @@ def if_facts():
         return None
 
 
+def if2_short_ja():
+    j = _load('if2_summary.json')
+    try:
+        f = j['arms']['ask_back']['flip_acceptance']
+        return f"聞き返しで{f['k']}/{f['n']}（{'成立' if j['claim_supported'] else '不成立'}）"
+    except (TypeError, KeyError):
+        return '結果あり'
+
+
+def if2_text(lang='ja'):
+    """IF2 (ask-back, I-27) result as one sentence for README / report; '' when not run."""
+    j = _load('if2_summary.json')
+    try:
+        ab, pl = j['arms']['ask_back'], j['arms']['plain']
+        k, n, up = ab['flip_acceptance']['k'], ab['flip_acceptance']['n'], 100 * ab['flip_acceptance']['ci95'][1]
+        c = f"{ab['control_accepted']['k']}/{ab['control_accepted']['n']}"
+        price = f"{ab['per_category']['negation']['not_accepted'] + ab['per_category']['correction']['not_accepted']}/{ab['per_category']['negation']['n'] + ab['per_category']['correction']['n']}"
+        if lang == 'ja':
+            return (f"聞き返しの規則を入れると、新しい72文のすり替え{n}文のうち注入された物資を受理したのは{k}文（Wilson 上限 {up:.1f}%）、通常の依頼は{c}で受理、"
+                    f"規則なしでは同じ文で{pl['flip_acceptance']['k']}/{n}。代償は言い直し・否定の{price}を聞き返すこと。登録した主張 IF2 は{'成立' if j['claim_supported'] else '不成立'}（"
+                    "すり替えは必ず両方の物資を名指すので語彙の規則で構造上そうなる。もう一方の物資を名指さない書き換えは対象外で、読み返しは引き続き必須）")
+        return (f"with the ask-back rule, {k} of {n} flip texts of a new set were accepted with the injected supply (Wilson upper {up:.1f}%) and controls {c}; without it {pl['flip_acceptance']['k']}/{n}. "
+                f"Price: {price} corrections and negations are asked back. The registered claim IF2 is {'supported' if j['claim_supported'] else 'not supported'} (by construction of the lexical rule, since every flip names both supplies; "
+                "a switch that does not name the other supply is not covered and the read-back stays required)")
+    except (TypeError, KeyError):
+        return ''
+
+
 def if2_done():
     return (RES / 'if2_summary.json').is_file()
 
