@@ -10,6 +10,8 @@ DEV      ?= rm-dev
 NEXT     ?= rm-next
 LATEX_IMG ?= rescuemind:latex
 NICE     ?= nice -n 19
+# Where `make verify` / `verify-quick` write their fresh result files (override on a shared host: make verify SMT_TMP=$$HOME/tmp)
+SMT_TMP  ?= /tmp
 # NB: no nice inside the container (nice drops LD_LIBRARY_PATH in the ROS shell, HANDOFF section 4)
 IN_DEV    = docker exec $(DEV) rescuemind-entrypoint
 FINAL    ?=
@@ -76,13 +78,13 @@ check: ## Consistency check: README, YouTube text, paper macros and report agree
 	$(NICE) python3 scripts/check_consistency.py
 
 verify: ## Re-check Proposition 2 on the implementation (z3 proof + model-vs-code differential + mutants, host python3; pip install -r requirements-verify.txt); compares the verdicts with the committed record
-	$(NICE) python3 scripts/verify_advice_smt.py --out /tmp/rescuemind_smt_fresh.json
-	$(NICE) python3 scripts/verify_compare.py /tmp/rescuemind_smt_fresh.json
+	$(NICE) python3 scripts/verify_advice_smt.py --out $(SMT_TMP)/rescuemind_smt_fresh.json
+	$(NICE) python3 scripts/verify_compare.py $(SMT_TMP)/rescuemind_smt_fresh.json
 	$(NICE) python3 -m pytest -q tests/test_i23_smt_refinement.py tests/test_advice_independent.py tests/test_i24_advice_credit.py
 
 verify-quick: ## Proposition 2: the z3 proofs only (about 20 s, no differential runs); compares the verdicts with the committed record
-	$(NICE) python3 scripts/verify_advice_smt.py --no-link --out /tmp/rescuemind_smt_quick.json
-	$(NICE) python3 scripts/verify_compare.py /tmp/rescuemind_smt_quick.json
+	$(NICE) python3 scripts/verify_advice_smt.py --no-link --out $(SMT_TMP)/rescuemind_smt_quick.json
+	$(NICE) python3 scripts/verify_compare.py $(SMT_TMP)/rescuemind_smt_quick.json
 
 reproduce-help: ## Print the three reproduction tiers (the full guide: docs/REPRODUCE.md)
 	@echo "RescueMind: reproduction in three tiers (full guide with expected outputs and timings: docs/REPRODUCE.md)"
