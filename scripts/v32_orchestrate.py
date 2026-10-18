@@ -374,7 +374,7 @@ def main(argv=None):
     p.add_argument('--prompt-set', choices=['v33', 'v34', 'v35'], default='v35', help='VLM checkpoint prompts (v34 = I-05)')
     p.add_argument('--model', default='Qwen/Qwen3.5-9B', help='local VLM model id (I-08)')
     p.add_argument('--intent-backend', choices=['tfidf', 'llm'], default='llm', help='I-04 instruction parser')
-    p.add_argument('--intent-prompt', choices=['i34', 'i35', 'i36', 'i37'], default='i35')
+    p.add_argument('--intent-prompt', choices=['i34', 'i35', 'i36', 'i37', 'i38'], default='i35')
     p.add_argument('--hazard-threshold', type=float, default=0.05,
                    help='I-10: VLM p(fire/smoke) at or above which the checkpoint refuses (v3.5: 0.05)')
     p.add_argument('--dds-mode', choices=['default', 'async', 'best_effort'], default='async',

@@ -216,12 +216,21 @@ class ModelWorker:
             ('次の依頼文で、物資の届け先はどれですか。\n依頼文：「{text}」\n'
              'A. 避難所B\nB. 避難所B以外の場所（別の避難所や、学校・病院・公共施設などの建物）\nC. 届け先が書かれていない\n'
              '記号だけで答えてください。')),
+     # I-19 (study A pilot, 2026-10-18): i35 read a supply-station hint ("W拠点の火は消えた", "moved to station W") as a second
+     # destination and refused the whole request.  i38 = i35 with a destination question that names the stations as pick-up
+     # places.  The supply question is i35's, unchanged.
+     'i38':None,   # filled below from i35 + INTENT_DEST_Q38
      # I-08: i35 + a self-consistency check (like the two vision questions): a Yes/No
      # confirmation for each supply, asked in different words.
      'i36':'i35+verify',
      # i37: purpose-based self-check (would receiving the supply serve the requester's purpose?)
      'i37':'i35+purpose',
     }
+    INTENT_DEST_Q38=('次の依頼文で、物資の届け先はどれですか。\n依頼文：「{text}」\n'
+                     '注意：拠点W・拠点M（W拠点・M拠点、station W / M）は物資を取りに行く場所で、届け先ではありません。'
+                     '拠点についての情報（物資の場所や火災の有無）が書かれていても、届け先の判断には使いません。\n'
+                     'A. 避難所B\nB. 避難所B以外の場所（別の避難所や、学校・病院・公共施設などの建物）\nC. 届け先が書かれていない\n'
+                     '記号だけで答えてください。')
     INTENT_PURPOSE_Q=('依頼文：「{text}」\nこの依頼をした人は、ロボットから{item}を受け取れば目的を果たせますか。'
                       'Yes か No で答えてください。')
     INTENT_VERIFY_Q=('依頼文：「{text}」\nこの依頼は、ロボットに{item}を運んでほしいという意味ですか。'
@@ -247,7 +256,10 @@ class ModelWorker:
         """I-04: closed-set parse of a natural-language request (supply + destination)."""
         text=' '.join(str(text).split())[:200].replace('「','').replace('」','')
         key='i35' if self.intent_prompt in ('i36','i37') else self.intent_prompt
-        item_q,dest_q=(self.INTENT_ITEM_Q,self.INTENT_DEST_Q) if key=='i34' else self.INTENT_PROMPTS[key]
+        if key=='i38':
+            item_q,dest_q=self.INTENT_PROMPTS['i35'][0],self.INTENT_DEST_Q38
+        else:
+            item_q,dest_q=(self.INTENT_ITEM_Q,self.INTENT_DEST_Q) if key=='i34' else self.INTENT_PROMPTS[key]
         item=self._text_probs(item_q.format(text=text),('A','B','C','D'))
         dest=self._text_probs(dest_q.format(text=text),('A','B','C'))
         extra={}
