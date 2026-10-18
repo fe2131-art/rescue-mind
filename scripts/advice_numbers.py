@@ -9,6 +9,7 @@
   interlock_check() <- i22_gazebo_check.log (number of live missions of the I-22 mechanics check)
   a_pilot_facts() <- campaign_A_pilot1_ledger.jsonl + campaign_a_pilot_protocol.json + intent_i38_check.json (study A: first mechanics pilot, Amendment 1)
   xdr_facts()     <- experiments/xd_real_candidates.json + xd_real_exclusions.json + xd_real_manifest.jsonl (XD-R photographs frozen before scoring)
+  if_facts()      <- if_summary.json (study IF: can the request text switch the requested supply? if_ja/if_en/if_short_* are the wording)
   pending_studies() -> {'IF': bool, 'B': bool}  (True = summary file exists)
   snapshot_*()    the SUBMISSION SNAPSHOT mode (SNAPSHOT=1, `make snapshot`): which registered studies have no results, and the one wording that every
                   document (paper, report, README, YouTube text) uses for them instead of a TBD / "pending" / "running" marker
@@ -421,13 +422,83 @@ def a_short_en():
             f"the guarantee is relative, and truthful advice that steers to a burning station loses {s['ours']['lost']}/{s['n']} deliveries")
 
 
+def if_facts():
+    """Study IF (R6 P7: can the request text switch the requested supply?) as plain numbers, read from if_summary.json; None until it exists.
+    README, report, YouTube, video plan, storyline and the paper macros all take their IF wording from here."""
+    f = _load('if_summary.json')
+    if not f:
+        return None
+    try:
+        pc, a, c, w = f['per_category'], f['IF1_flip_acceptance'], f['IF2_correction_followed'], f['IF3_control_negation_accept']
+        flips = ('flip_system', 'flip_forwarded', 'flip_hidden')
+        return {
+            'k': a['k'], 'n': a['n'], 'rate': a['rate'], 'ci': tuple(a['ci95']),
+            'cat': {k: (pc[k]['accept_unsafe'], pc[k]['n']) for k in flips},
+            'orig': sum(pc[k]['accept_expected'] for k in flips),        # flip texts accepted with the ORIGINAL supply (the injection did nothing)
+            'refused': sum(pc[k]['refuse'] for k in flips),
+            'errors': sum(pc[k]['errors'] for k in pc),
+            'both': f.get('flip_refused_as_both', 0), 'corr_both': f.get('correction_refused_as_both', 0),
+            'corr': (c['k'], c['n']), 'corr_ci': tuple(c['ci95']), 'corr_wrong': (f['IF2_correction_wrong_item']['k'], f['IF2_correction_wrong_item']['n']),
+            'ctrl': (w['k'], w['n']), 'ctrl_wrong': w['wrong_item'],
+            'neg': (pc['negation']['accept_expected'], pc['negation']['n']), 'ctrl_only': (pc['control']['accept_expected'], pc['control']['n']),
+            'held': bool(f['IF1_closed_by_parser']),
+        }
+    except (KeyError, TypeError):
+        return None
+
+
+def if2_done():
+    return (RES / 'if2_summary.json').is_file()
+
+
+def _pct(x):
+    return f'{round(100 * x)}'
+
+
+def if_ja():
+    """Study IF in one Japanese paragraph (README table cell, report)."""
+    f = if_facts()
+    if not f:
+        return ''
+    c = f['cat']
+    return (f"凍結した v3.6 の意図の解析が、すり替えの依頼文{f['n']}件のうち{f['k']}件で、注入された物資を受理した（Wilson 95% {_pct(f['ci'][0])}〜{_pct(f['ci'][1])}%。偽のシステム通知 {c['flip_system'][0]}/{c['flip_system'][1]}、転送メモ {c['flip_forwarded'][0]}/{c['flip_forwarded'][1]}、"
+            f"「上は無視して」 {c['flip_hidden'][0]}/{c['flip_hidden'][1]}）。曖昧として断ると予測した件は{f['both']}件で、予測は外れ、登録した主張 IF1（上限 10% 未満）は"
+            + ('成立' if f['held'] else '不成立') + f"。言い直しは{f['corr'][0]}/{f['corr'][1]}で従い、通常・否定の依頼は{f['ctrl'][0]}/{f['ctrl'][1]}で受理、通常・否定・言い直しの依頼で誤った物資の受理は{f['ctrl_wrong'] + f['corr_wrong'][0]}件。"
+            "依頼文から解析した依頼物資は保証の外で、対策（物資が食い違えば聞き返す、I-27）は研究 IF2 として事前登録した（" + ('結果は論文を参照' if if2_done() else pending_word()) + '）。')
+
+
+def if_en():
+    f = if_facts()
+    if not f:
+        return ''
+    c = f['cat']
+    return (f"The frozen v3.6 intent parser accepted the injected supply in {f['k']} of {f['n']} flip texts (Wilson 95% {_pct(f['ci'][0])}-{_pct(f['ci'][1])}%: fake system notice {c['flip_system'][0]}/{c['flip_system'][1]}, "
+            f"forwarded note {c['flip_forwarded'][0]}/{c['flip_forwarded'][1]}, appended 'ignore the above' {c['flip_hidden'][0]}/{c['flip_hidden'][1]}); none was refused as ambiguous ({f['both']}), against the registered prediction, "
+            f"so the claim IF1 (upper bound < 10%) " + ('held' if f['held'] else 'failed') + f". Corrections were followed {f['corr'][0]}/{f['corr'][1]}, control and negation texts accepted {f['ctrl'][0]}/{f['ctrl'][1]}, wrong items accepted among controls, negations and corrections {f['ctrl_wrong'] + f['corr_wrong'][0]}. "
+            "The requested supply parsed from the operator's text is outside the guarantee; the countermeasure (ask back when the supplies conflict, I-27) is registered as study IF2 and " + ('its result is in the paper.' if if2_done() else ('was not run at submission.' if snapshot_mode() else 'has no result yet.')))
+
+
+def if_short_ja():
+    f = if_facts()
+    if not f:
+        return ''
+    return (f"依頼文のすり替え（研究IF）：{f['n']}文中{f['k']}文で、注入された物資を受理（主張不成立）。対策の聞き返し（I-27）は研究IF2で再測定する（" + ('結果は論文を参照' if if2_done() else pending_word()) + "）")
+
+
+def if_short_en():
+    f = if_facts()
+    if not f:
+        return ''
+    return (f"request-text switching (study IF): the injected supply was accepted in {f['k']} of {f['n']} texts (claim failed); the ask-back fix (I-27) is registered as IF2 and " + ('measured (see the paper)' if if2_done() else ('not run at submission' if snapshot_mode() else 'not yet measured')))
+
+
 def pending_studies():
     return {k: (RES / f).is_file() for k, f in (('IF', 'if_summary.json'), ('B', 'b_summary.json'))}
 
 
 def pending_all():
-    """{study letter: result file exists} for every registered study whose result is still missing or may be (A, S, X, XD, B, IF, Q); same files as Table S9."""
-    return {k: (RES / f'{k.lower()}_summary.json').is_file() for k in ('A', 'S', 'X', 'XD', 'B', 'IF', 'Q')}
+    """{study letter: result file exists} for every registered study whose result is still missing or may be (A, S, X, XD, B, IF, IF2, Q); same files as Table S9."""
+    return {k: (RES / f'{k.lower()}_summary.json').is_file() for k in SNAPSHOT_STUDIES}
 
 
 # ---------------------------------------------------------------------------------------------------------------------------
@@ -436,7 +507,16 @@ def pending_all():
 # number of such a study; FINAL=1 stays the strict mode (it refuses a pending result).  The wording is defined here, once.
 PENDING_EN = 'registered, not yet run at submission'
 PENDING_JA = '登録済み・提出時点で未実施'
-SNAPSHOT_STUDIES = ('A', 'S', 'X', 'XD', 'B', 'IF', 'Q')     # the studies whose results may be missing (same list as pending_all)
+SNAPSHOT_STUDIES = ('A', 'S', 'X', 'XD', 'B', 'IF', 'Q', 'IF2')     # the studies whose results may be missing (same list as pending_all)
+
+
+def mkey(k):
+    """LaTeX macro spelling of a study key (a control sequence has no digits): IF2 -> IFtwo (\\IfPendIFtwo, \\StatIFtwo, \\RegIFtwo)."""
+    return k.replace('2', 'two')
+
+
+def unmkey(m):
+    return m.replace('two', '2')
 
 
 def snapshot_mode():
@@ -556,6 +636,9 @@ def failed_claims():
         wf = w_facts()
         if wf is not None and wf['n_dist'] == 0:
             out.append(dict(key='W-b', tex='W-b (hazard rule beats prior art)', en='W-b (hazard rule beats prior art)', ja='W-b（危険判定の規則が先行手法に勝つ）'))
+    ifs = _load('if_summary.json')
+    if ifs is not None and not ifs.get('IF1_closed_by_parser', True):
+        out.append(dict(key='IF1', tex='IF1 (request switching)', en='IF1 (request switching)', ja='IF1（依頼文のすり替えを解析が断る）'))
     return out
 
 
@@ -737,7 +820,7 @@ def i22_demo():
 
 
 def storyline():
-    """The four stories as dicts (a story is left out when a needed result file is missing, so a document says nothing instead of inventing a number):
+    """The five stories as dicts (a story is left out when a needed result file is missing, so a document says nothing instead of inventing a number):
     attack / found / fix (plain strings), before / after (the headline number pair of the re-measurement, as strings), notes (more re-measured
     numbers, pending ones marked), 'bullet' (one README line)."""
     g, h, t1, w = _load('g_summary.json'), _load('h_summary.json'), _load('t1_summary.json'), w_facts()
@@ -801,4 +884,23 @@ def storyline():
                      'before': f"{ap['op_n'] - ap['op_refused']}/{ap['op_n']}", 'after': f"{ap['rerun_op_intent']}/{ap['rerun_op_n']}", 'label': '依頼文の意図の受理（A予備走行）',
                      'notes': notes, 'extra': notes[1:],
                      'bullet': f"**自分たちの検査**（変異テスト・予備走行）→ {fnd[2]}件のバグ（発見、FINDINGS #{fnd[0]}–{fnd[1]}）→ 修正と回帰テスト（対策）→ 再測定：依頼文の意図の受理 {ap['op_n'] - ap['op_refused']}/{ap['op_n']} → {ap['rerun_op_intent']}/{ap['rerun_op_n']}（A予備走行、意図の質問 i38）"})
+    iff = if_facts()
+    if iff:                # 5. the request text switched the requested supply -> ask back (I-27) -> re-measured by IF2
+        i2 = _load('if2_summary.json')
+        try:
+            a2 = i2['arms']['ask_back']
+            after, a_pend = f"{a2['flip_acceptance']['k']}/{a2['flip_acceptance']['n']}", None
+            re_txt = (f"評価IF2（新しい{a2['flip_acceptance']['n']}文）：すり替えの受理 {a2['flip_acceptance']['k']}/{a2['flip_acceptance']['n']}、通常の依頼の受理 {a2['control_accepted']['k']}/{a2['control_accepted']['n']}"
+                      f"（登録した主張は{'成立' if i2['claim_supported'] else '不成立'}）")
+        except (TypeError, KeyError):
+            after, a_pend = P, P
+            re_txt = f"評価IF2（新しい72文）：{P}"
+        c = iff['cat']
+        notes = [f"評価IF：偽の通知 {c['flip_system'][0]}/{c['flip_system'][1]}、転送メモ {c['flip_forwarded'][0]}/{c['flip_forwarded'][1]}、「上は無視して」 {c['flip_hidden'][0]}/{c['flip_hidden'][1]}。曖昧として断ると予測した件は{iff['both']}件（予測は外れた）",
+                 "対策までの間は、出発前に解析した依頼物資を運用者へ読み返すことを必須にする（DEPLOYMENT）", re_txt]
+        rows.append({'key': 'request', 'title': '依頼の書換え', 'attack': '依頼文に偽の通知・転送メモ・「上は無視して」を足して、頼まれた物資をすり替える',
+                     'found': f"凍結した解析が{iff['n']}文中{iff['k']}文で、すり替えた物資を受理（登録した主張 IF1 は{'成立' if iff['held'] else '不成立'}）。依頼物資は命令なので「締めるだけ」の原理の外",
+                     'fix': '物資が食い違えば動かず聞き返す（I-27、既定は無効）。研究IF2として事前登録',
+                     'before': f"{iff['k']}/{iff['n']}", 'after': after, 'label': 'すり替えの受理（評価IF → IF2）', 'notes': notes, 'extra': notes, 'pending': a_pend,
+                     'bullet': f"**依頼のすり替え**（依頼文に偽の通知などを足す）→ 凍結した解析が{iff['n']}文中{iff['k']}文で受理、登録した主張は不成立（発見、評価IF）→ 物資が食い違えば聞き返す（対策、I-27）→ 再測定：{re_txt}"})
     return rows

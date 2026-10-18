@@ -311,7 +311,7 @@ A_RUNS = n_runs('campaign_a_protocol.json') or 226
 def waiting_studies():
     """Registered studies whose summary file does not exist yet (README says 'awaiting results' for these)."""
     files = (('V', 'v_summary.json'), ('W', 'w_summary.json'), ('A', 'a_summary.json'), ('S', 's_summary.json'),
-             ('XD', 'xd_summary.json'), ('X', 'x_summary.json'), ('Q', 'q_summary.json'), ('IF', 'if_summary.json'), ('B', 'b_summary.json'))
+             ('XD', 'xd_summary.json'), ('X', 'x_summary.json'), ('Q', 'q_summary.json'), ('IF', 'if_summary.json'), ('IF2', 'if2_summary.json'), ('B', 'b_summary.json'))
     return [k for k, f in files if not (RES / f).is_file()]
 
 
@@ -503,9 +503,13 @@ def i24_text():
 
 def pending_ifb_text():
     p = advice_numbers.pending_studies()
-    ja = []
-    for k, what in (('B', '研究B（信用枠の閉ループ確認：毎回嘘をつく情報源の系列。予測は決定的）'), ('IF', '研究IF（依頼文で依頼物資を書き換えられるか、72文）')):
-        ja.append(f"{what}：" + ('結果ファイルあり（論文を参照）' if p[k] else PENDING_NOT_RUN.replace('・未実行', '')))
+    iff = advice_numbers.if_facts()
+    ja = ['研究B（信用枠の閉ループ確認：毎回嘘をつく情報源の系列。予測は決定的）：' + ('結果ファイルあり（論文を参照）' if p['B'] else PENDING_NOT_RUN.replace('・未実行', ''))]
+    if iff:
+        ja.append(f"研究IF（依頼文で依頼物資を書き換えられるか、72文）：登録した主張は{'成立' if iff['held'] else '不成立'}（書き換え{iff['n']}文のうち{iff['k']}文で受理。論文を参照）")
+    else:
+        ja.append('研究IF（依頼文で依頼物資を書き換えられるか、72文）：' + PENDING_NOT_RUN.replace('・未実行', ''))
+    ja.append('研究IF2（対策 I-27：物資が食い違えば聞き返す、新しい72文）：' + ('結果ファイルあり（論文を参照）' if advice_numbers.if2_done() else PENDING_NOT_RUN.replace('・未実行', '')))
     return '。'.join(ja)
 
 
@@ -522,7 +526,7 @@ def storyline_lines():
     rows = advice_numbers.storyline()
     if not rows:
         return []
-    return ['**攻撃 → 発見 → 対策 → 再測定**（実際に起きた4つの記録。数値はすべて結果ファイルから' + ('' if SNAP else '。図：[`docs/figures/storyline_ja.png`](docs/figures/storyline_ja.png)、説明資料の本文にも載せている') + '）', ''] + [f"* {r['bullet']}" for r in rows]
+    return [f'**攻撃 → 発見 → 対策 → 再測定**（実際に起きた{len(rows)}つの記録。数値はすべて結果ファイルから' + ('' if SNAP else '。図：[`docs/figures/storyline_ja.png`](docs/figures/storyline_ja.png)、説明資料の本文にも載せている') + '）', ''] + [f"* {r['bullet']}" for r in rows]
 
 
 def section_key(e, t):
@@ -567,6 +571,10 @@ def section_key(e, t):
     except (TypeError, KeyError):
         auto = '' if SNAP else '。結果ファイルができると数値が自動で入る'
         rows.append(f'| 悪意のある助言でも危険にならない（評価A、閉ループ） | 本走行 {A_RUNS} 試行を事前登録済み{auto} | {PENDING_JA_SHORT} |')
+    iff_ = advice_numbers.if_facts()
+    if iff_:
+        rows.append(f"| 依頼文で頼まれた物資はすり替えられない（評価IF、オフライン） | 書き換えた{iff_['n']}文のうち、注入された物資を受理 **{iff_['k']}/{iff_['n']}**（95%信頼区間 {iff_['ci'][0] * 100:.0f}〜{iff_['ci'][1] * 100:.0f}%）。依頼物資は保証の外。対策の聞き返し（I-27）は研究IF2で再測定（"
+                    + ('結果は論文を参照' if advice_numbers.if2_done() else PENDING_JA_SHORT) + f"） | **{'支持' if iff_['held'] else '不成立'}** |")
     fc = advice_numbers.failed_claims()
     sc = advice_numbers.study_counts()
     honest = ('**手法の誠実さ**：' + (f"論文の{sc['n']}研究の条件・閾値・解析を結果を見る前に登録し、git の履歴で登録が先だったことを機械的に確認（結果のある{sc['ok']}件）。" if sc else '条件・閾値・解析は結果を見る前に登録。')
@@ -624,7 +632,7 @@ def section_novelty():
   * 悪意のある助言の閉ループ評価（評価A）：{a_text()}
   * {I22_JA}
 * **この安全の規則そのものを、どう試したか**（[FINDINGS](docs/FINDINGS.md) #24・#25）：規則の実装の単体テストは、実装と同じ考え方で書くので同じ見落としをする。そこで、規則を{advice_numbers.SECOND_IMPL_JA.replace('仕様から','仕様から**',1).replace('第2の実装','第2の実装**',1)}と突き合わせ（独立ではない：同じ仕様の読み違いは共有する）、わざと壊した実装（**変異テスト**）とでたらめな入力（ファズ）で確かめた。実際にバグが見つかった：#24 は助言の規則の実装バグ5件（不変条件の確認の見落とし、NaN の扱いなど）、#25 は追加視点の監査が「位置」ではなく「枚数」で数えていた誤り。すべて修正し、回帰テストを追加した。その後、命題2は z3 で機械検証した（上の機械検証）。
-* **保証の外：画像に映る文字と、現実との差**：画像に映る文字は知覚なので構造的な保証の外にあり、評価Sで実測する。{s_text()}。現実との差は、散らかった倉庫の世界（4拠点、[I-21](docs/IMPROVEMENT_LOG.md)）で測る（評価XD・X）：{x_text()}。下の図は描画の確認用で、ロボットの結果ではない。
+* **保証の外：画像に映る文字と、現実との差**：画像に映る文字は知覚なので構造的な保証の外にあり、評価Sで実測する。{s_text()}。依頼文から解析した依頼物資も保証の外にある。{(advice_numbers.if_short_ja() + '。出発前に解析結果を運用者へ読み返すことを必須とする（[現場導入](docs/DEPLOYMENT.md)）。') if advice_numbers.if_facts() else ''}現実との差は、散らかった倉庫の世界（4拠点、[I-21](docs/IMPROVEMENT_LOG.md)）で測る（評価XD・X）：{x_text()}。下の図は描画の確認用で、ロボットの結果ではない。
 
   ![倉庫の世界の描画プレビュー（I-21）。上から 通常・煙・暗い照明と障害物、列は別のカメラ位置。描画の確認であり結果ではない](docs/figures/depot_preview_sheet.jpg)
 
@@ -722,8 +730,11 @@ def en_new():
         t += (f"A per-channel advice credit that can only drop advice (I-24, Proposition 3) bounds the price of a channel that lies or floods at every mission over any number of missions "
               f"(wasted visits <= {c['c_loc']:g} + {c['rho_shadow']:g} m, false refusals <= {c['c_haz']:g} + {c['rho']:g} m); in a descriptive {c['missions']}-mission model with synthetic outcomes "
               f"(not registered, not closed-loop) a liar's extra time falls from {c['liar_no']:.0f} s to {c['liar_yes']:.0f} s, flooding from {c['flood_no']} to {c['flood_yes']} false refusals, and an honest channel loses nothing. ")
-    pend_l = [k for k, v in pend.items() if not v]
-    t += ('Closed-loop study B (credit) and study IF (can the request text switch the requested supply?) are pre-registered; ' + ('results exist.' if not pend_l else '/'.join(pend_l) + ' not yet run.') + ' ')
+    t += 'Closed-loop study B (credit) is pre-registered; ' + ('its result exists. ' if pend['B'] else 'it has not been run. ')
+    if advice_numbers.if_facts():
+        t += advice_numbers.if_en() + ' '
+    else:
+        t += 'Study IF (can the request text switch the requested supply?) is pre-registered and has not been run. '
     return t
 
 
@@ -838,11 +849,12 @@ def section_en(e, v):
         L.append(f"| I-23: machine-checked Proposition 2 (z3; not a closed-loop study) | {sf['unsat']}/{sf['queries']} queries unsat; model vs. real code {sf['cases']:,} inputs, {sf['disagreements']} disagreements; injected bugs caught {sf['caught']}/{sf['mutants']}; relaxing interfaces get a counterexample (unsafe rate {sf['unsafe_rate']} > eps_any {sf['eps_any']}), the tighten-only code does not |")
     if cf_:
         L.append(f"| I-24: advice credit (descriptive model, {cf_['missions']} missions, synthetic outcomes; not registered) | liar's extra time {cf_['liar_no']:.0f} s -> {cf_['liar_yes']:.0f} s; flooding at the photo false-alarm rate {cf_['flood_no']} -> {cf_['flood_yes']} false refusals; honest channel unchanged; unsafe deliveries equal with and without credit |")
-    for k_, what_ in (('B', 'B: advice credit in the closed loop (48 runs)'), ('IF', 'IF: request text switching the supply (72 texts)')):
-        L.append(f"| {what_} | " + ('result file exists; see the paper' if advice_numbers.pending_studies()[k_] else 'pre-registered, not yet run') + ' |')
+    L.append('| B: advice credit in the closed loop (48 runs) | ' + ('result file exists; see the paper' if advice_numbers.pending_studies()['B'] else 'pre-registered, not yet run') + ' |')
+    L.append('| IF: request text switching the supply (72 texts) | ' + (advice_numbers.if_en() if advice_numbers.if_facts() else 'pre-registered, not yet run') + ' |')
+    L.append('| IF2: ask back on a supply conflict (I-27; 72 new texts) | ' + ('result file exists; see the paper' if advice_numbers.if2_done() else 'pre-registered, not yet run') + ' |')
     xj = x_text()
     L.append('| X, XD: cluttered four-station depot (I-21) | ' + ('pre-registered, not yet run (a rendering preview exists, not a result; the XD-R photographs are frozen, not scored)' if xj.startswith(PENDING_NOT_RUN) else 'result files exist; see the paper') + ' |')
-    stage = {'E': 1, 'L': 1, 'Z': 1, 'T1': 2, 'K': 2, 'G': 3, 'W': 3, 'H': 4, 'V': 4, 'A': 4, 'S': 5, 'P': 5, 'R': 5, 'X, XD': 5, 'J': 6, 'I-23': 4, 'I-24': 4, 'B': 4, 'IF': 4}
+    stage = {'E': 1, 'L': 1, 'Z': 1, 'T1': 2, 'K': 2, 'G': 3, 'W': 3, 'H': 4, 'V': 4, 'A': 4, 'S': 5, 'P': 5, 'R': 5, 'X, XD': 5, 'J': 6, 'I-23': 4, 'I-24': 4, 'B': 4, 'IF': 4, 'IF2': 4}
     i0 = L.index('|---|---|') + 1
     rows = L[i0:]
     key = lambda r_: r_[2:].split(':')[0]
@@ -911,6 +923,8 @@ def main():
     R['J'] = f"| 評価J（2つのAI）：**採用せず** | Jev役 Clef-Flash＋Qwen の2モデル確認を閉ループで、v3.6単独と対比較 | {j_text()} |"
     R['V'] = f"| 評価V（ランダムな変化での予測検証） | 出動ごとに世界がランダムに変わる10系列×6出動で、事前登録した予測区間と実測を比較 | {v_text()} |"
     R['A'] = f"| 評価A（信頼できない助言、閉ループ） | 他ロボット・依頼文の助言は順序変更と閾値の強化にしか使えない（I-19）。偽の「火は消えた」「別の拠点にある」を、助言に従う方式と対比較（{A_RUNS}試行）。ε_any の操縦（真の助言で隠れた火の拠点へ誘導）は別セルで測る | {a_text()} |"
+    if advice_numbers.if_facts():
+        R['IF'] = f"| 評価IF（依頼文によるすり替え、オフライン） | 依頼文に偽の通知・転送メモ・「上は無視して」を足して頼まれた物資を書き換える72文（6種類×2言語×2物資×3表現）を、凍結した v3.6 の意図の解析（i35）に通す。登録した主張 IF1：書き換え36文のうち受理の割合の上限が10%未満 | {advice_numbers.if_ja()} |"
     R['S'] = f"| 評価S（画像内の文字による注入、画像レベル） | 標識・ラベル・「Cと答えよ」を置いた52世界を、標識なし・攻撃・無害の3通りで描画し、本方式・1回判定・自由記述・全体画像で比較 | {s_text()} |"
     R['W'] = f"| 評価W（小さく隠れた火の見逃しと先行手法、I-20の副次解析を含む） | 画像レベル：正面のみ対見回し（150火世界＋75双子）、VAP-TAMP風の投票・KnowNo風の共形集合との誤許可の比較 | {w_text()} |"
     R['X'] = f"| 評価XD・X（倉庫の世界、4拠点） | XD：倉庫の保留画像で ε と閾値の再較正（画像レベル）。X：記憶なし対検証つき記憶を80試行の閉ループで。描画の確認は I-21（`docs/figures/depot_preview_sheet.jpg`） | {x_text()} |"
@@ -919,7 +933,7 @@ def main():
         ('1. 届ける前に確かめる（確認は閉集合の確率、迷えば止まる）', ['E', 'L', 'D', 'Z']),
         ('2. 誤りはどこにあるか（隠れた火が大半）・閾値', ['T1', 'T1b', 'K']),
         ('3. 横から見直す（誤りを小さくする）', ['F', 'G', 'W']),
-        ('4. 見ていないものは「厳しくする」だけ（記憶・他のロボット・依頼文・在庫表）', ['H', 'V', 'A']),
+        ('4. 見ていないものは「厳しくする」だけ（記憶・他のロボット・依頼文・在庫表）', ['H', 'V', 'A', 'IF']),
         ('5. 保証の外：画像内の文字と現実との差（測るだけで、保証とは言わない）', ['S', 'P', 'R', 'X']),
         ('6. 試したが採用しなかったもの', ['J']),
     ]

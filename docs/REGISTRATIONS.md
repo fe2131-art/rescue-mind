@@ -37,7 +37,7 @@ Verify any row: `git log 587f033^1 --first-parent --format='%h %cI' --diff-filte
 | XD | `587f033` 2026-10-18T09:08 | `5cd006c872c61619` | -- | -- | no results yet | `5535660` 2026-10-17T22:43 | `5cd006c872c61619` (= bound) |
 | Q | `587f033` 2026-10-18T09:08 | `7af0a5ac72d46fd4` | -- | -- | no results yet | `c7d06b3` 2026-10-17T20:58 | `7af0a5ac72d46fd4` (= bound) |
 | B | `587f033` 2026-10-18T09:08 | `7416ff27901695cf` | -- | -- | no results yet | `1c04256` 2026-10-18T03:10 | `1fdb07115f3c5501` + erratum |
-| IF | `587f033` 2026-10-18T09:08 | `38e510bfab955f30` | -- | -- | no results yet | `051e530` 2026-10-17T23:59 | `38e510bfab955f30` (= bound) |
+| IF | `587f033` 2026-10-18T09:08 | `38e510bfab955f30` | `26e2347` 2026-10-18T18:02 | `38e510bfab955f30` | yes | `051e530` 2026-10-17T23:59 | `38e510bfab955f30` (= bound) |
 | IF2 | `878cbc7` 2026-10-18T18:04 | `5c14671d2358568a` | -- | -- | no results yet | `878cbc7` 2026-10-18T18:04 | `5c14671d2358568a` (= bound) |
 
 ## Amendments

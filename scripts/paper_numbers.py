@@ -92,7 +92,7 @@ def snapshot_head():
     h = [r'\newcommand{\SnapNA}{not run}',
          r'\newcommand{\IfSnapshot}[2]{%s}' % ('#1' if SNAPSHOT else '#2'),
          r'\newcommand{\IfAnyPend}[2]{%s}' % ('#1' if pend else '#2')]
-    h += [r'\newcommand{\IfPend%s}[2]{%s}' % (k, '#1' if k in pend else '#2') for k in advice_numbers.SNAPSHOT_STUDIES]
+    h += [r'\newcommand{\IfPend%s}[2]{%s}' % (advice_numbers.mkey(k), '#1' if k in pend else '#2') for k in advice_numbers.SNAPSHOT_STUDIES]
     h.append(r'\newcommand{\TBDfor}[1]{\csname IfPend#1\endcsname{\SnapNA{}}{\TBD}}')      # a cell/number of study #1: "not run" in the snapshot, \TBD otherwise
     return h
 
@@ -101,7 +101,7 @@ def snapshot_expand(tex, pending, snapshot=True):
     """What LaTeX makes of the switches in `tex` for a given pending set (used by the tests and check_consistency to see the text a snapshot
     prints without compiling): \\IfPend<L>{a}{b}, \\IfAnyPend, \\IfSnapshot and \\TBDfor{L}; comment lines are dropped."""
     tex = '\n'.join(re.sub(r'(?<!\\)%.*$', '', ln) for ln in tex.splitlines())
-    sw = re.compile(r'\\(IfPend[A-Z]+|IfAnyPend|IfSnapshot)(?![A-Za-z])|\\TBDfor\{([A-Z]+)\}')
+    sw = re.compile(r'\\(IfPend[A-Za-z]+|IfAnyPend|IfSnapshot)(?![A-Za-z])|\\TBDfor\{([A-Za-z]+)\}')
 
     def group(t, i):
         while t[i].isspace():
@@ -125,13 +125,13 @@ def snapshot_expand(tex, pending, snapshot=True):
             break
         out.append(tex[i:mm.start()])
         if mm.group(2):
-            out.append(r'\SnapNA{}' if snapshot and mm.group(2) in pending else r'\TBD')
+            out.append(r'\SnapNA{}' if snapshot and advice_numbers.unmkey(mm.group(2)) in pending else r'\TBD')
             i = mm.end()
             continue
         a, j = group(tex, mm.end())
         b, j = group(tex, j)
         name = mm.group(1)
-        on = snapshot and (bool(pending) if name == 'IfAnyPend' else True if name == 'IfSnapshot' else name[len('IfPend'):] in pending)
+        on = snapshot and (bool(pending) if name == 'IfAnyPend' else True if name == 'IfSnapshot' else advice_numbers.unmkey(name[len('IfPend'):]) in pending)
         out.append(snapshot_expand(a if on else b, pending, snapshot))
         i = j
     return ''.join(out)
@@ -1005,10 +1005,23 @@ def main():
             m['SClaim'] = sup(hyp_[0] and hyp_[1] and lg_)      # registered claim: the permuted check is not fooled by a letter written for one option order (H1, H2, S0)
             m['SHyp'] = f"{sum(hyp_)}/7"
     m['StatS'] = f"letters: {m.lookup('SClaim')}; {m.lookup('SHyp')} hypotheses" if m.lookup('SClaim') else 'pending'
+    # ---- study IF (request text switching the requested supply; advice_numbers.if_facts reads if_summary.json)
+    iff_ = advice_numbers.if_facts()
+    if iff_:
+        m['IFK'], m['IFN'] = iff_['k'], iff_['n']
+        m['IFCI'] = f"{100 * iff_['ci'][0]:.0f}--{100 * iff_['ci'][1]:.0f}\\%"
+        for k_, nm_ in (('flip_system', 'System'), ('flip_forwarded', 'Forwarded'), ('flip_hidden', 'Hidden')):
+            m[f'IF{nm_}'] = f"{iff_['cat'][k_][0]}/{iff_['cat'][k_][1]}"
+        m['IFBoth'] = iff_['both']
+        m['IFCorr'] = f"{iff_['corr'][0]}/{iff_['corr'][1]}"
+        m['IFCtrl'] = f"{iff_['ctrl'][0]}/{iff_['ctrl'][1]}"
+        m['IFWrong'] = iff_['ctrl_wrong'] + iff_['corr_wrong'][0]
+        m['IFClaim'] = 'supported' if iff_['held'] else 'not supported'
+        m['StatIF'] = f"IF1 {m.lookup('IFClaim')}: {iff_['k']}/{iff_['n']} switched"
     # ---- submission snapshot: the claim column of a study without results says so (the other pending studies have no analysis macro yet)
     PEND = advice_numbers.snapshot_pending() if SNAPSHOT else set()
     for k_ in advice_numbers.SNAPSHOT_STUDIES:
-        nm_ = f'Stat{k_}'
+        nm_ = f'Stat{advice_numbers.mkey(k_)}'
         if k_ in PEND:
             m.override(nm_, 'registered, not run')
         elif nm_ not in m.names:
@@ -1045,7 +1058,8 @@ def main():
                ('A', 'PREREGISTRATION_A.md', 'a_summary.json'), ('S', 'PREREGISTRATION_S.md', 's_summary.json'),
                ('X', 'PREREGISTRATION_X.md', 'x_summary.json'), ('XD', 'PREREGISTRATION_XD.md', 'xd_summary.json'),
                ('Q', 'PREREGISTRATION_Q.md', 'q_summary.json'),
-               ('B', 'PREREGISTRATION_B.md', 'b_summary.json'), ('IF', 'PREREGISTRATION_IF.md', 'if_summary.json')]
+               ('B', 'PREREGISTRATION_B.md', 'b_summary.json'), ('IF', 'PREREGISTRATION_IF.md', 'if_summary.json'),
+               ('IF2', 'PREREGISTRATION_IF2.md', 'if2_summary.json')]
     main_ref = 'main' if git('rev-parse', '--verify', '-q', 'main')[1] == 0 else 'HEAD'
 
     def first_commit(path):          # first commit that added the file (hash date)
@@ -1142,7 +1156,7 @@ def main():
     m['PendList'] = ', '.join(advice_numbers.pending_list()) or 'none'
     for k_ in advice_numbers.SNAPSHOT_STUDIES:      # the registration commit and date, for the sentence "registered (commit, date), not run"
         rc_ = advice_numbers.registration_commit(k_)
-        m[f'Reg{k_}'] = (f"\\texttt{{{rc_.split()[0]}}}, {rc_.split()[1]}" if rc_ else 'registration pending')
+        m[f'Reg{advice_numbers.mkey(k_)}'] = (f"\\texttt{{{rc_.split()[0]}}}, {rc_.split()[1]}" if rc_ else 'registration pending')
     m['PreregOrderOK'] = 'holds' if ok_all else 'does NOT hold'
     # ---- development-data model selection (appendix table)
     sel = json.loads((RES / 'i08_model_selection.json').read_text())
