@@ -678,3 +678,9 @@
 * **結果（48/48 試行、欠測 0）**：予測どおり 3 系列すべて 6 → 2（正確に一致、上限 3 の内）。正直な系列の無駄足 0、両群で同一。監査の失敗 0、危険な配達 0、許可の違反 0。信用枠で系列あたり中央値 129 秒短縮（予測 144 秒、到着のぶれの差）。
 * **変更**：`paper_numbers.py` に B のマクロ、論文の Limits と補遺（B の段落）、`advice_numbers.b_ja()` から README・説明資料へ。主張は成立なので、失敗した主張は 8 のまま。
 * **限界**：決定的なモデルの機構の確認で、率の推定ではない。k=2、位置の助言、1つの情報源だけ。複数の情報源・k>2・危険の助言は未検証。
+
+## I-31 (2026-10-19): XD revert rule as code; second AI pass over Q's labels (both before their results exist)
+- **Motivation.** Mock review R9 asked for (i) decisions fixed before data and (ii) a label check for Q. XD and Q are unscored; anything done now is not post hoc.
+- **Change 1.** `xd_analysis.i20_revert_verdict` computes the I-20 revert rule (withdraw if ANY of: extra views fire on >15% of fire-free twins; correct approvals on twins fall >=5 points vs look-around; no look-around miss removed) from `xd_summary.json`, with tests. The decision is therefore mechanical when XD lands.
+- **Change 2.** Second AI pass over 60 random audited Q images (20 per class, seed 20261019): 0 class violations (Wilson upper 6.0%), 4 borderline not counted (`experiments/results/q_label_recheck.json`). Not independent of the first pass (same assistant, same criteria); human spot-check still pending. Labels are NOT changed.
+- **Before/After.** Before: Q labels had one AI audit and no measured error check. After: 0/60, upper bound 6%, stated as non-independent in the supplement.
