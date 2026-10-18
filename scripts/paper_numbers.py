@@ -1155,6 +1155,13 @@ def main():
             hj_ = json.loads(xh_.read_text())
             m['XDSiteTauH'] = f"{hj_['tau_h_site']:g}"
             m['XDSiteHardMiss'] = f"{hj_['test_site']['hard_misses']}/{hj_['test_site']['hard_n']}"
+        xrf_ = RES / 'xd_real_summary.json'
+        if xrf_.is_file():
+            rj_ = json.loads(xrf_.read_text())['false_alarm']
+            m['XDRFA'], m['XDRFARate'] = rt_(rj_['frozen']), pct(rj_['frozen']['rate'])
+            m['XDRFACI'] = '[{:.1f}, {:.1f}]\\%'.format(*(100 * x for x in rj_['frozen']['ci95']))
+            m['XDRFAP'], m['XDRFAPUpper'] = rt_(rj_['p2_h36']), pct(rj_['p2_h36']['ci95'][1])
+            m['XDRWarehouse'] = rj_['frozen']['by_kind']['warehouse']
         m['StatXD'] = f"bound: {m.lookup('XDClaimEps')}; transfer: {m.lookup('XDClaimRel')}; recalibration: {m.lookup('XDClaimCal')}; cost: {m.lookup('XDClaimCost')}"
     # ---- submission snapshot: the claim column of a study without results says so (the other pending studies have no analysis macro yet)
     PEND = advice_numbers.snapshot_pending() if SNAPSHOT else set()
