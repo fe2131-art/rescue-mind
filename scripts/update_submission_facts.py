@@ -14,7 +14,26 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-VIDEO = Path('/home/tetsutani/work/rescue-mind/outputs/video/PAI最終課題_tetsutetsu.mp4')
+def _video() -> Path:
+    """The submission video (git-ignored): $RESCUEMIND_VIDEO, else outputs/video/ of this checkout, else of the main checkout
+    (a worktree shares the main checkout's .git; no absolute personal path in the source)."""
+    import os
+    import subprocess
+    if os.environ.get('RESCUEMIND_VIDEO'):
+        return Path(os.environ['RESCUEMIND_VIDEO'])
+    rel = Path('outputs/video/PAI最終課題_tetsutetsu.mp4')
+    here = Path(__file__).resolve().parents[1] / rel
+    if here.is_file():
+        return here
+    try:
+        common = subprocess.run(['git', 'rev-parse', '--git-common-dir'], capture_output=True, text=True,
+                                cwd=Path(__file__).resolve().parents[1]).stdout.strip()
+        return (Path(__file__).resolve().parents[1] / common).resolve().parent / rel
+    except OSError:
+        return here
+
+
+VIDEO = _video()
 if not VIDEO.is_file():
     VIDEO = ROOT / 'outputs/video/PAI最終課題_tetsutetsu.mp4'
 PDF = ROOT / 'docs/report/説明資料_PAI最終課題_tetsutetsu.pdf'
