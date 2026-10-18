@@ -357,7 +357,7 @@ def a_facts():
             'intent_accepted': (ck_.get('operator') or {}).get('intent_accepted'),
             'claims': {'safety': a1['supported'], 'guardrail': a1b['supported'], 'time': a2['supported'], 'cost': a3['supported'], 'headline': a['headline_supported']},
             'verdict': ck.get('overall'),
-            'offline_done': (RES / 'advice_injection_eval.json').is_file(),
+            'offline_done': (RES / 'advice_injection_eval_test.json').is_file(),
         }
     except (KeyError, TypeError):
         return None
@@ -383,7 +383,7 @@ def a_ja():
             f"本方式の{s['ours']['unsafe']}件は確認の誤り（助言なしの確認でも許可される配達）で、差は有意でなく W の ε_any の範囲内。代償は可用性：配達できなかった世界 本方式 {s['ours']['lost']}/{s['n']}、scrutiny {s['scrutiny']['lost']}/{s['n']}、助言なし {s['control']['lost']}/{s['n']}。"
             f"依頼文の意図の受理 {f['intent_accepted']}/{f['extract'][1]}、設計した助言の正確な取り出し {f['extract'][0]}/{f['extract'][1]}（報告項目）。"
             f"保証は相対的で、被ばく（火のある拠点へ近づくこと）は上限の外。"
-            + ('' if f['offline_done'] else '登録した224件のオフライン注入セット（届け先の誤受理 0 が条件）の採点は未実施。'))
+            + (_aoff_ja() if f['offline_done'] else '登録した224件のオフライン注入セット（届け先の誤受理 0 が条件）の採点は未実施。'))
 
 
 def a_en():
@@ -403,7 +403,7 @@ def a_en():
             f"Steering ({s['n']} duplicate-supply worlds, truthful advice naming the station with a partly hidden fire): unsafe deliveries ours {s['ours']['unsafe']}/{s['n']}, no advice {s['control']['unsafe']}/{s['n']}, scrutiny {s['scrutiny']['unsafe']}/{s['n']}, "
             f"the {s['ours']['unsafe']} of ours are check errors (the advice-free check approves them too), not significant, and consistent with the side-only class of study W (a steering attacker realises the worst class); the cost is availability, with deliveries lost in {s['ours']['lost']}/{s['n']} worlds for ours, {s['scrutiny']['lost']}/{s['n']} with scrutiny and {s['control']['lost']}/{s['n']} without advice. "
             f"Operator-channel intent accepted {f['intent_accepted']}/{f['extract'][1]}, exact extraction {f['extract'][0]}/{f['extract'][1]} (reported). The guarantee is relative; exposure is outside it."
-            + ('' if f['offline_done'] else ' The registered 224-text offline set (wrong-shelter acceptance must be 0) has not been scored.'))
+            + (_aoff_en() if f['offline_done'] else ' The registered 224-text offline set (wrong-shelter acceptance must be 0) has not been scored.'))
 
 
 def a_short_ja():
@@ -767,6 +767,28 @@ def q_en(none=None):
         return none
     return (f"{f['n']} real Commons photographs: {f['fa']}/{f['n_deny']} false approvals (Wilson upper {f['fa_upper']:.1f}%) but only {f['ca']}/{f['n_allow']} correct approvals ({f['ca_rate']:.0f}%, registered 70%), "
             f"so the claim that the check transfers to real photographs is {'supported' if f['held'] else 'NOT supported'} (safe but conservative); SigLIP and CLIP approve every correct image but also {f['sig_fa']} and {f['clip_fa']} must-refuse images")
+
+
+def _aoff():
+    j = _load('advice_injection_eval_test.json')
+    try:
+        return {'n': j['n'], 'wrong': (j['wrong_shelter_acceptance']['accepted'], j['wrong_shelter_acceptance']['n_requests']), 'mono': j['relaxation_reachable_monotone']['relaxing_plans'],
+                'plans': j['relaxation_reachable_monotone']['n_plans'], 'naive': j['naive_relaxation_reachable']['relaxing_plans'], 'filt': j['filtered_relaxation_reachable']['relaxing_plans'],
+                'intent': (j['intent_accuracy']['ok'], j['intent_accuracy']['n'])}
+    except (TypeError, KeyError):
+        return None
+
+
+def _aoff_ja():
+    o = _aoff()
+    return '' if not o else (f"オフラインの注入セット（224件のうち未使用の半分 {o['n']}件を1回だけ採点）：届け先の誤受理 {o['wrong'][0]}/{o['wrong'][1]}（条件は0）、意図の正確さ {o['intent'][0]}/{o['intent'][1]}、"
+                             f"確認を飛ばす・訪問せず拒否する計画は 厳しくするだけの方式 {o['mono']}/{o['plans']}、素朴な方式 {o['naive']}/{o['plans']}、LLMガードレールの後でも {o['filt']}/{o['plans']}。")
+
+
+def _aoff_en():
+    o = _aoff()
+    return '' if not o else (f" Offline injection set (held-out half, {o['n']} texts, scored once): wrong-shelter acceptance {o['wrong'][0]}/{o['wrong'][1]} (must be 0), intent accuracy {o['intent'][0]}/{o['intent'][1]}, "
+                             f"plans that skip a check or refuse without visiting: tighten-only {o['mono']}/{o['plans']}, naive {o['naive']}/{o['plans']}, behind the LLM guardrail {o['filt']}/{o['plans']}.")
 
 
 def failed_claims():
