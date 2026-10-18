@@ -135,7 +135,7 @@ class TestPendingSentence(unittest.TestCase):
         self.assertNotIn('\\AUnsafeNaive', t)
         abstract = t.split('\\begin{abstract}')[1].split('\\end{abstract}')[0]
         self.assertIn('Not run at submission: \\PendList{}', abstract)
-        self.assertIn('claim only the structural result', t.split('\\section{Conclusion}')[1])          # claims that depend on A are conditional
+        self.assertIn('only the structural result (Prop.~2; A not run at submission)', t.split('\\section{Conclusion}')[1])          # claims that depend on A are conditional
 
     def test_a_study_with_results_keeps_its_sentence(self):
         t = self.expand({'S'})                                      # only S pending: A keeps its normal sentence
