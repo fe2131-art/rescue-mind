@@ -33,12 +33,13 @@
 * 第三者採点：第10回 35.5/40。模擬査読 R9 は完了し（`docs/paper/REVIEW_NOTES_R9.md`、採択見込み RA-L 約50%・ICRA 約33%）、文章の指摘は I-28 で反映済み。残り：A のオフライン224文の採点（連鎖の最後）、停止後も探索を続ける腕（設計の選択で、実装は大きいので今回は見送り）、XD の ε 上限（15% 以下か）が分かれ目。
 
 **GPU の自動の連鎖**（scratchpad、nohup、通知なし。ログは scratchpad の *.log）
-1. `queue_chain.sh`（`queue.log`）：S（完了・反映済み I-29）→ B（完了・反映済み I-30）→ XD（完了 04:21・反映済み I-32）→ X（04:21 開始）→ Q → `QUEUE_DONE`
+1. `queue_chain.sh`（`queue.log`）：S（完了・反映済み I-29）→ B（完了・反映済み I-30）→ XD（完了 04:21・反映済み I-32）→ X（**04:41 に予備走行で中止**、I-34、Amendment 1 を main に commit 済み。やり直しは手順 7）→ Q（実行中）→ `QUEUE_DONE`
 2. `after_queue.sh`：XD のステージ r（実写 258 枚）
 3. `after_xdr.sh`：i21 を main にマージ → `scripts/film_depot.sh`（倉庫の場面の撮影）
 4. `after_film.sh`：i21 をマージ → `if2_run.sh`（IF2）
 5. `after_if2.sh`：i21 をマージ → `a_offline_run.sh`（A のオフライン集合の test 半分。C1 の残り）
 6. `after_aoff.sh`：i21 をマージ → `if_i38_run.sh`（IF の文を i38 で再実行する探索的な実験。登録した主張ではない。結果は `if_i38_summary.json`。R9 の指摘：IF は i35 だけだった）
+7. `after_x2.sh`（`after_x2.log`）：上の手順 6（IF38）の終わりを待ち、`x_run.sh`（予備走行をやり直し→X 本走）。X の結果が出たら記憶の転移・助言の方向づけ（X-s）を論文・補遺・README・説明資料に反映し、I-35 として記録する。
 * 確認：`grep -E "^=== |DONE|ABORT|FAILED" <scratchpad>/queue.log`。スクリプトが消えていたら、上の順で作り直す。
 
 **各段が終わったら（自分で行う）**
@@ -142,7 +143,7 @@
 | Q（Wikimedia Commons 405 枚） | 実写の物資確認 | 登録済み・**未実行**（GPU 約 40 分。W の後の連鎖が .gitignore の衝突で止まり、一度も走っていない） |
 
 * 登録済み 7 本（A・B・IF・Q・S・X・XD）は統合マージ 09:08 で main に載り、A の予備走行が 09:14 に始まった時点で、IF・S・B・XD・X・Q は試行も推論もしていない。これらの登録ファイルには「DRAFT」の行が残るが、拘束力のある版は `docs/REGISTRATIONS.md` の表の版（ファイルは変えない。変更は日付とコミットつきの Amendment で追記する）。
-* テスト関数は 1422 件（`python3 scripts/count_tests.py` の静的な数え方）。FINDINGS は 36 件。
+* テスト関数は 1427 件（`python3 scripts/count_tests.py` の静的な数え方）。FINDINGS は 36 件。
 
 ### D. GPU の順番と、その動かし方
 
