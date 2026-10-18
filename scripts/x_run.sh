@@ -14,8 +14,20 @@ PROTO=experiments/campaign_x_protocol.json
 PILOT=experiments/campaign_x_pilot_protocol.json
 CAND=experiments/campaign_x_steer_candidates.json
 IN_NEXT=(docker exec rm-next rescuemind-entrypoint)
+abort() { echo "X_ABORT: $*" >&2; exit 1; }
 mkdir -p "$RES"
-[ -d worlds/assets/aws-wh ] || { echo "X_ABORT: depot assets missing (scripts/fetch_depot_assets.sh)"; exit 1; }
+[ -f worlds/assets/aws-wh/models/aws_robomaker_warehouse_WallB_01/model.sdf ] || abort "depot assets missing (scripts/fetch_depot_assets.sh)"
+# registration gate (docs/PREFLIGHT_2026-10-18.md): what this script does not itself regenerate must be committed and unchanged.
+# (campaign_x_protocol.json is rewritten below with the registered steer selection and committed before the first X trial.)
+for f in experiments/PREREGISTRATION_X.md "$PILOT" "$CAND" scripts/make_protocol_x.py scripts/x_analysis.py; do
+  git ls-files --error-unmatch "$f" >/dev/null 2>&1 || abort "$f is not committed"
+  git diff --quiet HEAD -- "$f" || abort "$f differs from the committed version"
+done
+"${IN_NEXT[@]}" true >/dev/null 2>&1 || abort "the container rm-next is not running"
+# the stack starts its own VLM server on 8765: a leftover one would fail every trial at once and fill the ledger with FAILED rows
+for _ in $(seq 1 60); do curl -s -m 2 http://127.0.0.1:8765/health >/dev/null 2>&1 || break; sleep 10; done
+if curl -s -m 2 http://127.0.0.1:8765/health >/dev/null 2>&1; then abort "port 8765 is in use (another VLM server is running)"; fi
+python3 scripts/ledger_stack_check.py --protocol "$PILOT" --ledger "$RES/campaign_X_pilot_ledger.jsonl" || abort "stale pilot ledger (see above)"
 
 # (a) pilot
 if [ ! -f "$RES/x_pilot_ok" ]; then
@@ -49,6 +61,7 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>" -- "$PROTO" experimen
 echo "X_MASKS_DONE"
 
 # (d) campaign (quiet host first)
+python3 scripts/ledger_stack_check.py --protocol "$PROTO" --ledger "$RES/campaign_X_ledger.jsonl" || abort "stale campaign ledger (see above)"
 for i in $(seq 1 60); do awk '{exit !($1 < 6)}' /proc/loadavg && break; sleep 60; done
 echo "X_LOAD_AT_START $(cut -d' ' -f1-3 /proc/loadavg)"
 ONLY=()

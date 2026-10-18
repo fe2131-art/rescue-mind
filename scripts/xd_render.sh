@@ -27,7 +27,9 @@ if [ ! -f experiments/results/xd_smoke_ok ]; then
   echo "XD_SMOKE_DONE: look at experiments/vlm_testset_xd/smoke/smoke_sheet.jpg; touch experiments/results/xd_smoke_ok if all classes look as intended, then rerun"
   exit 2
 fi
-python3 scripts/build_testset_xd.py --images || { echo XD_RENDER_FAILED_IMAGES; exit 1; }
-python3 scripts/build_testset_xd.py --fire-masks || { echo XD_RENDER_FAILED_MASKS; exit 1; }
+# a single missed camera frame must not end the unattended queue: the renderer skips the worlds that are finished, so retry (3 tries)
+retry() { local n=1; until "$@"; do [ $n -ge 3 ] && return 1; n=$((n+1)); echo "XD_RETRY $n: $*"; sleep 20; done; }
+retry python3 scripts/build_testset_xd.py --images || { echo XD_RENDER_FAILED_IMAGES; exit 1; }
+retry python3 scripts/build_testset_xd.py --fire-masks || { echo XD_RENDER_FAILED_MASKS; exit 1; }
 python3 scripts/build_testset_xd.py --labels || exit 1
 echo XD_RENDER_DONE

@@ -40,9 +40,21 @@ curl -s -m 5 http://127.0.0.1:8765/health | grep -q ready || { stop_server; abor
 "$PY" scripts/q_eval.py --run; rc=$?
 stop_server
 [ $rc -eq 0 ] || abort "Qwen scoring failed (rc=$rc)"
+# the registered rule counts a pass with an error as a refusal; a server that died half way would then look like a strict model
+nerr=$("$PY" -c "
+import json
+n = e = 0
+for l in open('experiments/results/q_scores_qwen9b_v35.jsonl'):
+    if l.strip():
+        for p in json.loads(l)['passes'].values():
+            n += 1; e += 'error' in p
+print(e if e * 20 > n else 0)")
+[ "${nerr:-1}" -eq 0 ] || abort "more than 5% of the passes ended in an error (server problem? see $LOG); q_scores_qwen9b_v35.jsonl is kept, delete it and rerun"
 echo "DONE qwen"
 
-docker exec "$CT" rescuemind-entrypoint bash -c "cd $PWD && HF_HUB_OFFLINE=1 python3 scripts/q_eval.py --zeroshot" || abort "zero-shot baselines failed"
+# SigLIP needs the SentencePiece library, which the rm-next venv does not have (rm-dev has it and the same GPU, as in study Z)
+ZS=${Q_ZS_CONTAINER:-rm-dev}
+docker exec "$ZS" rescuemind-entrypoint bash -c "cd $PWD && HF_HUB_OFFLINE=1 python3 scripts/q_eval.py --zeroshot" || abort "zero-shot baselines failed (container $ZS)"
 echo "DONE zeroshot"
 python3 scripts/q_analysis.py || abort "analysis failed"
 echo Q_DONE

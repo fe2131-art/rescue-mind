@@ -35,6 +35,14 @@ python3 scripts/make_protocol_b.py >/dev/null && python3 scripts/make_protocol_b
 git diff --quiet HEAD -- "$PROTO" "$PILOT" experiments/advice_B experiments/advice_B_pilot || abort "regenerated protocol or advice files differ"
 echo "B_REGISTERED $(git log -1 --format=%h -- "$PREREG")"
 
+"${IN_NEXT[@]}" true >/dev/null 2>&1 || abort "the container rm-next is not running"
+# the stack starts its own VLM server on 8765: a leftover one would fail every trial at once and fill the ledger with FAILED rows
+for _ in $(seq 1 60); do curl -s -m 2 http://127.0.0.1:8765/health >/dev/null 2>&1 || break; sleep 10; done
+if curl -s -m 2 http://127.0.0.1:8765/health >/dev/null 2>&1; then abort "port 8765 is in use (another VLM server is running)"; fi
+python3 scripts/ledger_stack_check.py --protocol "$PILOT" --ledger "$RES/campaign_B_pilot_ledger.jsonl" || abort "stale pilot ledger (see above)"
+BLEDGER="$RES/campaign_B_ledger.jsonl"
+python3 scripts/ledger_stack_check.py --protocol "$PROTO" --ledger "$BLEDGER" || abort "stale campaign ledger (see above)"
+
 # (a) pilot
 if [ ! -f "$RES/b_pilot_ok" ]; then
   for i in $(seq 1 60); do awk '{exit !($1 < 6)}' /proc/loadavg && break; sleep 60; done   # quiet host
