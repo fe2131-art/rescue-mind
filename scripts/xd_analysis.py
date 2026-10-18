@@ -211,6 +211,7 @@ def summarise_main(records: list, tau_s: float = TAU_S, tau_h: float = TAU_H, re
     tw = {k: v for k, v in ok.items() if v['kind'] == 'twin' and v['has_extra']}
     out['xd3_extra_view_trigger_rate_on_twins'] = rate(sum(bool(v['triggered']) for v in tw.values()), len(tw))
     out['xd3_adaptive_correct_approvals_twins'] = rate(sum(bool(v['ad_allow']) for v in tw.values()), len(tw))
+    out['xd3_look_around_correct_approvals_same_twins'] = rate(sum(bool(v['la_allow']) for v in tw.values()), len(tw))
     wrong = {k: v for k, v in W.items() if v['kind'] == 'wrong'}
     out['xd3_wrong_supply_false_approvals'] = {
         'pooled': {'front_only': rate(sum(v['front_allow'] for v in wrong.values()), len(wrong)),
@@ -229,8 +230,28 @@ def summarise_main(records: list, tau_s: float = TAU_S, tau_h: float = TAU_H, re
                          'correct_approval_look_around': rate(sum(v['la_allow'] for v in c2), len(c2))}
     out['tau_h_sensitivity'] = sens
     out['criteria'] = criteria(out, P, W)
+    out['i20_revert_verdict'] = i20_revert_verdict(out)
     out['arena_reference'] = compare_to_arena(out, ref if ref is not None else arena_reference())
     return out
+
+
+def i20_revert_verdict(out: dict) -> dict:
+    """The I-20 revert rule, fixed on 2026-10-18 before XD was rendered or scored (IMPROVEMENT_LOG I-20): the v3.7 default
+    (suspicion-triggered extra views) is withdrawn if ANY of (a) the extra views fire on more than 15% of the fire-free twins,
+    (b) correct approvals on the twins fall by 5 points or more compared with look-around, (c) no look-around miss is removed
+    on the perceivable XD worlds.  Reported either way; needs the adaptive pass to have run (otherwise 'not_evaluable')."""
+    tr = out.get('xd3_extra_view_trigger_rate_on_twins') or {}
+    ca_ad, ca_la = out.get('xd3_adaptive_correct_approvals_twins') or {}, out.get('xd3_look_around_correct_approvals_same_twins') or {}
+    pr = (out.get('caught_by_extra_views') or {}).get('paired_la_vs_adaptive') or {}
+    if not tr.get('n') or not pr.get('n'):
+        return {'status': 'not_evaluable'}
+    fired = {'a_trigger_rate_over_15pct': bool(tr['rate'] > TRIGGER_MAX),
+             'b_correct_approvals_down_5pts_or_more': bool(ca_la.get('n') and (ca_la['rate'] - ca_ad['rate']) >= 0.05 - 1e-12),
+             'c_removes_no_look_around_miss': bool(pr['first_only'] == 0)}
+    return {'status': 'withdrawn' if any(fired.values()) else 'kept', 'fired': fired,
+            'trigger_rate': tr['rate'], 'twin_correct_approvals_adaptive': ca_ad.get('rate'),
+            'twin_correct_approvals_look_around': ca_la.get('rate'),
+            'misses_removed_by_adaptive': pr['first_only'], 'misses_added_by_adaptive': pr['second_only']}
 
 
 def _paired_la_ad(P: dict) -> dict:
