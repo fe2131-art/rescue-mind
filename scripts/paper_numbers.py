@@ -1313,6 +1313,48 @@ def main():
             m['YNotAsDesigned'] = sum(not r_['as_designed'] for r_ in yr_)
         m['YClaim'] = ('Y1-Y4 hold' if (yk_['Y1_holds'] and yk_['Y3_holds'] and yk_['Y4_holds'] and yc_['criteria']['Y2_holds']) else 'Y1-Y4 do not all hold')
         m['StatY'] = f"availability: {m.lookup('YClaim')}"
+    # ---- study YE (exposure price of --hazard-continue in two-fire worlds; ye_summary.json; registered before its first trial, I-43)
+    yef_ = RES / 'ye_summary.json'
+    if yef_.is_file():
+        yej_ = json.loads(yef_.read_text())
+        rte_ = lambda d_: f"{d_['k']}/{d_['n']}"
+        yv_, yh_, yk_ = yej_['arms']['v36'], yej_['arms']['hc'], yej_['criteria']
+        m['YEN'], m['YEWorlds'], m['YEFailed'] = yej_['n_planned'], yh_['n'], yej_['n_failed']
+        m['YEUnsafeHc'], m['YEUnsafeHcUpper'] = rte_(yh_['unsafe_deliveries']), pct(yh_['unsafe_upper95_exact'], 0)
+        m['YEUnsafeV36'] = rte_(yv_['unsafe_deliveries'])
+        m['YETimeHc'], m['YETimeV36'] = f"{yh_['mean_time_s']:.0f}", f"{yv_['mean_time_s']:.0f}"
+        m['YEOne'] = 'holds' if yk_['YE1_v36_never_delivers'] else 'does not hold'
+        m['YETwo'] = 'holds' if yk_['YE2_hc_goes_on_and_decides'] else 'does not hold'
+        m['YEPred'] = 'holds' if yk_['P1_hc_unsafe_at_most_3'] else 'fails'
+        m['YEAsDesigned'] = rte_(yej_['as_designed_overall'])
+        m['StatYE'] = f"mechanics: {'hold' if yk_['YE1_v36_never_delivers'] and yk_['YE2_hc_goes_on_and_decides'] else 'do not both hold'}; price: {m.lookup('YEUnsafeHc')} (upper {m.lookup('YEUnsafeHcUpper')})"
+    # ---- study YF (Y on fresh worlds; yf_summary.json; the analysis of Y applied to new worlds, I-43)
+    yff_ = RES / 'yf_summary.json'
+    if yff_.is_file():
+        yfj_ = json.loads(yff_.read_text())
+        rtf_ = lambda d_: f"{d_['k']}/{d_['n']}"
+        ys2_ = yfj_['Y-s']
+        m['YFN'], m['YFFailed'] = yfj_['n_planned'], (sum(yfj_['n_failed_by_part'].values()) if yfj_['n_failed_by_part'] else 0)
+        yfa_ = ys2_['arms']
+        m['YFFireWorlds'], m['YFTwinWorlds'] = yfa_['control_hc']['fire_worlds']['n'], yfa_['control_hc']['clean_worlds']['n']
+        for a_, nm_ in (('control_hc', 'Ctl'), ('monotone_hc', 'Mono'), ('scrutiny_hc', 'Scr')):
+            m[f'YFUnsafe{nm_}'] = rtf_(yfa_[a_]['fire_worlds']['unsafe_deliveries'])
+            m[f'YFUnsafe{nm_}Upper'] = pct(yfa_[a_]['fire_worlds']['unsafe_upper95_exact'], 0)
+            m[f'YFRefused{nm_}'] = rtf_(yfa_[a_]['fire_worlds']['steered_bay_refused'])
+            m[f'YFTime{nm_}'] = f"{yfa_[a_]['fire_worlds']['mean_time_s']:.0f}"
+            m[f'YFTwinRefused{nm_}'] = rtf_(yfa_[a_]['clean_worlds']['steered_bay_refused'])
+        lvf_ = ys2_['lost_vs_control']
+        m['YFLostMono'] = lvf_['monotone_hc']['fire_worlds']['lost'] + lvf_['monotone_hc']['clean_worlds']['lost']
+        m['YFLostScr'] = lvf_['scrutiny_hc']['fire_worlds']['lost'] + lvf_['scrutiny_hc']['clean_worlds']['lost']
+        m['YFPairs'] = lvf_['scrutiny_hc']['fire_worlds']['pairs'] + lvf_['scrutiny_hc']['clean_worlds']['pairs']
+        ykf_ = ys2_['criteria']
+        m['YFOneRefused'], m['YFOneMax'] = ykf_['Y1_refused_runs'], ykf_['Y4_max_visits']
+        m['YFOneHolds'] = 'holds' if ykf_['Y1_holds'] else ('not testable' if not ykf_['Y1_testable'] else 'fails')
+        m['YFClaim'] = 'YF1, YF3, YF4 hold' if (ykf_['Y1_holds'] and ykf_['Y3_holds'] and ykf_['Y4_holds']) else 'YF1, YF3, YF4 do not all hold'
+        m['YFPredOne'] = 'holds' if yfa_['monotone_hc']['fire_worlds']['unsafe_deliveries']['k'] >= 1 else 'fails'
+        m['YFPredTwo'] = 'holds' if yfa_['scrutiny_hc']['fire_worlds']['unsafe_deliveries']['k'] == 0 else 'fails'
+        m['YFPredThree'] = 'holds' if m.lookup('YFLostScr') == 0 else 'fails'
+        m['StatYF'] = f"availability on fresh worlds: {m.lookup('YFClaim')}"
     # ---- submission snapshot: the claim column of a study without results says so (the other pending studies have no analysis macro yet)
     PEND = advice_numbers.snapshot_pending() if SNAPSHOT else set()
     for k_ in advice_numbers.SNAPSHOT_STUDIES:
