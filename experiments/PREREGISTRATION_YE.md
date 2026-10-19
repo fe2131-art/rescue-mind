@@ -86,3 +86,16 @@ About 4 min per `hc` run and 2.5 min per `v36` run: about 1.3 h for 12 worlds, p
 
 ## Amendments
 None yet.
+
+## Post-result record (written after the campaign; the registered text above is unchanged)
+YE ran as registered: 24 runs, 0 failures (`experiments/results/ye_summary.json`). **YE1 holds** (12 of 12 `v36` runs stopped at the first bay, no delivery). **YE3:** `hc` delivered into the
+second fire in 2 of 12 worlds (YE01, YE09; exact one-sided 95% upper bound 43.8%), `v36` in 0 of 12; the prediction P1 (at most 3) holds. **YE2 fails as registered:** the criterion
+required two stations visited in every `hc` run, and 10 of 12 visited four, because a run that also refuses the second bay goes on through the remaining candidates (the bays that do
+not hold the supply), exactly as the flag is specified and as Y-c showed (4 of 4). The wording of YE2 was wrong; it is kept as a failed claim (the thirteenth), not amended. A separate,
+labelled **post hoc reading** (`scripts/ye_readout.py`, not a registered analysis): in 12 of 12 `hc` runs the first bay was refused for its hazard, the second bay was reached, nothing was delivered from the
+first bay, and no audit failed. The decision rule says a failed YE2 means the flag is described as "not working as stated": the condition is met, and the contradiction is between the YE wording
+and the flag's own registered behaviour (Y, the code and Y-c agree), so the flag stays opt-in as the rule already says, and the paper states both facts. The mechanics pilot gate encoded the same
+`visits == 2` check and passed only because the pilot's `hc` run missed the second fire (it never took the detect-and-continue path); the pilot world was YE01, which is also one of the 12 worlds
+(the protocol was already bound, so there is no selection effect). Cause of the two unsafe deliveries (class a, perception outcome): the check scored the second bay 0.0088 / 0.0107 at the front and at most
+0.021 at a side view, below 0.05; both fires are hidden at the front pose (design mask 0 pixels). Descriptive only: of the three front-hidden worlds, 2 were missed and 1 (YE05) was found from a side
+view (p 0.12); of the nine front-visible worlds, none was missed.

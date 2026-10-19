@@ -1321,8 +1321,8 @@ def main():
         yv_, yh_, yk_ = yej_['arms']['v36'], yej_['arms']['hc'], yej_['criteria']
         m['YEN'], m['YEWorlds'], m['YEFailed'] = yej_['n_planned'], yh_['n'], yej_['n_failed']
         m['YEUnsafeHc'], m['YEUnsafeHcUpper'] = rte_(yh_['unsafe_deliveries']), pct(yh_['unsafe_upper95_exact'], 0)
-        m['YEUnsafeV36'] = rte_(yv_['unsafe_deliveries'])
-        m['YETimeHc'], m['YETimeV36'] = f"{yh_['mean_time_s']:.0f}", f"{yv_['mean_time_s']:.0f}"
+        m['YEUnsafeVThreeSix'] = rte_(yv_['unsafe_deliveries'])
+        m['YETimeHc'], m['YETimeVThreeSix'] = f"{yh_['mean_time_s']:.0f}", f"{yv_['mean_time_s']:.0f}"
         m['YEOne'] = 'holds' if yk_['YE1_v36_never_delivers'] else 'does not hold'
         m['YETwo'] = 'holds' if yk_['YE2_hc_goes_on_and_decides'] else 'does not hold'
         m['YEPred'] = 'holds' if yk_['P1_hc_unsafe_at_most_3'] else 'fails'
