@@ -1242,7 +1242,7 @@ def main():
         m['XSDeliveredScr'] = f"{ar_['scrutiny']['clean_worlds']['delivered']['k']}/{xs_['n_worlds']}"
         m['XSMcnemarP'] = f"{xs_['scrutiny_vs_monotone']['unsafe']['mcnemar_p']:.1f}"
         m['XSClaim'] = ('S1-S3 hold' if (cr_['S1_advice_reorders_in_at_least_90pct'] and cr_['S2_no_monotone_audit_failure'] and cr_['S3_control_never_delivers_into_the_fire']) else 'S1-S3 do not all hold') \
-            + ('; S4 (scrutiny fewer unsafe, p<0.05) not supported' if not cr_['S4_scrutiny_fewer_unsafe_than_monotone_p<0.05'] else '; S4 supported')
+            + ('; S4 (scrutiny fewer unsafe, p<0.05) not supported (not claimed, as registered)' if not cr_['S4_scrutiny_fewer_unsafe_than_monotone_p<0.05'] else '; S4 supported')
         xrf_ = RES / 'x_readout.json'
         if xrf_.is_file():
             xr_ = {r_['trial_id']: r_ for r_ in json.loads(xrf_.read_text())['rows']}
