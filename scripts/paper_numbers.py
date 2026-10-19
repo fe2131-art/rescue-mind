@@ -1270,6 +1270,40 @@ def main():
             rows_x += [r'\bottomrule', r'\end{tabular}']
             tables['tab_x_steer.tex'] = '\n'.join(rows_x)
         m['StatX'] = f"memory: {m.lookup('XMClaim')}; steering: {m.lookup('XSClaim')}"
+    # ---- study Y (continue after a real hazard refusal, --hazard-continue; y_summary.json; registered before the first trial, I-42)
+    yf_ = RES / 'y_summary.json'
+    if yf_.is_file():
+        yj_ = json.loads(yf_.read_text())
+        rty_ = lambda d_: f"{d_['k']}/{d_['n']}"
+        ys_, yc_ = yj_['Y-s'], yj_['Y-c']
+        m['YN'], m['YNs'], m['YNc'] = yj_['n_planned'], ys_['n_runs'], yc_['n_runs']
+        m['YFailed'] = yj_['n_failed_by_part'] and sum(yj_['n_failed_by_part'].values()) or 0
+        m['YAsDesigned'], m['YAsDesignedRate'] = rty_(yj_['as_designed_overall']), pct(yj_['as_designed_overall']['rate'])
+        ya_ = ys_['arms']
+        for a_, nm_ in (('control_hc', 'Ctl'), ('monotone_hc', 'Mono'), ('scrutiny_hc', 'Scr')):
+            fw_, cw_ = ya_[a_]['fire_worlds'], ya_[a_]['clean_worlds']
+            m[f'YSUnsafe{nm_}'] = rty_(fw_['unsafe_deliveries'])
+            m[f'YSUnsafe{nm_}Upper'] = pct(fw_['unsafe_upper95_exact'], 0)
+            m[f'YSDelivered{nm_}'] = rty_(fw_['delivered'])
+            m[f'YSRefused{nm_}'] = rty_(fw_['steered_bay_refused'])
+            m[f'YSTime{nm_}'] = f"{fw_['mean_time_s']:.0f}"
+            m[f'YSVisits{nm_}'] = f"{fw_['mean_visits']:.1f}"
+            m[f'YSTwinDel{nm_}'] = rty_(cw_['delivered'])
+            m[f'YSTwinRefused{nm_}'] = rty_(cw_['steered_bay_refused'])
+        lv_ = ys_['lost_vs_control']
+        m['YSLostMono'] = lv_['monotone_hc']['fire_worlds']['lost'] + lv_['monotone_hc']['clean_worlds']['lost']
+        m['YSLostScr'] = lv_['scrutiny_hc']['fire_worlds']['lost'] + lv_['scrutiny_hc']['clean_worlds']['lost']
+        m['YSPairs'] = lv_['scrutiny_hc']['fire_worlds']['pairs'] + lv_['scrutiny_hc']['clean_worlds']['pairs']
+        yk_ = ys_['criteria']
+        m['YOneRefused'], m['YOneMax'] = yk_['Y1_refused_runs'], yk_['Y4_max_visits']
+        m['YMonoMissWorld'] = ', '.join(sorted(ya_['monotone_hc']['fire_worlds']['unsafe_by_world']))
+        m['YMonoMiss'] = ya_['monotone_hc']['fire_worlds']['unsafe_by_world'].get('XC05', 0)
+        m['YCDelivered'], m['YCDeniedAfterSearch'] = rty_(yc_['delivered']), f"{yc_['observed'].get('DENY_HAZARD_AFTER_SEARCH', 0)}/{yc_['n_runs']}"
+        m['YCVisits'] = ', '.join(sorted(yc_['visits']))
+        m['YCFireSeen'] = rty_(yc_['fire_bay_refused_for_hazard'])
+        m['YClaim'] = ('Y1-Y4 hold' if (yk_['Y1_holds'] and yk_['Y3_holds'] and yk_['Y4_holds'] and yc_['criteria']['Y2_holds']) else 'Y1-Y4 do not all hold')
+        m['StatY'] = f"availability: {m.lookup('YClaim')}"
+        m['RegY'] = r'\texttt{9c0b5e8}, 2026-10-19'
     # ---- submission snapshot: the claim column of a study without results says so (the other pending studies have no analysis macro yet)
     PEND = advice_numbers.snapshot_pending() if SNAPSHOT else set()
     for k_ in advice_numbers.SNAPSHOT_STUDIES:
