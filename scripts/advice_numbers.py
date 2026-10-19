@@ -645,7 +645,7 @@ def study_phrase_en():
 # fixed historical facts (static); F, J, V4 and W-b are read back from their result files (a flipped result changes the list).
 # When a later study fails a registered claim (A1b, A2, A3, A-time ...), add it HERE and every document follows.
 # ---------------------------------------------------------------------------------------------------------------------------
-_NUMWORD = {0: 'zero', 1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six', 7: 'seven', 8: 'eight', 9: 'nine', 10: 'ten', 11: 'eleven', 12: 'twelve'}
+_NUMWORD = {0: 'zero', 1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six', 7: 'seven', 8: 'eight', 9: 'nine', 10: 'ten', 11: 'eleven', 12: 'twelve', 13: 'thirteen', 14: 'fourteen'}
 
 
 def b_ja(none=None):
@@ -873,6 +873,10 @@ def failed_claims():
     qs = _load('q_summary.json')       # registered claim of PREREGISTRATION_Q: safety bound AND correct approvals >= 70% on real photographs
     if qs is not None and not qs['qwen9b_v35']['claim']['supply_check_transfers']:
         out.append(dict(key='Q', tex='Q (real photographs)', en='Q (real photographs)', ja='Q（実写の物資確認：正しい物資の許可70%以上）'))
+    ye = _load('ye_summary.json')      # registered claim YE2 (PREREGISTRATION_YE): 'every hc run visited two stations'; the check as written fails (the search goes on through the remaining candidates)
+    if ye is not None and not ye['criteria']['YE2_hc_goes_on_and_decides']:
+        out.append(dict(key='YE2', tex='YE2 (two stations visited: the registered wording)', en='YE2 (the registered wording "two stations visited")',
+                        ja='YE2（登録した文言「2拠点を訪れる」。拒否後の探索は残りの拠点まで続く）'))
     return out
 
 

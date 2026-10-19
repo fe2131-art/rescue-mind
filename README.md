@@ -299,7 +299,7 @@ Qwen3.5-9B（ローカル・V100）、回復探索・状況報告・LLM指示理
 | **「拒否」と「故障」を区別** | 拒否は「拒否イベント＋2.5秒の停止保持＋真値で拠点から動いていない＋bag確定」が揃って初めて成功扱い。VLMがエラーで止まっただけでは成功にしない。 |
 | **sudo不要で再現** | Ubuntu 22.04 ホストでも Docker（ROS 2 Jazzy + Gazebo Harmonic + CUDA PyTorch）で動作。Gazebo は EGL ヘッドレス描画。 |
 
-参考資料：改善の経緯（Before/After）[`IMPROVEMENT_LOG.md`](docs/IMPROVEMENT_LOG.md) ／ 実際に動かして初めて分かった37件の問題と対策 [`FINDINGS.md`](docs/FINDINGS.md) ／ 設計判断 [`DESIGN_DECISIONS.md`](docs/DESIGN_DECISIONS.md) ／ 作業の引継ぎ・現状 [`HANDOFF.md`](docs/HANDOFF.md)。
+参考資料：改善の経緯（Before/After）[`IMPROVEMENT_LOG.md`](docs/IMPROVEMENT_LOG.md) ／ 実際に動かして初めて分かった38件の問題と対策 [`FINDINGS.md`](docs/FINDINGS.md) ／ 設計判断 [`DESIGN_DECISIONS.md`](docs/DESIGN_DECISIONS.md) ／ 作業の引継ぎ・現状 [`HANDOFF.md`](docs/HANDOFF.md)。
 
 ![devset](docs/figures/devset_ablation.png)
 
@@ -325,7 +325,7 @@ bash docker/build.sh                                   # ROS 2 Jazzy + Gazebo Ha
 #    旧環境（v3.3: torch 2.5.1 / transformers 4.53。図・PDF・テスト用の rm-dev）: docker build --build-arg STACK=v33 -t rescuemind:jazzy docker
 # 1) モデル重みを一度だけ取得（以降の実行は HF_HUB_OFFLINE=1）
 HF_HUB_OFFLINE=0 bash docker/run.sh python3 -c "from huggingface_hub import snapshot_download as s; s('Qwen/Qwen3.5-9B')"
-# 2) テスト（テスト関数 1476 件。数え方は静的で `python3 scripts/count_tests.py`。ROS/Gazebo不要の部分はDockerなしでも実行可）
+# 2) テスト（テスト関数 1499 件。数え方は静的で `python3 scripts/count_tests.py`。ROS/Gazebo不要の部分はDockerなしでも実行可）
 bash docker/run.sh python3 -m unittest discover -s tests -q
 # 3) 1回のAIミッション（Gazebo・ブリッジ・ガード・VLMを自動起動、証拠は outputs/runs/<run_id>/）
 V34="--model Qwen/Qwen3.5-9B --prompt-set v35 --intent-backend llm --intent-prompt i35 --recovery --explain"
