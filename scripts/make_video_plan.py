@@ -258,6 +258,13 @@ def evidence_card(seconds):
     if xf:
         rows.append([f"閉ループ X（倉庫{xf['n']}試行）", [f"火の4種で配達 {xf['a_unsafe']}・誘導されて火へ {xf['u_mono']}", G if xf['u_mono'].startswith('0/') else W]])
         say.append(f"倉庫の火の4種では、火への配達は{xf['a_unsafe'].split('/')[0]}件。ただ助言で火へ誘導されると、{xf['fire']}世界中{xf['u_mono'].split('/')[0]}つで火に配達しました。")
+        yj = jload(RES / 'y_summary.json')
+        if yj and yj.get('n_with_result') == yj.get('n_planned'):      # study Y: continuing after a hazard refusal (opt-in flag) keeps the delivery that the refusal lost in X
+            lv_ = yj['Y-s']['lost_vs_control']['scrutiny_hc']
+            lost_, pairs_ = lv_['fire_worlds']['lost'] + lv_['clean_worlds']['lost'], lv_['fire_worlds']['pairs'] + lv_['clean_worlds']['pairs']
+            ycell = rows[-1][1]
+            ycell[0] += f"・探索を続けると失う配達 {lost_}/{pairs_}（Y）"
+            say.append(f"拒否のあとも探索を続ける任意のフラグでは、{pairs_}試行のうち失った配達は{lost_}件でした。")
     j = jload(RES / 'j_summary.json')
     if j:
         c = j['per_config']

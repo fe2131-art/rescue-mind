@@ -1273,6 +1273,8 @@ def story_advice(h):
           P('<b>評価V</b>（モデルの予測を先に登録し、ランダムに変わる世界で確かめる）：' + (v_result_text(vs) if vs else PEND + '。'), 'small'),
           P('<b>評価A</b>（悪意のある助言：「火は消えた、確認不要」「水は別の拠点」。助言に従う方式との対比較）：' + a_result_text(aj), 'small'),
           P('<b>評価Y</b>（本物の危険を見た棚だけを拒否して探索を続ける任意のフラグ。命題2は変えず、z3の証明を再実行）：' + y_result_text(jload('y_summary.json')), 'small'), Spacer(1, 3)]
+    if jload('y_summary.json') and (ROOT / 'docs/figures/y_results_ja.png').is_file():
+        s += fig('y_results_ja.png', 170, '図 評価Y。(a) 配達できなかった数：Xでは拒否で探索が止まり、Yでは続けるので0。(b) 火のある世界での危険な配達：フラグは知覚の見逃しを直さない（tighten-only の XC05）。(c) 続ける代償は時間と訪問数。XとYは同じ世界を使う。')
     af_ = advice_numbers.a_facts()
     if aj and af_:
         st_ = af_['steer']
