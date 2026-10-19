@@ -584,6 +584,7 @@ def table_card(title, sub, header, rows, notes, seconds, emit):
         text(d, (x, y0), h, 30, MUTED, True)
         x += w
     y = y0 + 56
+    pitch = 74 if len(rows) <= 8 else 66        # nine rows of the evidence card (study X added) take the height of eight
     for row in rows:
         d.line((x0, y - 10, x0 + sum(widths), y - 10), fill=(50, 64, 90), width=2)
         x = x0
@@ -594,7 +595,7 @@ def table_card(title, sub, header, rows, notes, seconds, emit):
                 col = tuple(col)
             text(d, (x, y), str(cell), 38, col, j == 0)
             x += w
-        y += 74
+        y += pitch
     y += 30
     for n in notes:
         for ln in wrap_lines(n, 34, 1680):

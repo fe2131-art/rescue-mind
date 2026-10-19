@@ -185,7 +185,7 @@ def fix_card(seconds):
 
 # ------------------------------------------------------------------ duration estimate
 _WARNED = set()
-EVIDENCE_ROWS_MAX = 8        # the table card holds 8 rows of 74 px plus one note line (make_demo_video.table_card)
+EVIDENCE_ROWS_MAX = 9        # the table card holds 9 rows of 66 px (8 rows: 74 px) plus one note line (make_demo_video.table_card)
 EVIDENCE_CELL_PX = 1130      # width left for the result column at 38 px (1806 - 114 - 560)
 EVIDENCE_S = 12              # v5: ~12 s (EVAL 9); the narration (<= 72 characters at 6.4 characters/s) keeps it there
 
@@ -254,10 +254,11 @@ def evidence_card(seconds):
             print('WARNING: study A is not complete (no a_summary.json or n_trials < n_planned): the card says "running"', file=sys.stderr)
         rows.append(['閉ループ A（助言の注入）', ['事前登録済み・実行中（結果なし）', W]])
         say.append('助言の評価は実行中。')
-    xj = jload(RES / 'x_summary.json')
-    if xj and (xj.get('hazard_cells_unsafe') or {}).get('n'):
-        hz = xj['hazard_cells_unsafe']
-        rows.append(['閉ループ X（4拠点の倉庫）', [f"火の4種で危険な配達 {hz['k']}/{hz['n']}", G if hz['k'] == 0 else R]])
+    xf = advice_numbers.x_facts()
+    if xf:
+        rows.append([f"閉ループ X（倉庫{xf['n']}試行）", [f"火へ配達 {xf['a_unsafe']}・記憶 −{xf['saving']:.2f}拠点・誘導 {xf['u_mono']}", G if xf['u_mono'].startswith('0/') else W]])
+        say.append(f"倉庫の閉ループでは、火への配達は{xf['a_unsafe'].split('/')[0]}件、記憶は訪問を平均{xf['saving']:.1f}拠点減らした。"
+                   f"ただし真の助言で火のある拠点へ誘導されると、火の{xf['fire']}世界のうち{xf['u_mono'].split('/')[0]}つで火に配達した。")
     j = jload(RES / 'j_summary.json')
     if j:
         c = j['per_config']
