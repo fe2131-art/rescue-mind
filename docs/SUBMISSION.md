@@ -43,7 +43,7 @@
 | 予約公開を使う場合は締切までの日時を設定／採点完了まで削除・非公開にしない | 即時公開を推奨（予約公開は使わない） | **要対応（ユーザー）** |
 | レポート（PDF）：概要・目的・工夫した点 | `docs/report/説明資料_PAI最終課題_tetsutetsu.pdf`（<!--FACT:report-->本文9ページ＋付録16ページ（全25ページ。付録は10ページから、`pdfinfo` と本文抽出による実測）<!--/FACT:report-->。1章 課題の概要と目的、2〜4章 AIの活用と工夫、審査基準との対応表、限界。PDF の著者欄は `tetsutetsu` のみ） | 済 |
 | PDF ファイル名 `説明資料_PAI最終課題_omnicampusアカウント名.pdf` | 上記ファイル名のとおり | 済 |
-| PDF を最新の結果で再生成 | J・L・P2 の結果は反映済み。A・S・V・W・XD・X・Q は結果が出るまで「未実行／実行中」と表記される。結果が出るたびに `scripts/make_report.py --account tetsutetsu`（rm-dev）で再生成し、`make check` で README・YouTube・論文・説明資料の数値が結果ファイルと一致することを確認する | 済（結果が出るたびに再生成） |
+| PDF を最新の結果で再生成 | 登録した研究の結果はすべて反映済み（最後の X は 2026-10-19 08:51）。結果が変わるたびに `scripts/make_report.py --account tetsutetsu`（rm-dev）で再生成し、`make check` で README・YouTube・論文・説明資料の数値が結果ファイルと一致することを確認する | 済（結果が出るたびに再生成） |
 | 使用したコード一式 | 本リポジトリ（`rescuemind/`, `ros/`, `scripts/`, `tests/`, `docker/`, `worlds/`, `configs/`、動かし方は README） | 済 |
 | リポジトリの公開設定は必ず public | https://github.com/fe2131-art/rescue-mind（現在の設定はご本人が確認・変更） | **要対応（ユーザー）** |
 | 個人情報（氏名・所属・メール）を成果物に含めない | 公開前チェックで検出なし：メール・所属名なし、git のコミッターは `fe2131-art`（noreply アドレス）、PDF の著者は `tetsutetsu`、CITATION.cff は `tetsutetsu`。動画は日本語ナレーション（VOICEVOX）と Gazebo 映像のみ | 済（動画のナレーション・画面に氏名が無いことは提出前に一度目視を推奨） |

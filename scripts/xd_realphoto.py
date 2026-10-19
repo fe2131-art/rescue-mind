@@ -92,7 +92,7 @@ def sample(folder: Path):
         sys.exit('manifest problems:\n  ' + '\n  '.join(bad[:30]) + (f'\n  ... {len(bad)} in all' if len(bad) > 30 else ''))
     out = [{'file': r['file'], 'sha256': sha256(folder / r['file']), 'source_url': r['source_url'], 'licence': r['licence'],
             'kind': r['kind']} for r in draw(rows)]
-    SAMPLE.write_text(json.dumps({'seed': SEED, 'n': len(out), 'folder': str(DATA), 'images': out}, indent=1) + '\n')
+    SAMPLE.write_text(json.dumps({'seed': SEED, 'n': len(out), 'folder': '~/.cache/rescuemind/warehouse_negatives', 'images': out}, indent=1) + '\n')
     print('sample', len(out))
 
 

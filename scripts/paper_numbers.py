@@ -1199,6 +1199,77 @@ def main():
             m['XDRFAP'], m['XDRFAPUpper'] = rt_(rj_['p2_h36']), pct(rj_['p2_h36']['ci95'][1])
             m['XDRWarehouse'] = rj_['frozen']['by_kind']['warehouse']
         m['StatXD'] = f"bound: {m.lookup('XDClaimEps')}; transfer: {m.lookup('XDClaimRel')}; recalibration: {m.lookup('XDClaimCal')}; cost: {m.lookup('XDClaimCost')}"
+    # ---- study X (closed loop, depot; x_summary.json; the cause readout x_readout.json is post hoc and descriptive, I-41)
+    xf_ = RES / 'x_summary.json'
+    if xf_.is_file():
+        xj_ = json.loads(xf_.read_text())
+        rtx_ = lambda d_: f"{d_['k']}/{d_['n']}"
+        xa_, xm2_, xs_ = xj_['X-a'], xj_['X-m'], xj_['X-s']
+        m['XN'], m['XNWithResult'] = xj_['n_planned'], xj_['n_with_result']
+        tr_x = xj_['trials']
+        m['XNa'], m['XNm'], m['XNs'] = (sum(t['cell'] == c_ for t in tr_x) for c_ in ('X-a', 'X-m', 'X-s'))
+        m['XFailed'] = sum(xj_['n_failed_by_part'].values())
+        m['XAsDesigned'], m['XAsDesignedRate'] = rtx_(xj_['as_designed_overall']), pct(xj_['as_designed_overall']['rate'])
+        m['XAAsDesigned'] = f"{sum(c_['as_designed']['k'] for c_ in xa_['cells'].values())}/{sum(c_['as_designed']['n'] for c_ in xa_['cells'].values())}"
+        m['XAUnsafe'], m['XAUnsafeUpper'] = rtx_(xa_['hazard_cells_unsafe']), pct(xa_['hazard_cells_unsafe']['ci95'][1])
+        vs_, sv_ = xm2_['visits'], xm2_['visits']['saving']
+        m['XMPairs'], m['XMClusters'] = xm2_['n_pairs'], sv_['n_clusters']
+        m['XMVisitsZero'], m['XMVisitsTwo'] = f"{vs_['mean_M0']:.2f}", f"{vs_['mean_M2']:.2f}"
+        m['XMSaving'], m['XMSavingCI'] = f"{sv_['mean']:.2f}", '[{:.2f}, {:.2f}]'.format(*sv_['ci95'])
+        m['XMSignP'] = f"{vs_['sign_flip_p_one_sided']:.4f}"
+        m['XMPairsFewer'] = vs_['pairs_M2_fewer']
+        m['XMDesign'], m['XMModel'] = f"{xm2_['prediction']['design_sequences_saving_visits']:.2f}", f"{xm2_['prediction']['k_scaling_model_saving_visits']:.1f}"
+        ve_ = xm2_['visits_equal_predicted']
+        m['XMVisitsEq'] = f"{sum(v_['k'] for v_ in ve_.values())}/{sum(v_['n'] for v_ in ve_.values())}"
+        m['XMWrong'] = sum(xm2_['wrong_supply_deliveries'].values())
+        m['XMSlope'] = f"{xm2_['delta_seconds_per_extra_bay']['slope']:.1f}"
+        m['XMSeconds'], m['XMSecondsCI'] = f"{xm2_['seconds']['mean']:.0f}", '[{:.0f}, {:.0f}]'.format(*xm2_['seconds']['ci95'])
+        kc_ = xm2_['criteria']
+        m['XMClaim'] = 'supported' if kc_['claim_k_scaling_supported'] else 'not supported'
+        ar_, cr_ = xs_['arms'], xs_['criteria']
+        m['XSWorlds'], m['XSFire'], m['XSClean'] = xs_['n_worlds'], xs_['n_fire_worlds_perceivable'], xs_['n_clean_worlds']
+        m['XSApplied'] = f"{sum(ar_[a_]['advice_reorders_to_steered_bay']['k'] for a_ in ('monotone', 'scrutiny'))}/{sum(ar_[a_]['advice_reorders_to_steered_bay']['n'] for a_ in ('monotone', 'scrutiny'))}"
+        for a_, nm_ in (('control', 'Ctl'), ('monotone', 'Mono'), ('scrutiny', 'Scr')):
+            fw_ = ar_[a_]['fire_worlds']
+            m[f'XSUnsafe{nm_}'] = rtx_(fw_['unsafe_deliveries'])
+            m[f'XSUnsafe{nm_}Upper'] = pct(fw_['unsafe_upper95_exact'], 0)
+            m[f'XSRefused{nm_}'] = rtx_(fw_['refused'])
+            m[f'XSFalse{nm_}'] = rtx_(ar_[a_]['clean_worlds']['false_refusals'])
+            m[f'XSTwinDel{nm_}'] = rtx_(ar_[a_]['clean_worlds']['delivered'])
+        m['XSUnsafeMonoCI'] = '[{:.0f}, {:.0f}]\\%'.format(*(100 * x for x in ar_['monotone']['fire_worlds']['unsafe_deliveries']['ci95']))
+        m['XSLostMono'] = xs_['monotone_vs_control']['deliveries_lost_to_truthful_advice']
+        m['XSLostScr'] = ar_['scrutiny']['fire_worlds']['refused']['k']
+        m['XSDeliveredScr'] = f"{ar_['scrutiny']['clean_worlds']['delivered']['k']}/{xs_['n_worlds']}"
+        m['XSMcnemarP'] = f"{xs_['scrutiny_vs_monotone']['unsafe']['mcnemar_p']:.1f}"
+        m['XSClaim'] = ('S1-S3 hold' if (cr_['S1_advice_reorders_in_at_least_90pct'] and cr_['S2_no_monotone_audit_failure'] and cr_['S3_control_never_delivers_into_the_fire']) else 'S1-S3 do not all hold') \
+            + ('; S4 (scrutiny fewer unsafe, p<0.05) not supported' if not cr_['S4_scrutiny_fewer_unsafe_than_monotone_p<0.05'] else '; S4 supported')
+        xrf_ = RES / 'x_readout.json'
+        if xrf_.is_file():
+            xr_ = {r_['trial_id']: r_ for r_ in json.loads(xrf_.read_text())['rows']}
+            f4_ = lambda v_: f"{v_:.4f}".rstrip('0') if v_ is not None else r'\TBD'
+            # monotone miss (XC05): all views below tau_h; the twin and the control score the same station at the same level
+            miss_ = [r_ for r_ in xr_.values() if r_['arm'] == 'monotone' and r_['observed'] == 'ALLOW' and r_['condition'] == 'steer_fire']
+            if miss_:
+                m['XSMissMax'] = f"{miss_[0]['max_view_hazard_prob']:.3f}"
+            scr_clean_ = [r_['front_hazard_prob'] for r_ in xr_.values() if r_['arm'] == 'scrutiny' and r_['condition'] == 'steer_clean']
+            scr_fire_ = sorted(r_['front_hazard_prob'] for r_ in xr_.values() if r_['arm'] == 'scrutiny' and r_['condition'] == 'steer_fire')
+            m['XSScrCleanLo'], m['XSScrCleanHi'] = f"{min(scr_clean_):.4f}", f"{max(scr_clean_):.4f}"
+            m['XSScrFireLo'], m['XSScrFireMid'], m['XSScrFireHi'] = (f"{v_:.4f}" for v_ in scr_fire_)
+            m['XSScrFireRefusedBelow'] = sum(v_ < 0.05 for v_ in scr_fire_)
+            cv_ = [v_ for r_ in xr_.values() if r_['condition'] == 'steer_clean' for v_ in [r_['front_hazard_prob']] + [p_['hazard_prob'] for p_ in r_['peeks']]]
+            m['XSCleanViewLo'], m['XSCleanViewHi'] = f"{min(cv_):.3f}", f"{max(cv_):.3f}"
+            fv_all_ = [v_ for r_ in xr_.values() if r_['condition'] == 'steer_fire' for v_ in [r_['front_hazard_prob']] + [p_['hazard_prob'] for p_ in r_['peeks']] if r_['arm'] != 'control']
+            m['XSScrAboveClean'] = f"{sum(v_ > max(cv_) for v_ in scr_fire_)}/{len(scr_fire_)}"
+            fv_ = lambda v_: '--' if v_ is None else f"{v_:.4f}"
+            rows_x = [r'\begin{tabular}{llllll}', r'\toprule', r'Run & World & Arm & Front view $p_h$ & Look-around $p_h$ (L, R) & Outcome \\ \midrule']
+            order_ = {'control': 0, 'monotone': 1, 'scrutiny': 2}
+            for r_ in sorted(xr_.values(), key=lambda r_: (r_['condition'] != 'steer_fire', r_['world'], order_[r_['arm']])):
+                pk_ = {p_['side']: p_['hazard_prob'] for p_ in r_['peeks']}
+                rows_x.append(f"{r_['trial_id']} & {r_['world']} & {r_['arm']} & {fv_(r_['front_hazard_prob'])} & "
+                              + (f"{fv_(pk_.get('L'))}, {fv_(pk_.get('R'))}" if pk_ else 'not taken') + f" & {r_['observed'].replace('_', ' ')} \\\\")
+            rows_x += [r'\bottomrule', r'\end{tabular}']
+            tables['tab_x_steer.tex'] = '\n'.join(rows_x)
+        m['StatX'] = f"memory: {m.lookup('XMClaim')}; steering: {m.lookup('XSClaim')}"
     # ---- submission snapshot: the claim column of a study without results says so (the other pending studies have no analysis macro yet)
     PEND = advice_numbers.snapshot_pending() if SNAPSHOT else set()
     for k_ in advice_numbers.SNAPSHOT_STUDIES:
@@ -1382,7 +1453,7 @@ def main():
                'APairs', 'AUnsafeNaive', 'AUnsafeOurs', 'AUnsafeCtrl', 'AMcNemarP', 'AViol', 'AAuditFail', 'ATimeSave', 'AWilcoxonP', 'ADoSVisits', 'ADoSFalseRef', 'ADoSN',
                'ADoSAllowed', 'AClaimSafety', 'AClaimTime', 'AClaimCost', 'AClaim', 'AExtract', 'AExtractRelax',
                'SNPairs', 'SFlipsC', 'SNC', 'SFlipsA', 'SNA', 'SFlipsB', 'SNB', 'SFlipsMis', 'SNMis', 'SFlipsSafe', 'SNSafe', 'SFlipsOneA', 'SFlipsMisFree', 'SLegible', 'SClaim', 'SHyp', 'BRuns', 'BMissions', 'BSeqs', 'BSeqsAll', 'BWastedNo', 'BWastedCredit', 'BBound', 'BHonestWasted', 'BAuditFail', 'BUnsafe', 'BSave', 'BSavePred', 'BClaim', 'SPoolFlips', 'SPoolN', 'SPoolUpper', 'SBenignFree', 'SBenignOurs', 'SLegitKept'])
-    for name in ('tab_t1_models.tex', 'tab_t1_ablation.tex', 'tab_e_strata.tex', 'tab_i13_dev.tex', 'tab_r.tex', 'tab_h_arms.tex', 'tab_h_sequences.tex', 'tab_s_systems.tex', 'tab_xd_classes.tex'):
+    for name in ('tab_t1_models.tex', 'tab_t1_ablation.tex', 'tab_e_strata.tex', 'tab_i13_dev.tex', 'tab_r.tex', 'tab_h_arms.tex', 'tab_h_sequences.tex', 'tab_s_systems.tex', 'tab_xd_classes.tex', 'tab_x_steer.tex'):
         tables.setdefault(name, r'\begin{tabular}{l}\TBD\end{tabular}')
     def write_if_changed(path, text):      # keep mtimes when nothing changed (latexmk and `make check` compare them)
         if not path.is_file() or path.read_text(encoding='utf8') != text:

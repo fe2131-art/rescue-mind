@@ -19,7 +19,11 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
 import advice_numbers  # noqa: E402
 
-ALL = 'X'                                         # the studies without a result file (A has results since 2026-10-18 18:00, IF since the evening: IF1 failed; S since 20:16, B since 22:30, XD since 2026-10-19 04:21, Q since 04:54, IF2 since 05:17)
+REAL = ','.join(sorted(k for k, have in advice_numbers.pending_all().items() if not have))       # the studies that really lack a result file
+# Since 2026-10-19 08:51 (X) every registered study has results, so a snapshot has nothing to leave out.  The tests below simulate one pending
+# study (SNAPSHOT_PENDING) to keep the mechanism checked; the three that compare the snapshot with the result FILES need a really pending study.
+ALL = REAL or 'X'
+needs_real_pending = unittest.skipUnless(REAL == ALL, 'every registered study has a result file: no study is really pending')
 TEX = [ROOT / 'docs/paper' / f for f in ('main.tex', 'supplement.tex', 'sec_formal.tex')]
 
 
@@ -48,6 +52,7 @@ class TestSnapshotNumbers(unittest.TestCase):
     def tearDownClass(cls):
         cls.tmp.cleanup()
 
+    @needs_real_pending
     def test_no_tbd_in_snapshot_output(self):
         # no macro value is TBD; the only TBD left is the definition of the fallback, which prints "not run"
         self.assertEqual([ln for ln in self.num.splitlines() if 'TBD' in ln and not ln.startswith(('\\providecommand{\\TBD}', '\\newcommand{\\TBDfor}'))], [])
@@ -74,6 +79,7 @@ class TestSnapshotNumbers(unittest.TestCase):
         self.assertEqual(
             __import__('paper_numbers').snapshot_problems(TEX, self.num, set(ALL.split(','))), [])
 
+    @needs_real_pending
     def test_counts_use_the_snapshot_table(self):
         rows = [ln for ln in (self.out / 'tab_prereg.tex').read_text(encoding='utf8').splitlines() if ln.count('&') >= 4 and not ln.startswith('Study')]
         c = advice_numbers.study_counts_from_rows(rows)
@@ -207,6 +213,7 @@ class TestSnapshotDocuments(unittest.TestCase):
         # the snapshot never writes the tracked README / YouTube text (the default text still names the running study A)
         self.assertNotEqual((ROOT / 'README.md').read_text(encoding='utf8'), self.readme)
 
+    @needs_real_pending
     def test_check_consistency_accepts_the_snapshot_and_catches_a_tbd(self):
         r = run(['scripts/check_consistency.py', '--snapshot', '--no-report'], env=self.env)
         self.assertIn('snapshot README: no TBD / pending / running / waiting marker', r.stdout)
