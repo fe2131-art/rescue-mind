@@ -14,9 +14,9 @@ from scripts import yf_analysis as yfa  # noqa: E402
 
 class GeneratorYF(unittest.TestCase):
     def test_candidates_are_fresh_not_the_x_worlds(self):
-        yf = {json.dumps(c['world_spec'], sort_keys=True) for c in myf.candidates()}
+        yf = {json.dumps(c['world_spec'], sort_keys=True) for c in myf.candidates()}   # both batches
         x = {json.dumps(c['world_spec'], sort_keys=True) for c in mx.steer_candidates()}
-        self.assertEqual(len(myf.candidates()), myf.N_CANDIDATES)
+        self.assertEqual(len(myf.candidates_a()), myf.N_CANDIDATES)
         self.assertFalse(yf & x)
         self.assertEqual(myf.SEED, 'YF-2026')
 
@@ -28,7 +28,7 @@ class GeneratorYF(unittest.TestCase):
             masks += [{'key': w, 'fire_pixels': 0 if ok else 500}, {'key': w + 'L', 'fire_pixels': 700 if ok else 3000}, {'key': w + 'R', 'fire_pixels': 0}]
         sel = myf.select(masks)
         self.assertEqual(sel['selected'], [c['world'] for i, c in enumerate(myf.candidates()) if i % 5 == 0][:myf.N_FIRE])
-        self.assertEqual(sel['n_eligible_in_candidates'], 10)
+        self.assertEqual(sel['n_eligible_in_candidates'], 20)
 
     def test_build_sizes_arms_and_flag(self):
         p = myf.build({'selected': [c['world'] for c in myf.candidates()[:6]]})
@@ -51,8 +51,32 @@ class GeneratorYF(unittest.TestCase):
         f = ROOT / 'experiments/campaign_yf_protocol.json'
         if not f.is_file():
             self.skipTest('protocol not written yet')
+        if json.loads(f.read_text())['yf']['candidates'] != len(myf.candidates()):
+            self.skipTest('protocol of the first selection (before Amendment 1); the amended one replaces it at the new binding commit')
         sel = json.loads((ROOT / 'experiments/campaign_yf_selection.json').read_text())
         self.assertEqual(json.loads(f.read_text()), json.loads(json.dumps(myf.build(sel), ensure_ascii=False)))
+
+
+class AmendmentOne(unittest.TestCase):
+    def test_batch_a_is_unchanged_and_batch_b_is_new(self):
+        reg = ROOT / 'experiments/campaign_yf_candidates.json'
+        if reg.is_file():
+            old = json.loads(reg.read_text())['trials']
+            self.assertEqual([t['world_spec'] for t in old], [c['world_spec'] for c in myf.candidates_a()])
+        a, b = {json.dumps(c['world_spec'], sort_keys=True) for c in myf.candidates_a()}, {json.dumps(c['world_spec'], sort_keys=True) for c in myf.candidates_b()}
+        self.assertFalse(a & b)
+        self.assertEqual([c['world'] for c in myf.candidates_b()][:2], ['FC49', 'FC50'])
+        self.assertEqual(len(myf.candidates()), 96)
+
+    def test_selection_runs_over_both_batches_in_id_order(self):
+        masks = []
+        for c in myf.candidates():
+            w, n = c['world'], int(c['world'][2:])
+            ok = n in (4, 23, 27, 60, 70, 90, 95)
+            masks += [{'key': w, 'fire_pixels': 0 if ok else 500}, {'key': w + 'L', 'fire_pixels': 700 if ok else 3000}, {'key': w + 'R', 'fire_pixels': 0}]
+        sel = myf.select(masks)
+        self.assertEqual(sel['selected'], ['FC04', 'FC23', 'FC27', 'FC60', 'FC70', 'FC90'])
+        self.assertEqual(sel['n_eligible_in_candidates'], 7)
 
 
 class WrapperYF(unittest.TestCase):

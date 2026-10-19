@@ -5,7 +5,7 @@
 
 Claims YF1 (= Y1, availability), YF3 (= Y3, audit) and YF4 (= Y4, at most 2 stations) as registered in experiments/PREREGISTRATION_YF.md; Y2 (no clean bay) is not
 part of YF (no Y-c runs), so the Y-c block of the output is empty and must be ignored.  The design masks of the selected worlds are the ones of the candidates
-(experiments/campaign_yf_candidates_design_fire_masks.json), filtered to the selected worlds: nothing is rendered twice.
+(experiments/campaign_yf_candidates[_b]_design_fire_masks.json), filtered to the selected worlds: nothing is rendered twice.
 """
 from __future__ import annotations
 import json
@@ -19,7 +19,7 @@ from scripts.x_analysis import perceivable_from_masks  # noqa: E402
 
 RES = ROOT / 'experiments/results'
 PROTO = ROOT / 'experiments/campaign_yf_protocol.json'
-MASKS = ROOT / 'experiments/campaign_yf_candidates_design_fire_masks.json'
+MASKS = [ROOT / 'experiments/campaign_yf_candidates_design_fire_masks.json', ROOT / 'experiments/campaign_yf_candidates_b_design_fire_masks.json']      # batch a, batch b (Amendment 1)
 LEDGER = RES / 'campaign_YF_ledger.jsonl'
 
 
@@ -32,7 +32,7 @@ def selected_masks(protocol: dict, masks: list) -> list:
 def main():
     proto = json.loads(PROTO.read_text())
     rows = [json.loads(x) for x in LEDGER.read_text().splitlines() if x.strip()]
-    out = ya.analyse(proto, rows, perceivable_from_masks(selected_masks(proto, json.loads(MASKS.read_text()))))
+    out = ya.analyse(proto, rows, perceivable_from_masks(selected_masks(proto, [m for f in MASKS if f.is_file() for m in json.loads(f.read_text())])))
     out['registered'] = 'experiments/PREREGISTRATION_YF.md'
     out['note'] = 'Y2 (the Y-c block) is not part of YF: no Y-c runs'
     (RES / 'yf_summary.json').write_text(json.dumps(out, ensure_ascii=False, indent=1) + '\n')

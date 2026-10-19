@@ -2,7 +2,7 @@
 """Study YF (I-43): Y ON FRESH WORLDS (experiments/PREREGISTRATION_YF.md), protocol generator.
 
   python3 scripts/make_protocol_yf.py                   # candidates -> experiments/campaign_yf_candidates.json (+ the protocol if a selection exists)
-  python3 scripts/make_protocol_yf.py --select FILE     # FILE = design fire masks of the candidates -> experiments/campaign_yf_selection.json
+  python3 scripts/make_protocol_yf.py --select FILE...  # FILEs = design fire masks of the candidates (batches a and b) -> experiments/campaign_yf_selection.json
 
 Study Y re-ran the five steering worlds of X (not blind: the X outcomes shaped its predictions; its tighten-only miss is ONE world, XC05, three repeats).
 YF repeats Y with worlds nobody has seen: 48 candidates from the new seed `YF-2026`, the X selection rule on their design masks (front <= 20 px and a
@@ -24,28 +24,43 @@ from scripts import make_protocol_y as my  # noqa: E402
 
 SEED = 'YF-2026'
 N_CANDIDATES, N_FIRE, N_TWINS = 48, 6, 3
+N_CANDIDATES_B = 48            # Amendment 1 (before any YF trial and any model score): a second batch FC49-FC96, see PREREGISTRATION_YF.md
 ADVICE_DIR = 'experiments/advice_YF'
 CANDIDATES = ROOT / 'experiments/campaign_yf_candidates.json'
+CANDIDATES_B = ROOT / 'experiments/campaign_yf_candidates_b.json'
 SELECTION = ROOT / 'experiments/campaign_yf_selection.json'
 OUT = ROOT / 'experiments/campaign_yf_protocol.json'
 
 
-def candidates() -> list:
-    rng = random.Random(SEED + '-steer')
-    items = ['water', 'medicine'] * (N_CANDIDATES // 2)
+def _batch(stream: str, n: int, first: int) -> list:
+    rng = random.Random(SEED + stream)
+    items = ['water', 'medicine'] * (n // 2)
     rng.shuffle(items)
     out = []
     for i, item in enumerate(items):
-        w = mx.steer_world(rng, f'FC{i + 1:02d}', item, True)
+        w = mx.steer_world(rng, f'FC{first + i:02d}', item, True)
         w['instruction'] = POOL[item][rng.randrange(len(POOL[item]))]
         out.append(w)
     return out
 
 
-def candidates_protocol() -> dict:
-    return {'schema': 'rescuemind_study_yf_candidates', 'seed': SEED, 'rule': {
-        'eligible': f'front design mask <= {mx.HARD_MAX_FRONT_PX} px and L or R >= {mx.VISIBLE_PX} px', 'take': N_FIRE, 'order': 'id'},
-        'trials': [{'id': c['world'], 'world': c['world'], 'scene': 'nominal', 'world_spec': c['world_spec'], 'order': i + 1} for i, c in enumerate(candidates())]}
+def candidates_a() -> list:
+    return _batch('-steer', N_CANDIDATES, 1)                      # FC01-FC48 (the registered first batch; unchanged by Amendment 1)
+
+
+def candidates_b() -> list:
+    return _batch('-steer-b', N_CANDIDATES_B, N_CANDIDATES + 1)   # FC49-FC96 (Amendment 1: an independent stream of the same generator)
+
+
+def candidates() -> list:
+    return candidates_a() + candidates_b()
+
+
+def candidates_protocol(batch: str = 'a') -> dict:
+    cs = candidates_a() if batch == 'a' else candidates_b()
+    return {'schema': 'rescuemind_study_yf_candidates', 'seed': SEED, 'batch': batch, 'rule': {
+        'eligible': f'front design mask <= {mx.HARD_MAX_FRONT_PX} px and L or R >= {mx.VISIBLE_PX} px', 'take': N_FIRE, 'order': 'id (batch a, then batch b)'},
+        'trials': [{'id': c['world'], 'world': c['world'], 'scene': 'nominal', 'world_spec': c['world_spec'], 'order': int(c['world'][2:])} for c in cs]}
 
 
 def select(masks: list) -> dict:
@@ -58,7 +73,7 @@ def select(masks: list) -> dict:
         rows[w] = {'F': px[w], 'L': px[w + 'L'], 'R': px[w + 'R']}
         if px[w] <= mx.HARD_MAX_FRONT_PX and max(px[w + 'L'], px[w + 'R']) >= mx.VISIBLE_PX and len(sel) < N_FIRE:
             sel.append(w)
-    return {'rule': candidates_protocol()['rule'], 'selected': sel, 'n_eligible_in_candidates': sum(
+    return {'rule': candidates_protocol('a')['rule'], 'selected': sel, 'n_eligible_in_candidates': sum(
         r['F'] <= mx.HARD_MAX_FRONT_PX and max(r['L'], r['R']) >= mx.VISIBLE_PX for r in rows.values()), 'design_pixels': rows}
 
 
@@ -94,10 +109,14 @@ def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     force = '--force' in argv
     if '--select' in argv:
-        sel = select(json.loads(Path(argv[argv.index('--select') + 1]).read_text()))
+        files = argv[argv.index('--select') + 1:]
+        files = [f for f in files if not f.startswith('--')]
+        sel = select([m for f in files for m in json.loads(Path(f).read_text())])
         SELECTION.write_text(json.dumps(sel, ensure_ascii=False, indent=1) + '\n')
         print('selected', sel['selected'], 'eligible', sel['n_eligible_in_candidates'], 'of', len(sel['design_pixels']))
-    mx.write(candidates_protocol(), CANDIDATES, force)
+    if not CANDIDATES.is_file():                  # the registered first batch is never rewritten (Amendment 1 only adds batch b)
+        mx.write(candidates_protocol('a'), CANDIDATES, force)
+    mx.write(candidates_protocol('b'), CANDIDATES_B, force)
     p = build(json.loads(SELECTION.read_text()) if SELECTION.is_file() else None)
     if p['planned_n']:
         mx.write(p, OUT, force)

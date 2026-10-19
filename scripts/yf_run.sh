@@ -9,13 +9,15 @@ export PATH="$HOME/.local/bin:$PATH"
 RES=experiments/results
 CAND=experiments/campaign_yf_candidates.json
 MASKS=experiments/campaign_yf_candidates_design_fire_masks.json
+CANDB=experiments/campaign_yf_candidates_b.json
+MASKSB=experiments/campaign_yf_candidates_b_design_fire_masks.json
 SEL=experiments/campaign_yf_selection.json
 PROTO=experiments/campaign_yf_protocol.json
 IN_NEXT=(docker exec rm-next rescuemind-entrypoint)
 abort() { echo "YF_ABORT: $*" >&2; exit 1; }
 mkdir -p "$RES"
 [ -f worlds/assets/aws-wh/models/aws_robomaker_warehouse_WallB_01/model.sdf ] || abort "depot assets missing"
-for f in experiments/PREREGISTRATION_YF.md "$CAND" scripts/make_protocol_yf.py scripts/yf_analysis.py scripts/y_analysis.py; do
+for f in experiments/PREREGISTRATION_YF.md "$CAND" "$CANDB" scripts/make_protocol_yf.py scripts/yf_analysis.py scripts/y_analysis.py; do
   git ls-files --error-unmatch "$f" >/dev/null 2>&1 || abort "$f is not committed"
   git diff --quiet HEAD -- "$f" || abort "$f differs from the committed version"
 done
@@ -26,25 +28,29 @@ if [ ! -s "$MASKS" ]; then
   for _ in $(seq 1 600); do pgrep -f "scripts/run_campaign.py" >/dev/null || break; sleep 30; done
   "${IN_NEXT[@]}" python3 scripts/fire_mask_at_pose.py --protocol "$CAND" --design --design-sides 0.4 || abort "candidate masks"
 fi
-[ -s "$MASKS" ] || abort "candidate design masks missing"
-if ! git log --format=%H -n1 --grep='^study YF: selection and protocol' | grep -q .; then
-  python3 scripts/make_protocol_yf.py --select "$MASKS" || abort "selection"
+if [ ! -s "$MASKSB" ]; then
+  for _ in $(seq 1 600); do pgrep -f "scripts/run_campaign.py" >/dev/null || break; sleep 30; done
+  "${IN_NEXT[@]}" python3 scripts/fire_mask_at_pose.py --protocol "$CANDB" --design --design-sides 0.4 || abort "candidate masks (batch b)"
+fi
+[ -s "$MASKS" ] && [ -s "$MASKSB" ] || abort "candidate design masks missing"
+if ! git log --format=%H -n1 --grep='^study YF: selection and protocol (amendment 1)' | grep -q .; then
+  python3 scripts/make_protocol_yf.py --select "$MASKS" "$MASKSB" --force || abort "selection"
   [ -s "$PROTO" ] || abort "no protocol (no eligible candidate)"
-  git add "$MASKS" "$SEL" "$PROTO" experiments/advice_YF
-  git commit -q -m "study YF: selection and protocol (design masks of the candidates, no model score), before any YF trial
+  git add "$MASKS" "$MASKSB" "$CANDB" "$SEL" "$PROTO" experiments/advice_YF
+  git commit -q -m "study YF: selection and protocol (amendment 1: second candidate batch; design masks only, no model score), before any YF trial
 
-Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>" -- "$MASKS" "$SEL" "$PROTO" experiments/advice_YF && git push -q || abort "binding commit failed"
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>" -- "$MASKS" "$MASKSB" "$CANDB" "$SEL" "$PROTO" experiments/advice_YF && git push -q || abort "binding commit failed"
 fi
 echo "YF_BINDING_COMMIT_DONE"
 python3 scripts/make_protocol_yf.py >/dev/null && git diff --quiet HEAD -- "$PROTO" || abort "the protocol differs from its generator"
 
 # (b) external timestamp (hashes only) of the binding commit, wait for the Bitcoin attestation
-REG=$(git log --format=%H -n1 --grep='^study YF: selection and protocol')
+REG=$(git log --format=%H -n1 --grep='^study YF: selection and protocol (amendment 1')
 mkdir -p docs/timestamps
-STAMP=docs/timestamps/study_yf_registration.txt
+STAMP=docs/timestamps/study_yf_registration_a1.txt
 if [ ! -f "$STAMP.ots" ]; then
   { echo "# study YF binding commit and the sha256 of its registered files (hashes only are sent to OpenTimestamps)"; echo "commit $REG";
-    sha256sum experiments/PREREGISTRATION_YF.md "$PROTO" "$SEL" "$MASKS"; } > "$STAMP"
+    sha256sum experiments/PREREGISTRATION_YF.md "$PROTO" "$SEL" "$MASKS" "$MASKSB"; } > "$STAMP"
   ots stamp "$STAMP" >/dev/null 2>&1 || echo "YF_NOTE: ots stamp failed (no network?)" >&2
 fi
 if [ -z "${YF_NO_OTS_WAIT:-}" ]; then
