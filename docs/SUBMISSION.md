@@ -16,7 +16,7 @@
 <!-- VIDEO:START -->
 * **動画の4デモ**：①物資の取り違え → 別の拠点を探索して配達 ②出動をまたぐ記憶 → 直行 ③「確認不要」と言われても → 横から見て停止 ④倉庫でも：火を見つけて停止。
 * **倍速の明記**：走行8倍速・確認動作3倍速・AI判断の瞬間は等速（画面左上に常時表示。YouTube概要欄にも記載）。
-* **動画の長さと章立て**：約2分44秒（1〜3分の枠内）、章6個、評価の表1枚。章立ては `docs/video_chapters.json`（`scripts/make_demo_video.py` が出力）、概要欄は `scripts/make_youtube_description.py` が再生成。
+* **動画の長さと章立て**：約2分47秒（1〜3分の枠内）、章6個、評価の表1枚。章立ては `docs/video_chapters.json`（`scripts/make_demo_video.py` が出力）、概要欄は `scripts/make_youtube_description.py` が再生成。
 <!-- VIDEO:END -->
 * **主な数値**（事前登録した評価。提出版 v3.6 の開発時点の数値で、V・W・I-20（v3.7）など後の結果は README と論文。`experiments/results/` の結果ファイルから生成）：
   * 評価E（ランダムな世界の閉ループ60試行）：期待どおり 60/60、誤配達 0件
@@ -33,7 +33,7 @@
 | 要件（課題の出典） | 対応する成果物・場所 | 状態 |
 |---|---|---|
 | 動画：ロボットがタスクを実行する様子（§1・§2） | 実レンダリングの Gazebo 映像、実走デモ4本（`outputs/video/PAI最終課題_tetsutetsu.mp4`） | 済 |
-| 動画の長さ 1〜3分 | <!--FACT:video-->164.1秒（2分44秒、`ffprobe` による実測）。1920×1080、H264/AAC。`docs/video_chapters.json` の終端は 164.1秒（実測と一致）<!--/FACT:video--> | 済 |
+| 動画の長さ 1〜3分 | <!--FACT:video-->166.6秒（2分47秒、`ffprobe` による実測）。1920×1080、H264/AAC。`docs/video_chapters.json` の終端は 166.6秒（実測と一致）<!--/FACT:video--> | 済 |
 | 倍速は明記（動画内または概要欄） | 動画内の左上に常時表示（走行8倍速・確認動作3倍速・AI判断は等速）＋ `docs/YOUTUBE_DESCRIPTION.md` の概要欄文面 | 済（概要欄への貼付は下の YouTube 投稿時） |
 | 動画形式 MP4 | 上記 mp4 | 済 |
 | 動画タイトル `PAI最終課題_omnicampusアカウント名` | `PAI最終課題_tetsutetsu`（`YOUTUBE_DESCRIPTION.md`） | 済（YouTube 投稿時に入力） |
