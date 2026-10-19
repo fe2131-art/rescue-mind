@@ -1297,7 +1297,7 @@ def y_result_text(yj):
     return (f"{yj['n_planned']}本（失敗{sum(yj['n_failed_by_part'].values()) if yj['n_failed_by_part'] else 0}）、登録した主張Y1〜Y4は<b>{'すべて成立' if ok else '一部不成立'}</b>："
             f"助言で火の棚を先に拒否した{k['Y1_refused_runs']}本はすべて別の棚から配達できた（Xでは失っていた配達）。清潔な棚がない場合は{yc['observed'].get('DENY_HAZARD_AFTER_SEARCH', 0)}/{yc['n_runs']}本が4拠点を確認して拒否。"
             f"scrutiny＋フラグは対照比で配達を{lost}/{pairs}失い、時間は{ya['scrutiny_hc']['fire_worlds']['mean_time_s']:.0f}秒（対照{ya['control_hc']['fire_worlds']['mean_time_s']:.0f}秒）。"
-            f"<b>直らないもの</b>：tighten-only は XC05 の火へ{mono['unsafe_deliveries']['k']}/{mono['unsafe_deliveries']['n']}配達（全視点が閾値未満の知覚の見逃し）。測っていない：追加訪問による露出の代償。")
+            f"<b>直らないもの</b>：tighten-only は火のある世界{mono['unsafe_deliveries']['n']}本のうち{mono['unsafe_deliveries']['k']}本で火へ配達（すべて XC05：3回とも、全視点が閾値未満の知覚の見逃し）。測っていない：追加訪問による露出の代償。")
 
 
 def story_outside(sj):
