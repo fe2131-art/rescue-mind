@@ -562,6 +562,15 @@ def build_variant(src: Path, *, lighting: str = 'default', distractor_at: str | 
             ensure_particle_plugin(world)
             fx, fy = hazard_xy(hazard_at, *geom[:2], stations=stations)
             world.append(particle_smoke(f'hazard_smoke_{hazard_at}', fx, fy, z=0.9 * (geom[2] if len(geom) > 2 else 1.0)))
+    if depot and depot.get('second_hazard') and hazard_at:
+        # I-42 (study YE, the exposure price of --hazard-continue): a second fire at another station, {'at': station, 'geom': [back, lateral, scale]};
+        # its own model name, so the mask labels and the unsafe-delivery audit can tell the two fires apart
+        sh = depot['second_hazard']
+        if sh['at'] == hazard_at:
+            raise ValueError('second_hazard must be at another station than hazard_at')
+        sg = tuple(sh['geom'])
+        world.append(fire_and_smoke(f"hazard_fire_{sh['at']}", *hazard_xy(sh['at'], *sg[:2], stations=stations),
+                                    mask=hazard_mask, scale=sg[2] if len(sg) > 2 else 1.0))
     if depot and depot.get('pallets'):
         # I-21 polish (study XD): wooden pallets with stretch-wrapped cartons; visual only, same collision footprint
         from .depot import dress_platforms
