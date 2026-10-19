@@ -765,5 +765,13 @@
   design masks of the second fire alone, the first 12 with >= 614 px from a front or side pose, never padded; arms `v36` and `hc`; 24 runs);
   `scripts/ye_analysis.py` (YE1 v36 stops, YE2 hc mechanics, YE3 the price with an exact upper bound); `scripts/ye_run.sh` (masks, binding commit, pilot,
   registration commit + OpenTimestamps, campaign); 14 tests (`tests/test_study_ye.py`).
-- **Before/After.** Before: the price of the flag was a bound from XD, not a closed-loop measurement. After: pending (YE registered, running).
+- **Before/After.** Before: the price of the flag was a bound from XD, not a closed-loop measurement. After: pending (YE registered; YF below registered, not yet run).
+- **Study YF (Y on fresh worlds, same entry).** Motivation: Y reused X's five worlds (not blind) and its tighten-only miss is one world (XC05, three repeats). Design: 48 new
+  candidates (seed `YF-2026`), the X selection rule on the design masks (front <= 20 px and a side pose >= 614 px, no model score), 6 fire worlds, 3 twins, three arms
+  with the flag, 27 runs, analysis = Y's (`scripts/yf_analysis.py` points `y_analysis.py` at the YF files). Predictions: P1 monotone_hc delivers into a fire in at least
+  one world (P(none of 6 | 1/3) = 8.8%), P2 scrutiny_hc into none, P3 scrutiny_hc loses nothing against the control. **Amendment 1 (before any trial and any model score):** only
+  3 of the 48 candidates were eligible (the first binding commit `2d1bac9`, stamped), so a second batch of 48 (`FC49-FC96`, an independent stream of the same generator;
+  batch 1 byte-identical, tested) was added and the first 6 eligible over both batches taken (FC04, FC23, FC27, FC52, FC60, FC81; 7 of 96 eligible); the new binding commit is
+  `d2050be`, with its own OpenTimestamps stamp; the first stamp stays as the record. Before/After: pending.
+
 
