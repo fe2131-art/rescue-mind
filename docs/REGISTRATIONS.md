@@ -40,7 +40,7 @@ Verify any row: `git log 587f033^1 --first-parent --format='%h %cI' --diff-filte
 | IF | `587f033` 2026-10-18T09:08 | `38e510bfab955f30` | `26e2347` 2026-10-18T18:02 | `38e510bfab955f30` | yes | `051e530` 2026-10-17T23:59 | `38e510bfab955f30` (= bound) |
 | IF2 | `878cbc7` 2026-10-18T18:04 | `5c14671d2358568a` | `c6acdcd` 2026-10-19T05:17 | `5c14671d2358568a` | yes | `878cbc7` 2026-10-18T18:04 | `5c14671d2358568a` (= bound) |
 | Y | `9c0b5e8` 2026-10-19T13:19 | `0bfcff7f9ea4aa0e` | `7dd3bc3` 2026-10-19T18:18 | `0bfcff7f9ea4aa0e` | yes | `9c0b5e8` 2026-10-19T13:19 | `0bfcff7f9ea4aa0e` (= bound) |
-| YE | `34b1384` 2026-10-19T18:48 | `507eea4b73679733` | -- | -- | no results yet | `34b1384` 2026-10-19T18:48 | `507eea4b73679733` (= bound) |
+| YE | `34b1384` 2026-10-19T18:48 | `507eea4b73679733` | `dd7738e` 2026-10-19T22:26 | `f4d28c0b95f745a9` | yes | `dd7738e` 2026-10-19T22:26 | `f4d28c0b95f745a9` |
 | YF | `cd84b3c` 2026-10-19T19:36 | `e829ed8b3ae5dc1e` | -- | -- | no results yet | `11d7599` 2026-10-19T20:12 | `49a8ad3d8cdd9eaf` |
 
 ## Amendments
