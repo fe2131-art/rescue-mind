@@ -187,7 +187,7 @@ def fix_card(seconds):
 _WARNED = set()
 EVIDENCE_ROWS_MAX = 9        # the table card holds 9 rows of 66 px (8 rows: 74 px) plus one note line (make_demo_video.table_card)
 EVIDENCE_CELL_PX = 1130      # width left for the result column at 38 px (1806 - 114 - 560)
-EVIDENCE_S = 17              # v5: 12 s (EVAL 9), 17 s with the study X row; the narration (<= 100 characters at 6.4 characters/s) keeps it there
+EVIDENCE_S = 20              # v5: 12 s (EVAL 9), 20 s with the study X row; the narration (<= 120 characters at 6.4 characters/s) keeps it there
 
 
 def cell_px(text, size=38):
@@ -256,8 +256,8 @@ def evidence_card(seconds):
         say.append('助言の評価は実行中。')
     xf = advice_numbers.x_facts()
     if xf:
-        rows.append([f"閉ループ X（倉庫{xf['n']}試行）", [f"火へ配達 {xf['a_unsafe']}・記憶 −{xf['saving']:.2f}拠点・誘導 {xf['u_mono']}", G if xf['u_mono'].startswith('0/') else W]])
-        say.append(f"倉庫でも火への配達は{xf['a_unsafe'].split('/')[0]}件。誘導の助言では{xf['fire']}世界中{xf['u_mono'].split('/')[0]}つで配達。")
+        rows.append([f"閉ループ X（倉庫{xf['n']}試行）", [f"火の4種で配達 {xf['a_unsafe']}・誘導されて火へ {xf['u_mono']}", G if xf['u_mono'].startswith('0/') else W]])
+        say.append(f"倉庫の火の4種では、火への配達は{xf['a_unsafe'].split('/')[0]}件。ただ助言で火へ誘導されると、{xf['fire']}世界中{xf['u_mono'].split('/')[0]}つで火に配達しました。")
     j = jload(RES / 'j_summary.json')
     if j:
         c = j['per_config']
