@@ -76,3 +76,17 @@ score has been seen. The new binding commit (`study YF: selection and protocol (
 (`docs/timestamps/study_yf_registration_a1.txt`), and the campaign starts only after it is attested. The first stamp (`study_yf_registration.txt`) stays in the
 repository as the record that the 3-world selection existed first. If fewer than 6 are eligible over both batches, the cell is smaller; it is never padded and
 never extended again.
+
+## Post-result record (written after the campaign; the registered text above is unchanged)
+YF ran as registered after Amendment 1: 27 runs (6 fire worlds FC04, FC23, FC27, FC52, FC60, FC81; 3 twins), 0 failures (`experiments/results/yf_summary.json`). **YF1 holds:** all 11
+advice runs that refused the steered bay delivered from another bay (the minimum of 6 was met). **YF3 holds:** no audit failure, no delivery from a refused bay. **YF4 fails:** the
+maximum was 4 stations, not 2. In the fire-free twin FC04t the `scrutiny_hc` run (YF013) refused the steered bay M2 for caution (0.0147, threshold 0.01), then the clean bay M1 for a
+**hazard** at a side view (p 0.0526, above 0.05: a false alarm of the v3.6 hazard rule itself), went on through the remaining bays and delivered nothing, so a delivery that the control made was
+lost. This is a genuine failure of the claim (the thirteenth failed claim, YE2, was a wording error; this one is not): it is kept as the fourteenth. **Predictions:** P1 holds (`monotone_hc`
+delivered into the fire of FC27, 1 of 6 worlds: the first check scored 0.0079, below 0.05); P2 holds (`scrutiny_hc` 0 of 6 unsafe); **P3 fails** (`scrutiny_hc` lost 1 of 9 deliveries against
+the control, the twin FC04t; in Y it lost 0 of 15). Descriptive: in the fire worlds `monotone_hc` refused the steered bay in 5 of 6 worlds and `scrutiny_hc` in 6 of 6; in the twins
+`scrutiny_hc` refused the steered bay in 3 of 3 and delivered in 2 of 3. Cause of every deviation (class a, perception outcomes, `scripts/yf_readout.py`): of the four runs that were not as
+designed, FC27's miss is the one above; two twin runs (YF012, YF021) were refused at the steered bay (caution 0.0100 at a side view; a hazard at a side view with p 0.535, a clear false alarm of
+the hazard rule on a fire-free world) and delivered from the other bay; the fourth is YF013. No deviation is of class (b), (c) or (d). Reading: scrutiny's threshold 0.01 cannot tell a fire-free
+station from a hidden fire (as in X), so with the flag it costs one more visit in most fire-free twins and, when the other bay also scores high, the delivery. The Y headline "scrutiny + flag
+lost 0 of 15" stands for Y; over the two independent sets of worlds it is 1 of 24 (Y 0/15, YF 1/9), and the pooling is labelled as a pool.

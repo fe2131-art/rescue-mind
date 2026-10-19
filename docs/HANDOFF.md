@@ -45,7 +45,7 @@
 * **IF を i38 で再実行（探索的、10/19 05:29）**：すり替え 14/36（Wilson 25〜55%）、i35 の 12/36 と同じ結論（i38 でも IF1 は閉じない）。言い直し 12/12。補遺に1文。
 * **X（倉庫の閉ループ、59試行、10/19 06:26〜08:51・I-41）**：登録の拘束コミット 238ea9f（初回の run ディレクトリは3秒後）。草案は80試行、登録した操舵の選択が条件を満たす世界だけを入れる（水増ししない）ため 24候補中3世界、X-s は 15 試行になった。行動16/16が設計どおり、火への配達 0/12。記憶は4拠点で 2.14 拠点減（7組・3系列、区間 [1.00, 2.67]、設計 1.75、符号反転 p=0.0078 は7組の最小値）、誤物資 0、K1〜K3 成立。X-m の失敗2件（X002 オドメトリのずれ、X012 到達せず。いずれも航行・基盤の原因）は数に残した。操舵（記述的）：助言なし 0/3、tighten-only 1/3（XC05、全視点 0.010〜0.014）、scrutiny 0/3 だが火のない双子2つも拒否（しきい値 0.01 が火のない映像 0.004〜0.020 の範囲内なので検出の証拠ではない。`scripts/x_readout.py`、FINDINGS #37）。S4 は不成立（登録で「主張しない」）。不成立の主張の数は12のまま。
 * **IF2（聞き返し、10/19 05:17 完了・I-38）**：規則あり 0/36（Wilson 上限 9.6%）・通常 12/12 で IF2-1・IF2-2 とも成立（すり替えは両方の物資を名指すので語彙の規則で構造上そうなる。代償：言い直し・否定 24/24 を聞き返す）。規則なしは 15/36。I-27 は v3.7 の推奨に入れる（既定はオフのまま）。
-* 不成立の主張は13件（T1・F・T2・J・V4・W-b・IF1・S-perm・XD-eps・XD-rel・XD-cal・Q・YE2）。YE2 は登録文言の誤り（拒否後も残りの拠点まで探索が続く）で、機構は想定どおり。
+* 不成立の主張は14件（T1・F・T2・J・V4・W-b・IF1・S-perm・XD-eps・XD-rel・XD-cal・Q・YE2・YF4）。YF4 は本物の失敗（scrutiny の閾値は火のない拠点を拒否しうる）。YE2 は登録文言の誤り（拒否後も残りの拠点まで探索が続く）で、機構は想定どおり。
 * 第三者採点：第10回 35.5/40。模擬査読 R9 は完了し（`docs/paper/REVIEW_NOTES_R9.md`、採択見込み RA-L 約50%・ICRA 約33%）、文章の指摘は I-28 で反映済み。残り：A のオフライン224文の採点（連鎖の最後）、停止後も探索を続ける腕（設計の選択で、実装は大きいので今回は見送り）、XD の ε 上限（15% 以下か）が分かれ目。
 
 * **動画の最終版（10/19 09:55 完成・164.1秒・main の `outputs/video/PAI最終課題_tetsutetsu.mp4`、旧版は `_v5_backup.mp4`）**：倉庫の場面は撮影した火の run（d3d5b23960a74865、正面で見つかった世界なので「横から」とは言わない文言 `front_fire`）。証拠カードに X の行（9行・17秒）。再作成は `make_video_plan.py --recover b4fcd9d164444db7 --memory b93040decbf04ca4 --advice 076f3cb047064fae --depot d3d5b23960a74865`（run は main の `outputs/runs` にある。076f… は i21 の outputs からコピーした）→ rm-dev で `make_demo_video.py --plan docs/video_plan.json --out … --narrate 2`。
@@ -113,7 +113,7 @@
 * **メインの自分も改善作業をする**（サブエージェント任せにしない）。結果を分析し、最大の弱点に絞って、事前登録した評価で確かめる。だらだら改善を続けない。ユーザーが「ストップ」と言うまで自律的に改善を続ける。
 * リポジトリの**公開設定（private → public）は絶対に変更しない**。公開と YouTube 投稿は**ユーザーが行う**。push は可。
 * ユーザーへの質問・説明は**日本語・簡潔**に。omnicampus のアカウント名は `tetsutetsu`。
-* **事前登録してから走らせる。失敗した主張も消さずに載せる**（論文で不成立の主張は13件：T1・F・T2・J・V4・W-b・IF1・S-perm・XD-eps・XD-rel・XD-cal・Q・YE2。件数と一覧は `scripts/check_consistency.py` が `advice_numbers.failed_claims()` と突き合わせる）。改善は `docs/IMPROVEMENT_LOG.md` に「動機→仮説→変更→計測(Before/After)→判断」で書き、**コミットの先頭は `I-xx`**。コミットは必ず push する。
+* **事前登録してから走らせる。失敗した主張も消さずに載せる**（論文で不成立の主張は14件：T1・F・T2・J・V4・W-b・IF1・S-perm・XD-eps・XD-rel・XD-cal・Q・YE2・YF4。件数と一覧は `scripts/check_consistency.py` が `advice_numbers.failed_claims()` と突き合わせる）。改善は `docs/IMPROVEMENT_LOG.md` に「動機→仮説→変更→計測(Before/After)→判断」で書き、**コミットの先頭は `I-xx`**。コミットは必ず push する。
 * **sudo は使わない**（docker グループ権限だけで全て動く）。必要になったらユーザーに依頼する。
 * **`rm` は使わない**（2026-10-18 ユーザー指示。`rm -rf`・`git clean`・`unlink`・`find -delete` も同じ）。消したいものは `~/rescue-mind-trash/<日時>/` に相対パスのまま移し、移したものをユーザーに伝える。削除はユーザーが確認してから行う。サブエージェントへの指示にも必ず書く。
 * **個人情報を入れない**（ホームのパス、スクラッチパッドのパスは `tests/test_no_personal_paths.py` が落とす。文書では `<scratchpad>`、`<user>` と書く）。
@@ -163,7 +163,7 @@
 | Q（Wikimedia Commons 405 枚） | 実写の物資確認 | 登録済み・**未実行**（GPU 約 40 分。W の後の連鎖が .gitignore の衝突で止まり、一度も走っていない） |
 
 * 登録済み 7 本（A・B・IF・Q・S・X・XD）は統合マージ 09:08 で main に載り、A の予備走行が 09:14 に始まった時点で、IF・S・B・XD・X・Q は試行も推論もしていない。これらの登録ファイルには「DRAFT」の行が残るが、拘束力のある版は `docs/REGISTRATIONS.md` の表の版（ファイルは変えない。変更は日付とコミットつきの Amendment で追記する）。
-* テスト関数は 1433 件（`python3 scripts/count_tests.py` の静的な数え方）。FINDINGS は 38 件。
+* テスト関数は 1499 件（`python3 scripts/count_tests.py` の静的な数え方）。FINDINGS は 39 件。
 
 ### D. GPU の順番と、その動かし方
 
@@ -307,7 +307,7 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 ## 7. 主要ファイルの地図
 
 * 現在地・履歴：このファイル。旧版の全文：`docs/HANDOFF_ARCHIVE.md`。
-* `docs/ARCHITECTURE.md`（全体フロー図）、`docs/DESIGN_DECISIONS.md`（D1–D15）、`docs/IMPROVEMENT_LOG.md`（I-01–I-24）、`docs/FINDINGS.md`（実行で見つけた38件）、`docs/REVIEW_AND_PLAN.md`（審査基準別レビュー）。
+* `docs/ARCHITECTURE.md`（全体フロー図）、`docs/DESIGN_DECISIONS.md`（D1–D15）、`docs/IMPROVEMENT_LOG.md`（I-01–I-24）、`docs/FINDINGS.md`（実行で見つけた39件）、`docs/REVIEW_AND_PLAN.md`（審査基準別レビュー）。
 * `docs/REGISTRATIONS.md`（事前登録の台帳：main に載った最初のコミットと sha256）、`docs/REPRODUCE.md`（クリーンな Ubuntu＋NVIDIA 環境での 3 段階の再現手順）、`docs/REPRODUCIBILITY.md`。
 * `docs/evaluations/`（第三者採点、第1〜8回と固定の指示文）、`docs/paper/`（論文・補足・`REVIEW_NOTES*.md`・`LITERATURE_*.md`・`PROOF_REVIEW.md`）、`docs/report/`（説明資料）、`docs/design/`（I-19〜I-24 の設計、動画 v5 の計画）。
 * `experiments/`（事前登録 `PREREGISTRATION_*.md`・プロトコル・開発セット・台帳 `results/campaign_*_ledger.jsonl`・要約 `results/*_summary.json`）。

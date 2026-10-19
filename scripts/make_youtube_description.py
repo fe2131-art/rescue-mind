@@ -289,7 +289,7 @@ def line_y(res):
             t += f"。代償は露出（評価YE）：2つ目の火が隠れていると、フラグ付きで火へ配達 {h['unsafe_deliveries']['k']}/{h['unsafe_deliveries']['n']}（フラグなし 0/{yej['arms']['v36']['n']}）"
         if yfj:
             yl = yfj['Y-s']['lost_vs_control']['scrutiny_hc']
-            t += f"。新しい世界での再現（評価YF、{yfj['n_planned']}試行）：失う配達 {yl['fire_worlds']['lost'] + yl['clean_worlds']['lost']}/{yl['fire_worlds']['pairs'] + yl['clean_worlds']['pairs']}"
+            t += (f"。新しい世界での再現（評価YF、{yfj['n_planned']}試行）：可用性は再現したが、scrutiny は火のない現場で配達を失った {yl['fire_worlds']['lost'] + yl['clean_worlds']['lost']}/{yl['fire_worlds']['pairs'] + yl['clean_worlds']['pairs']}（主張YF4は不成立）")
         return t
     except (TypeError, KeyError):
         return None

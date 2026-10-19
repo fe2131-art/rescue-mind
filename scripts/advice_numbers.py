@@ -877,6 +877,10 @@ def failed_claims():
     if ye is not None and not ye['criteria']['YE2_hc_goes_on_and_decides']:
         out.append(dict(key='YE2', tex='YE2 (two stations visited: the registered wording)', en='YE2 (the registered wording "two stations visited")',
                         ja='YE2（登録した文言「2拠点を訪れる」。拒否後の探索は残りの拠点まで続く）'))
+    yf = _load('yf_summary.json')      # registered claim YF4 (= Y4) of PREREGISTRATION_YF: at most 2 stations per run
+    if yf is not None and not yf['Y-s']['criteria']['Y4_holds']:
+        out.append(dict(key='YF4', tex='YF4 (at most two stations per run)', en='YF4 (at most two stations per run, on fresh worlds)',
+                        ja='YF4（1回の試行で訪れる拠点は2つまで。新しい世界で、双子の1本が4拠点を訪れた）'))
     return out
 
 

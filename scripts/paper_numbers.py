@@ -1364,6 +1364,15 @@ def main():
         m['YFPredOne'] = 'holds' if yfa_['monotone_hc']['fire_worlds']['unsafe_deliveries']['k'] >= 1 else 'fails'
         m['YFPredTwo'] = 'holds' if yfa_['scrutiny_hc']['fire_worlds']['unsafe_deliveries']['k'] == 0 else 'fails'
         m['YFPredThree'] = 'holds' if m.lookup('YFLostScr') == 0 else 'fails'
+        m['YFMaxVisits'] = ykf_['Y4_max_visits']
+        m['YFFourHolds'] = 'holds' if ykf_['Y4_holds'] else 'fails'
+        m['YPoolLost'] = m.lookup('YSLostScr') + m.lookup('YFLostScr') if isinstance(m.lookup('YSLostScr'), int) and isinstance(m.lookup('YFLostScr'), int) else int(m.lookup('YSLostScr')) + int(m.lookup('YFLostScr'))
+        m['YPoolPairs'] = int(m.lookup('YSPairs')) + int(m.lookup('YFPairs'))
+        yfrf_ = RES / 'yf_readout.json'
+        if yfrf_.is_file():
+            yfr_ = json.loads(yfrf_.read_text())['rows']
+            miss_f_ = [r_ for r_ in yfr_ if r_['unsafe_delivery']]
+            m['YFReadMiss'] = f"{min(r_['last_check_hazard_prob'] for r_ in miss_f_):.4f}" if miss_f_ else 'none'
         m['StatYF'] = f"availability on fresh worlds: {m.lookup('YFClaim')}"
     # ---- submission snapshot: the claim column of a study without results says so (the other pending studies have no analysis macro yet)
     PEND = advice_numbers.snapshot_pending() if SNAPSHOT else set()
