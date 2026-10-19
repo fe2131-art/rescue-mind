@@ -106,6 +106,20 @@ class FakeDepotRuns(unittest.TestCase):
         self.assertEqual(mvp.depot_camera('fire0000000000001'), 'worlds/film/x.sdf')
         self.assertEqual(mvp.depot_camera('fire0000000000001', 'a.sdf'), 'a.sdf')
 
+    def test_front_fire_wording_claims_no_side_view(self):
+        # a depot run whose fire the FRONT view already caught (the film's runs): the narration and captions must not say that a side view found it
+        real = mvp.depot_kind
+        mvp.depot_kind = lambda rid: 'front_fire'
+        try:
+            title, narr, caps = mvp.depot_texts('x')
+        finally:
+            mvp.depot_kind = real
+        self.assertIn('火', title)
+        self.assertNotIn('peek', narr)
+        self.assertNotIn('横', ''.join(narr.values()))
+        self.assertNotIn('peek', caps)
+        self.assertNotIn('search', narr)
+
     def test_storyboard_accepts_a_depot_run_and_estimates_its_length(self):
         a = Namespace(deliver=None, recover='search00000000001', empty=None, fire=None, hidden_fire=None, memory=None, advice=None,
                       depot='fire0000000000001', depot_camera=None, summary_card=True, repo_url='x')
