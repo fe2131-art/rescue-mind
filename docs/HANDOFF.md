@@ -38,6 +38,9 @@
 * 不成立の主張は12件（T1・F・T2・J・V4・W-b・IF1・S-perm・XD-eps・XD-rel・XD-cal・Q）。
 * 第三者採点：第10回 35.5/40。模擬査読 R9 は完了し（`docs/paper/REVIEW_NOTES_R9.md`、採択見込み RA-L 約50%・ICRA 約33%）、文章の指摘は I-28 で反映済み。残り：A のオフライン224文の採点（連鎖の最後）、停止後も探索を続ける腕（設計の選択で、実装は大きいので今回は見送り）、XD の ε 上限（15% 以下か）が分かれ目。
 
+* **動画の最終版（10/19 09:55 完成・164.1秒・main の `outputs/video/PAI最終課題_tetsutetsu.mp4`、旧版は `_v5_backup.mp4`）**：倉庫の場面は撮影した火の run（d3d5b23960a74865、正面で見つかった世界なので「横から」とは言わない文言 `front_fire`）。証拠カードに X の行（9行・17秒）。再作成は `make_video_plan.py --recover b4fcd9d164444db7 --memory b93040decbf04ca4 --advice 076f3cb047064fae --depot d3d5b23960a74865`（run は main の `outputs/runs` にある。076f… は i21 の outputs からコピーした）→ rm-dev で `make_demo_video.py --plan docs/video_plan.json --out … --narrate 2`。
+* **連鎖は全部完了（X は 08:51）。次の候補**：(1) 拒否のあとも探索を続ける腕（X-s の「助言は配達を2件失わせた」を直す設計。登録が先、まだ登録していない）、(2) 最終凍結（i21 を main にマージ → `make paper FINAL=1`）、(3) 採点と提出手順の確認。
+
 **GPU の自動の連鎖**（scratchpad、nohup、通知なし。ログは scratchpad の *.log）
 1. `queue_chain.sh`（`queue.log`）：S（完了・反映済み I-29）→ B（完了・反映済み I-30）→ XD（完了 04:21・反映済み I-32）→ X（**04:41 に予備走行で中止**、I-34、Amendment 1 を main に commit 済み。やり直しは手順 7）→ Q（完了 04:54・反映済み I-36）→ `QUEUE_DONE`
 2. `after_queue.sh`：XD のステージ r（実写 258 枚）
@@ -150,7 +153,7 @@
 | Q（Wikimedia Commons 405 枚） | 実写の物資確認 | 登録済み・**未実行**（GPU 約 40 分。W の後の連鎖が .gitignore の衝突で止まり、一度も走っていない） |
 
 * 登録済み 7 本（A・B・IF・Q・S・X・XD）は統合マージ 09:08 で main に載り、A の予備走行が 09:14 に始まった時点で、IF・S・B・XD・X・Q は試行も推論もしていない。これらの登録ファイルには「DRAFT」の行が残るが、拘束力のある版は `docs/REGISTRATIONS.md` の表の版（ファイルは変えない。変更は日付とコミットつきの Amendment で追記する）。
-* テスト関数は 1432 件（`python3 scripts/count_tests.py` の静的な数え方）。FINDINGS は 37 件。
+* テスト関数は 1433 件（`python3 scripts/count_tests.py` の静的な数え方）。FINDINGS は 37 件。
 
 ### D. GPU の順番と、その動かし方
 
