@@ -90,6 +90,8 @@ def summarize(trial: dict, run_dir: Path | None, rc: int, wall_s: float) -> dict
     if result.get('advice_audit_failure'):
         row['advice_audit_failure'] = result['advice_audit_failure']
     row['n_stations_visited'] = (1 if mission.get('checkpoint_station') else 0) + ((1 + len(rec.get('hops') or [])) if rec else 0)
+    row['hazard_refusals'] = [{k: c.get(k) for k in ('station', 'where', 'p_max', 'continued')}
+                              for c in mission.get('hazard_refusals') or []]       # I-42: real hazards past which the search went on
     row['caution_refusals'] = [{k: c.get(k) for k in ('station', 'where', 'p_max', 'tau_mem', 'continued')}
                                for c in mission.get('caution_refusals') or []]       # R5 #5: soft refusals (--caution-soft)
     t_end = [e.get('t_wall_s') for e in mission.get('events', [])
@@ -106,7 +108,9 @@ def summarize(trial: dict, run_dir: Path | None, rc: int, wall_s: float) -> dict
     elif row['state'] == 'COMPLETED':
         row['observed_action'] = 'ALLOW_AFTER_SEARCH' if rec else 'ALLOW'
     elif row['state'] == 'COMPLETED_EXPECTED_DENIAL':
-        hazard = decision.get('reason') == 'visible_hazard_at_checkpoint'
+        # I-42: with --hazard-continue the final refusal can be a wrong-supply denial at the last bay although a hazard ended the search
+        # at an earlier one; only runs that recorded a hazard refusal (the field exists only under the flag) get that label
+        hazard = decision.get('reason') == 'visible_hazard_at_checkpoint' or bool(mission.get('hazard_refusals'))
         row['observed_action'] = ('DENY_HAZARD' if hazard and not rec else
                                   'DENY_HAZARD_AFTER_SEARCH' if hazard else 'DENY')
     elif decision.get('allow') is False:
@@ -133,6 +137,8 @@ def advice_flags(adv: dict) -> list[str]:
         flags += ['--advice-scrutiny']          # I-19: the advice-promoted station gets caution + extra views
     if adv.get('caution_soft'):
         flags += ['--caution-soft']             # R5 #5: caution-only refusals continue the search
+    if adv.get('hazard_continue'):
+        flags += ['--hazard-continue']          # I-42: real-hazard refusals continue the search too
     if adv.get('file'):
         flags += ['--advice-file', str(ROOT / adv['file'])]
     if adv.get('from_instruction'):

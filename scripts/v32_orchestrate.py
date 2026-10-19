@@ -88,7 +88,7 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
                hazard_prompt: str = 'h35', jev_local: str = 'off', jev_hazard_threshold: float = .35, jev_schema: str = 'jev',
                look_around: float = 0.0, memory_file: str | None = None, memory_mode: str = 'off', adaptive_views: float = 0.0,
                advice_file: str | None = None, advice_mode: str = 'off', advice_from_instruction: bool = False,
-               caution_soft: bool = False, advice_scrutiny: bool = False, advice_credit: str | None = None,
+               caution_soft: bool = False, hazard_continue: bool = False, advice_scrutiny: bool = False, advice_credit: str | None = None,
                delivery_interlock: bool = False, interlock_key: str | None = None,
                config_path: Path | None = None, centers_path: Path | None = None,
                site_config: str | None = None) -> dict:
@@ -122,6 +122,8 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
             cmd += ['--advice-from-instruction']
     if caution_soft:
         cmd += ['--caution-soft']                            # R5 #5: caution-only refusals continue the search
+    if hazard_continue:
+        cmd += ['--hazard-continue']                         # I-42: real-hazard refusals continue the search too
     if advice_scrutiny:
         cmd += ['--advice-scrutiny']                         # I-19: advice-promoted station gets caution + extra views
     if advice_credit:
@@ -277,7 +279,8 @@ def caution_refused(log_dir: Path) -> bool:
         m = json.loads((log_dir/'mission.json').read_text(encoding='utf8'))
     except (OSError, ValueError):
         return False
-    return bool(m.get('caution_soft')) and bool(m.get('caution_refusals'))
+    return ((bool(m.get('caution_soft')) and bool(m.get('caution_refusals')))
+            or (bool(m.get('hazard_continue')) and bool(m.get('hazard_refusals'))))      # I-42: a hazard-refusal search that ran out
 
 
 def memory_trusted_audit(outcome: dict, log_dir: Path, run_id: str, mission: dict, sup) -> None:
@@ -347,6 +350,8 @@ def advice_audit(log_dir: Path) -> dict | None:
         ev['credit'] = audit_credit(plan)          # I-24: every item received was acted on or throttled, once
     from rescuemind.caution_soft import audit_caution_refusals
     ev['caution'] = audit_caution_refusals(m)
+    from rescuemind.hazard_continue import audit_hazard_refusals
+    ev['hazard'] = audit_hazard_refusals(m)
     if ev.get('mode') == 'monotone':
         if (m.get('checkpoint') or {}).get('trusted_by') == 'advice' or any(
                 e.get('stage') in ('memory_denial', 'checkpoint_skipped_by_memory') and e.get('by') == 'advice'
@@ -415,6 +420,9 @@ def main(argv=None):
     p.add_argument('--caution-soft', action='store_true',
                    help='R5 #5: a refusal caused ONLY by memory / advice caution (tau_mem <= p(hazard) < tau_h) does not stop the '
                         'mission: no delivery from that station, search the next candidate (default off: v3.6)')
+    p.add_argument('--hazard-continue', action='store_true',
+                   help='I-42: a REAL hazard refusal (standard rule, valid scores) does not stop the mission either: no delivery from '
+                        'that station, search the next candidate (default off: v3.6 stops at the first hazard)')
     p.add_argument('--advice-scrutiny', action='store_true',
                    help='I-19: the station that advice moved to the front gets caution (tau_h = caution threshold) and the I-20 '
                         'extra views regardless of suspicion (monotone mode only; can only tighten)')
@@ -510,7 +518,7 @@ def main(argv=None):
                  memory_file=args.memory_file, memory_mode=args.memory_mode,
                  advice_file=args.advice_file, advice_mode=args.advice_mode,
                  advice_from_instruction=args.advice_from_instruction,
-                 caution_soft=args.caution_soft, advice_scrutiny=args.advice_scrutiny,
+                 caution_soft=args.caution_soft, hazard_continue=args.hazard_continue, advice_scrutiny=args.advice_scrutiny,
                  advice_credit=args.advice_credit,
                  control_qos='best_effort' if args.dds_mode == 'best_effort' else 'reliable')
     if args.dds_mode == 'async':
@@ -586,6 +594,7 @@ def main(argv=None):
     summary['advice_file'] = args.advice_file
     summary['advice_mode'] = args.advice_mode
     summary['caution_soft'] = args.caution_soft
+    summary['hazard_continue'] = args.hazard_continue
     summary['advice_scrutiny'] = args.advice_scrutiny
     summary['delivery_interlock'] = {'enabled': args.delivery_interlock, 'hmac': bool(interlock_key)}
     summary['advice_from_instruction'] = args.advice_from_instruction
