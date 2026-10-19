@@ -66,4 +66,13 @@ About 4 min per run: 27 runs ≈ 1.8 h, plus the candidate masks (≈ 0.7 h).
 * The advice is one truthful peer item; hostile advice is study A's.
 
 ## Amendments
-None yet.
+**Amendment 1 (made before any YF trial and before any model score; the text above is unchanged).** The first binding commit (`2d1bac9`, stamped with
+OpenTimestamps) applied the registered rule to the 48 candidates `FC01`-`FC48` and found **3 eligible** worlds (FC04, FC23, FC27; design masks only). The registered
+rule would run a 3-world cell, too small to say anything about replication (Y1 needs at least 6 refused runs: 3 worlds x 2 advice arms is exactly that and no more). We
+therefore add a **second batch of 48 candidates `FC49`-`FC96`** from an independent stream of the same generator (`SEED + '-steer-b'`, `scripts/make_protocol_yf.py`;
+the first batch is byte-identical to the registered file, a test checks it), render its design masks, and take **the first 6 eligible in id order over both
+batches** (the same rule, the same threshold). The 3 worlds already found stay in; nothing else changes. The selection still uses design masks only; no model
+score has been seen. The new binding commit (`study YF: selection and protocol (amendment 1)`) gets its own OpenTimestamps stamp
+(`docs/timestamps/study_yf_registration_a1.txt`), and the campaign starts only after it is attested. The first stamp (`study_yf_registration.txt`) stays in the
+repository as the record that the 3-world selection existed first. If fewer than 6 are eligible over both batches, the cell is smaller; it is never padded and
+never extended again.
