@@ -277,6 +277,24 @@ def line_xd(res):
     return '\n'.join(('・' + t) for t in (xd, q) if t) or None
 
 
+def line_y(res):
+    """Studies Y (continue after a hazard refusal, opt-in flag), YE (its exposure price) and YF (Y on fresh worlds): numbers from the result files."""
+    yj, yej, yfj = (jload(Path(res) / f) for f in ('y_summary.json', 'ye_summary.json', 'yf_summary.json'))
+    try:
+        lv = yj['Y-s']['lost_vs_control']['scrutiny_hc']
+        t = (f"・拒否のあとも探索を続ける任意のフラグ（評価Y、{yj['n_planned']}試行）：助言が火の拠点を指しても、scrutiny＋フラグの失う配達は "
+             f"{lv['fire_worlds']['lost'] + lv['clean_worlds']['lost']}/{lv['fire_worlds']['pairs'] + lv['clean_worlds']['pairs']}（Xでは配達を失った）。tighten-onlyは火へ配達する世界が残る（知覚の見逃し）")
+        if yej:
+            h = yej['arms']['hc']
+            t += f"。代償は露出（評価YE）：2つ目の火が隠れていると、フラグ付きで火へ配達 {h['unsafe_deliveries']['k']}/{h['unsafe_deliveries']['n']}（フラグなし 0/{yej['arms']['v36']['n']}）"
+        if yfj:
+            yl = yfj['Y-s']['lost_vs_control']['scrutiny_hc']
+            t += f"。新しい世界での再現（評価YF、{yfj['n_planned']}試行）：失う配達 {yl['fire_worlds']['lost'] + yl['clean_worlds']['lost']}/{yl['fire_worlds']['pairs'] + yl['clean_worlds']['pairs']}"
+        return t
+    except (TypeError, KeyError):
+        return None
+
+
 def line_j(res):
     j = jload(Path(res) / 'j_summary.json')
     try:
@@ -333,7 +351,7 @@ def line_pending(res):
 
 
 def number_lines(res):
-    fns = (line_t1, line_t2, line_z, line_r, line_p, line_l, line_h, line_v, line_w, line_xd, line_a, line_if, line_j, line_pending)
+    fns = (line_t1, line_t2, line_z, line_r, line_p, line_l, line_h, line_v, line_w, line_xd, line_a, line_y, line_if, line_j, line_pending)
     return [x for x in (f(res) for f in fns) if x]
 
 
