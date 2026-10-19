@@ -311,7 +311,7 @@ A_RUNS = n_runs('campaign_a_protocol.json') or 226
 def waiting_studies():
     """Registered studies whose summary file does not exist yet (README says 'awaiting results' for these)."""
     files = (('V', 'v_summary.json'), ('W', 'w_summary.json'), ('A', 'a_summary.json'), ('S', 's_summary.json'),
-             ('XD', 'xd_summary.json'), ('X', 'x_summary.json'), ('Q', 'q_summary.json'), ('IF', 'if_summary.json'), ('IF2', 'if2_summary.json'), ('B', 'b_summary.json'))
+             ('XD', 'xd_summary.json'), ('X', 'x_summary.json'), ('Q', 'q_summary.json'), ('IF', 'if_summary.json'), ('IF2', 'if2_summary.json'), ('B', 'b_summary.json'), ('Y', 'y_summary.json'))
     return [k for k, f in files if not (RES / f).is_file()]
 
 

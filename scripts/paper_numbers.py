@@ -1301,9 +1301,18 @@ def main():
         m['YCDelivered'], m['YCDeniedAfterSearch'] = rty_(yc_['delivered']), f"{yc_['observed'].get('DENY_HAZARD_AFTER_SEARCH', 0)}/{yc_['n_runs']}"
         m['YCVisits'] = ', '.join(sorted(yc_['visits']))
         m['YCFireSeen'] = rty_(yc_['fire_bay_refused_for_hazard'])
+        yrf_ = RES / 'y_readout.json'
+        if yrf_.is_file():       # post hoc readout of the saved model outputs (scripts/y_readout.py): the cause class of every run that was not as designed
+            yr_ = json.loads(yrf_.read_text())['rows']
+            miss_ = [r_['last_check_hazard_prob'] for r_ in yr_ if r_['arm'] == 'monotone_hc' and r_['unsafe_delivery']]
+            tw_ = [x_[2] for r_ in yr_ if r_['condition'] == 'steer_clean' and r_['arm'] == 'scrutiny_hc' and not r_['as_designed'] for x_ in r_['caution_refusals']]
+            ap_ = [r_['last_check_hazard_prob'] for r_ in yr_ if r_['condition'] == 'steer_clean' and r_['arm'] == 'scrutiny_hc' and r_['observed'] == 'ALLOW']
+            m['YReadMissLo'], m['YReadMissHi'] = f"{min(miss_):.3f}", f"{max(miss_):.3f}"
+            m['YReadTwinLo'], m['YReadTwinHi'] = f"{min(tw_):.4f}", f"{max(tw_):.4f}"
+            m['YReadApprLo'], m['YReadApprHi'] = f"{min(ap_):.4f}", f"{max(ap_):.4f}"
+            m['YNotAsDesigned'] = sum(not r_['as_designed'] for r_ in yr_)
         m['YClaim'] = ('Y1-Y4 hold' if (yk_['Y1_holds'] and yk_['Y3_holds'] and yk_['Y4_holds'] and yc_['criteria']['Y2_holds']) else 'Y1-Y4 do not all hold')
         m['StatY'] = f"availability: {m.lookup('YClaim')}"
-        m['RegY'] = r'\texttt{9c0b5e8}, 2026-10-19'
     # ---- submission snapshot: the claim column of a study without results says so (the other pending studies have no analysis macro yet)
     PEND = advice_numbers.snapshot_pending() if SNAPSHOT else set()
     for k_ in advice_numbers.SNAPSHOT_STUDIES:
@@ -1345,7 +1354,7 @@ def main():
                ('X', 'PREREGISTRATION_X.md', 'x_summary.json'), ('XD', 'PREREGISTRATION_XD.md', 'xd_summary.json'),
                ('Q', 'PREREGISTRATION_Q.md', 'q_summary.json'),
                ('B', 'PREREGISTRATION_B.md', 'b_summary.json'), ('IF', 'PREREGISTRATION_IF.md', 'if_summary.json'),
-               ('IF2', 'PREREGISTRATION_IF2.md', 'if2_summary.json')]
+               ('IF2', 'PREREGISTRATION_IF2.md', 'if2_summary.json'), ('Y', 'PREREGISTRATION_Y.md', 'y_summary.json')]
     main_ref = 'main' if git('rev-parse', '--verify', '-q', 'main')[1] == 0 else 'HEAD'
 
     def first_commit(path):          # first commit that added the file (hash date)

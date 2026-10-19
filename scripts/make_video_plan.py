@@ -262,8 +262,7 @@ def evidence_card(seconds):
         if yj and yj.get('n_with_result') == yj.get('n_planned'):      # study Y: continuing after a hazard refusal (opt-in flag) keeps the delivery that the refusal lost in X
             lv_ = yj['Y-s']['lost_vs_control']['scrutiny_hc']
             lost_, pairs_ = lv_['fire_worlds']['lost'] + lv_['clean_worlds']['lost'], lv_['fire_worlds']['pairs'] + lv_['clean_worlds']['pairs']
-            ycell = rows[-1][1]
-            ycell[0] += f"・探索を続けると失う配達 {lost_}/{pairs_}（Y）"
+            rows[-1][1][0] = f"火へ配達{xf['a_unsafe']}・誘導{xf['u_mono']}・続行+scrutiny 喪失{lost_}/{pairs_}"      # one cell, 29 chars: the card is cut at the right edge from about 36
             say.append(f"拒否のあとも探索を続ける任意のフラグでは、{pairs_}試行のうち失った配達は{lost_}件でした。")
     j = jload(RES / 'j_summary.json')
     if j:

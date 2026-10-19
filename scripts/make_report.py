@@ -767,6 +767,7 @@ def sec_prereg(D, E):
              (f"主張 IF1 {'成立' if advice_numbers.if_facts()['held'] else '不成立'}：すり替えの受理 {advice_numbers.if_facts()['k']}/{advice_numbers.if_facts()['n']}（95%区間 {advice_numbers.if_facts()['ci'][0] * 100:.0f}〜{advice_numbers.if_facts()['ci'][1] * 100:.0f}%）、"
               f"言い直しは {advice_numbers.if_facts()['corr'][0]}/{advice_numbers.if_facts()['corr'][1]} で従う") if advice_numbers.if_facts() else PEND_NOT_RUN],
             ['IF2', '物資が食い違えば聞き返す対策（I-27）で、すり替えを止められるか（新しい72文）', reg('IF2'), PEND if jload('if2_summary.json') else PEND_NOT_RUN],
+            ['Y', '拒否のあとも探索を続けるフラグ（I-42）は、火の棚へ誘導されて失う配達を取り戻すか', reg('Y'), y_short(jload('y_summary.json'))],
             ['K', '保証付きの閾値は既定の閾値より良いか', reg('K'),
              (f"T2の見逃し：既定 {kk['frozen']['heldout_miss']['k']}/{kk['frozen']['heldout_miss']['n']}、保証付き(α=0.05) "
               f"{kk['alphas']['0.05']['K_PAC']['heldout_miss']['k']}/{kk['frozen']['heldout_miss']['n']}、誤警報 "
@@ -774,9 +775,9 @@ def sec_prereg(D, E):
     return [KeepTogether([P('K. 事前登録した研究の一覧', 'h2'),
             P(advice_numbers.study_phrase() + 'を、結果を見る前に条件・基準・解析を <font name="IPAexG">experiments/PREREGISTRATION_<記号>.md</font> に固定して進めた（初期の評価Cは別に数える）。'
               '失敗した試行も台帳に残している。'
-              + (' 「草稿」の研究（' + '・'.join(x for x in ('A', 'S', 'X', 'XD', 'Q', 'B', 'IF', 'IF2') if reg_label(x) != x) + '）は、統合ブランチを main に統合するときに登録され、それまで試行は一つも走らせない'
+              + (' 「草稿」の研究（' + '・'.join(x for x in ('A', 'S', 'X', 'XD', 'Q', 'B', 'IF', 'IF2', 'Y') if reg_label(x) != x) + '）は、統合ブランチを main に統合するときに登録され、それまで試行は一つも走らせない'
                  '（結果のある研究と同列の時系列監査はまだできない）。'
-                 if any(reg_label(x) != x for x in ('A', 'S', 'X', 'XD', 'Q', 'B', 'IF', 'IF2')) else '')),
+                 if any(reg_label(x) != x for x in ('A', 'S', 'X', 'XD', 'Q', 'B', 'IF', 'IF2', 'Y')) else '')),
             table(rows, [20, 66, 24, 64])]), Spacer(1, 4)]
 
 
@@ -1287,6 +1288,17 @@ def story_advice(h):
     return s
 
 
+def y_short(yj):
+    """One cell of the study table for Y: the four claims and the scrutiny arm's lost deliveries."""
+    if not yj:
+        return PEND_NOT_RUN
+    k, yc = yj['Y-s']['criteria'], yj['Y-c']['criteria']
+    lv = yj['Y-s']['lost_vs_control']['scrutiny_hc']
+    ok = k['Y1_holds'] and k['Y3_holds'] and k['Y4_holds'] and yc['Y2_holds']
+    return (f"主張 Y1〜Y4 {'成立' if ok else '一部不成立'}：scrutiny＋フラグの失う配達 {lv['fire_worlds']['lost'] + lv['clean_worlds']['lost']}/{lv['fire_worlds']['pairs'] + lv['clean_worlds']['pairs']}。"
+            f"tighten-only は XC05 の火へ配達（知覚の見逃し）")
+
+
 def y_result_text(yj):
     """Study Y (--hazard-continue): the registered claims and the one failure that continuing cannot fix; pending text when there is no result."""
     if not yj:
@@ -1338,7 +1350,7 @@ STUDY_FILES = [('D', 'campaign_D_ledger.jsonl'), ('E', 'campaign_E_ledger.jsonl'
                ('J', 'j_summary.json'), ('K', 'k_summary.json'), ('P', 'p_summary.json'), ('P2', 'p2_summary.json'), ('R', 'r_summary.json'),
                ('Z', 'z_summary.json'), ('L', 'l_summary.json'), ('V', 'v_summary.json'), ('W', 'w_summary.json'), ('A', 'a_summary.json'),
                ('S', 's_summary.json'), ('X', 'x_summary.json'), ('XD', 'xd_summary.json'), ('Q', 'q_summary.json'),
-               ('IF', 'if_summary.json'), ('IF2', 'if2_summary.json'), ('B', 'b_summary.json')]
+               ('IF', 'if_summary.json'), ('IF2', 'if2_summary.json'), ('B', 'b_summary.json'), ('Y', 'y_summary.json')]
 
 
 def story_limits(D, E, V, SP):
