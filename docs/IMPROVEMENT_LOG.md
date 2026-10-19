@@ -765,13 +765,13 @@
   design masks of the second fire alone, the first 12 with >= 614 px from a front or side pose, never padded; arms `v36` and `hc`; 24 runs);
   `scripts/ye_analysis.py` (YE1 v36 stops, YE2 hc mechanics, YE3 the price with an exact upper bound); `scripts/ye_run.sh` (masks, binding commit, pilot,
   registration commit + OpenTimestamps, campaign); 14 tests (`tests/test_study_ye.py`).
-- **Before/After.** Before: the price of the flag was a bound from XD, not a closed-loop measurement. After: pending (YE registered; YF below registered, not yet run).
+- **Before/After.** Before: the price of the flag was a bound from XD, not a closed-loop measurement. After: YE (24 runs, binding commit 9bca715, OTS-attested): v3.6 stops 12/12; with the flag 2/12 unsafe deliveries into the hidden second fire (upper 43.8%, XD 12/100; prediction P1 holds); YE2 failed as registered (wording: the search goes on through the remaining bays; 13th failed claim, kept, post hoc reading separate; the pilot gate had passed on the failure branch).
 - **Study YF (Y on fresh worlds, same entry).** Motivation: Y reused X's five worlds (not blind) and its tighten-only miss is one world (XC05, three repeats). Design: 48 new
   candidates (seed `YF-2026`), the X selection rule on the design masks (front <= 20 px and a side pose >= 614 px, no model score), 6 fire worlds, 3 twins, three arms
   with the flag, 27 runs, analysis = Y's (`scripts/yf_analysis.py` points `y_analysis.py` at the YF files). Predictions: P1 monotone_hc delivers into a fire in at least
   one world (P(none of 6 | 1/3) = 8.8%), P2 scrutiny_hc into none, P3 scrutiny_hc loses nothing against the control. **Amendment 1 (before any trial and any model score):** only
   3 of the 48 candidates were eligible (the first binding commit `2d1bac9`, stamped), so a second batch of 48 (`FC49-FC96`, an independent stream of the same generator;
   batch 1 byte-identical, tested) was added and the first 6 eligible over both batches taken (FC04, FC23, FC27, FC52, FC60, FC81; 7 of 96 eligible); the new binding commit is
-  `d2050be`, with its own OpenTimestamps stamp; the first stamp stays as the record. Before/After: pending.
+  `d2050be`, with its own OpenTimestamps stamp; the first stamp stays as the record. Before/After: Before: the availability of Y rested on 5 reused worlds. After (27 runs, 0 failures): Y1 and Y3 hold (11 of 11 refused runs delivered elsewhere), the tighten-only miss replicates (FC27, 1/6; P1), scrutiny 0/6 unsafe (P2); **YF4 fails** (a fire-free twin: scrutiny refused the steered bay for caution, the clean bay for a hazard at 0.0526, visited four stations, delivered nothing; 14th failed claim) and **P3 fails** (scrutiny + flag lost 1/9; Y 0/15; pooled 1/24). Lesson: the scrutiny threshold 0.01 cannot tell a fire-free station from a hidden fire, so scrutiny + flag is not free in fire-free sites; the paper, report, README, deployment guide and video say so.
 
 
