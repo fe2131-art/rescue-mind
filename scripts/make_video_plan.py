@@ -390,16 +390,15 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False, drop_empty=False):
     cs = 0 if shrink else None      # shrink: result cards last exactly as long as their narration
     mem = bool(getattr(a, 'memory', None))
     # story arc of the first ~10 s: problem (stock list != scene, hazards hide) -> answer (look on the spot, look again from the side)
-    open_say = ('災害時、在庫表と現場は違い、危険も隠れます。だから、その場で確かめ、横から見直し'
-                + ('、記憶は提案だけにします。' if mem else 'ます。'))
+    open_say = ('災害時、在庫表と現場は違い、危険も隠れます。そこで、自分で見ていない情報は「助言」として扱い、'
+                '順番を変えるか、判断を厳しくするだけにします。')
     parts = [
         {'kind': 'card', 'seconds': 6, 'title': 'RescueMind', 'image': 'docs/figures/hero_gazebo.png',
-         'sub': '在庫表と現場は食い違う。だから、現地で目で確かめる',
+         'sub': '助言は「厳しくする」ことしかできない。だから、嘘の助言でも危険にならない',
          'narration': open_say,
-         'body': ['課題：災害時は、在庫表と現場が違う。火や煙が物資の陰に隠れていることもある。誤配達は命に関わる。',
-                  '答え：拠点でその場の目（ローカルVLM Qwen3.5-9B）で確かめる → 正面で許可でも横から見直す'
-                  + ' → 出動をまたぐ記憶は提案だけ。迷えば止まって報告。' if mem else
-                  '答え：拠点でその場の目（ローカルVLM Qwen3.5-9B）で確かめる → 正面で許可でも横から見直す。迷えば止まって報告。',
+         'body': ['課題：在庫表と現場は違う。火や煙は物資の陰に隠れる。誤配達は命に関わる。',
+                  '新しさ：自分で見ていない情報（記憶・他のロボットの報告・在庫表・依頼文）は「助言」。助言は、拠点を見る順番を変えるか、判断を厳しくするだけ。',
+                  '確認：ローカルVLM（Qwen3.5-9B）が拠点でその場で確かめ、正面で許可でも横から見直す。迷えば止まって報告。',
                   f'※ 走行は{FAST:g}倍速、確認動作は{CHECK:g}倍速、AI判断の瞬間は等速。速度は常に画面左上に表示します。']}]
     if not drop_arch:
         parts.append({'kind': 'card', 'seconds': 6, 'title': 'システム構成', 'sub': 'すべてローカルGPUで完結（クラウドAPI不使用）',
