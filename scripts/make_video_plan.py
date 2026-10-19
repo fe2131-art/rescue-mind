@@ -257,7 +257,7 @@ def evidence_card(seconds):
     xf = advice_numbers.x_facts()
     if xf:
         rows.append([f"閉ループ X（倉庫{xf['n']}試行）", [f"火の4種で配達 {xf['a_unsafe']}・誘導されて火へ {xf['u_mono']}", G if xf['u_mono'].startswith('0/') else W]])
-        say.append(f"倉庫の火の4種では、火への配達は{xf['a_unsafe'].split('/')[0]}件。ただ助言で火へ誘導されると、{xf['fire']}世界中{xf['u_mono'].split('/')[0]}つで火に配達しました。")
+        say.append(f"倉庫では、火へ誘導され{xf['fire']}世界中{xf['u_mono'].split('/')[0]}つで配達。")
         yj = jload(RES / 'y_summary.json')
         if yj and yj.get('n_with_result') == yj.get('n_planned'):      # study Y: continuing after a hazard refusal (opt-in flag) keeps the delivery that the refusal lost in X
             lv_ = yj['Y-s']['lost_vs_control']['scrutiny_hc']
@@ -268,7 +268,7 @@ def evidence_card(seconds):
                 lost_ += lf_['fire_worlds']['lost'] + lf_['clean_worlds']['lost']
                 pairs_ += lf_['fire_worlds']['pairs'] + lf_['clean_worlds']['pairs']
             rows[-1][1][0] = f"火へ配達{xf['a_unsafe']}・誘導{xf['u_mono']}・続行+scrutiny 喪失{lost_}/{pairs_}"      # one cell, 29 chars: the card is cut at the right edge from about 36
-            say.append(f"拒否のあとも探索を続ける任意のフラグでは、{pairs_}試行のうち失った配達は{lost_}件でした。" + ('ただし、火のない現場で配達を失うことがあります。' if lost_ else ''))
+            say.append(f"探索を続けるフラグで配達は保てます（{pairs_}中{lost_}件を失う）。")
     j = jload(RES / 'j_summary.json')
     if j:
         c = j['per_config']
@@ -402,9 +402,9 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False, drop_empty=False):
          'sub': '助言は「厳しくする」ことしかできない。だから、嘘の助言でも危険にならない',
          'narration': open_say,
          'body': ['課題：在庫表と現場は違う。火や煙は物資の陰に隠れる。誤配達は命に関わる。',
-                  '新しさ：自分で見ていない情報（記憶・他のロボットの報告・在庫表・依頼文）は「助言」。助言は、拠点を見る順番を変えるか、判断を厳しくするだけ。',
+                  '新しさ：見ていない情報（記憶・報告・在庫表・依頼文）は「助言」。助言は順番を変えるか、判断を厳しくするだけ。',
                   '確認：ローカルVLM（Qwen3.5-9B）が拠点でその場で確かめ、正面で許可でも横から見直す。迷えば止まって報告。',
-                  f'※ 走行は{FAST:g}倍速、確認動作は{CHECK:g}倍速、AI判断の瞬間は等速。速度は常に画面左上に表示します。']}]
+                  f'※ 走行{FAST:g}倍速・確認動作{CHECK:g}倍速・AI判断の瞬間は等速（左上に常時表示）。']}]
     if not drop_arch:
         parts.append({'kind': 'card', 'seconds': 6, 'title': 'システム構成', 'sub': 'すべてローカルGPUで完結（クラウドAPI不使用）',
                       'image': 'docs/figures/architecture.png', 'layout': 'image',
