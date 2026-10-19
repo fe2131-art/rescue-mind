@@ -1299,6 +1299,25 @@ def y_short(yj):
             f"tighten-only は XC05 の火へ配達（知覚の見逃し）")
 
 
+def y_more_text():
+    """The second half of the Y paragraph: the price (YE) and the replication on fresh worlds (YF), failures included; empty until their summaries exist."""
+    yej, yfj = jload('ye_summary.json'), jload('yf_summary.json')
+    t = ''
+    if yej:
+        h = yej['arms']['hc']
+        t += (f"<b>代償（YE：2つ目の火が隠れている{h['n']}世界）</b>：フラグ付きで火へ配達 {h['unsafe_deliveries']['k']}/{h['unsafe_deliveries']['n']}（95%上限 {h['unsafe_upper95_exact'] * 100:.0f}%、画像レベルの12/100と整合）、"
+              f"フラグなしは0/{yej['arms']['v36']['n']}。主張YE2は登録した文言（2拠点を訪れる）が誤りで不成立（失敗した主張に残した）。")
+    if yfj:
+        ys = yfj['Y-s']
+        k = ys['criteria']
+        lv = ys['lost_vs_control']['scrutiny_hc']
+        t += (f"<b>新しい世界での再現（YF、{yfj['n_planned']}本）</b>：Y1（別の拠点から配達）と監査は成立、tighten-only の見逃しも再現（火へ配達 "
+              f"{ys['arms']['monotone_hc']['fire_worlds']['unsafe_deliveries']['k']}/{ys['arms']['monotone_hc']['fire_worlds']['n']}）。<b>YF4（訪れる拠点は2つまで）は不成立</b>：火のない双子で scrutiny が4拠点を訪れ配達できなかった"
+              f"（scrutiny の閾値は火のない拠点を拒否しうる）。scrutiny＋フラグの失う配達は {lv['fire_worlds']['lost'] + lv['clean_worlds']['lost']}/{lv['fire_worlds']['pairs'] + lv['clean_worlds']['pairs']}"
+              f"（Yは0/15、合わせて 1/24）。")
+    return t
+
+
 def y_result_text(yj):
     """Study Y (--hazard-continue): the registered claims and the one failure that continuing cannot fix; pending text when there is no result."""
     if not yj:
@@ -1311,7 +1330,8 @@ def y_result_text(yj):
     return (f"{yj['n_planned']}本（失敗{sum(yj['n_failed_by_part'].values()) if yj['n_failed_by_part'] else 0}）、登録した主張Y1〜Y4は<b>{'すべて成立' if ok else '一部不成立'}</b>："
             f"助言で火の棚を先に拒否した{k['Y1_refused_runs']}本はすべて別の棚から配達できた（Xでは失っていた配達）。清潔な棚がない場合は{yc['observed'].get('DENY_HAZARD_AFTER_SEARCH', 0)}/{yc['n_runs']}本が4拠点を確認して拒否。"
             f"scrutiny＋フラグは対照比で配達を{lost}/{pairs}失い、時間は{ya['scrutiny_hc']['fire_worlds']['mean_time_s']:.0f}秒（対照{ya['control_hc']['fire_worlds']['mean_time_s']:.0f}秒）。"
-            f"<b>直らないもの</b>：tighten-only は火のある世界{mono['unsafe_deliveries']['n']}本のうち{mono['unsafe_deliveries']['k']}本で火へ配達（すべて XC05：3回とも、全視点が閾値未満の知覚の見逃し）。測っていない：追加訪問による露出の代償。")
+            f"<b>直らないもの</b>：tighten-only は火のある世界{mono['unsafe_deliveries']['n']}本のうち{mono['unsafe_deliveries']['k']}本で火へ配達（すべて XC05：3回とも、全視点が閾値未満の知覚の見逃し）。"
+            + y_more_text())
 
 
 def story_outside(sj):
@@ -1397,7 +1417,7 @@ def story_limits(D, E, V, SP):
                     '<b>助言の保証は、確認の誤り（ε）を超えないだけで、εを小さくはしない。</b>効いたのは見回し（正面だけ76/150 → 3/150）で、設計の重心は「助言を縛る」ことと同じくらい「εを下げる」ことにあった。',
                     '<b>可用性と安全は交換になる。</b>火の棚へ誘導されて配達を失う問題は、拒否のあとも探索を続けるフラグで取り戻せた（Y）が、代償は露出に変わった（2つ目の火を見逃して配達 2/12、上限44%、YE）。無料の改善ではないので、既定はオフのままにした。',
                     '<b>自分の誤りも失敗として残した。</b>YEの主張YE2は、私が「2拠点を訪れる」と書いた登録文言が誤りだった（拒否後も探索は残りの拠点まで続く）。予行のゲートも同じ検査で、失敗の枝（第2の火の見逃し）を通ったから通っていた。登録は直さず、事後の読みを別に併記した。',
-                    '<b>独立性の限界。</b>Yは同じ世界の再利用で、世界は同じ筆者の生成器から作った。新しい世界での再現（YF）で一部は補ったが、実機・実物の火・実際の倉庫では未検証で、これが最大の残りの課題である。'])]
+                    '<b>独立性の限界。</b>Yは同じ世界の再利用で、世界は同じ筆者の生成器から作った。新しい世界での再現（YF）で、可用性は再現した一方、scrutiny が火のない現場で配達を失いうること（1/9）が新しく分かった。実機・実物の火・実際の倉庫では未検証で、これが最大の残りの課題である。'])]
     s += [P('7. 動画と再現', 'h1')]
     chap = ROOT / 'docs/video_chapters.json'
     if chap.is_file():

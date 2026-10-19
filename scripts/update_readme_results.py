@@ -593,6 +593,8 @@ def section_key(e, t):
         st_ = ('Y1〜Y4：**支持**' if (yk_['Y1_holds'] and yk_['Y3_holds'] and yk_['Y4_holds'] and yj_['Y-c']['criteria']['Y2_holds']) else 'Y：**一部不成立**')
         if yej_ and not yej_['criteria']['YE2_hc_goes_on_and_decides']:
             st_ += '／YE2：**不成立**（登録文言の誤り）'
+        if yfj_ and not yfj_['Y-s']['criteria']['Y4_holds']:
+            st_ += '／YF4：**不成立**（双子で scrutiny が4拠点を訪れ配達できず）'
         rows.append(f"| 燃える棚へ誘導されても配達を失わない（評価X→Y→YE、倉庫の閉ループ） | {res_} | {st_} |")
     except (TypeError, KeyError):
         pass
@@ -782,7 +784,8 @@ def y_text_en():
               f"unsafe deliveries (upper bound {pct(h['unsafe_upper95_exact'])}) against 0/{yej['arms']['v36']['n']} without it; claim YE2 failed as registered (wording: the search goes on through the remaining bays; failed claim 13)")
     if yfj:
         yl = yfj['Y-s']['lost_vs_control']['scrutiny_hc']
-        t += f". YF ({yfj['n_planned']} runs on fresh worlds): scrutiny + flag lost {yl['fire_worlds']['lost'] + yl['clean_worlds']['lost']}/{yl['fire_worlds']['pairs'] + yl['clean_worlds']['pairs']} deliveries"
+        t += (f". YF ({yfj['n_planned']} runs on fresh worlds): availability and the tighten-only miss replicate, but scrutiny + flag lost {yl['fire_worlds']['lost'] + yl['clean_worlds']['lost']}/{yl['fire_worlds']['pairs'] + yl['clean_worlds']['pairs']} deliveries"
+              + ('; claim YF4 (at most two stations) failed: a fire-free twin sent scrutiny through four stations with no delivery (failed claim 14)' if not yfj['Y-s']['criteria']['Y4_holds'] else ''))
     return t
 
 
