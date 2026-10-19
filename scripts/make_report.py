@@ -1271,7 +1271,8 @@ def story_advice(h):
     vs, aj = jload('v_summary.json'), jload('a_summary.json')
     s += [Spacer(1, 2),
           P('<b>評価V</b>（モデルの予測を先に登録し、ランダムに変わる世界で確かめる）：' + (v_result_text(vs) if vs else PEND + '。'), 'small'),
-          P('<b>評価A</b>（悪意のある助言：「火は消えた、確認不要」「水は別の拠点」。助言に従う方式との対比較）：' + a_result_text(aj), 'small'), Spacer(1, 3)]
+          P('<b>評価A</b>（悪意のある助言：「火は消えた、確認不要」「水は別の拠点」。助言に従う方式との対比較）：' + a_result_text(aj), 'small'),
+          P('<b>評価Y</b>（本物の危険を見た棚だけを拒否して探索を続ける任意のフラグ。命題2は変えず、z3の証明を再実行）：' + y_result_text(jload('y_summary.json')), 'small'), Spacer(1, 3)]
     af_ = advice_numbers.a_facts()
     if aj and af_:
         st_ = af_['steer']
@@ -1282,6 +1283,21 @@ def story_advice(h):
                  f"(c) 本方式の時間：正しい助言で中央値 {af_['time_median']:.1f} 秒の短縮、嘘の助言で最大 {af_['price']['max_extra']:.1f} 秒の追加（上限 {af_['price']['bound']:.1f} 秒）。")
     s += fig('memory_principle_ja.png', 108, '図 記憶の場合：前回の記憶は拠点の順番を提案するだけ。行った先では必ず確認し、最近火を見た拠点では判定を厳しくする。')
     return s
+
+
+def y_result_text(yj):
+    """Study Y (--hazard-continue): the registered claims and the one failure that continuing cannot fix; pending text when there is no result."""
+    if not yj:
+        return PEND_NOT_RUN + '。'
+    ya, yc, k = yj['Y-s']['arms'], yj['Y-c'], yj['Y-s']['criteria']
+    lv = yj['Y-s']['lost_vs_control']['scrutiny_hc']
+    lost, pairs = lv['fire_worlds']['lost'] + lv['clean_worlds']['lost'], lv['fire_worlds']['pairs'] + lv['clean_worlds']['pairs']
+    mono = ya['monotone_hc']['fire_worlds']
+    ok = k['Y1_holds'] and k['Y3_holds'] and k['Y4_holds'] and yc['criteria']['Y2_holds']
+    return (f"{yj['n_planned']}本（失敗{sum(yj['n_failed_by_part'].values()) if yj['n_failed_by_part'] else 0}）、登録した主張Y1〜Y4は<b>{'すべて成立' if ok else '一部不成立'}</b>："
+            f"助言で火の棚を先に拒否した{k['Y1_refused_runs']}本はすべて別の棚から配達できた（Xでは失っていた配達）。清潔な棚がない場合は{yc['observed'].get('DENY_HAZARD_AFTER_SEARCH', 0)}/{yc['n_runs']}本が4拠点を確認して拒否。"
+            f"scrutiny＋フラグは対照比で配達を{lost}/{pairs}失い、時間は{ya['scrutiny_hc']['fire_worlds']['mean_time_s']:.0f}秒（対照{ya['control_hc']['fire_worlds']['mean_time_s']:.0f}秒）。"
+            f"<b>直らないもの</b>：tighten-only は XC05 の火へ{mono['unsafe_deliveries']['k']}/{mono['unsafe_deliveries']['n']}配達（全視点が閾値未満の知覚の見逃し）。測っていない：追加訪問による露出の代償。")
 
 
 def story_outside(sj):
