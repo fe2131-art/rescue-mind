@@ -538,7 +538,7 @@ def pending_all():
 # number of such a study; FINAL=1 stays the strict mode (it refuses a pending result).  The wording is defined here, once.
 PENDING_EN = 'registered, not yet run at submission'
 PENDING_JA = '登録済み・提出時点で未実施'
-SNAPSHOT_STUDIES = ('A', 'S', 'X', 'XD', 'B', 'IF', 'Q', 'IF2')     # the studies whose results may be missing (same list as pending_all)
+SNAPSHOT_STUDIES = ('A', 'S', 'X', 'XD', 'B', 'IF', 'Q', 'IF2', 'Y')     # the studies whose results may be missing (same list as pending_all)
 
 
 def mkey(k):
