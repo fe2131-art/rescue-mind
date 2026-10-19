@@ -6,7 +6,7 @@ A pre-registration binds from the first commit in which it is on `main`; the fir
 
 Some of these files still carry a "DRAFT" line in their own text. That line describes the draft stage *before* the merge. The binding version is the one in the table below. The text of a registration is not edited after the merge, so that it stays byte-identical up to the amendments. An amendment is only appended, with its own date and commit (table "Amendments" below).
 
-Verify any row: `git log 587f033^1 --first-parent --format='%h %cI' --diff-filter=A -- experiments/PREREGISTRATION_X.md` (first commit on main; empty for the files that came with the merge `587f033`, whose tree contains them while its first parent does not), `git merge-base --is-ancestor <registration commit> <first result commit>`, `git show <commit>:experiments/PREREGISTRATION_X.md | sha256sum`. An external timestamp of these hashes (OpenTimestamps) is not done yet; it needs the owner's consent.
+Verify any row: `git log 587f033^1 --first-parent --format='%h %cI' --diff-filter=A -- experiments/PREREGISTRATION_X.md` (first commit on main; empty for the files that came with the merge `587f033`, whose tree contains them while its first parent does not), `git merge-base --is-ancestor <registration commit> <first result commit>`, `git show <commit>:experiments/PREREGISTRATION_X.md | sha256sum`. An external timestamp (OpenTimestamps; hashes only) of the manifest `docs/timestamps/registrations_manifest_20261019.txt` (the hash of this file and of every commit that touched it, as of 2026-10-19) proves that these hashes existed by the Bitcoin block time of its `.ots` proof, not the order of the earlier studies; study Y has its own stamp, taken before its first trial (`docs/timestamps/study_y_registration.txt.ots`).
 
 ## Registrations
 
@@ -39,6 +39,7 @@ Verify any row: `git log 587f033^1 --first-parent --format='%h %cI' --diff-filte
 | B | `587f033` 2026-10-18T09:08 | `7416ff27901695cf` | `eb5b91b` 2026-10-18T22:31 | `7416ff27901695cf` | yes | `1c04256` 2026-10-18T03:10 | `1fdb07115f3c5501` + erratum |
 | IF | `587f033` 2026-10-18T09:08 | `38e510bfab955f30` | `26e2347` 2026-10-18T18:02 | `38e510bfab955f30` | yes | `051e530` 2026-10-17T23:59 | `38e510bfab955f30` (= bound) |
 | IF2 | `878cbc7` 2026-10-18T18:04 | `5c14671d2358568a` | `c6acdcd` 2026-10-19T05:17 | `5c14671d2358568a` | yes | `878cbc7` 2026-10-18T18:04 | `5c14671d2358568a` (= bound) |
+| Y | `9c0b5e8` 2026-10-19T13:19 | `0bfcff7f9ea4aa0e` | `7dd3bc3` 2026-10-19T18:18 | `0bfcff7f9ea4aa0e` | yes | `9c0b5e8` 2026-10-19T13:19 | `0bfcff7f9ea4aa0e` (= bound) |
 
 ## Amendments
 
