@@ -1327,6 +1327,16 @@ def main():
         m['YETwo'] = 'holds' if yk_['YE2_hc_goes_on_and_decides'] else 'does not hold'
         m['YEPred'] = 'holds' if yk_['P1_hc_unsafe_at_most_3'] else 'fails'
         m['YEAsDesigned'] = rte_(yej_['as_designed_overall'])
+        m['YEVisitsFour'] = rte_({'k': yh_['visits'].get('4', 0), 'n': yh_['n_ok']})
+        yre_ = RES / 'ye_readout.json'
+        if yre_.is_file():       # post hoc readout (scripts/ye_readout.py): why the two misses happened, and which fires they were
+            yr3_ = json.loads(yre_.read_text())['rows']
+            miss3_ = [r_ for r_ in yr3_ if r_['unsafe_delivery']]
+            fh_ = [r_ for r_ in yr3_ if (r_['mask_px']['F'] or 0) <= 20]
+            m['YEReadFrontMiss'] = f"{min(r_['approved_check']['front_p'] for r_ in miss3_):.4f}--{max(r_['approved_check']['front_p'] for r_ in miss3_):.4f}"
+            m['YEReadSideMax'] = f"{max(max(p_['p'] for p_ in r_['approved_check']['peeks']) for r_ in miss3_):.3f}"
+            m['YEFrontHiddenMissed'] = f"{sum(r_['unsafe_delivery'] for r_ in fh_)}/{len(fh_)}"
+            m['YEFrontVisibleMissed'] = f"{sum(r_['unsafe_delivery'] for r_ in yr3_ if (r_['mask_px']['F'] or 0) > 20)}/{len(yr3_) - len(fh_)}"
         m['StatYE'] = f"mechanics: {'hold' if yk_['YE1_v36_never_delivers'] and yk_['YE2_hc_goes_on_and_decides'] else 'do not both hold'}; price: {m.lookup('YEUnsafeHc')} (upper {m.lookup('YEUnsafeHcUpper')})"
     # ---- study YF (Y on fresh worlds; yf_summary.json; the analysis of Y applied to new worlds, I-43)
     yff_ = RES / 'yf_summary.json'
