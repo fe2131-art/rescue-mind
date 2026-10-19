@@ -24,12 +24,17 @@ class ProtocolX(unittest.TestCase):
         cls.T = cls.p['trials']
 
     def test_deterministic_and_registered_files_in_sync(self):
+        # the registered protocol is the one built WITH the steering selection (59 runs); the draft without it (80 runs) is what self.p holds
         self.assertEqual(json.dumps(mx.build(), sort_keys=True), json.dumps(self.p, sort_keys=True))
+        sel = mx.load_selection()
+        built = mx.build(sel)
+        self.assertEqual(json.dumps(mx.build(sel), sort_keys=True), json.dumps(built, sort_keys=True))
         reg = json.loads((ROOT / 'experiments/campaign_x_protocol.json').read_text())
-        self.assertEqual(reg, json.loads(json.dumps(self.p, ensure_ascii=False)))
+        self.assertEqual(reg, json.loads(json.dumps(built, ensure_ascii=False)))
+        self.assertEqual((reg['planned_n'], reg['planned_by_part']), (59, {'X-a': 16, 'X-m': 28, 'X-s': 15}))
         self.assertEqual(json.loads((ROOT / 'experiments/campaign_x_steer_candidates.json').read_text()),
                          json.loads(json.dumps(mx.candidates_protocol(), ensure_ascii=False)))
-        for rel, items in self.p['advice_files'].items():
+        for rel, items in built['advice_files'].items():
             self.assertEqual(json.loads((ROOT / rel).read_text()), items)
         self.assertEqual(self.p['seed'], 'X-2026')
 

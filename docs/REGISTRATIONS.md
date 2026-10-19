@@ -33,7 +33,7 @@ Verify any row: `git log 587f033^1 --first-parent --format='%h %cI' --diff-filte
 | P2 | `72f0309` 2026-10-17T11:54 | `8a0b01ae3097ab1d` | `f96af5f` 2026-10-17T20:10 | `5bb954f894fba52c` | yes | `2910b2e` 2026-10-17T12:09 | `5bb954f894fba52c` |
 | A | `587f033` 2026-10-18T09:08 | `1532940eadc11b24` | `d540165` 2026-10-18T18:01 | `5ab9d23743ba3c30` | yes | `1163eee` 2026-10-18T10:38 | `9c94888b22023d7b` + erratum |
 | S | `587f033` 2026-10-18T09:08 | `d322457d6cafff4a` | `4a923ab` 2026-10-18T20:18 | `d322457d6cafff4a` | yes | `5535660` 2026-10-17T22:43 | `d322457d6cafff4a` (= bound) |
-| X | `587f033` 2026-10-18T09:08 | `d283f926675fcb86` | -- | -- | no results yet | `f0ddd78` 2026-10-19T04:48 | `b15626f1338af4a0` |
+| X | `587f033` 2026-10-18T09:08 | `d283f926675fcb86` | `1f15351` 2026-10-19T08:52 | `b15626f1338af4a0` | yes | `f0ddd78` 2026-10-19T04:48 | `b15626f1338af4a0` |
 | XD | `587f033` 2026-10-18T09:08 | `5cd006c872c61619` | `3ae232e` 2026-10-19T04:23 | `5cd006c872c61619` | yes | `5535660` 2026-10-17T22:43 | `5cd006c872c61619` (= bound) |
 | Q | `587f033` 2026-10-18T09:08 | `7af0a5ac72d46fd4` | `947888b` 2026-10-19T04:55 | `7af0a5ac72d46fd4` | yes | `c7d06b3` 2026-10-17T20:58 | `7af0a5ac72d46fd4` (= bound) |
 | B | `587f033` 2026-10-18T09:08 | `7416ff27901695cf` | `eb5b91b` 2026-10-18T22:31 | `7416ff27901695cf` | yes | `1c04256` 2026-10-18T03:10 | `1fdb07115f3c5501` + erratum |
@@ -60,7 +60,7 @@ One row per `Amendment` heading in a registration file (the rows of the amendmen
 | P2 | 1 | `2910b2e` 2026-10-17T12:09 | -- | -- | `f96af5f` 2026-10-17T20:10 | yes |
 | A | 1 | `2a1bab0` 2026-10-18T10:09 | 2026-10-18 10:30 | later than the commit; the commit time is binding | `d540165` 2026-10-18T18:01 | yes |
 | A | 2 | `1163eee` 2026-10-18T10:38 | 2026-10-18 10:55 | later than the commit; the commit time is binding | `d540165` 2026-10-18T18:01 | yes |
-| X | 1 | `f0ddd78` 2026-10-19T04:48 | 2026-10-19 05:00 | later than the commit; the commit time is binding | none yet | no results yet |
+| X | 1 | `f0ddd78` 2026-10-19T04:48 | 2026-10-19 05:00 | later than the commit; the commit time is binding | `1f15351` 2026-10-19T08:52 | yes |
 | B | 1 | `ed8e48b` 2026-10-18T01:38 | 2026-10-18 | no | `eb5b91b` 2026-10-18T22:31 | yes |
 | B | 2 | `1c04256` 2026-10-18T03:10 | 2026-10-18 03:20 | later than the commit; the commit time is binding | `eb5b91b` 2026-10-18T22:31 | yes |
 

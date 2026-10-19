@@ -6,7 +6,7 @@
   python3 scripts/make_protocol_x.py --force               # while the registration is a draft: overwrite
 
 Seed X-2026.  Rendered with the realism polish (pallets, rescuemind.depot) in the k = 4 depot (bays W1 M1 W2 M2; the inventory
-lists W1 W2 for water and M1 M2 for medicine, so the candidate order for water is W1 W2 M1 M2).  80 runs in three parts:
+lists W1 W2 for water and M1 M2 for medicine, so the candidate order for water is W1 W2 M1 M2).  the draft said 80 runs; the registered protocol has 59 (the steering selection admits only the qualifying worlds), in three parts:
 
 X-a  behaviour cells, no memory, no advice (16 runs = 4 cells x 4 worlds, requested supply alternating):
        empty        every pallet empty: four checks, then the robot stops and reports         expected DENY

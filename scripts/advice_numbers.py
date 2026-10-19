@@ -742,6 +742,50 @@ def xd_en(none=None):
             f"(recall {f['recall']:.0f}% at the frozen 0.05)" + xdr_result_en())
 
 
+def x_facts():
+    """Study X (closed loop, depot) numbers for README / report / video; None when x_summary.json is absent."""
+    xs = _load('x_summary.json')
+    if xs is None:
+        return None
+    try:
+        a, m, st = xs['X-a'], xs['X-m'], xs['X-s']
+        rt = lambda d: f"{d['k']}/{d['n']}"
+        ar = st['arms']
+        aa = [c['as_designed'] for c in a['cells'].values()]
+        return {'n': xs['n_planned'], 'failed': sum(xs['n_failed_by_part'].values()), 'a_ok': f"{sum(x['k'] for x in aa)}/{sum(x['n'] for x in aa)}",
+                'a_unsafe': rt(a['hazard_cells_unsafe']), 'a_upper': 100 * a['hazard_cells_unsafe']['ci95'][1],
+                'pairs': m['n_pairs'], 'clusters': m['visits']['saving']['n_clusters'], 'v0': m['visits']['mean_M0'], 'v2': m['visits']['mean_M2'],
+                'saving': m['visits']['saving']['mean'], 'ci': m['visits']['saving']['ci95'], 'p': m['visits']['sign_flip_p_one_sided'], 'design': m['prediction']['design_sequences_saving_visits'],
+                'k_ok': m['criteria']['claim_k_scaling_supported'], 'secs': m['seconds']['mean'], 'wrong': sum(m['wrong_supply_deliveries'].values()),
+                'fire': st['n_fire_worlds_perceivable'], 'clean': st['n_clean_worlds'], 'u_ctl': rt(ar['control']['fire_worlds']['unsafe_deliveries']),
+                'u_mono': rt(ar['monotone']['fire_worlds']['unsafe_deliveries']), 'u_scr': rt(ar['scrutiny']['fire_worlds']['unsafe_deliveries']),
+                'lost_mono': st['monotone_vs_control']['deliveries_lost_to_truthful_advice'], 'lost_scr': ar['scrutiny']['fire_worlds']['refused']['k'],
+                'false_scr': rt(ar['scrutiny']['clean_worlds']['false_refusals']), 'false_mono': rt(ar['monotone']['clean_worlds']['false_refusals']),
+                's4': st['criteria']['S4_scrutiny_fewer_unsafe_than_monotone_p<0.05']}
+    except (TypeError, KeyError):
+        return None
+
+
+def x_ja(none=None):
+    f = x_facts()
+    if not f:
+        return none
+    return (f"倉庫の閉ループ{f['n']}試行（1回だけ実行、失敗{f['failed']}件も数に入れた）：行動の確認は{f['a_ok']}が設計どおりで、火への配達は{f['a_unsafe']}（上限{f['a_upper']:.0f}%）。"
+            f"4拠点で検証つき記憶は訪問を{f['saving']:.2f}拠点減らした（{f['pairs']}組・{f['clusters']}系列、95%区間 {f['ci'][0]:.2f}〜{f['ci'][1]:.2f}、設計の予測{f['design']:.2f}）、誤った物資の配達は{f['wrong']}。"
+            f"助言で隠れた火へ向かわせる実験（火{f['fire']}世界、記述のみ）：助言なし {f['u_ctl']}、tighten-only {f['u_mono']}（配達{f['lost_mono']}件を諦めた）、"
+            f"scrutiny {f['u_scr']}だが火のない双子も{f['false_scr']}で拒否した（しきい値0.01が火のない映像の範囲内。S4不成立）")
+
+
+def x_en(none=None):
+    f = x_facts()
+    if not f:
+        return none
+    return (f"{f['n']} runs (once; {f['failed']} failures kept in the counts): behaviour cells as designed {f['a_ok']}, deliveries into a fire {f['a_unsafe']} (upper {f['a_upper']:.0f}%). "
+            f"At k = 4 verified memory saved {f['saving']:.2f} visited stations ({f['pairs']} pairs from {f['clusters']} sequences, 95% CI {f['ci'][0]:.2f} to {f['ci'][1]:.2f}; design prediction {f['design']:.2f}), {f['wrong']} wrong-supply deliveries. "
+            f"Steering by truthful advice ({f['fire']} fire worlds, descriptive): no advice {f['u_ctl']} unsafe, tighten-only {f['u_mono']} (gave up {f['lost_mono']} deliveries), "
+            f"scrutiny {f['u_scr']} but it also refused {f['false_scr']} fire-free twins (its threshold 0.01 lies inside the range of fire-free views; S4 not supported)")
+
+
 def q_facts():
     """Study Q (real photographs) numbers for README / report; None when q_summary.json is absent."""
     qs = _load('q_summary.json')

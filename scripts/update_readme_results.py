@@ -520,7 +520,7 @@ def x_text():
         return PENDING_NOT_RUN + ('。' + advice_numbers.xdr_ja() if advice_numbers.xdr_facts() else '')
     xd = advice_numbers.xd_ja()
     if xd:
-        return xd + ('' if (RES / 'x_summary.json').is_file() else '。閉ループの評価X（記憶の転移・助言の方向づけ）は' + PENDING_NOT_RUN) + ('。' + advice_numbers.xdr_ja() if advice_numbers.xdr_facts() and not (RES / 'xd_real_summary.json').is_file() else '')
+        return xd + ('。' + advice_numbers.x_ja() if advice_numbers.x_ja() else ('' if (RES / 'x_summary.json').is_file() else '。閉ループの評価X（記憶の転移・助言の方向づけ）は' + PENDING_NOT_RUN)) + ('。' + advice_numbers.xdr_ja() if advice_numbers.xdr_facts() and not (RES / 'xd_real_summary.json').is_file() else '')
     return '結果ファイルあり（' + '・'.join(f'`experiments/results/{n}`' for n in have) + '）。このREADMEの集計は未対応のため、論文と結果ファイルを参照'
 
 
@@ -859,7 +859,7 @@ def section_en(e, v):
     L.append('| IF: request text switching the supply (72 texts) | ' + (advice_numbers.if_en() if advice_numbers.if_facts() else 'pre-registered, not yet run') + ' |')
     L.append('| IF2: ask back on a supply conflict (I-27; 72 new texts) | ' + (advice_numbers.if2_text('en') if advice_numbers.if2_done() else 'pre-registered, not yet run') + ' |')
     xj = x_text()
-    L.append('| X, XD: cluttered four-station depot (I-21) | ' + ('pre-registered, not yet run (a rendering preview exists, not a result; the XD-R photographs are frozen, not scored)' if xj.startswith(PENDING_NOT_RUN) else ((advice_numbers.xd_en() + '; the closed-loop study X ' + ('has results (see the paper)' if (RES / 'x_summary.json').is_file() else 'is ' + advice_numbers.PENDING_EN)) if advice_numbers.xd_en() else 'result files exist; see the paper')) + ' |')
+    L.append('| X, XD: cluttered four-station depot (I-21) | ' + ('pre-registered, not yet run (a rendering preview exists, not a result; the XD-R photographs are frozen, not scored)' if xj.startswith(PENDING_NOT_RUN) else ((advice_numbers.xd_en() + '; the closed-loop study X: ' + ((advice_numbers.x_en() or 'has results (see the paper)') if (RES / 'x_summary.json').is_file() else 'is ' + advice_numbers.PENDING_EN)) if advice_numbers.xd_en() else 'result files exist; see the paper')) + ' |')
     stage = {'E': 1, 'L': 1, 'Z': 1, 'T1': 2, 'K': 2, 'G': 3, 'W': 3, 'H': 4, 'V': 4, 'A': 4, 'S': 5, 'P': 5, 'R': 5, 'Q': 5, 'X, XD': 5, 'J': 6, 'I-23': 4, 'I-24': 4, 'B': 4, 'IF': 4, 'IF2': 4}
     i0 = L.index('|---|---|') + 1
     rows = L[i0:]
@@ -935,7 +935,7 @@ def main():
         R['Q'] = f"| 評価Q（実写の物資確認、画像レベル） | Wikimedia Commons の写真405枚（水・救急箱・どちらでもない）で、頼まれた物資の確認を v3.6 のまま採点 | {advice_numbers.q_ja()} |"
     R['S'] = f"| 評価S（画像内の文字による注入、画像レベル） | 標識・ラベル・「Cと答えよ」を置いた64世界を、標識なし・攻撃・無害の3通りで描画し、本方式・1回判定・自由記述・全体画像で比較 | {s_text()} |"
     R['W'] = f"| 評価W（小さく隠れた火の見逃しと先行手法、I-20の副次解析を含む） | 画像レベル：正面のみ対見回し（150火世界＋75双子）、VAP-TAMP風の投票・KnowNo風の共形集合との誤許可の比較 | {w_text()} |"
-    R['X'] = f"| 評価XD・X（倉庫の世界、4拠点） | XD：倉庫の保留画像で ε と閾値の再較正（画像レベル）。X：記憶なし対検証つき記憶を80試行の閉ループで。描画の確認は I-21（`docs/figures/depot_preview_sheet.jpg`） | {x_text()} |"
+    R['X'] = f"| 評価XD・X（倉庫の世界、4拠点） | XD：倉庫の保留画像で ε と閾値の再較正（画像レベル）。X：記憶なし対検証つき記憶と、助言による方向づけを閉ループ59試行で。描画の確認は I-21（`docs/figures/depot_preview_sheet.jpg`） | {x_text()} |"
     head = ['| 評価（事前登録） | 内容 | 結果 |', '|---|---|---|']
     stages = [
         ('1. 届ける前に確かめる（確認は閉集合の確率、迷えば止まる）', ['E', 'L', 'D', 'Z']),

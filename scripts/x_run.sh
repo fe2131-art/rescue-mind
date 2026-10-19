@@ -6,7 +6,7 @@
 # (a) mechanics pilot on separate worlds (9 runs; STOPS unless scripts/x_analysis.py --pilot passes)
 # (b) design masks of the 24 steer candidates -> registered selection of the 8 hard-class worlds -> protocol regenerated with it
 # (c) design masks of the registered protocol, commit of selection + masks + pilot ledger (BEFORE the first X trial)
-# (d) the campaign (80 runs; resumable: a finished trial is skipped)   (e) analysis -> experiments/results/x_summary.json
+# (d) the campaign (59 runs after the steering selection, the draft said 80; resumable: a finished trial is skipped)   (e) analysis -> experiments/results/x_summary.json
 set -uo pipefail
 cd "$(dirname "$0")/.."
 RES=experiments/results
