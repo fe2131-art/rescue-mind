@@ -576,6 +576,26 @@ def section_key(e, t):
     except (TypeError, KeyError):
         auto = '' if SNAP else '。結果ファイルができると数値が自動で入る'
         rows.append(f'| 悪意のある助言でも危険にならない（評価A、閉ループ） | 本走行 {A_RUNS} 試行を事前登録済み{auto} | {PENDING_JA_SHORT} |')
+    yj_, yej_, yfj_ = jl('y_summary.json'), jl('ye_summary.json'), jl('yf_summary.json')
+    try:      # the depot closed loop after a truthful tip to a burning bay: X lost the delivery, Y keeps it (opt-in flag), YE measures the price, YF repeats Y on fresh worlds
+        ys_ = yj_['Y-s']
+        lv_ = ys_['lost_vs_control']['scrutiny_hc']
+        lost_, pairs_ = lv_['fire_worlds']['lost'] + lv_['clean_worlds']['lost'], lv_['fire_worlds']['pairs'] + lv_['clean_worlds']['pairs']
+        yk_ = ys_['criteria']
+        res_ = (f"倉庫（4拠点）で、助言が火の棚を指しても、拒否のあとに探索を続ける任意のフラグ（`--hazard-continue`）なら配達を取り戻す：scrutiny＋フラグの失う配達 **{lost_}/{pairs_}**"
+                f"（Xのフラグなしでは火のある世界すべてで配達を失った）。tighten-only は火へ {ys_['arms']['monotone_hc']['fire_worlds']['unsafe_deliveries']['k']}/{ys_['arms']['monotone_hc']['fire_worlds']['unsafe_deliveries']['n']} 配達（知覚の見逃し）")
+        if yfj_:
+            yf_ = yfj_['Y-s']['lost_vs_control']['scrutiny_hc']
+            res_ += f"。新しい世界での再現（YF）：失う配達 {yf_['fire_worlds']['lost'] + yf_['clean_worlds']['lost']}/{yf_['fire_worlds']['pairs'] + yf_['clean_worlds']['pairs']}"
+        if yej_:
+            h_ = yej_['arms']['hc']
+            res_ += f"。**代償（YE、2つ目の火が隠れている世界）**：フラグ付きで火へ配達 **{h_['unsafe_deliveries']['k']}/{h_['unsafe_deliveries']['n']}**（上限 {pct(h_['unsafe_upper95_exact'])}）、フラグなしは 0/{yej_['arms']['v36']['n']}"
+        st_ = ('Y1〜Y4：**支持**' if (yk_['Y1_holds'] and yk_['Y3_holds'] and yk_['Y4_holds'] and yj_['Y-c']['criteria']['Y2_holds']) else 'Y：**一部不成立**')
+        if yej_ and not yej_['criteria']['YE2_hc_goes_on_and_decides']:
+            st_ += '／YE2：**不成立**（登録文言の誤り）'
+        rows.append(f"| 燃える棚へ誘導されても配達を失わない（評価X→Y→YE、倉庫の閉ループ） | {res_} | {st_} |")
+    except (TypeError, KeyError):
+        pass
     iff_ = advice_numbers.if_facts()
     if iff_:
         rows.append(f"| 依頼文で頼まれた物資はすり替えられない（評価IF、オフライン） | 書き換えた{iff_['n']}文のうち、注入された物資を受理 **{iff_['k']}/{iff_['n']}**（95%信頼区間 {iff_['ci'][0] * 100:.0f}〜{iff_['ci'][1] * 100:.0f}%）。依頼物資は保証の外。対策の聞き返し（I-27）は研究IF2で再測定（"
@@ -743,6 +763,29 @@ def en_new():
     return t
 
 
+def y_text_en():
+    """English cell of the README table for studies Y (51 runs), YE (24) and YF (27); empty until y_summary.json exists. Every number comes from the result files."""
+    yj, yej, yfj = jl('y_summary.json'), jl('ye_summary.json'), jl('yf_summary.json')
+    if not yj:
+        return ''
+    ys = yj['Y-s']
+    lv = ys['lost_vs_control']['scrutiny_hc']
+    k = ys['criteria']
+    holds = k['Y1_holds'] and k['Y3_holds'] and k['Y4_holds'] and yj['Y-c']['criteria']['Y2_holds']
+    mono = ys['arms']['monotone_hc']['fire_worlds']['unsafe_deliveries']
+    t = (f"Y ({yj['n_planned']} runs, registered before the first trial, OpenTimestamps-attested): the opt-in flag keeps the delivery that a truthful tip to a burning bay lost in X; "
+         f"claims Y1-Y4 {'hold' if holds else 'do not all hold'} (all {k['Y1_refused_runs']} advice runs that refused the steered station delivered from another one); scrutiny + flag lost "
+         f"{lv['fire_worlds']['lost'] + lv['clean_worlds']['lost']}/{lv['fire_worlds']['pairs'] + lv['clean_worlds']['pairs']} deliveries against the control; tighten-only still delivered into a fire in {mono['k']}/{mono['n']} fire-world runs (a perception miss)")
+    if yej:
+        h = yej['arms']['hc']
+        t += (f". YE ({yej['n_planned']} runs, two fires: a visible one at the first bay, a small hidden one at the second): the price is exposure, with the flag {h['unsafe_deliveries']['k']}/{h['unsafe_deliveries']['n']} "
+              f"unsafe deliveries (upper bound {pct(h['unsafe_upper95_exact'])}) against 0/{yej['arms']['v36']['n']} without it; claim YE2 failed as registered (wording: the search goes on through the remaining bays; failed claim 13)")
+    if yfj:
+        yl = yfj['Y-s']['lost_vs_control']['scrutiny_hc']
+        t += f". YF ({yfj['n_planned']} runs on fresh worlds): scrutiny + flag lost {yl['fire_worlds']['lost'] + yl['clean_worlds']['lost']}/{yl['fire_worlds']['pairs'] + yl['clean_worlds']['pairs']} deliveries"
+    return t
+
+
 def section_en(e, v):
     """English summary for international readers; every number comes from the result files (same helpers as above)."""
     L = ['## English summary', '',
@@ -860,13 +903,18 @@ def section_en(e, v):
     L.append('| IF2: ask back on a supply conflict (I-27; 72 new texts) | ' + (advice_numbers.if2_text('en') if advice_numbers.if2_done() else 'pre-registered, not yet run') + ' |')
     xj = x_text()
     L.append('| X, XD: cluttered four-station depot (I-21) | ' + ('pre-registered, not yet run (a rendering preview exists, not a result; the XD-R photographs are frozen, not scored)' if xj.startswith(PENDING_NOT_RUN) else ((advice_numbers.xd_en() + '; the closed-loop study X: ' + ((advice_numbers.x_en() or 'has results (see the paper)') if (RES / 'x_summary.json').is_file() else 'is ' + advice_numbers.PENDING_EN)) if advice_numbers.xd_en() else 'result files exist; see the paper')) + ' |')
-    stage = {'E': 1, 'L': 1, 'Z': 1, 'T1': 2, 'K': 2, 'G': 3, 'W': 3, 'H': 4, 'V': 4, 'A': 4, 'S': 5, 'P': 5, 'R': 5, 'Q': 5, 'X, XD': 5, 'J': 6, 'I-23': 4, 'I-24': 4, 'B': 4, 'IF': 4, 'IF2': 4}
+    yt_ = y_text_en()
+    if yt_:
+        L.append('| Y, YE, YF: continue after a hazard refusal (I-42 / I-43; opt-in `--hazard-continue`) | ' + yt_ + ' |')
+    stage = {'E': 1, 'L': 1, 'Z': 1, 'T1': 2, 'K': 2, 'G': 3, 'W': 3, 'H': 4, 'V': 4, 'A': 4, 'S': 5, 'P': 5, 'R': 5, 'Q': 5, 'X, XD': 5, 'Y, YE, YF': 5, 'J': 6, 'I-23': 4, 'I-24': 4, 'B': 4, 'IF': 4, 'IF2': 4}
     i0 = L.index('|---|---|') + 1
     rows = L[i0:]
     key = lambda r_: r_[2:].split(':')[0]
     rows = sorted(rows, key=lambda r_: (stage.get(key(r_), 9)))
     rows = [f"| [{stage[key(r_)]}] " + r_[2:] if key(r_) in stage else r_ for r_ in rows]
     L = L[:i0] + rows
+    if (ROOT / 'docs/figures/y_results_en.png').is_file() and (RES / 'y_summary.json').is_file():
+        L += ['', '![Study Y: deliveries lost, unsafe deliveries and the price of continuing, X (the search stops at the refusal) against Y (`--hazard-continue`)](docs/figures/y_results_en.png)']
     if not (h_ok and j_ok):
         L += ['', 'Campaigns ' + ('J' if h_ok else 'H and J' if not j_ok else 'H') + ': pre-registered, running.']
     L += ['', '**Limitations.** Simulation only (no physical robot; grasping and hand-over are not simulated). '
