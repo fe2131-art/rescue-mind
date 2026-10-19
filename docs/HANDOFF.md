@@ -132,7 +132,7 @@
 * 評価基準（創造性・技術力・実用性・表現力）と、論文として通用する水準を常に意識する。実機は用意できない → シミュレーションでできることはすべてやる。
 * 当初計画（Jev＋Qwen の 2 つの AI による確認）から勝手に外れない（Jev の役割はローカルの Clef-Flash。J で実装・検証し、採用しなかった結果を論文に載せた）。
 * 評価（GPU キャンペーン）の実行中は、重い処理（ビルド・テスト・図・動画）と実行時コードの編集をしない。CPU を使うときは `nice -n 19`。
-* 第三者採点（Sonnet 5.5 に `docs/evaluations/EVALUATOR_PROMPT.md` で採点させる）を定期的に行い、点数を上げる改善点トップ5に沿って直す。最新は第10回 **35.5/40**（`docs/evaluations/EVAL_2026-10-18_10.md`。回と点数は `check_consistency.py` が最新の評価ファイルと突き合わせる）。模擬査読は R8 まで（`docs/paper/REVIEW_NOTES_R8.md`、判定は borderline）。
+* 第三者採点（Sonnet 5.5 に `docs/evaluations/EVALUATOR_PROMPT.md` で採点させる）を定期的に行い、点数を上げる改善点トップ5に沿って直す。最新は第11回 **36.0/40**（`docs/evaluations/EVAL_2026-10-18_10.md`。回と点数は `check_consistency.py` が最新の評価ファイルと突き合わせる）。模擬査読は R8 まで（`docs/paper/REVIEW_NOTES_R8.md`、判定は borderline）。
 
 ### B. ブランチの考え方
 
