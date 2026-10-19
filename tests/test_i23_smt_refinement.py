@@ -67,7 +67,7 @@ class Proofs(unittest.TestCase):
 
     def test_properties_are_unsat_and_nonvacuity_sat(self):
         for p in self.res['proofs']:
-            want = 'sat' if p['name'].startswith('NONVACUITY') or p['name'].startswith('NECESSITY relaxing') else 'unsat'
+            want = 'sat' if p['name'].startswith(('NONVACUITY', 'NECESSITY relaxing', 'CONTRAST')) else 'unsat'
             self.assertEqual(p['result'], want, p['name'])
 
     def test_necessity_counterexamples(self):

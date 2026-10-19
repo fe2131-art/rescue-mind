@@ -34,7 +34,7 @@ STUDIES = [
     ('V', 'V', 'v_summary.json'), ('W', 'W', 'w_summary.json'), ('Z', 'Z', 'z_summary.json'), ('K', 'K', 'k_summary.json'),
     ('P', 'P', 'p_summary.json'), ('P2', 'P2', 'p2_summary.json'), ('A', 'A', 'a_summary.json'), ('S', 'S', 's_summary.json'),
     ('X', 'X', 'x_summary.json'), ('XD', 'XD', 'xd_summary.json'), ('Q', 'Q', 'q_summary.json'),
-    ('B', 'B', 'b_summary.json'), ('IF', 'IF', 'if_summary.json'), ('IF2', 'IF2', 'if2_summary.json')]
+    ('B', 'B', 'b_summary.json'), ('IF', 'IF', 'if_summary.json'), ('IF2', 'IF2', 'if2_summary.json'), ('Y', 'Y', 'y_summary.json')]
 # facts about the running campaigns that git cannot show (source: the untracked campaign ledger in the main checkout)
 NOTES = {'A': 'the A campaign (226 trials) started 2026-10-18 11:11 JST (first trial A001): after both amendments and after the commits above'}
 HEAD = 'HEAD'
@@ -174,7 +174,7 @@ def render():
          '',
          'Verify any row: `git log 587f033^1 --first-parent --format=\'%h %cI\' --diff-filter=A -- experiments/PREREGISTRATION_X.md` (first commit on main; empty for the files that came with the merge `587f033`, whose tree contains them while its first parent does not), '
          '`git merge-base --is-ancestor <registration commit> <first result commit>`, `git show <commit>:experiments/PREREGISTRATION_X.md | sha256sum`. '
-         'An external timestamp of these hashes (OpenTimestamps) is not done yet; it needs the owner\'s consent.',
+         'An external timestamp (OpenTimestamps; hashes only) of the manifest `docs/timestamps/registrations_manifest_20261019.txt` (the hash of this file and of every commit that touched it, as of 2026-10-19) proves that these hashes existed by the Bitcoin block time of its `.ots` proof, not the order of the earlier studies; study Y has its own stamp, taken before its first trial (`docs/timestamps/study_y_registration.txt.ots`).',
          '',
          '## Registrations',
          '',

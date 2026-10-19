@@ -41,6 +41,7 @@ def audit_local_checkpoint(checkpoint: dict, image_sha: str, *, expected: str,
     base_reason=computed['reason']        # what the standard (v3.6) rule says at the front, before any memory / advice caution
     computed=apply_memory_caution(computed,a,b,tau_mem)
     hard_hazard=(base_reason=='visible_hazard_at_checkpoint')    # R5 #5: a real hazard (p >= tau_h, or either model's label)
+    invalid_side=False                                           # I-42: a broken side view is never a hazard to continue past
     if 'look_around' in checkpoint:   # I-14: side views can only turn an approval into a hazard refusal
         peeks=[]
         for pk in checkpoint['look_around'].get('peeks',[]):
@@ -60,6 +61,7 @@ def audit_local_checkpoint(checkpoint: dict, image_sha: str, *, expected: str,
             if hazard != bool(pk.get('hazard')):
                 raise LocalReceiptError('look-around hazard flag does not match the saved side-view outputs')
             hard_hazard=hard_hazard or hz=='visible_hazard_at_checkpoint' or not (scores_valid(pa) and scores_valid(pb))
+            invalid_side=invalid_side or not (scores_valid(pa) and scores_valid(pb))
             peeks.append({'side':pk['side'],'hazard':hazard})
         ad=checkpoint['look_around'].get('adaptive')
         if ad is not None:   # I-20: recompute whether the extra views were required, and that they were taken
@@ -80,6 +82,6 @@ def audit_local_checkpoint(checkpoint: dict, image_sha: str, *, expected: str,
         raise LocalReceiptError('decision or image hash does not match original model outputs')
     # R5 #5: a refusal with no real hazard behind it, only the tightened threshold (memory / advice caution)
     caution_only=(computed['allow'] is False and computed['reason']=='visible_hazard_at_checkpoint' and not hard_hazard)
-    return {'pass':True,'mode':mode,'reason':computed['reason'],'allow':computed['allow'],'caution_only':caution_only,
+    return {'pass':True,'mode':mode,'reason':computed['reason'],'allow':computed['allow'],'caution_only':caution_only,'invalid_side':invalid_side,
             'hazard_threshold':hazard_threshold,'hazard_threshold_verified':bool(thr_ok) and all(thr_ok),
             'model_diversity':mode=='dual','scope':'SELF_REPORTED_LOCAL_TRANSFORMERS_NOT_GPU_ATTESTATION'}

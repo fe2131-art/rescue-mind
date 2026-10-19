@@ -59,12 +59,18 @@ def audit_recovery(mission: dict, run_dir: Path, *, completed: bool) -> dict:
         (h.get('checkpoint') or {}, h.get('checkpoint_image', '')) for h in hops]
     kinds = [rec.get('first_kind')] + [h.get('kind') for h in hops]
     soft_ok = mission.get('caution_soft') is True          # R5 #5: soft hops exist only under --caution-soft
+    haz_ok = mission.get('hazard_continue') is True        # I-42: hazard hops exist only under --hazard-continue
     for j, (cp, _) in enumerate(checkpoints):
         dec = cp.get('decision') or {}
         if kinds[j] == 'caution_only':
             # a caution-only refusal; whether it really was one (no hazard under the standard rule) is recomputed below
             if not soft_ok or dec.get('allow') is not False or dec.get('reason') != 'visible_hazard_at_checkpoint' or dec.get('expected') != item:
                 raise RecoveryEvidenceError(f'hop {j + 1} is a soft refusal without --caution-soft or not a refusal for the same request')
+            continue
+        if kinds[j] == 'hazard':
+            # a real-hazard refusal that the search continued past; that the saved outputs show one is recomputed below
+            if not haz_ok or dec.get('allow') is not False or dec.get('reason') != 'visible_hazard_at_checkpoint' or dec.get('expected') != item:
+                raise RecoveryEvidenceError(f'hop {j + 1} is a hazard refusal without --hazard-continue or not a refusal for the same request')
             continue
         if kinds[j] is not None:
             raise RecoveryEvidenceError(f'unknown hop kind {kinds[j]!r}')
@@ -99,10 +105,17 @@ def audit_recovery(mission: dict, run_dir: Path, *, completed: bool) -> dict:
         res = audit_local_checkpoint(cp, frame['image_sha256'], expected=item, **audit_kwargs(mission))
         if kinds[j] == 'caution_only' and not res.get('caution_only'):
             raise RecoveryEvidenceError(f'hop {j + 1} was continued as a caution-only refusal, but the saved outputs show a real hazard')
+        if kinds[j] == 'hazard' and (res.get('caution_only') or res.get('invalid_side') or res.get('reason') != 'visible_hazard_at_checkpoint'):
+            raise RecoveryEvidenceError(f'hop {j + 1} was continued as a hazard refusal, but the saved outputs do not show a real hazard')
     from .caution_soft import audit_caution_refusals, CautionError
     try:
         caution = audit_caution_refusals(mission)
     except CautionError as exc:
+        raise RecoveryEvidenceError(str(exc)) from exc
+    from .hazard_continue import audit_hazard_refusals, HazardContinueError
+    try:
+        hazard = audit_hazard_refusals(mission)
+    except HazardContinueError as exc:
         raise RecoveryEvidenceError(str(exc)) from exc
     final = (mission.get('checkpoint') or {}).get('decision') or {}
     if completed and final.get('allow') is not True:
@@ -114,6 +127,8 @@ def audit_recovery(mission: dict, run_dir: Path, *, completed: bool) -> dict:
            'final_allow': final.get('allow'), 'search_started_t': times[4], 'final_decision_t': times[n * 5 + 2]}
     if caution['n_caution_refusals']:
         out['caution'] = caution
+    if hazard['n_hazard_refusals']:
+        out['hazard'] = hazard
     if cands is not None:
         out.update({'candidates': list(cands), 'visited': visited, 'n_checks': len(visited)})
     return out

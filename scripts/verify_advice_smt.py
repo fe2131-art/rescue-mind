@@ -58,6 +58,7 @@ STD_SIDE = ('L', 'R')
 EXTRA = ('L2', 'R2', 'N')
 MAX_VIEWS = 6                      # front + L + R + L2 + R2 + N  (PROOF_REVIEW 4.)
 APPROVE, CONT, STOP = 0, 1, 2      # outcome classes of one station check in the mission loop
+HAZ = 3                            # I-42: a REAL hazard refusal; STOP in v3.6, CONT under --hazard-continue (loop_run_hc)
 
 
 def rv(x) -> z3.ArithRef:
@@ -366,6 +367,40 @@ def loop_run(order, kind, k, mut=frozenset(), forced=None):
     return {'checked': checked, 'deliv': deliv, 'visits': visits, 'seq': seq, 'stopped': stopped, 'halted': halted}
 
 
+HC_MUTANTS = {
+    'hazard_refusal_is_approval': 'under the flag a hazard-refused station is treated as approved (delivery from it)',
+    'skip_candidate_after_hazard': 'after a hazard refusal the next candidate is skipped without a check',
+    'hazard_still_stops': 'the flag is read but a hazard still ends the search (availability not restored)',
+}
+
+
+def loop_run_hc(order, kind, k, flag, mut=frozenset()):
+    """I-42: the mission loop with --hazard-continue.  Outcome classes: APPROVE, CONT (wrong supply: v3.6 recovery), STOP (anything
+    else that ends the search: low confidence, broken view), HAZ (a real hazard refusal): with `flag` a HAZ moves on to the next
+    candidate exactly like CONT, without it it stops.  `seq` lists the stations really visited (checked) in order."""
+    seen = [z3.BoolVal(False) for _ in range(k)]         # visited
+    halted, stopped, deliv, visits = z3.BoolVal(False), z3.BoolVal(False), z3.IntVal(-1), z3.IntVal(0)
+    seq, skip = [], z3.BoolVal(False)
+    for _ in range(k):
+        cand = first_unchecked(order, seen, k)
+        active = z3.And(z3.Not(halted), cand != -1)
+        kc = select(kind, cand, k, z3.IntVal(STOP))
+        hz = kc == HAZ
+        if 'hazard_refusal_is_approval' in mut:
+            kc = z3.If(z3.And(flag, hz), z3.IntVal(APPROVE), kc)
+        eff = z3.If(kc == HAZ, z3.If(z3.And(flag, 'hazard_still_stops' not in mut), z3.IntVal(CONT), z3.IntVal(STOP)), kc)
+        seq.append(z3.If(active, cand, z3.IntVal(-1)))
+        seen = [z3.Or(seen[t], z3.And(active, cand == t)) for t in range(k)]
+        if 'skip_candidate_after_hazard' in mut:         # the next candidate is marked visited without being visited
+            nxt = first_unchecked(order, seen, k)
+            seen = [z3.Or(seen[t], z3.And(active, hz, flag, nxt == t)) for t in range(k)]
+        deliv = z3.If(z3.And(active, eff == APPROVE), cand, deliv)
+        stopped = z3.Or(stopped, z3.And(active, eff == STOP))
+        halted = z3.Or(halted, z3.Not(active), eff != CONT)
+        visits = visits + z3.If(active, z3.IntVal(1), z3.IntVal(0))
+    return {'seen': seen, 'deliv': deliv, 'visits': visits, 'seq': seq, 'stopped': stopped, 'halted': halted}
+
+
 # ======================================================================================================================
 # 4. PROOFS
 # ======================================================================================================================
@@ -513,6 +548,93 @@ def proofs_loop(k: int, rec: list) -> list:
     out.append(prove(f'loop k={k}: location advice cannot create a delivery from a station that never approves',
                      z3.Implies(r1['deliv'] >= 0, select(kind, r1['deliv'], k, z3.IntVal(STOP)) == APPROVE),
                      [z3.And(j >= 0, j < k), *[z3.And(x >= 0, x <= 2) for x in kind]], record=rec, meta=meta))
+    return out
+
+
+def hc_assumptions(order, kind, abase, k):
+    """Loop inputs under the flag: any permutation, any outcome class per station, and the station lemma (an approval with advice
+    is an approval without)."""
+    return [is_perm(order, k), *[z3.And(x >= 0, x <= 3) for x in kind], *[z3.Implies(kind[t] == APPROVE, abase[t]) for t in range(k)]]
+
+
+def proofs_hazard_continue(k: int, rec: list) -> list:
+    """I-42: the loop with --hazard-continue.  Everything of Proposition 2 survives (per-station rule, delivery only after an approving
+    check, visited stations a prefix of the order), and a hazard stops being a way to lose a delivery that another station would make."""
+    out = []
+    order = [z3.Int(f'O{i}') for i in range(k)]
+    kind = [z3.Int(f'kind{t}') for t in range(k)]
+    abase = [z3.Bool(f'abase{t}') for t in range(k)]
+    unsafe = [z3.Bool(f'M{t}') for t in range(k)]
+    on = z3.BoolVal(True)
+    assum = hc_assumptions(order, kind, abase, k)
+    r = loop_run_hc(order, kind, k, on)
+    meta = {'layer': 'loop_hazard_continue', 'k': k}
+    dl = r['deliv']
+    out.append(prove(f'hazard-continue k={k}: every delivery is preceded by an approving check at that station',
+                     z3.Implies(dl >= 0, z3.And(*[z3.Implies(dl == t, z3.And(r['seen'][t], kind[t] == APPROVE)) for t in range(k)])),
+                     assum, record=rec, meta=meta))
+    out.append(prove(f'hazard-continue k={k}: an unsafe delivery implies the event E_w (some must-refuse station is approved by the unadvised check)',
+                     z3.Implies(z3.And(dl >= 0, select(unsafe, dl, k, z3.BoolVal(False))), z3.Or(*[z3.And(unsafe[t], abase[t]) for t in range(k)])),
+                     assum, record=rec, meta=meta))
+    out.append(prove(f'hazard-continue k={k}: visits <= k, each station at most once, visited stations are a prefix of the candidate order',
+                     z3.And(r['visits'] <= k, r['visits'] == z3.Sum([z3.If(c, 1, 0) for c in r['seen']]),
+                            *[z3.Implies(z3.IntVal(i) < r['visits'], r['seq'][i] == order[i]) for i in range(k)],
+                            *[z3.Implies(z3.IntVal(i) >= r['visits'], r['seq'][i] == -1) for i in range(k)]), assum, record=rec, meta=meta))
+    out.append(prove(f'hazard-continue k={k}: a hazard refusal is never a delivery station, and without a delivery or another stop every candidate was visited',
+                     z3.And(*[z3.Implies(kind[t] == HAZ, dl != t) for t in range(k)],
+                            z3.Implies(z3.And(dl < 0, z3.Not(r['stopped'])), z3.And(*r['seen']))), assum, record=rec, meta=meta))
+    # availability: a hazard cannot take away a delivery that another station makes (no other stop class)
+    nostop = [x != STOP for x in kind]
+    out.append(prove(f'hazard-continue k={k}: if some station approves and nothing else stops the search, the mission delivers (hazards cannot cost it)',
+                     z3.Implies(z3.Or(*[x == APPROVE for x in kind]), dl >= 0), assum + nostop, record=rec, meta=meta))
+    # the same loop WITHOUT the flag loses it: the contrast (a counterexample is the expected answer)
+    r0 = loop_run_hc(order, kind, k, z3.BoolVal(False))
+    res = prove(f'CONTRAST hazard-continue k={k}: v3.6 (flag off) can lose a delivery that another station makes (expected: counterexample)',
+                z3.Implies(z3.Or(*[x == APPROVE for x in kind]), r0['deliv'] >= 0), assum + nostop, meta=meta)
+    d = {'name': res['name'], 'result': res['result'], 'proved': res['result'] == 'sat', 'seconds': res['seconds'], **meta}
+    rec.append(d); out.append(d)
+    # advice, availability: advice moves any station's outcome only from APPROVE to HAZ (apply_memory_caution / combine_with_look_around
+    # are the identity on a refusal: a differential test on the real functions), at the stations it tightened.
+    kind_adv = [z3.Int(f'kadv{t}') for t in range(k)]
+    tight = [z3.Bool(f'tight{t}') for t in range(k)]
+    o_adv = [z3.Int(f'OA{i}') for i in range(k)]
+    H = [z3.Or(kind_adv[t] == kind[t], z3.And(tight[t], kind[t] == APPROVE, kind_adv[t] == HAZ)) for t in range(k)]
+    avail = assum + [is_perm(o_adv, k), *H, *[z3.Implies(kind_adv[t] == APPROVE, kind[t] == APPROVE) for t in range(k)], *nostop]
+    ra = loop_run_hc(o_adv, kind_adv, k, on)
+    rn = loop_run_hc(order, kind, k, on)
+    out.append(prove(f'hazard-continue k={k}: advice (any order, any tightened set) loses a delivery only if EVERY station that approves without advice was tightened',
+                     z3.Implies(z3.And(rn['deliv'] >= 0, ra['deliv'] < 0), z3.And(*[z3.Implies(kind[t] == APPROVE, tight[t]) for t in range(k)])),
+                     avail, record=rec, meta=meta))
+    j = z3.Int('j')
+    only_j = [z3.Implies(tight[t], j == t) for t in range(k)]
+    out.append(prove(f'hazard-continue k={k}: with ONE tightened station (location advice + scrutiny) a second approving station always delivers',
+                     z3.Implies(z3.Or(*[z3.And(kind[t] == APPROVE, j != t) for t in range(k)]), ra['deliv'] >= 0),
+                     avail + only_j + [z3.And(j >= 0, j < k)], record=rec, meta=meta))
+    return out
+
+
+def hc_mutant_cex(name: str, k: int = 4) -> dict:
+    mut = frozenset([name])
+    order = [z3.Int(f'O{i}') for i in range(k)]
+    kind = [z3.Int(f'kind{t}') for t in range(k)]
+    abase = [z3.Bool(f'abase{t}') for t in range(k)]
+    assum = hc_assumptions(order, kind, abase, k)
+    r = loop_run_hc(order, kind, k, z3.BoolVal(True), mut)
+    dl = r['deliv']
+    if name == 'hazard_still_stops':
+        claim = z3.Implies(z3.Or(*[x == APPROVE for x in kind]), dl >= 0)
+        assum = assum + [x != STOP for x in kind]
+    elif name == 'hazard_refusal_is_approval':
+        claim = z3.And(*[z3.Implies(kind[t] == HAZ, dl != t) for t in range(k)])
+    else:      # skip_candidate_after_hazard: the visited stations are no longer a prefix of the order
+        claim = z3.And(r['visits'] == z3.Sum([z3.If(c, 1, 0) for c in r['seen']]),
+                       *[z3.Implies(z3.IntVal(i) < r['visits'], r['seq'][i] == order[i]) for i in range(k)])
+    res = prove(f'MUTANT {name}', claim, assum)
+    out = {'mutant': name, 'description': HC_MUTANTS[name], 'z3': res['result'], 'seconds': res['seconds'], 'k': k}
+    if res['result'] == 'sat':
+        m = res['model']
+        out['counterexample'] = {'order': [mval(m, x) for x in order], 'outcome_class(0=approve,1=continue,2=stop,3=hazard)': [mval(m, x) for x in kind],
+                                 'delivered_from': mval(m, dl), 'visited': [mval(m, x) for x in r['seq']]}
     return out
 
 
@@ -1698,6 +1820,7 @@ def run_all(quick: bool = False, diff_n: int = 1500, mutant_n: int = 1500, loop_
         proofs_station_plan_linked(k, n, rec)
     for k in ((2, 3, 4, 5, 6) if not quick else (3, 4)):
         proofs_loop(k, rec)
+        proofs_hazard_continue(k, rec)
     nonvacuity(rec)
     nec = necessity(rec)
     mutants = {'plan': [], 'station': [], 'loop': []}
@@ -1713,6 +1836,8 @@ def run_all(quick: bool = False, diff_n: int = 1500, mutant_n: int = 1500, loop_
         mutants['station'].append(r)
     for name in LOOP_MUTANTS:
         mutants['loop'].append(loop_mutant_cex(name))
+    for name in HC_MUTANTS:
+        mutants['loop'].append(hc_mutant_cex(name))
     res = {'proofs': rec, 'mutants_model': mutants, 'necessity': nec}
     if with_link:
         diff = {}

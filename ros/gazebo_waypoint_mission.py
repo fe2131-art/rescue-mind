@@ -125,6 +125,8 @@ def run_ros(route, args, record):
     live = record.get('run_type') in ('jev_qwen_live_mission','local_vlm_live_mission')
     soft=bool(getattr(args,'caution_soft',False))      # R5 #5: a caution-only refusal continues the search (default off)
     record['caution_soft']=soft
+    hcont=bool(getattr(args,'hazard_continue',False))  # I-42: a REAL hazard refusal continues the search too (default off)
+    record['hazard_continue']=hcont
     record['advice_scrutiny']=bool(getattr(args,'advice_scrutiny',False))
     sensor_grace=max(5.,float(getattr(args,'sensor_wait',5.)))
     camera_watch=CameraWatch(started_at=time.monotonic(), max_age_s=getattr(args,'camera_max_age',3.0),
@@ -549,6 +551,7 @@ def run_ros(route, args, record):
         return [('peek',f'{station}:{sd}',xy) for sd,xy in pts]
 
     SOFT_PEEK=object()
+    HAZ_PEEK=object()
 
     def search_context(target):
         """(prior recovery block, stations denied before this one, candidate order, next candidate or None)."""
@@ -567,6 +570,16 @@ def run_ros(route, args, record):
         rec=refusal_record(station,where,p_max,float(tau_mem),base_reason or '',nxt is not None,nxt)
         record.setdefault('caution_refusals',[]).append(rec)
         record['events'].append({'stage':'caution_refusal','t_wall_s':round(time.monotonic()-start,3),**rec})
+
+    def note_hazard_refusal(station, where, source, nxt):
+        """Record a real-hazard refusal that the search continues past (I-42, --hazard-continue)."""
+        from rescuemind.hazard_continue import refusal_record as hz_record
+        from rescuemind.mission_memory import hazard_prob
+        calls=source.get('model_calls') or {}
+        p_max=max(hazard_prob(calls.get('first')),hazard_prob(calls.get('second')))
+        rec=hz_record(station,where,p_max,nxt is not None,nxt)
+        record.setdefault('hazard_refusals',[]).append(rec)
+        record['events'].append({'stage':'hazard_refusal','t_wall_s':round(time.monotonic()-start,3),**rec})
 
     def begin_search(target, outcome, reason, ctx, index, kind=None):
         """Keep the refused station's evidence under a 'recovery_' prefix and send the robot to the next candidate."""
@@ -636,6 +649,9 @@ def run_ros(route, args, record):
         # R5 #5: a side view the standard (v3.6) rule would have passed, refused only by the tightened threshold
         soft_peek=soft and classify_view(po['decision']['reason'],po['model_calls']['first'],po['model_calls']['second'],
                                          po.get('memory_caution_tau_h'))=='caution_only'
+        from rescuemind.hazard_continue import real_side_hazard
+        haz_peek=hcont and real_side_hazard(po['decision']['reason'],po['model_calls']['first'],po['model_calls']['second'],
+                                            po.get('memory_caution_tau_h'))     # I-42: a real hazard seen from the side
         # a hazard seen from the side: the approval becomes a hazard refusal, exactly as at the front
         from rescuemind.local_vision import combine_with_look_around
         cp['decision']=combine_with_look_around(cp['decision'],[{'side':q['side'],'hazard':q['hazard']} for q in la['peeks']])
@@ -665,6 +681,11 @@ def run_ros(route, args, record):
                                  cp['decision'].get('front_reason'),ctx_[3])
             if ctx_[3] is not None and (ctx_[0] is None or station==ctx_[0].get('searched_station')):
                 return SOFT_PEEK
+        if haz_peek:
+            ctx_=search_context(station)
+            note_hazard_refusal(station,'side_'+side,entry,ctx_[3])
+            if ctx_[3] is not None and (ctx_[0] is None or station==ctx_[0].get('searched_station')):
+                return HAZ_PEEK
         raise RuntimeError('on-site checkpoint DENIED: visible_hazard_at_checkpoint (look-around '+side+')')
 
     def request_delivery_permit():
@@ -786,13 +807,13 @@ def run_ros(route, args, record):
                                                  'last_pose':list(ctx['pose'].__dict__.values())})
                         record['trace'].extend(samples)
                         extra=look_around_peek(target, goal)
-                        if extra is SOFT_PEEK:
+                        if extra is SOFT_PEEK or extra is HAZ_PEEK:
                             # R5 #5: caution-only side view -> no delivery from this station, drop its remaining
                             # views and continue with the next candidate (full check there)
                             st_=target.split(':')[0]
                             route[index:]=[r for r in route[index:] if not (r[0]=='peek' and str(r[1]).startswith(st_+':'))]
                             begin_search(st_,record['checkpoint'],'visible_hazard_at_checkpoint',search_context(st_),index,
-                                         kind='caution_only')
+                                         kind='caution_only' if extra is SOFT_PEEK else 'hazard')
                         elif extra:
                             route[index:index]=extra      # I-20: suspicion-triggered extra views, before leaving
                         break
@@ -832,10 +853,16 @@ def run_ros(route, args, record):
                             if soft_front:      # R5 #5: record it whether or not a next candidate is left
                                 note_caution_refusal(target,'front',outcome,outcome['decision']['memory_caution_tau_h'],
                                                      outcome['decision'].get('pre_caution_reason'),nxt)
+                            from rescuemind.hazard_continue import real_front_hazard
+                            cm_=outcome.get('model_calls') or {}
+                            hz_front=hcont and real_front_hazard(outcome['decision'],cm_.get('first'),cm_.get('second'))
+                            if hz_front:        # I-42: record it whether or not a next candidate is left
+                                note_hazard_refusal(target,'front',outcome,nxt)
                             if (nxt is not None and (prior is None or target==prior.get('searched_station'))
                                     and ((getattr(args,'recovery',False) and reason=='local_vlm_disagree_or_wrong_supply')
-                                         or soft_front)):
-                                begin_search(target,outcome,reason,sctx,index,kind='caution_only' if soft_front else None)
+                                         or soft_front or hz_front)):
+                                begin_search(target,outcome,reason,sctx,index,
+                                             kind='caution_only' if soft_front else ('hazard' if hz_front else None))
                             else:
                                 raise RuntimeError('on-site checkpoint DENIED: '+reason)
                     break
@@ -847,6 +874,8 @@ def run_ros(route, args, record):
                 time.sleep(.06)
         record['success']=True
     finally:
+        if gc_probe in gc.callbacks:       # I-42: a run leaves no callback behind (tests run the node hundreds of times in one process)
+            gc.callbacks.remove(gc_probe)
         record['max_request_gap_s']=round(gap_state['max'],3)
         # Publish redundant zeros as this is not safety-certified hardware.
         for _ in range(5):
@@ -912,6 +941,9 @@ def main():
     ap.add_argument('--caution-soft',action='store_true',
                     help='R5 #5: a refusal caused only by memory / advice caution (tau_mem <= p(hazard) < tau_h) does not stop the '
                          'mission: no delivery from that station, continue with the next candidate station (default off: v3.6)')
+    ap.add_argument('--hazard-continue',action='store_true',
+                    help='I-42: a REAL hazard refusal (standard rule, valid scores) does not stop the mission either: no delivery from that '
+                         'station, continue with the next candidate station (default off: v3.6 stops at the first hazard)')
     ap.add_argument('--advice-scrutiny',action='store_true',
                     help='I-19: the station that advice moved to the front gets caution and the I-20 extra views regardless of suspicion')
     ap.add_argument('--advice-file',default=None,
