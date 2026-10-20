@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / 'scripts'))
+from rescuemind import depot  # noqa: E402
 from rescuemind.robust_scenes import build_variant  # noqa: E402
 from scripts import make_protocol_ye as mye  # noqa: E402
 from scripts import ye_analysis as yea  # noqa: E402
@@ -24,6 +25,7 @@ def fires(spec):
     return sorted(m.get('name') for m in root.find('world').iter('model') if (m.get('name') or '').startswith('hazard_fire'))
 
 
+@unittest.skipUnless(depot.available(), 'depot assets missing: run scripts/fetch_depot_assets.sh')
 class TwoFireWorld(unittest.TestCase):
     def test_two_fire_models_with_distinct_names(self):
         w = mye.candidates()[0]

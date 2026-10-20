@@ -15,7 +15,7 @@ ALLOW_SUFFIXES={'.py','.md','.txt','.json','.yml','.yaml','.sh','.toml','.sdf','
 def audit():
     findings=[];scanned=0
     for p in ROOT.rglob('*'):
-        if not p.is_file() or any(n in p.parts for n in ('__pycache__','.venv','.git')):continue
+        if not p.is_file() or any(n in p.parts for n in ('__pycache__','.venv','.git','.claude')):continue
         relative=str(p.relative_to(ROOT))
         if p.name in PRIVATE_NAMES:findings.append({'path':relative,'issue':'private_filename'});continue
         if p.suffix not in ALLOW_SUFFIXES:continue

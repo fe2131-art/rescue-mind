@@ -1,7 +1,7 @@
 # 提出チェックリスト（ご本人用）
 
 **締切：2026-11-02（月）10:00 JST**（提出開始は 2026-10-19）。課題文の要件は [`SUBMISSION.md`](SUBMISSION.md)（要件チェック表）にある。
-omnicampus アカウント名は `tetsutetsu`。コマンドはすべて worktree `~/work/rescue-mind/.claude/worktrees/i21`（ブランチ `i21-depot`）で実行する。
+omnicampus アカウント名は `tetsutetsu`。コマンドはすべて `~/work/rescue-mind`（ブランチ `main`。ブランチは `main` だけ）で実行する。
 **公開設定の変更・YouTube への投稿・フォーム提出はご本人だけが行う**（アシスタントは行わない）。
 
 流れ：**①アシスタントの最終確認 → ②YouTube → ③URL を文書に入れる → ④リポジトリを public にする → ⑤フォーム提出**。
@@ -13,18 +13,18 @@ omnicampus アカウント名は `tetsutetsu`。コマンドはすべて worktre
 
 | # | 確認 | コマンド・場所 | 合格 |
 |---|---|---|---|
-| 1 | 最新にする | `git fetch origin && git merge --ff-only origin/i21-depot` | 成功 |
+| 1 | 最新にする | `git fetch origin && git status -sb`（`main` が `origin/main` と一致） | 差分なし |
 | 2 | 結果の反映（GPU を使わない） | `make finalize`（= `bash scripts/finalize_results.sh`。キャンペーン終了後） | FAIL なし |
 | 3 | 文書と結果ファイルの一致 | `python3 scripts/check_consistency.py` | **0 mismatch**（終了コード 0） |
 | 4 | 単体テスト | `make test`（`docker exec rm-dev rescuemind-entrypoint ...` で実行） | 全件成功 |
 | 5 | **最終版かスナップショットか** | 下の判定 | 下記 |
 | 6 | 動画 1〜3 分 | `ffprobe -v error -show_entries format=duration -of csv=p=0 ~/work/rescue-mind/outputs/video/PAI最終課題_tetsutetsu.mp4` | 60 以上 180 以下（秒）。続けて `python3 scripts/update_submission_facts.py`（`docs/SUBMISSION.md` の実測値を更新）。`docs/video_chapters.json` の終端と一致 |
 | 7 | 倍速表示 | 下の「倍速の目視」 | 走行 8 倍速・確認 3 倍速が画面左上に出ている |
-| 8 | 概要欄が上限内 | `sed -n '/^## 概要欄/,/^## 公開設定チェック/p' docs/YOUTUBE_DESCRIPTION.md \| sed '1d;$d' \| wc -c` | 5000 バイト以下（YouTube の上限） |
+| 8 | 概要欄が上限内 | `sed -n '/^## 概要欄/,/^## 公開設定チェック/p' docs/YOUTUBE_DESCRIPTION.md \| sed '1d;$d' \| wc -m` | 5000 **文字**以下（YouTube Studio の上限は文字数。生成側は 4900 文字で抑える。2026-10-20 時点は約 3700 文字） |
 | 9 | レポートのファイル名・著者 | `ls docs/report/`、`docker run --rm -v "$PWD/docs/report:/w:ro" rescuemind:latex pdfinfo "/w/説明資料_PAI最終課題_tetsutetsu.pdf" \| grep -E 'Author\|Pages'` | ファイル名は **`説明資料_PAI最終課題_tetsutetsu.pdf`** だけ。Author は `tetsutetsu` |
 | 10 | 個人情報・秘密情報の検査 | `python3 scripts/secret_scan.py --history` と `python3 scripts/public_release_audit.py` と `python3 -m unittest tests.test_no_personal_paths` | いずれも指摘 0 / PASS。動画の画面・ナレーションに氏名が無いことは**目視**（下記） |
 | 11 | ライセンス・第三者表記 | `LICENSE`（MIT）、[`THIRD_PARTY.md`](THIRD_PARTY.md)、`grep -c 'VOICEVOX:四国めたん' docs/YOUTUBE_DESCRIPTION.md README.md` | 両方 1 以上（クレジット必須）。第三者の重み・画像・音声・動画を同梱していない（`THIRD_PARTY.md` の冒頭） |
-| 12 | `main` が最終版 | `git fetch origin && git diff --stat origin/main origin/i21-depot` | 差分なし（GitHub に見えるのは `main`。差があれば `main` へマージして push してから先へ進む） |
+| 12 | `main` が最終版 | `git fetch origin && git status -sb`、`git log origin/main -1 --format=%h` | `main` が `origin/main` と同じ（GitHub に見えるのは `main`） |
 | 13 | GitHub Actions | `gh run list -R fe2131-art/rescue-mind -L 3` | `main` の最新が success（2026-10-18 時点は赤。下の「Actions」参照） |
 
 **5. 最終版かスナップショットか**
@@ -76,8 +76,7 @@ python3 scripts/set_video_url.py 'https://www.youtube.com/watch?v=XXXXXXXXXXX' -
 * 続けて：
   ```bash
   python3 scripts/check_consistency.py        # 0 mismatch（スナップショットなら --snapshot）
-  git add README.md docs/SUBMISSION.md docs/report && git commit -m "docs: YouTube URL" && git push origin i21-depot
-  cd ~/work/rescue-mind && git fetch origin && git merge origin/i21-depot && git push origin main   # main へ反映（main 側の未追跡ファイルと衝突することがあるので、アシスタントに頼んでよい）
+  git add README.md docs/SUBMISSION.md docs/report && git commit -m "docs: YouTube URL" && git push origin main
   ```
   **GitHub の既定ブランチ `main` に URL が入っていること**を、public にしたあとで README の表示で確認する（手順 4-3）。
 * 提出する PDF は、このコマンドで再生成された `docs/report/説明資料_PAI最終課題_tetsutetsu.pdf`（スナップショットは `docs/snapshot/report/` の同名ファイル）。
