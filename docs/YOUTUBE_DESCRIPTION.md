@@ -1,6 +1,6 @@
 # YouTube 投稿用テキスト（コピーして使用）
 
-**ファイル**：`outputs/video/PAI最終課題_tetsutetsu.mp4`（1920×1080, 30fps, 約2分50秒（`docs/video_chapters.json` の終端 170.33 秒）、日本語ナレーション付き）
+**ファイル**：`outputs/video/PAI最終課題_tetsutetsu.mp4`（1920×1080, 30fps, 約2分51秒（`docs/video_chapters.json` の終端 170.63 秒）、日本語ナレーション付き）
 
 ## タイトル
 PAI最終課題_tetsutetsu
