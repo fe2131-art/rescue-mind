@@ -26,5 +26,20 @@ class Margin(unittest.TestCase):
         self.assertIsNone(m['cal']['above_tau_cal'])
 
 
+class SecondLook(unittest.TestCase):
+    def test_two_run_maximum_against_the_clean_maximum(self):
+        def r(w, arm, p, fire, unsafe=False):
+            return {'world': w, 'arm': arm, 'fire': fire, 'delivery_into_fire': unsafe, 'check': {'max_p': p}}
+        rows = [r('P1', 'cal', 0.01, False), r('P1', 'v36', 0.02, False), r('P2', 'cal', 0.03, False), r('P2', 'v36', 0.005, False),
+                r('F1', 'cal', 0.5, True), r('F1', 'v36', 0.4, True),
+                r('F2', 'cal', 0.01, True, True), r('F2', 'v36', 0.012, True, True),
+                r('F3', 'cal', 0.04, True), r('F3', 'v36', 0.001, True)]
+        s = gdr.second_look(rows)
+        self.assertEqual(s['tau_two_run'], 0.03)
+        self.assertEqual(s['fire_above_tau_two_run'], 2)               # F1 and F3 (via the cal run); F2 stays below
+        self.assertEqual(s['missed_by_both_runs'], {'F2': 0.012})
+        self.assertEqual(s['cal_single_run']['fire_above'], 2)
+
+
 if __name__ == '__main__':
     unittest.main()
