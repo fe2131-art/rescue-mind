@@ -33,7 +33,7 @@
 | 要件（課題の出典） | 対応する成果物・場所 | 状態 |
 |---|---|---|
 | 動画：ロボットがタスクを実行する様子（§1・§2） | 実レンダリングの Gazebo 映像、実走デモ4本（`outputs/video/PAI最終課題_tetsutetsu.mp4`） | 済 |
-| 動画の長さ 1〜3分 | <!--FACT:video-->170.6秒（2分51秒、`ffprobe` による実測）。1920×1080、H264/AAC。`docs/video_chapters.json` の終端は 170.6秒（実測と一致）<!--/FACT:video--> | 済 |
+| 動画の長さ 1〜3分 | <!--FACT:video-->171.1秒（2分51秒、`ffprobe` による実測）。1920×1080、H264/AAC。`docs/video_chapters.json` の終端は 171.1秒（実測と一致）<!--/FACT:video--> | 済 |
 | 倍速は明記（動画内または概要欄） | 動画内の左上に常時表示（走行8倍速・確認動作3倍速・AI判断は等速）＋ `docs/YOUTUBE_DESCRIPTION.md` の概要欄文面 | 済（概要欄への貼付は下の YouTube 投稿時） |
 | 動画形式 MP4 | 上記 mp4 | 済 |
 | 動画タイトル `PAI最終課題_omnicampusアカウント名` | `PAI最終課題_tetsutetsu`（`YOUTUBE_DESCRIPTION.md`） | 済（YouTube 投稿時に入力） |
