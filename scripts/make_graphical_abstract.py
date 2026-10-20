@@ -99,7 +99,7 @@ T = {
   imgcap='Gazebo実レンダリング（俯瞰＋搭載カメラ）', solve='だから、確かめ、迷えば止まる',
   new_h='新：機械検証・インターロック・信用枠',
   new=['I-23 機械検証：z3 {u}件、{c}件で不一致{d}、バグ{k}/{m}検出', 'I-22 インターロック：Gazebo実走{il}件で通過',
-       'I-24 信用枠：嘘つきの代償 +{ln}→+{ly}秒（合成モデルの記述。閉ループは未確認）'],
+       'I-24 信用枠：嘘つきの代償 +{ln}→+{ly}秒（合成）。{bl}'],
   il_none='I-22 インターロック：Gazebo確認は未了',
   mid_h='3つの工夫（上から順に積み上げる）',
   i1='その場で確かめ、迷えば止まる', i1d='選択式の質問と火の質問の確率を読み、全部そろったときだけ許可。迷えば拒否。',
@@ -130,7 +130,7 @@ T = {
   imgcap='Gazebo real render (overview + onboard cam)', solve='So: check, and stop if unsure',
   new_h='New: machine check, interlock, credit',
   new=['I-23 machine check: z3 {u} proofs, {c} cases, {d} mismatches, bugs caught {k}/{m}', 'I-22 interlock: passed {il} live Gazebo missions',
-       'I-24 credit: a liar costs +{ln} → +{ly} s (synthetic model only)'],
+       'I-24 credit: a liar costs +{ln} → +{ly} s (model). {bl}'],
   il_none='I-22 interlock: Gazebo check not done yet',
   mid_h='Three ideas, each building on the last',
   i1='Check on site, stop if unsure', i1d='Approve only if the answer-letter probabilities of every question agree; doubt = refuse.',
@@ -283,11 +283,18 @@ def build(lang):
         card(d, (lx0 + 20, by0, lx1 - 20, bot - 12), fill=PALE[PURPLE], outline=PURPLE, r=16, w=3)
         d.text((lx0 + 36, by0 + 6), t['new_h'], font=fit(d, t['new_h'], 24, lx1 - lx0 - 72), fill=PURPLE)
         yy = by0 + 38
+        bj = json.loads((ROOT / 'experiments/results/b_summary.json').read_text()) if (ROOT / 'experiments/results/b_summary.json').is_file() else None
+        if bj:
+            bs = list(bj['B1_liar']['sequences'].values())[0]
+            b_line = (f"閉ループB：無駄訪問 {bs['wasted_nocredit']}→{bs['wasted_credit']}（上限{bs['prop3_bound']}）" if lang == 'ja'
+                      else f"Closed loop B: {bs['wasted_nocredit']} → {bs['wasted_credit']} wasted")
+        else:
+            b_line = '閉ループは未確認' if lang == 'ja' else 'closed loop not run'
         for k, line in enumerate(t['new']):
             if k == 1 and not ilc:
                 line = t['il_none']
             body = line.format(u=sf['unsat'], c=f"{sf['cases']:,}", d=sf['disagreements'], k=sf['caught'], m=sf['mutants'],
-                               il=ilc['missions'] if ilc else '-', ln=round(cf_['liar_no']) if cf_ else '-', ly=round(cf_['liar_yes']) if cf_ else '-')
+                               il=ilc['missions'] if ilc else '-', bl=b_line, ln=round(cf_['liar_no']) if cf_ else '-', ly=round(cf_['liar_yes']) if cf_ else '-')
             d.ellipse((lx0 + 38, yy + 9, lx0 + 48, yy + 19), fill=PURPLE)
             yy = paras(d, (lx0 + 58, yy), body, font(20), lx1 - lx0 - 100, INK, 1.2, tag='new') + 4
         if yy > bot - 12:
