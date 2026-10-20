@@ -32,10 +32,10 @@ python3 scripts/paper_numbers.py
 
 # FINAL=1 (submission build): fail if any result macro is still \TBD or a red TBD would be printed
 if [ "${FINAL:-0}" = 1 ]; then
-  n=$(grep -c '{\\TBD}' docs/paper/numbers.tex || true)
+  n=$(grep -c -E '^\\newcommand\{\\[A-Za-z]+\}\{\\TBD\}' docs/paper/numbers.tex || true)
   if [ "$n" -gt 0 ]; then
     echo "FINAL build refused: $n macros are still \\TBD:" >&2
-    grep '{\\TBD}' docs/paper/numbers.tex | sed 's/\\newcommand{\\\([A-Za-z]*\)}.*/  \1/' >&2
+    grep -E '^\\newcommand\{\\[A-Za-z]+\}\{\\TBD\}' docs/paper/numbers.tex | sed 's/\\newcommand{\\\([A-Za-z]*\)}.*/  \1/' >&2
     exit 3
   fi
   # a literal \TBD in the sources (not a result macro) also refuses; the LaTeX-level \PackageError in numbers.tex is the backstop
