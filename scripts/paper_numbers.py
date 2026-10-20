@@ -1410,6 +1410,29 @@ def main():
             m['GRSideMedianP'] = f"{sp_[len(sp_) // 2]:.2f}" if sp_ else 'none'
         m['GRClaim'] = 'GR1, GR2, GR3 hold' if (gc_['GR1_v36_upper_at_most_20pct'] and gc_['GR2_front_worse_and_mcnemar_p_below_005'] and gc_['GR3_false_stops_at_most_1']) else 'GR1, GR2, GR3 do not all hold'
         m['StatGR'] = f"closed-loop miss rate of the look-around: {m.lookup('GRClaim')}"
+    # ---- study GC (a per-site calibrated hazard threshold in closed loop; gc_summary.json, I-45)
+    gcf_ = RES / 'gc_summary.json'
+    if gcf_.is_file():
+        gcj_ = json.loads(gcf_.read_text())
+        rtc_ = lambda d_: f"{d_['k']}/{d_['n']}"
+        gcv_, gcc_, gcr_ = gcj_['arms']['v36']['fire'], gcj_['arms']['cal']['fire'], gcj_['criteria']
+        m['GCN'], m['GCFailed'] = gcj_['n_planned'], gcj_['n_failed']
+        m['GCWorlds'], m['GCPlain'] = gcj_['n_fire_worlds'], gcj_['arms']['cal']['fire_free']['n']
+        m['GCCal'], m['GCCalUpper'] = rtc_(gcc_), pct(gcc_['upper95_exact'], 1)
+        m['GCVThreeSix'] = rtc_(gcv_)
+        m['GCFalseStops'] = rtc_(gcj_['arms']['cal']['fire_free'])
+        m['GCMcNemar'] = f"{gcj_['paired']['mcnemar_p']:.3f}"
+        m['GCOnlyV'], m['GCOnlyCal'] = gcj_['paired']['discordant_v36_only'], gcj_['paired']['discordant_cal_only']
+        m['GCTimeCal'], m['GCTimeVThreeSix'] = f"{gcc_['mean_time_s']:.0f}", f"{gcv_['mean_time_s']:.0f}"
+        gpool_ = gcr_['pooled_v36_with_G_GR']
+        if gpool_:
+            m['GCPool'], m['GCPoolUpper'] = f"{gpool_['k']}/{gpool_['n']}", pct(gpool_['upper95_exact'], 1)
+        m['GCOneHolds'] = 'holds' if gcr_['GC1_cal_upper_at_most_15pct'] else 'fails'
+        m['GCTwoHolds'] = 'holds' if gcr_['GC2_false_stops_at_most_1'] else 'fails'
+        m['GCPredOne'] = 'holds' if gcr_['P1_cal_misses_at_most_1'] else 'fails'
+        m['GCPredTwo'] = 'holds' if gcr_['P2_cal_only_not_more_than_v36_only'] else 'fails'
+        m['GCClaim'] = 'GC1, GC2 hold' if (gcr_['GC1_cal_upper_at_most_15pct'] and gcr_['GC2_false_stops_at_most_1']) else 'GC1, GC2 do not both hold'
+        m['StatGC'] = f"calibrated threshold in closed loop: {m.lookup('GCClaim')}"
     # ---- submission snapshot: the claim column of a study without results says so (the other pending studies have no analysis macro yet)
     PEND = advice_numbers.snapshot_pending() if SNAPSHOT else set()
     for k_ in advice_numbers.SNAPSHOT_STUDIES:

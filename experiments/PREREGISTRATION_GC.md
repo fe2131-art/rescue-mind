@@ -25,7 +25,7 @@ Arms (one run per world and arm; the arm order inside a world and the world orde
 | arm | flags | worlds |
 |---|---|---|
 | `v36` | none (the submitted v3.6, tau_h 0.05) | fire worlds |
-| `cal` | `--hazard-threshold 0.01` (everything else as `v36`: look-around 0.4 m, h36 wording + crops, recovery, explanation) | fire worlds and fire-free worlds |
+| `cal` | `--site-config experiments/gc_site_cal.json` (tau_h 0.01, h36 wording, crops; everything else as `v36`: look-around 0.4 m, recovery, explanation) (Amendment 1; first written as `--hazard-threshold 0.01`) | fire worlds and fire-free worlds |
 Total 2 × (number selected) + 24 = 104 runs if 40 qualify. No advice, no memory.
 
 ## Endpoints and claims (explicit; `scripts/gc_analysis.py`)
@@ -60,4 +60,8 @@ About 4 min per run: about 7 h for 104 runs, plus the candidate masks (about 1 h
 * tau_cal was chosen with GR's scores in view (the motivation above); the rule is stated in terms of the calibration set only and no GC datum enters it.
 
 ## Amendments
-None yet.
+**Amendment 1 (after the binding commit of the selection and the protocol, before any GC trial and before any model score of GC worlds).** The mechanics pilot (2 runs on the pilot worlds, never part of GC) stopped the study as designed:
+with `--hazard-threshold 0.01` the server used 0.01 while the completion audit of the mission recorded the v3.6 default 0.05 (`server hazard threshold 0.01 != configured 0.05`), so a non-default threshold on the
+command line is not supported by the campaign audit. The supported route is the site config of I-26 (`--site-config`; the mission records the site threshold and the audit uses it, `rescuemind/real_profile.py: audit_kwargs`).
+The `cal` arm therefore uses `experiments/gc_site_cal.json` (hazard_threshold 0.01, hazard_prompt h36, hazard_views tiles: the v3.6 wording and views, only tau_h differs). The calibration rule, the claims, the selection and the worlds
+are unchanged; the protocol is regenerated and committed again (`study GC: amendment 1 ...`); the failed pilot ledger is kept as `experiments/results/gc_pilot_attempt1_ledger.jsonl`. No GC world was run.

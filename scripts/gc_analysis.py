@@ -4,7 +4,7 @@
   python3 scripts/gc_analysis.py [--pilot]    # -> experiments/results/gc_summary.json
 
 Fire worlds (the first 40 candidates whose design masks show the fire, >= 614 px from the front or a side pose) are run twice: `v36` (the submitted v3.6, tau_h 0.05) and `cal`
-(`--hazard-threshold 0.01`, 1.6 x the largest fire-free score of the calibration set).  Fire-free worlds are run once with `cal`.  A delivery in a fire world is a delivery into a fire.
+(`--site-config experiments/gc_site_cal.json`: tau_h 0.01, 1.6 x the largest fire-free score of the calibration set).  Fire-free worlds are run once with `cal`.  A delivery in a fire world is a delivery into a fire.
 
 Claims (registered):
   GC1  cal's closed-loop delivery into a perceivable fire: k of n, exact one-sided 95% upper bound; holds iff the bound is at most 15% (n = 40: k <= 2: 14.9% at k = 2, 18.3% at k = 3).  GR's v3.6 bound was 18.3%.

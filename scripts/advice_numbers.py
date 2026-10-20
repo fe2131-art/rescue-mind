@@ -891,6 +891,14 @@ def failed_claims():
             out.append(dict(key='GR2', tex='GR2 (G replicated)', en='GR2 (the paired improvement of G replicates)', ja='GR2（Gの対比較の改善が新しい世界で再現）'))
         if not c['GR3_false_stops_at_most_1']:
             out.append(dict(key='GR3', tex='GR3 (false stops)', en='GR3 (at most one false hazard stop in fire-free worlds)', ja='GR3（火のない世界の誤停止は1件まで）'))
+    gc = _load('gc_summary.json')      # registered claims GC1-GC2 (PREREGISTRATION_GC): the calibrated threshold's closed-loop budget and its false stops
+    if gc is not None:
+        c = gc['criteria']
+        if not c['GC1_cal_upper_at_most_15pct']:
+            out.append(dict(key='GC1', tex='GC1 (calibrated threshold, closed-loop budget)', en='GC1 (calibrated threshold: closed-loop upper bound at most 15%)',
+                            ja='GC1（較正した閾値の閉ループの見逃し：上限15%以下）'))
+        if not c['GC2_false_stops_at_most_1']:
+            out.append(dict(key='GC2', tex='GC2 (calibrated threshold, false stops)', en='GC2 (at most one false hazard stop in fire-free worlds)', ja='GC2（火のない世界の誤停止は1件まで）'))
     return out
 
 

@@ -7,7 +7,7 @@
 GR measured the closed-loop miss rate of v3.6 (tau_h = 0.05) at 3/40; two of the three misses scored 0.013 and 0.018, well above every fire-free score seen in the arena (W's 75 twins: at most 0.0061).
 A threshold calibrated on a fire-free calibration set (W's twins, rendered before this study) is the deployment recipe of the paper, and it only tightens the check.  GC tests it in closed loop on worlds nobody has
 seen: 72 candidates (seed `GC-2026`, G's world distribution), the first 40 in id order whose design masks show the fire (>= 614 px from the front or a side pose, no model score) are the fire worlds, 24 fire-free
-worlds measure false stops.  Arms: `v36` (the orchestrator defaults, tau_h 0.05) and `cal` (`--hazard-threshold 0.01`) on every fire world, `cal` alone on the fire-free worlds.  Total 2 x (number selected) + 24 = 104 runs if 40 qualify.
+worlds measure false stops.  Arms: `v36` (the orchestrator defaults, tau_h 0.05) and `cal` (`--site-config experiments/gc_site_cal.json`, tau_h 0.01) on every fire world, `cal` alone on the fire-free worlds.  Total 2 x (number selected) + 24 = 104 runs if 40 qualify.
 """
 from __future__ import annotations
 import json
@@ -25,7 +25,7 @@ SEED = 'GC-2026'
 N_CANDIDATES, N_FIRE, N_PLAIN = 72, 40, 24
 VISIBLE_PX = 614
 CONFIG_V36 = []                              # orchestrator defaults = v3.6 (Qwen3.5-9B, h36 + tiles, tau_h 0.05, look-around 0.4, recovery, explanation)
-CONFIG_CAL = ['--hazard-threshold', '0.01']  # tau_h 0.01 = 1.6 x the largest fire-free score of the calibration set (W twins: 0.0061), rounded up
+CONFIG_CAL = ['--site-config', 'experiments/gc_site_cal.json']  # Amendment 1: tau_h 0.01 = 1.6 x the largest fire-free score of the calibration set (W twins: 0.0061), rounded up, through the site config (I-26) so server, mission and audit agree
 ARMS = {'v36': CONFIG_V36, 'cal': CONFIG_CAL}
 CANDIDATES = ROOT / 'experiments/campaign_gc_candidates.json'
 PILOT = ROOT / 'experiments/campaign_gc_pilot_protocol.json'
@@ -119,7 +119,7 @@ def build(selection: dict | None = None) -> dict:
     for n, t in enumerate(trials, 1):
         t['id'], t['order'] = f'GC{n:03d}', n
     return {'schema': 'rescuemind_study_gc_protocol', 'seed': SEED, 'status': 'REGISTERED_AT_COMMIT', 'planned_n': len(trials), 'common_stack_args': [],
-            'configs': {'v36': 'v3.6 (orchestrator defaults, tau_h 0.05)', 'cal': 'v3.6 with --hazard-threshold 0.01'}, 'worlds_from': 'experiments/campaign_gc_selection.json',
+            'configs': {'v36': 'v3.6 (orchestrator defaults, tau_h 0.05)', 'cal': 'v3.6 with --site-config experiments/gc_site_cal.json (tau_h 0.01, h36, tiles)'}, 'worlds_from': 'experiments/campaign_gc_selection.json',
             'gc': {'candidates': len(cands), 'selected': sel, 'plain': [w['world'] for w in plain_worlds()]}, 'trials': trials}
 
 

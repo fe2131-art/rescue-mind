@@ -37,7 +37,10 @@ class Generator(unittest.TestCase):
         self.assertLess(hi, 0.0065)
         import math
         self.assertEqual(math.ceil(1.6 * hi * 100) / 100, 0.01)
-        self.assertEqual(mgc.CONFIG_CAL, ['--hazard-threshold', '0.01'])
+        self.assertEqual(mgc.CONFIG_CAL, ['--site-config', 'experiments/gc_site_cal.json'])
+        from rescuemind import real_profile as rp
+        site = rp.load_site_config(ROOT / 'experiments/gc_site_cal.json')
+        self.assertEqual((site.hazard_threshold, site.hazard_prompt, site.hazard_views), (0.01, 'h36', 'tiles'))     # the v3.6 wording and views, only tau_h differs
         self.assertEqual(mgc.CONFIG_V36, [])
 
     def test_gr_protocol_is_unchanged_by_this_study(self):
