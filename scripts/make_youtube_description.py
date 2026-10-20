@@ -277,6 +277,17 @@ def line_xd(res):
     return '\n'.join(('・' + t) for t in (xd, q) if t) or None
 
 
+def line_gr(res):
+    """Study GR (the look-around in closed loop on fresh worlds): numbers from the result file; empty until it exists."""
+    g = jload(Path(res) / 'gr_summary.json')
+    try:
+        v, f, pool = g['arms']['v36']['fire'], g['arms']['front']['fire'], g['criteria']['pooled_with_G_v36']
+        return (f"・見回しの閉ループ再現（評価GR、新しい{g['n_fire_worlds']}世界・{g['n_planned']}試行）：火へ配達 見回しあり {v['k']}/{v['n']}（95%上限 {v['upper95_exact'] * 100:.1f}%）、なし {f['k']}/{f['n']}。"
+                f"画像評価Wの2%より高く、Gと合わせて {pool['k']}/{pool['n']}（上限 {pool['upper95_exact'] * 100:.1f}%）")
+    except (TypeError, KeyError):
+        return ''
+
+
 def line_y(res):
     """Studies Y (continue after a hazard refusal, opt-in flag), YE (its exposure price) and YF (Y on fresh worlds): numbers from the result files."""
     yj, yej, yfj = (jload(Path(res) / f) for f in ('y_summary.json', 'ye_summary.json', 'yf_summary.json'))
@@ -351,7 +362,7 @@ def line_pending(res):
 
 
 def number_lines(res):
-    fns = (line_t1, line_t2, line_z, line_r, line_p, line_l, line_h, line_v, line_w, line_xd, line_a, line_y, line_if, line_j, line_pending)
+    fns = (line_t1, line_t2, line_z, line_r, line_p, line_l, line_h, line_v, line_w, line_xd, line_a, line_y, line_gr, line_if, line_j, line_pending)
     return [x for x in (f(res) for f in fns) if x]
 
 
