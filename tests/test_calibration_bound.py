@@ -15,6 +15,13 @@ class Bound(unittest.TestCase):
         with self.assertRaises(ValueError):
             cb.false_stop_bound(0)
 
+    def test_worlds_needed(self):
+        self.assertEqual((cb.worlds_needed(.05), cb.worlds_needed(.01), cb.worlds_needed(.2)), (19, 99, 4))
+        for a in (.05, .01, .13):
+            m = cb.worlds_needed(a)
+            self.assertLessEqual(cb.false_stop_bound(m), a + 1e-12)
+            self.assertGreater(cb.false_stop_bound(m - 1), a)
+
     def test_monte_carlo_rate_is_at_most_the_bound(self):
         rng = random.Random(7)
         m, trials, hit = 20, 40000, 0
