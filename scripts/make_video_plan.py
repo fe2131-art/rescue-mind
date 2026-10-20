@@ -214,9 +214,11 @@ def evidence_card(seconds):
         gr = jload(RES / 'gr_summary.json')
         if gr:       # study GR: the same comparison on fresh worlds (closed-loop replication)
             fa, fv = gr['arms']['front']['fire'], gr['arms']['v36']['fire']
-            rows.append(['閉ループ G・GR（見直し）', [f"火へ配達 {pr['wrong_deliveries_B']}/{pr['n_world_pairs_fire_perceivable']}→{pr['wrong_deliveries_C']}/{pr['n_world_pairs_fire_perceivable']}、"
-                                                  f"新世界 {fa['k']}/{fa['n']}→{fv['k']}/{fv['n']}", G]])
-            say.append(f"見直すと、見落としは{pr['wrong_deliveries_B']}件から{pr['wrong_deliveries_C']}件、再現でも{fa['k']}件から{fv['k']}件。")
+            gcs = jload(RES / 'gc_summary.json')
+            gc_txt = f"、較正 {gcs['arms']['v36']['fire']['k']}/{gcs['arms']['v36']['fire']['n']}→{gcs['arms']['cal']['fire']['k']}/{gcs['arms']['cal']['fire']['n']}" if gcs else ''
+            rows.append(['閉ループ G・GR・GC' if gcs else '閉ループ G・GR（見直し）', [f"火へ配達 {pr['wrong_deliveries_B']}/{pr['n_world_pairs_fire_perceivable']}→{pr['wrong_deliveries_C']}/{pr['n_world_pairs_fire_perceivable']}、"
+                                                  f"新世界 {fa['k']}/{fa['n']}→{fv['k']}/{fv['n']}{gc_txt}", G]])
+            say.append(f"見直しで見落としは{pr['wrong_deliveries_B']}件から{pr['wrong_deliveries_C']}件、新世界{fa['k']}件から{fv['k']}件" + (f"、較正で{gcs['arms']['v36']['fire']['k']}件から{gcs['arms']['cal']['fire']['k']}件。" if gcs else '。'))
         else:
             rows.append(['閉ループ G（横から見直す）', [f"火が見えるのに配達 {pr['wrong_deliveries_B']}/{pr['n_world_pairs_fire_perceivable']} → "
                                                     f"{pr['wrong_deliveries_C']}/{pr['n_world_pairs_fire_perceivable']}（p={pr['mcnemar_p']:.3f}）", G]])
@@ -236,7 +238,7 @@ def evidence_card(seconds):
                                           G if h['headline_supported'] else W]])
     if v and v.get('complete') and not v.get('claim_memory_under_random_change'):
         a_ = v['arms']
-        say.append('記憶の安全の主張は示せず。')
+        say.append('記憶の安全は示せず。')
         notes = [f"記憶の安全の主張は、評価Vで不成立（危険 本方式{a_['M2']['unsafe']}対なし{a_['M0']['unsafe']}）。全部シミュレーション。"]
     elif h:
         say.append('記憶は近道の提案だけ。')
@@ -264,7 +266,7 @@ def evidence_card(seconds):
     xf = advice_numbers.x_facts()
     if xf:
         rows.append([f"閉ループ X（倉庫{xf['n']}試行）", [f"火の4種で配達 {xf['a_unsafe']}・誘導されて火へ {xf['u_mono']}", G if xf['u_mono'].startswith('0/') else W]])
-        say.append(f"倉庫で火へ誘導され{xf['fire']}世界中{xf['u_mono'].split('/')[0]}つで配達。")
+        say.append(f"倉庫で誘導され{xf['fire']}世界中{xf['u_mono'].split('/')[0]}つで配達。")
         yj = jload(RES / 'y_summary.json')
         if yj and yj.get('n_with_result') == yj.get('n_planned'):      # study Y: continuing after a hazard refusal (opt-in flag) keeps the delivery that the refusal lost in X
             lv_ = yj['Y-s']['lost_vs_control']['scrutiny_hc']
@@ -275,7 +277,7 @@ def evidence_card(seconds):
                 lost_ += lf_['fire_worlds']['lost'] + lf_['clean_worlds']['lost']
                 pairs_ += lf_['fire_worlds']['pairs'] + lf_['clean_worlds']['pairs']
             rows[-1][1][0] = f"火へ配達{xf['a_unsafe']}・誘導{xf['u_mono']}・続行+scrutiny 喪失{lost_}/{pairs_}"      # one cell, 29 chars: the card is cut at the right edge from about 36
-            say.append(f"続行フラグで配達は保てます（{pairs_}中{lost_}件を失う）。")
+            say.append(f"続行フラグは配達を保つ（{pairs_}中{lost_}件喪失）。")
     j = jload(RES / 'j_summary.json')
     if j:
         c = j['per_config']
