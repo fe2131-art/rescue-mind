@@ -293,7 +293,7 @@ def line_gc(res):
     g = jload(Path(res) / 'gc_summary.json')
     try:
         c, v = g['arms']['cal']['fire'], g['arms']['v36']['fire']
-        return (f"・サイトで較正した閾値の閉ループ評価（評価GC、新しい{g['n_fire_worlds']}世界・{g['n_planned']}試行）：火へ配達 較正 {c['k']}/{c['n']}（95%上限 {c['upper95_exact'] * 100:.1f}%）、既定 {v['k']}/{v['n']}、"
+        return (f"・サイトで較正した閾値の閉ループ評価（評価GC、新しい{g['n_fire_worlds']}世界・{g['n_planned']}試行）：火へ配達 較正 {c['k']}/{c['n']}（95%上限 {c['upper95_exact'] * 100:.1f}%）、既定 {v['k']}/{v['n']}（対の比較は有意でない、p={g['paired']['mcnemar_p']:.3f}）、"
                 f"火のない世界の誤停止 {g['arms']['cal']['fire_free']['k']}/{g['arms']['cal']['fire_free']['n']}")
     except (TypeError, KeyError):
         return ''
