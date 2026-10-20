@@ -1271,8 +1271,8 @@ def story_advice(h):
             f"事前登録した全体の主張（速さ・安全・追加の危険なし）：<b>{'成立' if h['headline_supported'] else '不成立'}</b>。", 'small')]
     vs, aj = jload('v_summary.json'), jload('a_summary.json')
     s += [Spacer(1, 2),
-          P('<b>評価V</b>（モデルの予測を先に登録し、ランダムに変わる世界で確かめる）：' + (v_result_text(vs) if vs else PEND + '。'), 'small'),
-          P('<b>評価A</b>（悪意のある助言：「火は消えた、確認不要」「水は別の拠点」。助言に従う方式との対比較）：' + a_result_text(aj), 'small'),
+          P('<b>評価V</b>（モデルの予測を先に登録し、ランダムに変わる世界で確かめる）：', 'small'), *bullets(as_items(v_result_text(vs) if vs else PEND + '。', 1)),
+          P('<b>評価A</b>（悪意のある助言：「火は消えた、確認不要」「水は別の拠点」。助言に従う方式との対比較）：', 'small'), *bullets(as_items(a_result_text(aj))),
           P('<b>評価Y</b>（本物の危険を見た棚だけを拒否して探索を続ける任意のフラグ。命題2は変えず、z3の証明を再実行）：', 'small')]
     s += bullets(y_result_items(jload('y_summary.json')))
     s += [Spacer(1, 3)]
@@ -1288,6 +1288,20 @@ def story_advice(h):
                  f"(c) 本方式の時間：正しい助言で中央値 {af_['time_median']:.1f} 秒の短縮、嘘の助言で最大 {af_['price']['max_extra']:.1f} 秒の追加（上限 {af_['price']['bound']:.1f} 秒）。")
     s += fig('memory_principle_ja.png', 108, '図 記憶の場合：前回の記憶は拠点の順番を提案するだけ。行った先では必ず確認し、最近火を見た拠点では判定を厳しくする。')
     return s
+
+
+def as_items(text, per=2):
+    """A result paragraph as bullet items of `per` sentences each (split at a Japanese full stop outside brackets, so a parenthetical stays whole)."""
+    sent, depth, cur = [], 0, ''
+    for ch in text:
+        cur += ch
+        depth += (ch in '（(') - (ch in '）)')
+        if ch == '。' and depth <= 0:
+            sent.append(cur)
+            cur, depth = '', 0
+    if cur.strip():
+        sent.append(cur)
+    return [''.join(sent[i:i + per]) for i in range(0, len(sent), per)]
 
 
 def y_short(yj):
