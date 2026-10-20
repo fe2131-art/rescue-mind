@@ -645,7 +645,7 @@ def study_phrase_en():
 # fixed historical facts (static); F, J, V4 and W-b are read back from their result files (a flipped result changes the list).
 # When a later study fails a registered claim (A1b, A2, A3, A-time ...), add it HERE and every document follows.
 # ---------------------------------------------------------------------------------------------------------------------------
-_NUMWORD = {0: 'zero', 1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six', 7: 'seven', 8: 'eight', 9: 'nine', 10: 'ten', 11: 'eleven', 12: 'twelve', 13: 'thirteen', 14: 'fourteen'}
+_NUMWORD = {0: 'zero', 1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six', 7: 'seven', 8: 'eight', 9: 'nine', 10: 'ten', 11: 'eleven', 12: 'twelve', 13: 'thirteen', 14: 'fourteen', 15: 'fifteen', 16: 'sixteen', 17: 'seventeen'}
 
 
 def b_ja(none=None):
@@ -881,6 +881,16 @@ def failed_claims():
     if yf is not None and not yf['Y-s']['criteria']['Y4_holds']:
         out.append(dict(key='YF4', tex='YF4 (at most two stations per run)', en='YF4 (at most two stations per run, on fresh worlds)',
                         ja='YF4（1回の試行で訪れる拠点は2つまで。新しい世界で、双子の1本が4拠点を訪れた）'))
+    gr = _load('gr_summary.json')      # registered claims GR1-GR3 (PREREGISTRATION_GR): the closed-loop budget of the look-around, its paired replication, the false stops
+    if gr is not None:
+        c = gr['criteria']
+        if not c['GR1_v36_upper_at_most_20pct']:
+            out.append(dict(key='GR1', tex='GR1 (closed-loop budget of the look-around)', en='GR1 (closed-loop miss rate of the look-around: upper bound at most 20%)',
+                            ja='GR1（見回しの閉ループでの見逃し：上限20%以下）'))
+        if not c['GR2_front_worse_and_mcnemar_p_below_005']:
+            out.append(dict(key='GR2', tex='GR2 (G replicated)', en='GR2 (the paired improvement of G replicates)', ja='GR2（Gの対比較の改善が新しい世界で再現）'))
+        if not c['GR3_false_stops_at_most_1']:
+            out.append(dict(key='GR3', tex='GR3 (false stops)', en='GR3 (at most one false hazard stop in fire-free worlds)', ja='GR3（火のない世界の誤停止は1件まで）'))
     return out
 
 
