@@ -598,6 +598,14 @@ def section_key(e, t):
         rows.append(f"| 燃える棚へ誘導されても配達を失わない（評価X→Y→YE、倉庫の閉ループ） | {res_} | {st_} |")
     except (TypeError, KeyError):
         pass
+    grj_ = jl('gr_summary.json')
+    try:      # the closed-loop replication of G: v3.6's look-around on fresh worlds
+        gv_, gf_, gc_ = grj_['arms']['v36']['fire'], grj_['arms']['front']['fire'], grj_['criteria']
+        pool_ = gc_['pooled_with_G_v36']
+        gok_ = gc_['GR1_v36_upper_at_most_20pct'] and gc_['GR2_front_worse_and_mcnemar_p_below_005'] and gc_['GR3_false_stops_at_most_1']
+        rows.append(f"| 見回しは閉ループでも火を見つける（評価GR、新しい{grj_['n_fire_worlds']}世界） | 火へ配達：v3.6 **{gv_['k']}/{gv_['n']}**（95%上限 {pct(gv_['upper95_exact'])}）、見回しなし {gf_['k']}/{gf_['n']}（McNemar p={grj_['paired']['mcnemar_p']:.5f}）、火のない世界の誤停止 {grj_['arms']['v36']['fire_free']['k']}/{grj_['arms']['v36']['fire_free']['n']}。評価Gと合わせて {pool_['k']}/{pool_['n']}（上限 {pct(pool_['upper95_exact'])}）。画像評価Wの 3/150 より閉ループは高く、横からしか見えない火の見逃しは登録した25%以下の予測を超えた（{gv_['strata']['side_only']['k']}/{gv_['strata']['side_only']['n']}） | {'GR1〜GR3：**支持**' if gok_ else 'GR：**一部不成立**'} |")
+    except (TypeError, KeyError):
+        pass
     iff_ = advice_numbers.if_facts()
     if iff_:
         rows.append(f"| 依頼文で頼まれた物資はすり替えられない（評価IF、オフライン） | 書き換えた{iff_['n']}文のうち、注入された物資を受理 **{iff_['k']}/{iff_['n']}**（95%信頼区間 {iff_['ci'][0] * 100:.0f}〜{iff_['ci'][1] * 100:.0f}%）。依頼物資は保証の外。対策の聞き返し（I-27）は研究IF2で再測定（"
@@ -765,6 +773,20 @@ def en_new():
     return t
 
 
+def gr_text_en():
+    """English cell of the README table for study GR (the closed-loop miss rate of the look-around on fresh worlds); empty until gr_summary.json exists."""
+    g = jl('gr_summary.json')
+    if not g:
+        return ''
+    v, f, c = g['arms']['v36']['fire'], g['arms']['front']['fire'], g['criteria']
+    pool = c['pooled_with_G_v36']
+    ok = c['GR1_v36_upper_at_most_20pct'] and c['GR2_front_worse_and_mcnemar_p_below_005'] and c['GR3_false_stops_at_most_1']
+    return (f"GR ({g['n_planned']} runs on {g['n_fire_worlds']} fresh perceivable-fire worlds, registered before the first trial, OpenTimestamps-attested): deliveries into the fire "
+            f"v3.6 {v['k']}/{v['n']} (upper bound {pct(v['upper95_exact'])}, registered line 20%) against {f['k']}/{f['n']} without the look-around (exact McNemar p={g['paired']['mcnemar_p']:.5f}); "
+            f"{g['arms']['v36']['fire_free']['k']}/{g['arms']['v36']['fire_free']['n']} false stops; claims GR1-GR3 {'hold' if ok else 'do not all hold'}; pooled with G {pool['k']}/{pool['n']} (upper bound {pct(pool['upper95_exact'])}). "
+            f"The closed-loop rate is above the image-level 3/150 of W; the prediction that side-only fires are missed at most 25% failed ({v['strata']['side_only']['k']}/{v['strata']['side_only']['n']}).")
+
+
 def y_text_en():
     """English cell of the README table for studies Y (51 runs), YE (24) and YF (27); empty until y_summary.json exists. Every number comes from the result files."""
     yj, yej, yfj = jl('y_summary.json'), jl('ye_summary.json'), jl('yf_summary.json')
@@ -909,7 +931,10 @@ def section_en(e, v):
     yt_ = y_text_en()
     if yt_:
         L.append('| Y, YE, YF: continue after a hazard refusal (I-42 / I-43; opt-in `--hazard-continue`) | ' + yt_ + ' |')
-    stage = {'E': 1, 'L': 1, 'Z': 1, 'T1': 2, 'K': 2, 'G': 3, 'W': 3, 'H': 4, 'V': 4, 'A': 4, 'S': 5, 'P': 5, 'R': 5, 'Q': 5, 'X, XD': 5, 'Y, YE, YF': 5, 'J': 6, 'I-23': 4, 'I-24': 4, 'B': 4, 'IF': 4, 'IF2': 4}
+    gt_ = gr_text_en()
+    if gt_:
+        L.append('| GR: the look-around in closed loop on fresh worlds (I-44) | ' + gt_ + ' |')
+    stage = {'E': 1, 'L': 1, 'Z': 1, 'T1': 2, 'K': 2, 'G': 3, 'W': 3, 'H': 4, 'V': 4, 'A': 4, 'S': 5, 'P': 5, 'R': 5, 'Q': 5, 'X, XD': 5, 'Y, YE, YF': 5, 'GR': 3, 'J': 6, 'I-23': 4, 'I-24': 4, 'B': 4, 'IF': 4, 'IF2': 4}
     i0 = L.index('|---|---|') + 1
     rows = L[i0:]
     key = lambda r_: r_[2:].split(':')[0]

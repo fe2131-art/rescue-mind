@@ -42,6 +42,7 @@ Verify any row: `git log 587f033^1 --first-parent --format='%h %cI' --diff-filte
 | Y | `9c0b5e8` 2026-10-19T13:19 | `0bfcff7f9ea4aa0e` | `7dd3bc3` 2026-10-19T18:18 | `0bfcff7f9ea4aa0e` | yes | `9c0b5e8` 2026-10-19T13:19 | `0bfcff7f9ea4aa0e` (= bound) |
 | YE | `34b1384` 2026-10-19T18:48 | `507eea4b73679733` | `dd7738e` 2026-10-19T22:26 | `f4d28c0b95f745a9` | yes | `dd7738e` 2026-10-19T22:26 | `f4d28c0b95f745a9` |
 | YF | `cd84b3c` 2026-10-19T19:36 | `e829ed8b3ae5dc1e` | `0fa75e9` 2026-10-19T23:49 | `1ed89edd81c475f9` | yes | `0fa75e9` 2026-10-19T23:49 | `1ed89edd81c475f9` |
+| GR | `2c1d13a` 2026-10-20T12:09 | `d4a9f02d20d2319b` | `1a59c52` 2026-10-20T16:35 | `d4a9f02d20d2319b` | yes | `2c1d13a` 2026-10-20T12:09 | `d4a9f02d20d2319b` (= bound) |
 
 ## Amendments
 

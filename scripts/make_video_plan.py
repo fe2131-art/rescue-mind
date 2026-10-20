@@ -211,9 +211,16 @@ def evidence_card(seconds):
     g = jload(RES / 'g_summary.json')
     if g:
         pr = g['primary']
-        rows.append(['閉ループ G（横から見直す）', [f"火が見えるのに配達 {pr['wrong_deliveries_B']}/{pr['n_world_pairs_fire_perceivable']} → "
-                                                f"{pr['wrong_deliveries_C']}/{pr['n_world_pairs_fire_perceivable']}（p={pr['mcnemar_p']:.3f}）", G]])
-        say.append(f"横から見直すと、見落としは{pr['wrong_deliveries_B']}件から{pr['wrong_deliveries_C']}件。")
+        gr = jload(RES / 'gr_summary.json')
+        if gr:       # study GR: the same comparison on fresh worlds (closed-loop replication)
+            fa, fv = gr['arms']['front']['fire'], gr['arms']['v36']['fire']
+            rows.append(['閉ループ G・GR（横から見直す）', [f"火へ配達 {pr['wrong_deliveries_B']}/{pr['n_world_pairs_fire_perceivable']}→{pr['wrong_deliveries_C']}/{pr['n_world_pairs_fire_perceivable']}、"
+                                                  f"新世界 {fa['k']}/{fa['n']}→{fv['k']}/{fv['n']}", G]])
+            say.append(f"横から見直すと、見落としは{pr['wrong_deliveries_B']}件から{pr['wrong_deliveries_C']}件、新しい世界でも{fa['k']}件から{fv['k']}件。")
+        else:
+            rows.append(['閉ループ G（横から見直す）', [f"火が見えるのに配達 {pr['wrong_deliveries_B']}/{pr['n_world_pairs_fire_perceivable']} → "
+                                                    f"{pr['wrong_deliveries_C']}/{pr['n_world_pairs_fire_perceivable']}（p={pr['mcnemar_p']:.3f}）", G]])
+            say.append(f"横から見直すと、見落としは{pr['wrong_deliveries_B']}件から{pr['wrong_deliveries_C']}件。")
     wj = (jload(RES / 'w_summary.json') or {}).get('W-a')
     if wj:
         f, la = wj['miss_front_only'], wj['miss_look_around']

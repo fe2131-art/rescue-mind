@@ -1374,6 +1374,42 @@ def main():
             miss_f_ = [r_ for r_ in yfr_ if r_['unsafe_delivery']]
             m['YFReadMiss'] = f"{min(r_['last_check_hazard_prob'] for r_ in miss_f_):.4f}" if miss_f_ else 'none'
         m['StatYF'] = f"availability on fresh worlds: {m.lookup('YFClaim')}"
+    # ---- study GR (the closed-loop miss rate of the look-around on fresh worlds; gr_summary.json, I-44)
+    grf_ = RES / 'gr_summary.json'
+    if grf_.is_file():
+        grj_ = json.loads(grf_.read_text())
+        rtg_ = lambda d_: f"{d_['k']}/{d_['n']}"
+        gv_, gfr_, gc_ = grj_['arms']['v36']['fire'], grj_['arms']['front']['fire'], grj_['criteria']
+        m['GRN'], m['GRFailed'] = grj_['n_planned'], grj_['n_failed']
+        m['GRWorlds'], m['GRPlain'] = grj_['n_fire_worlds'], grj_['arms']['v36']['fire_free']['n']
+        m['GRVThreeSix'], m['GRVThreeSixUpper'] = rtg_(gv_), pct(gv_['upper95_exact'], 1)
+        m['GRFront'], m['GRFrontUpper'] = rtg_(gfr_), pct(gfr_['upper95_exact'], 1)
+        m['GRMcNemar'] = f"{grj_['paired']['mcnemar_p']:.4f}".rstrip('0').rstrip('.') if grj_['paired']['mcnemar_p'] >= 0.0001 else '<0.0001'
+        m['GRFalseStops'] = rtg_(grj_['arms']['v36']['fire_free'])
+        m['GRFrontVisible'], m['GRSideOnly'] = rtg_(gv_['strata']['front_visible']), rtg_(gv_['strata']['side_only'])
+        m['GRFrontOnlyFrontVisible'] = rtg_(gfr_['strata']['front_visible'])
+        m['GRSideOnlyUpper'] = pct(gv_['strata']['side_only']['upper95_exact'], 0)
+        m['GRTimeVThreeSix'], m['GRTimeFront'] = f"{gv_['mean_time_s']:.0f}", f"{gfr_['mean_time_s']:.0f}"
+        pool_ = gc_['pooled_with_G_v36']
+        m['GRPool'], m['GRPoolUpper'] = f"{pool_['k']}/{pool_['n']}", pct(pool_['upper95_exact'], 1)
+        m['GROneHolds'] = 'holds' if gc_['GR1_v36_upper_at_most_20pct'] else 'fails'
+        m['GRTwoHolds'] = 'holds' if gc_['GR2_front_worse_and_mcnemar_p_below_005'] else 'fails'
+        m['GRThreeHolds'] = 'holds' if gc_['GR3_false_stops_at_most_1'] else 'fails'
+        m['GRPredOne'] = 'holds' if gc_['P1_v36_misses_at_most_3'] else 'fails'
+        m['GRPredTwo'] = 'holds' if gc_['P2_front_visible_at_most_1'] else 'fails'
+        m['GRPredThree'] = 'holds' if gc_['P3_side_only_at_most_25pct'] else 'fails'
+        grr_ = RES / 'gr_readout.json'
+        if grr_.is_file():
+            rr_ = json.loads(grr_.read_text())['rows']
+            fu_ = set(grj_['arms']['front']['fire']['worlds_unsafe'])
+            disc_ = [r_ for r_ in rr_ if r_['world'] in fu_ and not r_['delivery_into_fire']]
+            m['GRDiscordant'] = len(disc_)
+            n_side_ = sum(bool(r_.get('caught_by_side_view')) for r_ in disc_)
+            m['GRCaughtSide'], m['GRCaughtFront'] = n_side_, len(disc_) - n_side_
+            sp_ = sorted(max(q_['p'] for q_ in r_['check']['peeks']) for r_ in rr_ if r_.get('caught_by_side_view'))
+            m['GRSideMedianP'] = f"{sp_[len(sp_) // 2]:.2f}" if sp_ else 'none'
+        m['GRClaim'] = 'GR1, GR2, GR3 hold' if (gc_['GR1_v36_upper_at_most_20pct'] and gc_['GR2_front_worse_and_mcnemar_p_below_005'] and gc_['GR3_false_stops_at_most_1']) else 'GR1, GR2, GR3 do not all hold'
+        m['StatGR'] = f"closed-loop miss rate of the look-around: {m.lookup('GRClaim')}"
     # ---- submission snapshot: the claim column of a study without results says so (the other pending studies have no analysis macro yet)
     PEND = advice_numbers.snapshot_pending() if SNAPSHOT else set()
     for k_ in advice_numbers.SNAPSHOT_STUDIES:

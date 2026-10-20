@@ -776,7 +776,7 @@
 
 
 
-## I-44 (2026-10-20): the closed-loop miss rate of the look-around, on fresh worlds (study GR; registered, running)
+## I-44 (2026-10-20): the closed-loop miss rate of the look-around, on fresh worlds (study GR; done)
 - **Motivation.** The paper's plug-in error budget for the look-around rests on campaign G: v3.6 delivered into 1 of 16 perceivable fires in closed loop (upper bound 0.28), and G's
   worlds also designed the look-around (F). W tightened the rate to 2.0% (3/150, upper 5.7%) only at image level. A reviewer attacks the closed-loop budget first, and the headline
   claim (the look-around catches hidden fires) has 16 closed-loop worlds behind it.
@@ -786,4 +786,4 @@
   `front` = `--look-around 0` and `v36` = the orchestrator defaults), `scripts/gr_analysis.py` (GR1 closed-loop budget, GR2 paired replication, GR3 false stops, strata, the pooled estimate with G), `scripts/gr_run.sh`
   (masks, binding commit, pilot whose gate must take the SUCCESS branch, registration commit + OpenTimestamps, campaign), 14 tests (`tests/test_study_gr.py`, including that G's and J's protocols stay unchanged).
   Registered in `2c1d13a`.
-- **Before/After.** Before: closed-loop budget from 16 worlds (1/16, upper 0.28). After: pending (the run is in progress; this entry is completed with the result, a failed GR1 or GR2 goes into the failed-claim list).
+- **Before/After.** Before: closed-loop budget from 16 worlds (1/16, upper 0.28). After (92 runs, 0 failures, binding commit `8b9c519`, OTS-attested): GR1, GR2, GR3 hold - v3.6 delivered into a fire in 3 of 40 worlds (exact upper bound 18.3%, line 20%, G's was 28%), front-only in 21 of 40 (McNemar p=1e-5), 0 of 12 false stops; predictions P1 and P2 hold, **P3 fails** (side-only fires 2/6 missed). The closed-loop rate (7.5%) is above W's image-level 2.0%; pooled with G it is 4/56 (7.1%, upper 15.6%), which the paper now quotes as the plug-in budget. Of the 18 worlds in which front-only delivered and v3.6 refused, 15 were side-view catches after a front approval and 3 front refusals just above tau_h (0.055-0.199). Failed claims stay 14. FINDINGS #40.
