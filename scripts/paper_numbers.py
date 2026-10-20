@@ -1433,6 +1433,27 @@ def main():
         m['GCPredTwo'] = 'holds' if gcr_['P2_cal_only_not_more_than_v36_only'] else 'fails'
         m['GCClaim'] = 'GC1, GC2 hold' if (gcr_['GC1_cal_upper_at_most_15pct'] and gcr_['GC2_false_stops_at_most_1']) else 'GC1, GC2 do not both hold'
         m['StatGC'] = f"calibrated threshold in closed loop: {m.lookup('GCClaim')}"
+    # ---- study GD (the calibrated threshold at the depot, closed loop; gd_summary.json, I-51); macro prefix DepCal (GD... would clash with study G's macros)
+    gdf_ = RES / 'gd_summary.json'
+    if gdf_.is_file():
+        gdj_ = json.loads(gdf_.read_text())
+        rtd_ = lambda d_: f"{d_['k']}/{d_['n']}"
+        gdv_, gdc_, gdr_ = gdj_['arms']['v36']['fire'], gdj_['arms']['cal']['fire'], gdj_['criteria']
+        m['DepCalN'], m['DepCalFailed'] = gdj_['n_planned'], gdj_['n_failed']
+        m['DepCalWorlds'], m['DepCalPlain'] = gdj_['n_fire_worlds'], gdj_['arms']['cal']['fire_free']['n']
+        m['DepCalCal'], m['DepCalCalUpper'] = rtd_(gdc_), pct(gdc_['upper95_exact'], 1)
+        m['DepCalVThreeSix'], m['DepCalVThreeSixUpper'] = rtd_(gdv_), pct(gdv_['upper95_exact'], 1)
+        m['DepCalFalseStops'] = rtd_(gdj_['arms']['cal']['fire_free'])
+        m['DepCalMcNemar'] = f"{gdj_['paired']['mcnemar_p']:.3f}"
+        m['DepCalOnlyV'], m['DepCalOnlyCal'] = gdj_['paired']['discordant_v36_only'], gdj_['paired']['discordant_cal_only']
+        m['DepCalTimeCal'], m['DepCalTimeVThreeSix'] = f"{gdc_['mean_time_s']:.0f}", f"{gdv_['mean_time_s']:.0f}"
+        m['DepCalOneHolds'] = 'holds' if gdr_['GD1_cal_upper_at_most_25pct'] else 'fails'
+        m['DepCalTwoHolds'] = 'holds' if gdr_['GD2_false_stops_at_most_2'] else 'fails'
+        m['DepCalPredOne'] = 'holds' if gdr_['P1_cal_misses_at_most_3'] else 'fails'
+        m['DepCalPredTwo'] = 'holds' if gdr_['P2_cal_only_not_more_than_v36_only'] else 'fails'
+        m['DepCalPredThree'] = 'holds' if gdr_['P3_v36_delivers_into_more_fires_than_cal'] else 'fails'
+        m['DepCalClaim'] = 'GD1, GD2 hold' if (gdr_['GD1_cal_upper_at_most_25pct'] and gdr_['GD2_false_stops_at_most_2']) else 'GD1, GD2 do not both hold'
+        m['StatGD'] = f"calibrated threshold at the depot in closed loop: {m.lookup('DepCalClaim')}"
     # ---- submission snapshot: the claim column of a study without results says so (the other pending studies have no analysis macro yet)
     PEND = advice_numbers.snapshot_pending() if SNAPSHOT else set()
     for k_ in advice_numbers.SNAPSHOT_STUDIES:

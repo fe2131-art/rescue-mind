@@ -299,6 +299,17 @@ def line_gc(res):
         return ''
 
 
+def line_gd(res):
+    """Study GD (the calibrated threshold at the depot, closed loop): numbers from the result file; empty until it exists."""
+    g = jload(Path(res) / 'gd_summary.json')
+    try:
+        c, v = g['arms']['cal']['fire'], g['arms']['v36']['fire']
+        return (f"・較正の手順を2か所目（倉庫）で検証（評価GD、新しい{g['n_fire_worlds']}世界・{g['n_planned']}試行）：火へ配達 較正 {c['k']}/{c['n']}（95%上限 {c['upper95_exact'] * 100:.1f}%）、既定 {v['k']}/{v['n']}、"
+                f"火のない世界の誤停止 {g['arms']['cal']['fire_free']['k']}/{g['arms']['cal']['fire_free']['n']}")
+    except (TypeError, KeyError):
+        return ''
+
+
 def line_y(res):
     """Studies Y (continue after a hazard refusal, opt-in flag), YE (its exposure price) and YF (Y on fresh worlds): numbers from the result files."""
     yj, yej, yfj = (jload(Path(res) / f) for f in ('y_summary.json', 'ye_summary.json', 'yf_summary.json'))
@@ -373,7 +384,7 @@ def line_pending(res):
 
 
 def number_lines(res):
-    fns = (line_t1, line_t2, line_z, line_r, line_p, line_l, line_h, line_v, line_w, line_xd, line_a, line_y, line_gr, line_gc, line_if, line_j, line_pending)
+    fns = (line_t1, line_t2, line_z, line_r, line_p, line_l, line_h, line_v, line_w, line_xd, line_a, line_y, line_gr, line_gc, line_gd, line_if, line_j, line_pending)
     return [x for x in (f(res) for f in fns) if x]
 
 

@@ -613,6 +613,13 @@ def section_key(e, t):
         rows.append(f"| サイトで較正した閾値は閉ループで見逃しを減らす（評価GC、新しい{gcj_['n_fire_worlds']}世界） | 火へ配達：較正した閾値（0.01）**{gcc_['k']}/{gcc_['n']}**（95%上限 {pct(gcc_['upper95_exact'])}、登録した線15%）、既定 0.05 は {gcv_['k']}/{gcv_['n']}、火のない世界の誤停止 {gcj_['arms']['cal']['fire_free']['k']}/{gcj_['arms']['cal']['fire_free']['n']}。較正にはそのサイトの火のない映像が要る（倉庫では同じ値が清潔な拠点を止める） | {'GC1・GC2：**支持**' if gcok_ else 'GC：**一部不成立**'} |")
     except (TypeError, KeyError):
         pass
+    gdj_ = jl('gd_summary.json')
+    try:      # the calibrated threshold at the depot (second site), closed loop
+        gdc_, gdv_, gdk_ = gdj_['arms']['cal']['fire'], gdj_['arms']['v36']['fire'], gdj_['criteria']
+        gdok_ = gdk_['GD1_cal_upper_at_most_25pct'] and gdk_['GD2_false_stops_at_most_2']
+        rows.append(f"| 較正の手順は2か所目（倉庫）でも閉ループで効く（評価GD、新しい{gdj_['n_fire_worlds']}世界） | 火へ配達：較正した閾値（0.023）**{gdc_['k']}/{gdc_['n']}**（95%上限 {pct(gdc_['upper95_exact'])}、登録した線25%）、既定 0.05 は {gdv_['k']}/{gdv_['n']}、火のない世界の誤停止 {gdj_['arms']['cal']['fire_free']['k']}/{gdj_['arms']['cal']['fire_free']['n']}。閾値は現場ごとに違う（arena 0.01、倉庫 0.023） | GD1・GD2：**{'成立' if gdok_ else '一部不成立'}** | `experiments/results/gd_summary.json` |")
+    except (TypeError, KeyError):
+        pass
     iff_ = advice_numbers.if_facts()
     if iff_:
         rows.append(f"| 依頼文で頼まれた物資はすり替えられない（評価IF、オフライン） | 書き換えた{iff_['n']}文のうち、注入された物資を受理 **{iff_['k']}/{iff_['n']}**（95%信頼区間 {iff_['ci'][0] * 100:.0f}〜{iff_['ci'][1] * 100:.0f}%）。依頼物資は保証の外。対策の聞き返し（I-27）は研究IF2で再測定（"
@@ -792,6 +799,18 @@ def gc_text_en():
             f"{g['arms']['cal']['fire_free']['k']}/{g['arms']['cal']['fire_free']['n']} false stops; claims GC1-GC2 {'hold' if ok else 'do not both hold'}. The recipe needs a site: in the depot the same value would stop clean sites.")
 
 
+def gd_text_en():
+    """English cell of the README table for study GD (the calibrated threshold at the depot, closed loop); empty until gd_summary.json exists."""
+    g = jl('gd_summary.json')
+    if not g:
+        return ''
+    c, v, k = g['arms']['cal']['fire'], g['arms']['v36']['fire'], g['criteria']
+    ok = k['GD1_cal_upper_at_most_25pct'] and k['GD2_false_stops_at_most_2']
+    return (f"GD ({g['n_planned']} runs on {g['n_fire_worlds']} fresh perceivable-fire depot worlds, registered before the first trial): the same recipe at a second site gives a different threshold (tau_h 0.023, the arena's was 0.01) and "
+            f"delivered into a fire in {c['k']}/{c['n']} worlds (upper bound {pct(c['upper95_exact'])}, registered line 25%) against {v['k']}/{v['n']} with the default 0.05; "
+            f"{g['arms']['cal']['fire_free']['k']}/{g['arms']['cal']['fire_free']['n']} false stops; claims GD1-GD2 {'hold' if ok else 'do not both hold'}.")
+
+
 def gr_text_en():
     """English cell of the README table for study GR (the closed-loop miss rate of the look-around on fresh worlds); empty until gr_summary.json exists."""
     g = jl('gr_summary.json')
@@ -956,7 +975,10 @@ def section_en(e, v):
     gct_ = gc_text_en()
     if gct_:
         L.append('| GC: a per-site calibrated hazard threshold in closed loop (I-45) | ' + gct_ + ' |')
-    stage = {'E': 1, 'L': 1, 'Z': 1, 'T1': 2, 'K': 2, 'G': 3, 'W': 3, 'H': 4, 'V': 4, 'A': 4, 'S': 5, 'P': 5, 'R': 5, 'Q': 5, 'X, XD': 5, 'Y, YE, YF': 5, 'GR': 3, 'GC': 3, 'J': 6, 'I-23': 4, 'I-24': 4, 'B': 4, 'IF': 4, 'IF2': 4}
+    gdt_ = gd_text_en()
+    if gdt_:
+        L.append('| GD: the calibration recipe at a second site, the depot (I-51) | ' + gdt_ + ' |')
+    stage = {'E': 1, 'L': 1, 'Z': 1, 'T1': 2, 'K': 2, 'G': 3, 'W': 3, 'H': 4, 'V': 4, 'A': 4, 'S': 5, 'P': 5, 'R': 5, 'Q': 5, 'X, XD': 5, 'Y, YE, YF': 5, 'GR': 3, 'GC': 3, 'GD': 3, 'J': 6, 'I-23': 4, 'I-24': 4, 'B': 4, 'IF': 4, 'IF2': 4}
     i0 = L.index('|---|---|') + 1
     rows = L[i0:]
     key = lambda r_: r_[2:].split(':')[0]
