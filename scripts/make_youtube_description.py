@@ -288,6 +288,17 @@ def line_gr(res):
         return ''
 
 
+def line_gc(res):
+    """Study GC (a per-site calibrated hazard threshold in closed loop): numbers from the result file; empty until it exists."""
+    g = jload(Path(res) / 'gc_summary.json')
+    try:
+        c, v = g['arms']['cal']['fire'], g['arms']['v36']['fire']
+        return (f"・サイトで較正した閾値の閉ループ評価（評価GC、新しい{g['n_fire_worlds']}世界・{g['n_planned']}試行）：火へ配達 較正 {c['k']}/{c['n']}（95%上限 {c['upper95_exact'] * 100:.1f}%）、既定 {v['k']}/{v['n']}、"
+                f"火のない世界の誤停止 {g['arms']['cal']['fire_free']['k']}/{g['arms']['cal']['fire_free']['n']}")
+    except (TypeError, KeyError):
+        return ''
+
+
 def line_y(res):
     """Studies Y (continue after a hazard refusal, opt-in flag), YE (its exposure price) and YF (Y on fresh worlds): numbers from the result files."""
     yj, yej, yfj = (jload(Path(res) / f) for f in ('y_summary.json', 'ye_summary.json', 'yf_summary.json'))
@@ -362,7 +373,7 @@ def line_pending(res):
 
 
 def number_lines(res):
-    fns = (line_t1, line_t2, line_z, line_r, line_p, line_l, line_h, line_v, line_w, line_xd, line_a, line_y, line_gr, line_if, line_j, line_pending)
+    fns = (line_t1, line_t2, line_z, line_r, line_p, line_l, line_h, line_v, line_w, line_xd, line_a, line_y, line_gr, line_gc, line_if, line_j, line_pending)
     return [x for x in (f(res) for f in fns) if x]
 
 

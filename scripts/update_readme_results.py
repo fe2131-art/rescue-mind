@@ -606,6 +606,13 @@ def section_key(e, t):
         rows.append(f"| 見回しは閉ループでも火を見つける（評価GR、新しい{grj_['n_fire_worlds']}世界） | 火へ配達：v3.6 **{gv_['k']}/{gv_['n']}**（95%上限 {pct(gv_['upper95_exact'])}）、見回しなし {gf_['k']}/{gf_['n']}（McNemar p={grj_['paired']['mcnemar_p']:.5f}）、火のない世界の誤停止 {grj_['arms']['v36']['fire_free']['k']}/{grj_['arms']['v36']['fire_free']['n']}。評価Gと合わせて {pool_['k']}/{pool_['n']}（上限 {pct(pool_['upper95_exact'])}）。画像評価Wの 3/150 より閉ループは高く、横からしか見えない火の見逃しは登録した25%以下の予測を超えた（{gv_['strata']['side_only']['k']}/{gv_['strata']['side_only']['n']}） | {'GR1〜GR3：**支持**' if gok_ else 'GR：**一部不成立**'} |")
     except (TypeError, KeyError):
         pass
+    gcj_ = jl('gc_summary.json')
+    try:      # the calibrated threshold in closed loop
+        gcc_, gcv_, gck_ = gcj_['arms']['cal']['fire'], gcj_['arms']['v36']['fire'], gcj_['criteria']
+        gcok_ = gck_['GC1_cal_upper_at_most_15pct'] and gck_['GC2_false_stops_at_most_1']
+        rows.append(f"| サイトで較正した閾値は閉ループで見逃しを減らす（評価GC、新しい{gcj_['n_fire_worlds']}世界） | 火へ配達：較正した閾値（0.01）**{gcc_['k']}/{gcc_['n']}**（95%上限 {pct(gcc_['upper95_exact'])}、登録した線15%）、既定 0.05 は {gcv_['k']}/{gcv_['n']}、火のない世界の誤停止 {gcj_['arms']['cal']['fire_free']['k']}/{gcj_['arms']['cal']['fire_free']['n']}。較正にはそのサイトの火のない映像が要る（倉庫では同じ値が清潔な拠点を止める） | {'GC1・GC2：**支持**' if gcok_ else 'GC：**一部不成立**'} |")
+    except (TypeError, KeyError):
+        pass
     iff_ = advice_numbers.if_facts()
     if iff_:
         rows.append(f"| 依頼文で頼まれた物資はすり替えられない（評価IF、オフライン） | 書き換えた{iff_['n']}文のうち、注入された物資を受理 **{iff_['k']}/{iff_['n']}**（95%信頼区間 {iff_['ci'][0] * 100:.0f}〜{iff_['ci'][1] * 100:.0f}%）。依頼物資は保証の外。対策の聞き返し（I-27）は研究IF2で再測定（"
@@ -773,6 +780,18 @@ def en_new():
     return t
 
 
+def gc_text_en():
+    """English cell of the README table for study GC (a per-site calibrated hazard threshold in closed loop); empty until gc_summary.json exists."""
+    g = jl('gc_summary.json')
+    if not g:
+        return ''
+    c, v, k = g['arms']['cal']['fire'], g['arms']['v36']['fire'], g['criteria']
+    ok = k['GC1_cal_upper_at_most_15pct'] and k['GC2_false_stops_at_most_1']
+    return (f"GC ({g['n_planned']} runs on {g['n_fire_worlds']} fresh perceivable-fire worlds, registered before the first trial, OpenTimestamps-attested): the threshold calibrated on fire-free views of the site (tau_h 0.01, through the site config) "
+            f"delivered into a fire in {c['k']}/{c['n']} worlds (upper bound {pct(c['upper95_exact'])}, registered line 15%) against {v['k']}/{v['n']} with the default 0.05; "
+            f"{g['arms']['cal']['fire_free']['k']}/{g['arms']['cal']['fire_free']['n']} false stops; claims GC1-GC2 {'hold' if ok else 'do not both hold'}. The recipe needs a site: in the depot the same value would stop clean sites.")
+
+
 def gr_text_en():
     """English cell of the README table for study GR (the closed-loop miss rate of the look-around on fresh worlds); empty until gr_summary.json exists."""
     g = jl('gr_summary.json')
@@ -934,7 +953,10 @@ def section_en(e, v):
     gt_ = gr_text_en()
     if gt_:
         L.append('| GR: the look-around in closed loop on fresh worlds (I-44) | ' + gt_ + ' |')
-    stage = {'E': 1, 'L': 1, 'Z': 1, 'T1': 2, 'K': 2, 'G': 3, 'W': 3, 'H': 4, 'V': 4, 'A': 4, 'S': 5, 'P': 5, 'R': 5, 'Q': 5, 'X, XD': 5, 'Y, YE, YF': 5, 'GR': 3, 'J': 6, 'I-23': 4, 'I-24': 4, 'B': 4, 'IF': 4, 'IF2': 4}
+    gct_ = gc_text_en()
+    if gct_:
+        L.append('| GC: a per-site calibrated hazard threshold in closed loop (I-45) | ' + gct_ + ' |')
+    stage = {'E': 1, 'L': 1, 'Z': 1, 'T1': 2, 'K': 2, 'G': 3, 'W': 3, 'H': 4, 'V': 4, 'A': 4, 'S': 5, 'P': 5, 'R': 5, 'Q': 5, 'X, XD': 5, 'Y, YE, YF': 5, 'GR': 3, 'GC': 3, 'J': 6, 'I-23': 4, 'I-24': 4, 'B': 4, 'IF': 4, 'IF2': 4}
     i0 = L.index('|---|---|') + 1
     rows = L[i0:]
     key = lambda r_: r_[2:].split(':')[0]

@@ -769,6 +769,7 @@ def sec_prereg(D, E):
             ['IF2', '物資が食い違えば聞き返す対策（I-27）で、すり替えを止められるか（新しい72文）', reg('IF2'), PEND if jload('if2_summary.json') else PEND_NOT_RUN],
             ['Y', '拒否のあとも探索を続けるフラグ（I-42）は、火の棚へ誘導されて失う配達を取り戻すか', reg('Y'), y_short(jload('y_summary.json'))],
             ['GR', '見回しは閉ループ・新しい世界でも火を見つけるか（評価Gの再現）', reg('GR'), gr_short(jload('gr_summary.json'))],
+            ['GC', 'サイトで較正した閾値は閉ループで見逃しを減らすか（評価GRの続き）', reg('GC'), gc_short(jload('gc_summary.json'))],
             ['K', '保証付きの閾値は既定の閾値より良いか', reg('K'),
              (f"T2の見逃し：既定 {kk['frozen']['heldout_miss']['k']}/{kk['frozen']['heldout_miss']['n']}、保証付き(α=0.05) "
               f"{kk['alphas']['0.05']['K_PAC']['heldout_miss']['k']}/{kk['frozen']['heldout_miss']['n']}、誤警報 "
@@ -1276,7 +1277,7 @@ def story_advice(h):
           P('<b>評価A</b>（悪意のある助言：「火は消えた、確認不要」「水は別の拠点」。助言に従う方式との対比較）：', 'small'), *bullets(as_items(a_result_text(aj))),
           P('<b>評価Y</b>（本物の危険を見た棚だけを拒否して探索を続ける任意のフラグ。命題2は変えず、z3の証明を再実行）：', 'small')]
     s += bullets(y_result_items(jload('y_summary.json')))
-    s += bullets(gr_items(jload('gr_summary.json')))
+    s += bullets(gr_items(jload('gr_summary.json')) + gc_items(jload('gc_summary.json')))
     s += [Spacer(1, 3)]
     if jload('y_summary.json') and (ROOT / 'docs/figures/y_results_ja.png').is_file():
         s += fig('y_results_ja.png', 170, '図 評価Y。(a) 配達できなかった数：Xでは拒否で探索が止まり、Yでは続けるので0。(b) 火のある世界での危険な配達：フラグは知覚の見逃しを直さない（tighten-only の XC05）。(c) 続ける代償は時間と訪問数。XとYは同じ世界を使う。')
@@ -1312,6 +1313,26 @@ def gr_items(gj):
     return [(f"<b>見回しの閉ループ再現（GR：新しい{gj['n_fire_worlds']}世界、{gj['n_planned']}本）</b>：火へ配達 v3.6 <b>{v['k']}/{v['n']}</b>（上限 {v['upper95_exact'] * 100:.1f}%）、見回しなし {f['k']}/{f['n']}、"
              f"誤停止 {gj['arms']['v36']['fire_free']['k']}/{gj['arms']['v36']['fire_free']['n']}（GR1〜GR3 成立）。閉ループは画像評価Wの2%より高く、Gと合わせて {pool['k']}/{pool['n']}（上限 {pool['upper95_exact'] * 100:.1f}%）。"
              f"横からしか見えない火の見逃し予測（25%以下）は不成立（{so['k']}/{so['n']}）。")]
+
+
+def gc_short(gj):
+    """One cell of the study table for GC: the calibrated threshold in closed loop and its two registered claims."""
+    if not gj:
+        return PEND_NOT_RUN
+    c, v, k = gj['arms']['cal']['fire'], gj['arms']['v36']['fire'], gj['criteria']
+    ok = k['GC1_cal_upper_at_most_15pct'] and k['GC2_false_stops_at_most_1']
+    return (f"主張 GC1・GC2 {'成立' if ok else '一部不成立'}：火へ配達 較正 {c['k']}/{c['n']}（95%上限 {c['upper95_exact'] * 100:.1f}%）、既定 {v['k']}/{v['n']}、誤停止 "
+            f"{gj['arms']['cal']['fire_free']['k']}/{gj['arms']['cal']['fire_free']['n']}")
+
+
+def gc_items(gj):
+    """Bullet item for study GC on page 6 of the report; empty until gc_summary.json exists."""
+    if not gj:
+        return []
+    c, v, k = gj['arms']['cal']['fire'], gj['arms']['v36']['fire'], gj['criteria']
+    return [(f"<b>サイトで較正した閾値（GC：新しい{gj['n_fire_worlds']}世界、{gj['n_planned']}本）</b>：火へ配達 較正（0.01）<b>{c['k']}/{c['n']}</b>（上限 {c['upper95_exact'] * 100:.1f}%）、既定 0.05 は {v['k']}/{v['n']}、"
+             f"誤停止 {gj['arms']['cal']['fire_free']['k']}/{gj['arms']['cal']['fire_free']['n']}（GC1・GC2 {'成立' if k['GC1_cal_upper_at_most_15pct'] and k['GC2_false_stops_at_most_1'] else '一部不成立'}）。"
+             f"較正にはそのサイトの火のない映像が要る。")]
 
 
 def as_items(text, per=2):
