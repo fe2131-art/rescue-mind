@@ -10,6 +10,7 @@
 ## ★ 最新（2026-10-20 19:30）：研究 GC を実行中（I-45、I-46）
 
 * **GC（サイトで較正した閾値 0.01 の閉ループ、新しい40世界×2腕＋火のない24世界＝104本）**：`GC_NO_OTS_WAIT=1 bash scripts/gc_run.sh`（ログ `experiments/results/gc_run.log`、台帳 `campaign_GC_ledger.jsonl`、約7〜8時間）。登録は Amendment 1・Note 2・Note 3。完了後：`python3 scripts/gc_analysis.py`（run が自動実行）→ `ots upgrade docs/timestamps/study_gc_registration.txt.ots`（確定を解析の前に確認）→ 補足の GC 節（草稿は scratchpad の gc_supp_draft.tex、マクロは paper_numbers の GC ブロック）、main.tex に1文、README/説明資料/概要欄（フックは用意済み）、動画の評価カード行、FINDINGS #42、I-45 の Before/After、`failed_claims`（GC1・GC2 が崩れたら自動で入る）。
+* **GC の再起動（19:45、PREREGISTRATION_GC Note 4）**：自分で GC を二重起動し、2 本の run_campaign が同じ台帳に書いて 48 行中 18 行が基盤失敗になった。両方を止め、その台帳は `gc_attempt3_overlap_ledger.jsonl` として残して解析から除外し、空の台帳から単独実行で再開（104 本、約 7〜8 時間）。**GC を再度起動しない**（`pgrep -fa run_campaign` で確認）。部分集計を一度見たことも Note 4 に開示済み。
 * **I-46（FINDINGS #41）**：`--site-config` がオーケストレーターの実行経路でミッションに渡っていなかった。修正と回帰テスト済み。
 * **方針（ユーザー指示 10/20）**：自分で足した進め方の規則（確定待ち、重い処理の禁止など）で改善を遅らせない。ユーザーの規則（公開設定を変えない、rm禁止、個人情報なし、履歴は指示があるまで触らない）は守る。
 
