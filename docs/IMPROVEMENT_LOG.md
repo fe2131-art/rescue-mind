@@ -863,3 +863,9 @@
 - **Hypothesis.** One consistent statement fits both sites: the recipe's guarantee (false stops) held at both; a miss reduction is established at neither.
 - **Change.** supplement "What this changes", main.tex closed-loop sentence (GC and GD counts with the paired p-value), README (GC row title and p; GC and GD English cells), YouTube description, report study table, DEPLOYMENT table row, FINDINGS #43, HANDOFF; the ratio is now "up to 13-fold" (computed over all worlds with both arms in `gd_readout.json`).
 - **Before/After.** Before: GC read as an arena success and GD as a site-dependent failure. After: false-stop guarantee transfers; miss reduction not established at either site (arena p = 0.125, depot p = 1.0); page 9 of main.pdf is references only; consistency 0 mismatches.
+
+## I-57 (2026-10-21): a free post hoc test of "a second look" on GD's two runs per world (negative)
+- **Motivation.** GD says lowering misses needs a better view; before spending ~14 GPU-hours on a second-look study, GD already holds two independent runs of every world (arms `cal` and `v36`).
+- **Hypothesis.** If a repeated look separates fire worlds from the clean tail, the per-world maximum over two runs should catch more fire worlds than one run at the same false-stop level (m = 24, threshold = largest clean score).
+- **Change.** `second_look()` in `scripts/gd_readout.py` (+ test), `gd_readout.json['second_look']`, one sentence in the supplement.
+- **Before/After.** Before: the "second pass" idea was untested. After: two-run threshold 0.0352 catches 36/40 fire worlds, against 31/40 (cal run alone) and 36/40 (v36 run alone at its own clean maximum 0.0312): no clear gain; the three worlds both runs delivered into (GD08, GD10, GD32) score at most 0.0226 in both runs. A repeated look from the same pose is not worth a study; a closer or different view would be a new design, not registered.
