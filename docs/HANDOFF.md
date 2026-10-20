@@ -7,6 +7,13 @@
 
 ---
 
+## ★ 最新（2026-10-20 23:00）：研究 GC 完了・反映済み（I-45、I-47、I-48、I-49）
+
+* **GC の結果（104本、失敗0、OTS 承認済み）**：GC1 成立（較正腕 1/40、上限11.3%、登録線15%）、GC2 成立（誤停止 0/24）、予測 P1・P2 とも成立。対照の v3.6 は 5/40（すべて横からしか見えない火）で、G・GR・GC を合わせた v3.6 の閉ループ見逃しは 9/96（9.4%、上限15.8%）。較正腕との差 4対0 は McNemar p=0.125 で有意でない。失敗した主張は14のまま。
+* **反映済み**：補足資料 GC の節（Reading と split-conformal 上限）、main.tex の予算の段落、README、説明資料（本文9頁）、DEPLOYMENT（3.2b の較正手順と 9/96）、FINDINGS #42、概要欄。動画：証拠カードに GC を足し `outputs/video/v10_candidate.mp4` を作成中（できたら ffprobe で確認し、`PAI最終課題_tetsutetsu.mp4` に差し替える。旧版は `_v9_backup.mp4` に退避）。
+* **GC の二重起動事故**：Note 4 参照。`gc_attempt3_overlap_ledger.jsonl` は解析から除外して保存。
+* **次の候補**：論文本文8頁を保つ。新しい研究の候補は、較正集合の大きさ（m）と誤停止の関係の閉ループ検証、depot での較正、実写での較正。
+
 ## ★ 最新（2026-10-20 19:30）：研究 GC を実行中（I-45、I-46）
 
 * **GC（サイトで較正した閾値 0.01 の閉ループ、新しい40世界×2腕＋火のない24世界＝104本）**：`GC_NO_OTS_WAIT=1 bash scripts/gc_run.sh`（ログ `experiments/results/gc_run.log`、台帳 `campaign_GC_ledger.jsonl`、約7〜8時間）。登録は Amendment 1・Note 2・Note 3。完了後：`python3 scripts/gc_analysis.py`（run が自動実行）→ `ots upgrade docs/timestamps/study_gc_registration.txt.ots`（確定を解析の前に確認）→ 補足の GC 節（草稿は scratchpad の gc_supp_draft.tex、マクロは paper_numbers の GC ブロック）、main.tex に1文、README/説明資料/概要欄（フックは用意済み）、動画の評価カード行、FINDINGS #42、I-45 の Before/After、`failed_claims`（GC1・GC2 が崩れたら自動で入る）。
@@ -200,7 +207,7 @@
 | Q（Wikimedia Commons 405 枚） | 実写の物資確認 | 登録済み・**未実行**（GPU 約 40 分。W の後の連鎖が .gitignore の衝突で止まり、一度も走っていない） |
 
 * 登録済み 7 本（A・B・IF・Q・S・X・XD）は統合マージ 09:08 で main に載り、A の予備走行が 09:14 に始まった時点で、IF・S・B・XD・X・Q は試行も推論もしていない。これらの登録ファイルには「DRAFT」の行が残るが、拘束力のある版は `docs/REGISTRATIONS.md` の表の版（ファイルは変えない。変更は日付とコミットつきの Amendment で追記する）。
-* テスト関数は 1513 件（`python3 scripts/count_tests.py` の静的な数え方）。FINDINGS は 40 件。
+* テスト関数は 1534 件（`python3 scripts/count_tests.py` の静的な数え方）。FINDINGS は 42 件。
 
 ### D. GPU の順番と、その動かし方
 
@@ -344,7 +351,7 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 ## 7. 主要ファイルの地図
 
 * 現在地・履歴：このファイル。旧版の全文：`docs/HANDOFF_ARCHIVE.md`。
-* `docs/ARCHITECTURE.md`（全体フロー図）、`docs/DESIGN_DECISIONS.md`（D1–D15）、`docs/IMPROVEMENT_LOG.md`（I-01–I-24）、`docs/FINDINGS.md`（実行で見つけた40件）、`docs/REVIEW_AND_PLAN.md`（審査基準別レビュー）。
+* `docs/ARCHITECTURE.md`（全体フロー図）、`docs/DESIGN_DECISIONS.md`（D1–D15）、`docs/IMPROVEMENT_LOG.md`（I-01–I-24）、`docs/FINDINGS.md`（実行で見つけた42件）、`docs/REVIEW_AND_PLAN.md`（審査基準別レビュー）。
 * `docs/REGISTRATIONS.md`（事前登録の台帳：main に載った最初のコミットと sha256）、`docs/REPRODUCE.md`（クリーンな Ubuntu＋NVIDIA 環境での 3 段階の再現手順）、`docs/REPRODUCIBILITY.md`。
 * `docs/evaluations/`（第三者採点、第1〜8回と固定の指示文）、`docs/paper/`（論文・補足・`REVIEW_NOTES*.md`・`LITERATURE_*.md`・`PROOF_REVIEW.md`）、`docs/report/`（説明資料）、`docs/design/`（I-19〜I-24 の設計、動画 v5 の計画）。
 * `experiments/`（事前登録 `PREREGISTRATION_*.md`・プロトコル・開発セット・台帳 `results/campaign_*_ledger.jsonl`・要約 `results/*_summary.json`）。

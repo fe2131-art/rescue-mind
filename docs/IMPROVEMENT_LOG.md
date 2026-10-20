@@ -788,14 +788,14 @@
   Registered in `2c1d13a`.
 - **Before/After.** Before: closed-loop budget from 16 worlds (1/16, upper 0.28). After (92 runs, 0 failures, binding commit `8b9c519`, OTS-attested): GR1, GR2, GR3 hold - v3.6 delivered into a fire in 3 of 40 worlds (exact upper bound 18.3%, line 20%, G's was 28%), front-only in 21 of 40 (McNemar p=1e-5), 0 of 12 false stops; predictions P1 and P2 hold, **P3 fails** (side-only fires 2/6 missed). The closed-loop rate (7.5%) is above W's image-level 2.0%; pooled with G it is 4/56 (7.1%, upper 15.6%), which the paper now quotes as the plug-in budget. Of the 18 worlds in which front-only delivered and v3.6 refused, 15 were side-view catches after a front approval and 3 front refusals just above tau_h (0.055-0.199). Failed claims stay 14. FINDINGS #40.
 
-## I-45 (2026-10-20): a per-site calibrated hazard threshold in closed loop (study GC; registered, running)
+## I-45 (2026-10-20): a per-site calibrated hazard threshold in closed loop (study GC; done)
 - **Motivation.** GR left a closed-loop miss rate of 7.5% for v3.6, higher than the image-level 2%. The saved scores of its three misses show two at 0.013 and 0.018, while no fire-free view in the arena scored above 0.0061 (W's 75 twins) or
   0.0048 (the 12 fire-free GR runs). The paper recommends calibrating the threshold on fire-free views of the site (the depot needs another value, FINDINGS #37, XD-cal), but never tested that recipe in closed loop.
 - **Hypothesis (a rule fixed before any GC datum, GR's scores seen: post hoc motivation).** tau_cal = 1.6 x the largest fire-free score of W's twins, rounded up = 0.01. On 40 fresh perceivable-fire worlds `cal` delivers into at most 2 (exact upper bound <= 15%, GC1) and refuses at most 1 of 24
   fire-free worlds (GC2); prediction P1: at most 1.
 - **Change.** `scripts/make_protocol_gc.py` (72 candidates, seed `GC-2026`, design masks, first 40 perceivable, 24 fire-free worlds; arms `v36` and `cal` = `--hazard-threshold 0.01`), `scripts/gc_analysis.py`, `scripts/gc_run.sh` (pilot gate on the success branch, OpenTimestamps), 13 tests.
   Lowering the threshold only tightens the check (Proposition 2 untouched); the default stays 0.05.
-- **Before/After.** Before: the calibration recipe was a recommendation backed by image-level scores. After: pending (running).
+- **Before/After.** Before: the calibration recipe was a recommendation backed by image-level scores. After: GC1 and GC2 hold (`cal` 1/40, upper 11.3%, registered line 15%; 0/24 false stops; 104 runs, 0 failures); the control `v36` delivered into a fire in 5/40 (all side-only fires), so the pooled closed-loop rate of v3.6 is 9/96 (9.4%, upper 15.8%), the number the paper now quotes. The paired contrast is 4 against 0 (McNemar p = 0.125): not significant at n = 40. FINDINGS #42.
 
 ## I-46 (2026-10-20): `--site-config` was not wired into the orchestrator's run path (found by study GC's mechanics pilot)
 - **Motivation.** The deployment guide offers one `site.json` for server, mission and interlock (I-26), and study GC needs a site threshold of 0.01 in closed loop. Its pilot (2 runs, the gate of the pre-registration) stopped the study twice.
