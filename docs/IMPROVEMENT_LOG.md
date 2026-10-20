@@ -845,3 +845,9 @@
 - **Hypothesis.** The per-run scores in `mission.json` answer it directly: count fire-free `cal` and `v36` runs above tau_cal and above the calibration maximum, next to the GC cause classes (threshold-decided refusals, scores of unsafe deliveries).
 - **Change.** `scripts/gd_readout.py` (reuses `gc_readout.readout/digest`, adds `margin`), `tests/test_gd_readout.py` (2 tests). Post hoc and descriptive by construction; it needs `gd_summary.json` and `gd_calibration.json`.
 - **Before/After.** Before: no readout for GD. After: `python3 scripts/gd_readout.py` writes `experiments/results/gd_readout.json` as soon as the campaign ends (run once, no new decision).
+
+## I-54 (2026-10-21): the calibration figure shows the depot's closed-loop clean tail and the two calibrated thresholds
+- **Motivation.** GD's calibration finished (100 fire-free depot missions, threshold off, tau_cal = 0.028, largest 0.0415, bound 1.98%). The figure of I-52 had a placeholder for that curve and no marker of where the calibrated thresholds sit.
+- **Hypothesis.** The closed-loop clean tail is heavier than the image-level twins' (the pilot's 0.133 hinted at it); drawn on the same axis the argument "calibrate on the real mission, per site" needs no text.
+- **Change.** `fig_calibration` adds the GD curve (now present) and triangles at tau = 0.01 (GC) and 0.028 (GD); the supplement caption says so. `docs/paper/fig_calibration.pdf` regenerated; paper not yet rebuilt.
+- **Before/After.** Before: two curves, no thresholds. After: three curves, the depot's missions lie to the right of its twins, both calibrated thresholds sit below the default 0.05 (stop rule not triggered).
