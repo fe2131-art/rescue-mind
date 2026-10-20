@@ -1280,11 +1280,11 @@ def story_advice(h):
     s += bullets(gr_items(jload('gr_summary.json')) + gc_items(jload('gc_summary.json')))
     s += [Spacer(1, 3)]
     if jload('y_summary.json') and (ROOT / 'docs/figures/y_results_ja.png').is_file():
-        s += fig('y_results_ja.png', 170, '図 評価Y。(a) 配達できなかった数：Xでは拒否で探索が止まり、Yでは続けるので0。(b) 火のある世界での危険な配達：フラグは知覚の見逃しを直さない（tighten-only の XC05）。(c) 続ける代償は時間と訪問数。XとYは同じ世界を使う。')
+        s += fig('y_results_ja.png', 140, '図 評価Y。(a) 配達できなかった数：Xでは拒否で探索が止まり、Yでは続けるので0。(b) 火のある世界での危険な配達：フラグは知覚の見逃しを直さない（tighten-only の XC05）。(c) 続ける代償は時間と訪問数。XとYは同じ世界を使う。')
     af_ = advice_numbers.a_facts()
     if aj and af_:
         st_ = af_['steer']
-        s += fig('a_results_ja.png', 170, f"図 評価A（悪意のある助言）。(a) 経路ごとの危険な配達（各{af_['by_channel']['naive']['file'][1]}試行）と、方式ごとの危険な世界（図の下の行）。"
+        s += fig('a_results_ja.png', 140, f"図 評価A（悪意のある助言）。(a) 経路ごとの危険な配達（各{af_['by_channel']['naive']['file'][1]}試行）と、方式ごとの危険な世界（図の下の行）。"
                  f"ガードレールは他ロボットの助言ファイルを見ない（止めた数 {af_['filter_flag_file'][0]}/{af_['filter_flag_file'][1]}、依頼文では {af_['filter_flag_operator'][0]}/{af_['filter_flag_operator'][1]}）。"
                  f"依頼文の経路で設計どおりの助言を取り出せたのは {af_['extract'][0]}/{af_['extract'][1]}。全試行は意図の質問 i38、提出版の既定は i35。"
                  f"(b) 操縦（記述的）：配達できなかった世界は 本方式 {st_['ours']['lost']}/{st_['n']}、scrutiny {st_['scrutiny']['lost']}/{st_['n']}、助言なし {st_['control']['lost']}/{st_['n']}。代償は可用性。"
@@ -1307,12 +1307,9 @@ def gr_items(gj):
     """Bullet items for study GR (page 6 of the report): what held, what did not; empty until gr_summary.json exists."""
     if not gj:
         return []
-    v, f, c, pr = gj['arms']['v36']['fire'], gj['arms']['front']['fire'], gj['criteria'], gj['paired']
-    so = v['strata']['side_only']
-    pool = c['pooled_with_G_v36']
-    return [(f"<b>見回しの閉ループ再現（GR：新しい{gj['n_fire_worlds']}世界、{gj['n_planned']}本）</b>：火へ配達 v3.6 <b>{v['k']}/{v['n']}</b>（上限 {v['upper95_exact'] * 100:.1f}%）、見回しなし {f['k']}/{f['n']}、"
-             f"誤停止 {gj['arms']['v36']['fire_free']['k']}/{gj['arms']['v36']['fire_free']['n']}（GR1〜GR3 成立）。閉ループは画像評価Wの2%より高く、Gと合わせて {pool['k']}/{pool['n']}（上限 {pool['upper95_exact'] * 100:.1f}%）。"
-             f"横からしか見えない火の見逃し予測（25%以下）は不成立（{so['k']}/{so['n']}）。")]
+    v, f, so = gj['arms']['v36']['fire'], gj['arms']['front']['fire'], gj['arms']['v36']['fire']['strata']['side_only']
+    return [(f"<b>見回しの閉ループ再現（GR：新しい{gj['n_fire_worlds']}世界）</b>：火へ配達 v3.6 <b>{v['k']}/{v['n']}</b>（上限 {v['upper95_exact'] * 100:.1f}%）、見回しなし {f['k']}/{f['n']}、"
+             f"誤停止 {gj['arms']['v36']['fire_free']['k']}/{gj['arms']['v36']['fire_free']['n']}（GR1〜GR3 成立）。横からしか見えない火の予測（25%以下）は不成立（{so['k']}/{so['n']}）。")]
 
 
 def gc_short(gj):
@@ -1330,9 +1327,10 @@ def gc_items(gj):
     if not gj:
         return []
     c, v, k = gj['arms']['cal']['fire'], gj['arms']['v36']['fire'], gj['criteria']
-    return [(f"<b>サイトで較正した閾値（GC：新しい{gj['n_fire_worlds']}世界、{gj['n_planned']}本）</b>：火へ配達 較正（0.01）<b>{c['k']}/{c['n']}</b>（上限 {c['upper95_exact'] * 100:.1f}%）、既定 0.05 は {v['k']}/{v['n']}、"
+    pool = k['pooled_v36_with_G_GR']
+    return [(f"<b>サイトで較正した閾値（GC：新しい{gj['n_fire_worlds']}世界）</b>：火へ配達 較正（0.01）<b>{c['k']}/{c['n']}</b>（上限 {c['upper95_exact'] * 100:.1f}%）、既定 0.05 は {v['k']}/{v['n']}（すべて横からしか見えない火）、"
              f"誤停止 {gj['arms']['cal']['fire_free']['k']}/{gj['arms']['cal']['fire_free']['n']}（GC1・GC2 {'成立' if k['GC1_cal_upper_at_most_15pct'] and k['GC2_false_stops_at_most_1'] else '一部不成立'}）。"
-             f"較正にはそのサイトの火のない映像が要る。")]
+             f"G・GR・GCの v3.6 を合わせた閉ループの見逃しは {pool['k']}/{pool['n']}（上限 {pool['upper95_exact'] * 100:.1f}%）。")]
 
 
 def as_items(text, per=2):

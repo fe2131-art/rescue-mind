@@ -43,6 +43,7 @@ Verify any row: `git log 587f033^1 --first-parent --format='%h %cI' --diff-filte
 | YE | `34b1384` 2026-10-19T18:48 | `507eea4b73679733` | `dd7738e` 2026-10-19T22:26 | `f4d28c0b95f745a9` | yes | `dd7738e` 2026-10-19T22:26 | `f4d28c0b95f745a9` |
 | YF | `cd84b3c` 2026-10-19T19:36 | `e829ed8b3ae5dc1e` | `0fa75e9` 2026-10-19T23:49 | `1ed89edd81c475f9` | yes | `0fa75e9` 2026-10-19T23:49 | `1ed89edd81c475f9` |
 | GR | `2c1d13a` 2026-10-20T12:09 | `d4a9f02d20d2319b` | `1a59c52` 2026-10-20T16:35 | `d4a9f02d20d2319b` | yes | `2c1d13a` 2026-10-20T12:09 | `d4a9f02d20d2319b` (= bound) |
+| GC | `cf02885` 2026-10-20T17:11 | `06234d58c6119316` | -- | -- | no results yet | `5db5095` 2026-10-20T19:45 | `dc27eb76e5494385` |
 
 ## Amendments
 
@@ -68,6 +69,7 @@ One row per `Amendment` heading in a registration file (the rows of the amendmen
 | B | 1 | `ed8e48b` 2026-10-18T01:38 | 2026-10-18 | no | `eb5b91b` 2026-10-18T22:31 | yes |
 | B | 2 | `1c04256` 2026-10-18T03:10 | 2026-10-18 03:20 | later than the commit; the commit time is binding | `eb5b91b` 2026-10-18T22:31 | yes |
 | YF | 1 | `11d7599` 2026-10-19T20:12 | -- | -- | `0fa75e9` 2026-10-19T23:49 | yes |
+| GC | 1 | `3df94ac` 2026-10-20T18:05 | -- | -- | none yet | no results yet |
 
 * Study A: the A campaign (226 trials) started 2026-10-18 11:11 JST (first trial A001): after both amendments and after the commits above.
 
