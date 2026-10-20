@@ -851,3 +851,9 @@
 - **Hypothesis.** The closed-loop clean tail is heavier than the image-level twins' (the pilot's 0.133 hinted at it); drawn on the same axis the argument "calibrate on the real mission, per site" needs no text.
 - **Change.** `fig_calibration` adds the GD curve (now present) and triangles at tau = 0.01 (GC) and 0.028 (GD); the supplement caption says so. `docs/paper/fig_calibration.pdf` regenerated; paper not yet rebuilt.
 - **Before/After.** Before: two curves, no thresholds. After: three curves, the depot's missions lie to the right of its twins, both calibrated thresholds sit below the default 0.05 (stop rule not triggered).
+
+## I-55 (2026-10-21): the deployment guide carries the measured depot calibration (closed loop, threshold off)
+- **Motivation.** DEPLOYMENT.md section 3.2b said "do not use 0.022, calibrate on the real mission" but gave an operator no measured example of what that yields.
+- **Hypothesis.** Reporting the calibration actually obtained (100 missions, rank rule at alpha = 2%) makes the recipe concrete and shows the size of the difference between image-level and closed-loop calibration, without claiming anything about the unmeasured miss rate.
+- **Change.** One sentence in 3.2b: tau_h = 0.028 (largest 0.0415, second 0.028, median 0.011, bound 1.98%), versus 0.022 image-level, 0.01 arena and 0.05 default; explicitly calibration only, miss and false-stop rates pending GD's campaign.
+- **Before/After.** Before: a warning without a number. After: the number, its provenance, and the explicit limit of what it shows.
