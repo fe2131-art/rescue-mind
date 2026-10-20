@@ -4,12 +4,13 @@
   python3 scripts/gd_analysis.py [--pilot]    # -> experiments/results/gd_summary.json
 
 Fire worlds (the first 40 candidates whose design masks show the fire, >= 614 px from the front or a side pose) are run twice: `v36` (the submitted v3.6, tau_h 0.05) and `cal`
-(`--site-config experiments/gd_site_cal.json`: tau_h 0.023, the rank rule at alpha = 2% over the 124 fire-free depot twins of XD, rounded up).  Fire-free worlds are run once with `cal`.
+(`--site-config experiments/gd_site_cal.json`: tau_h from scripts/gd_calibrate.py, Amendment 1).  Fire-free worlds are run with `cal` and, as a control, with `v36`.
 A delivery in a fire world is a delivery into a fire (the fire stands behind the only bay that holds the requested supply).
 
 Claims (registered):
   GD1  cal's closed-loop delivery into a perceivable fire at the depot: k of n, exact one-sided 95% upper bound; holds iff the bound is at most 25% (n = 40: k <= 5: 24.5% at k = 5).
   GD2  false stops: cal refuses at most 2 of the 24 fire-free worlds for a hazard.
+  (Amendment 1: tau_cal comes from scripts/gd_calibrate.py, 100 fire-free depot worlds with the threshold off, the rank rule at alpha = 2%; v36 also runs on the 24 fire-free worlds, a descriptive control.)
 Descriptive (predictions registered, failing them is reported and is not a failed claim): P1 cal k <= 3; P2 cal delivers into no fire that v36 refused in the same world more often than the reverse
 (discordant cal-only <= discordant v36-only); P3 v36 (the control) delivers into more fires than cal (k_v36 > k_cal); the paired counts, mission time.
 Infrastructure failures are excluded from the claims and listed; more than 10% failed stops the study.
@@ -82,6 +83,9 @@ def analyse(protocol: dict, rows: list, selection: dict) -> dict:
     P = ok('cal', False)
     fs = sum(p['false_hazard_stop'] for p in P)
     out['arms']['cal']['fire_free'] = {**rate(fs, len(P)), 'observed': {o: sum(p['observed'] == o for p in P) for o in sorted({p['observed'] for p in P})}}
+    Pv = ok('v36', False)                      # Amendment 1: the default threshold on the same fire-free worlds (descriptive control: the depot's base false-stop rate)
+    fsv = sum(p['false_hazard_stop'] for p in Pv)
+    out['arms']['v36']['fire_free'] = {**rate(fsv, len(Pv)), 'observed': {o: sum(p['observed'] == o for p in Pv) for o in sorted({p['observed'] for p in Pv})}}
     by = {}
     for p in per:
         if p['fire'] and not p['failed']:
@@ -119,9 +123,8 @@ def pilot_check(protocol: dict, rows: list, selection: dict, masks: list) -> dic
     checks = {'all_defined': all(not p['failed'] and not p.get('missing') for p in per),
               'pilot_fire_visible_at_front': pxm.get('GDQ1', 0) >= VISIBLE_PX,
               'fire_world_refused_for_hazard': bool(fire) and fire.get('hazard_refused') is True,
-              'fire_free_world_delivered': bool(plain) and plain.get('delivered') is True,
-              'no_audit_failure': all(not p.get('audit_failed') for p in per)}
-    return {'ok': all(checks.values()), 'checks': checks, 'pilot_front_px': pxm.get('GDQ1'), 'runs': [{k: p.get(k) for k in ('trial_id', 'arm', 'observed')} for p in per]}
+              'no_audit_failure': all(not p.get('audit_failed') for p in per)}      # Amendment 1: the fire-free pilot world's outcome is recorded, not gated (a false alarm there is data, not a mechanics fault)
+    return {'ok': all(checks.values()), 'checks': checks, 'pilot_front_px': pxm.get('GDQ1'), 'fire_free_outcome': (plain or {}).get('observed'), 'runs': [{k: p.get(k) for k in ('trial_id', 'arm', 'observed')} for p in per]}
 
 
 def main(argv=None):
