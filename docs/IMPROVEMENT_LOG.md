@@ -839,3 +839,9 @@
 - **Hypothesis.** Two panels carry the whole argument: the ECDF of per-world fire-free scores per site against the default threshold, and held-out false-stop rate against the guaranteed bound.
 - **Change.** `fig_calibration` in `scripts/make_paper_figures.py` (from `devset_w_h36_tiles.json`, `devset_xd_h36_tiles.json`, `calibration_sites.json`; a third curve, the depot's closed-loop fire-free missions, appears once `gd_calibration.json` exists), included in the supplement's GC subsection as Fig. S (`fig:calibration`).
 - **Before/After.** Before: the site difference and the bound were stated in words. After: one vector figure; the arena's curve ends below 0.01, the depot's runs to 0.09, and the held-out points sit on or below the bound.
+
+## I-53 (2026-10-21): the GD readout is written and tested before the results exist (cause classes and the calibration margin)
+- **Motivation.** GC's readout (I-47) came after the results and took an hour of ad hoc work; for GD the interesting question is new: do the 24 fresh clean worlds stay inside the tail of the 100 calibration worlds? That is what separates "the recipe transfers" from "the recipe passed by luck".
+- **Hypothesis.** The per-run scores in `mission.json` answer it directly: count fire-free `cal` and `v36` runs above tau_cal and above the calibration maximum, next to the GC cause classes (threshold-decided refusals, scores of unsafe deliveries).
+- **Change.** `scripts/gd_readout.py` (reuses `gc_readout.readout/digest`, adds `margin`), `tests/test_gd_readout.py` (2 tests). Post hoc and descriptive by construction; it needs `gd_summary.json` and `gd_calibration.json`.
+- **Before/After.** Before: no readout for GD. After: `python3 scripts/gd_readout.py` writes `experiments/results/gd_readout.json` as soon as the campaign ends (run once, no new decision).
