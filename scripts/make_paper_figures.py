@@ -346,6 +346,9 @@ def fig_calibration():
         ys = [(i + 1) / len(v) for i in range(len(v))]
         ax[0].step([max(a, 1e-4) for a in v], ys, where='post', color=col, lw=1.2, label=lab)
     ax[0].axvline(0.05, color=RED, lw=0.7, ls='--'); ax[0].text(0.054, 0.42, r'default $\tau_h=0.05$', fontsize=5.4, color=RED)
+    for tau, col in ((0.01, BLUE), (json.loads(gk.read_text()).get('tau_cal') if gk.is_file() else None, GREEN)):      # the calibrated thresholds of GC (arena) and GD (depot)
+        if tau:
+            ax[0].plot([tau], [0.0], marker='^', ms=4, color=col, clip_on=False, zorder=4)
     ax[0].set_xscale('log'); ax[0].set_xlim(1e-3, 0.3); ax[0].set_ylim(0, 1.02)
     ax[0].set_xlabel('largest hazard probability over the three views of a fire-free world', fontsize=6.3); ax[0].set_ylabel('share of worlds', fontsize=6.5)
     ax[0].legend(fontsize=5.2, frameon=False, loc='lower right', bbox_to_anchor=(1.0, 0.0)); ax[0].tick_params(labelsize=6)
