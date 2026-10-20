@@ -796,3 +796,9 @@
 - **Change.** `scripts/make_protocol_gc.py` (72 candidates, seed `GC-2026`, design masks, first 40 perceivable, 24 fire-free worlds; arms `v36` and `cal` = `--hazard-threshold 0.01`), `scripts/gc_analysis.py`, `scripts/gc_run.sh` (pilot gate on the success branch, OpenTimestamps), 13 tests.
   Lowering the threshold only tightens the check (Proposition 2 untouched); the default stays 0.05.
 - **Before/After.** Before: the calibration recipe was a recommendation backed by image-level scores. After: pending (running).
+
+## I-46 (2026-10-20): `--site-config` was not wired into the orchestrator's run path (found by study GC's mechanics pilot)
+- **Motivation.** The deployment guide offers one `site.json` for server, mission and interlock (I-26), and study GC needs a site threshold of 0.01 in closed loop. Its pilot (2 runs, the gate of the pre-registration) stopped the study twice.
+- **Finding.** First attempt: `--hazard-threshold 0.01` on the command line made the server use 0.01 while the completion audit expected 0.05 (the audit takes a non-default tau_h only from the recorded site config). Second attempt, with `--site-config`: the mission still did not record it, because `v32_orchestrate.py`'s `--run` path built the mission command without `site_config` (only `--plan` passed it), so `mission.json` had `site_config: null` and the audit failed the receipt.
+- **Change.** The run-time `build_plan` call passes `site_config`; `tests/test_i46_site_config_run_path.py` (fails without the fix); GC Amendment 1 and Note 2.
+- **Before/After.** Before: `--site-config` worked in `--plan` only; a site threshold other than 0.05 could not run in closed loop. After: pilot rerun with the fixed code (see I-45). FINDINGS #41.

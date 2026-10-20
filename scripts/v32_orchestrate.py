@@ -571,6 +571,7 @@ def main(argv=None):
     plan = build_plan(args.scenario, args.instruction, mission_timeout=args.mission_timeout, scene=args.scene, evidence_dir=log_dir,
                       world=run_world, config_path=layout_files[0], centers_path=layout_files[1], **extra,
                       delivery_interlock=args.delivery_interlock, interlock_key=interlock_key,
+                      **({'site_config': args.site_config} if args.site_config else {}),     # I-46: the run path forgot it (only --plan passed it), so the audit used the default tau_h
                       capture_rosbag=args.capture_rosbag,local_mode=args.local_mode,gz_mode=args.gz_mode,
                       film=args.film)
     summary['world_variant'] = {'lighting': args.lighting, 'hazard_at': args.hazard_at,

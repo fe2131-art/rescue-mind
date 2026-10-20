@@ -65,3 +65,7 @@ with `--hazard-threshold 0.01` the server used 0.01 while the completion audit o
 command line is not supported by the campaign audit. The supported route is the site config of I-26 (`--site-config`; the mission records the site threshold and the audit uses it, `rescuemind/real_profile.py: audit_kwargs`).
 The `cal` arm therefore uses `experiments/gc_site_cal.json` (hazard_threshold 0.01, hazard_prompt h36, hazard_views tiles: the v3.6 wording and views, only tau_h differs). The calibration rule, the claims, the selection and the worlds
 are unchanged; the protocol is regenerated and committed again (`study GC: amendment 1 ...`); the failed pilot ledger is kept as `experiments/results/gc_pilot_attempt1_ledger.jsonl`. No GC world was run.
+
+**Note 2 (code fix, I-46; no change to the registered arms, claims, selection or worlds; before any GC trial).** The second pilot attempt showed that the orchestrator's RUN path never passed `--site-config` to the mission (only `--plan` did):
+the mission did not record the site config and the audit still compared the server's tau_h with 0.05 (`experiments/results/gc_pilot_attempt2_ledger.jsonl`). The run path now passes it (`scripts/v32_orchestrate.py`, `tests/test_i46_site_config_run_path.py`).
+The pilot is repeated with the fixed code; no GC world was run.
