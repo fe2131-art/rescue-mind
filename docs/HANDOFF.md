@@ -7,6 +7,14 @@
 
 ---
 
+## ★ 最新（2026-10-20 19:30）：研究 GC を実行中（I-45、I-46）
+
+* **GC（サイトで較正した閾値 0.01 の閉ループ、新しい40世界×2腕＋火のない24世界＝104本）**：`GC_NO_OTS_WAIT=1 bash scripts/gc_run.sh`（ログ `experiments/results/gc_run.log`、台帳 `campaign_GC_ledger.jsonl`、約7〜8時間）。登録は Amendment 1・Note 2・Note 3。完了後：`python3 scripts/gc_analysis.py`（run が自動実行）→ `ots upgrade docs/timestamps/study_gc_registration.txt.ots`（確定を解析の前に確認）→ 補足の GC 節（草稿は scratchpad の gc_supp_draft.tex、マクロは paper_numbers の GC ブロック）、main.tex に1文、README/説明資料/概要欄（フックは用意済み）、動画の評価カード行、FINDINGS #42、I-45 の Before/After、`failed_claims`（GC1・GC2 が崩れたら自動で入る）。
+* **I-46（FINDINGS #41）**：`--site-config` がオーケストレーターの実行経路でミッションに渡っていなかった。修正と回帰テスト済み。
+* **方針（ユーザー指示 10/20）**：自分で足した進め方の規則（確定待ち、重い処理の禁止など）で改善を遅らせない。ユーザーの規則（公開設定を変えない、rm禁止、個人情報なし、履歴は指示があるまで触らない）は守る。
+
+---
+
 ## ★ 最新（2026-10-20 18:00）：研究 GR（見回しの閉ループ再現）完了
 
 * **GR（新しい40世界・92本・失敗0、拘束コミット 8b9c519、OTS 確定）**：GR1・GR2・GR3 は成立（v3.6 の火への配達 3/40・上限18.3%、見回しなし 21/40、McNemar p=1e-5、誤停止 0/12）。**予測 P3 は不成立**（横からしか見えない火 2/6）。閉ループの見逃し 7.5% は画像評価Wの2%より高く、Gと合わせた 4/56（7.1%、上限15.6%）が予算。失敗した主張は14件のまま。FINDINGS #40、I-44。
