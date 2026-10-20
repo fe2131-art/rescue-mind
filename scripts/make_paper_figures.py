@@ -327,6 +327,42 @@ def fig_h_outcomes(path=None, out=None):
     plt.close(fig)
 
 
+def fig_calibration():
+    """(a) Per-world clean-view scores of the two sites (ECDF, log x) against the default threshold; (b) held-out false-stop rate against the conformal bound (I-48, I-50)."""
+    import sys
+    sys.path.insert(0, str(ROOT))
+    from scripts import calibration_sites as cs
+    w = json.loads((RES / 'devset_w_h36_tiles.json').read_text())['records']
+    x = json.loads((RES / 'devset_xd_h36_tiles.json').read_text())['records']
+    sets = [('arena twins (W, 75 worlds)', sorted(cs.world_scores(w, 'twin').values()), BLUE),
+            ('depot twins (XD, 124 worlds)', sorted(cs.world_scores(x, 'twin').values()), ORANGE)]
+    gk = RES / 'gd_calibration.json'
+    if gk.is_file():
+        sc = sorted(v['score'] for v in json.loads(gk.read_text())['worlds'].values())
+        if sc:
+            sets.append((f'depot missions, threshold off (GD, {len(sc)} worlds)', sc, GREEN))
+    fig, ax = plt.subplots(1, 2, figsize=(7.0, 2.1), gridspec_kw={'width_ratios': [1.3, 1]})
+    for lab, v, col in sets:
+        ys = [(i + 1) / len(v) for i in range(len(v))]
+        ax[0].step([max(a, 1e-4) for a in v], ys, where='post', color=col, lw=1.2, label=lab)
+    ax[0].axvline(0.05, color=RED, lw=0.7, ls='--'); ax[0].text(0.054, 0.42, r'default $\tau_h=0.05$', fontsize=5.4, color=RED)
+    ax[0].set_xscale('log'); ax[0].set_xlim(1e-3, 0.3); ax[0].set_ylim(0, 1.02)
+    ax[0].set_xlabel('largest hazard probability over the three views of a fire-free world', fontsize=6.3); ax[0].set_ylabel('share of worlds', fontsize=6.5)
+    ax[0].legend(fontsize=5.2, frameon=False, loc='lower right', bbox_to_anchor=(1.0, 0.0)); ax[0].tick_params(labelsize=6)
+    ax[0].set_title('(a) the clean-world tail differs by site', fontsize=6.6)
+    d = json.loads((RES / 'calibration_sites.json').read_text())
+    ax[1].plot([0, 0.11], [0, 0.11], color=GREY, lw=0.6, ls='--')
+    ax[1].scatter([r['guaranteed_false_stop_bound'] for r in d['arena_W']['rows']], [r['held_out_false_stop_rate_mean'] for r in d['arena_W']['rows']], s=14, color=BLUE, zorder=3, label='arena (200 splits, mean)')
+    ax[1].scatter([r['guaranteed_false_stop_bound'] for r in d['depot_XD']['rows']], [r['held_out_false_stops'] / r['held_out_n'] for r in d['depot_XD']['rows']], s=14, color=ORANGE, marker='s', zorder=3, label='depot (77 held-out twins)')
+    ax[1].set_xlabel('guaranteed bound $1-r/(m+1)$', fontsize=6.5); ax[1].set_ylabel('held-out false-stop rate', fontsize=6.5)
+    ax[1].legend(fontsize=5.2, frameon=False, loc='upper left'); ax[1].tick_params(labelsize=6); ax[1].set_title('(b) the bound holds on held-out worlds', fontsize=6.6)
+    for a in ax:
+        a.spines[['top', 'right']].set_visible(False)
+    fig.tight_layout(pad=0.3)
+    fig.savefig(OUT / 'fig_calibration.pdf', bbox_inches='tight', pad_inches=0.01)
+    plt.close(fig)
+
+
 if __name__ == '__main__':
     OUT.mkdir(parents=True, exist_ok=True)
     fig_fire_size()
@@ -337,4 +373,5 @@ if __name__ == '__main__':
     fig_t1_examples()
     fig_e_trajectories()
     fig_h_outcomes()
+    fig_calibration()
     print('figures written to', OUT)
