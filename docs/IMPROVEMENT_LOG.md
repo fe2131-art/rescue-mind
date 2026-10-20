@@ -775,3 +775,15 @@
   `d2050be`, with its own OpenTimestamps stamp; the first stamp stays as the record. Before/After: Before: the availability of Y rested on 5 reused worlds. After (27 runs, 0 failures): Y1 and Y3 hold (11 of 11 refused runs delivered elsewhere), the tighten-only miss replicates (FC27, 1/6; P1), scrutiny 0/6 unsafe (P2); **YF4 fails** (a fire-free twin: scrutiny refused the steered bay for caution, the clean bay for a hazard at 0.0526, visited four stations, delivered nothing; 14th failed claim) and **P3 fails** (scrutiny + flag lost 1/9; Y 0/15; pooled 1/24). Lesson: the scrutiny threshold 0.01 cannot tell a fire-free station from a hidden fire, so scrutiny + flag is not free in fire-free sites; the paper, report, README, deployment guide and video say so.
 
 
+
+## I-44 (2026-10-20): the closed-loop miss rate of the look-around, on fresh worlds (study GR; registered, running)
+- **Motivation.** The paper's plug-in error budget for the look-around rests on campaign G: v3.6 delivered into 1 of 16 perceivable fires in closed loop (upper bound 0.28), and G's
+  worlds also designed the look-around (F). W tightened the rate to 2.0% (3/150, upper 5.7%) only at image level. A reviewer attacks the closed-loop budget first, and the headline
+  claim (the look-around catches hidden fires) has 16 closed-loop worlds behind it.
+- **Hypothesis.** In closed loop on 40 fresh perceivable-fire worlds v3.6 delivers into at most 3 (exact upper bound at most 20%), front-only delivers into many more (the G replication), at most 1 of 12 fire-free
+  worlds is stopped for a hazard; per W's strata: front-visible fires missed at most once, side-only at most 25%.
+- **Change.** `scripts/make_protocol_gr.py` (72 candidates of G's world distribution, seed `GR-2026`; design masks of the fire alone; the first 40 with >= 614 px from the front or a side pose, never padded; 12 fire-free worlds; arms
+  `front` = `--look-around 0` and `v36` = the orchestrator defaults), `scripts/gr_analysis.py` (GR1 closed-loop budget, GR2 paired replication, GR3 false stops, strata, the pooled estimate with G), `scripts/gr_run.sh`
+  (masks, binding commit, pilot whose gate must take the SUCCESS branch, registration commit + OpenTimestamps, campaign), 14 tests (`tests/test_study_gr.py`, including that G's and J's protocols stay unchanged).
+  Registered in `2c1d13a`.
+- **Before/After.** Before: closed-loop budget from 16 worlds (1/16, upper 0.28). After: pending (the run is in progress; this entry is completed with the result, a failed GR1 or GR2 goes into the failed-claim list).
