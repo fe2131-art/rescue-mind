@@ -1,6 +1,7 @@
 """I-42: continue after a REAL hazard refusal (--hazard-continue, default off).  The mission node is run through the real run_ros
 with simulated ROS messages and a mocked checkpoint model (NOT Gazebo), as in test_caution_soft."""
 import hashlib
+import importlib.util
 import json
 import random
 import sys
@@ -243,6 +244,7 @@ class ModelAgreesWithTheNode(unittest.TestCase):
 
     CLASS = {'clear': (CLEAR, 0), 'wrong': (WRONG, 1), 'hazard': (HAZARD, 3)}
 
+    @unittest.skipUnless(importlib.util.find_spec('z3'), 'z3-solver is required (pip install z3-solver)')
     def test_random_sequences_agree_with_the_model(self):
         import z3
         sys.path.insert(0, str(ROOT / 'scripts'))
