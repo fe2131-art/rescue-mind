@@ -73,3 +73,10 @@ The pilot is repeated with the fixed code; no GC world was run.
 **Note 3 (change of the start rule, before any GC trial).** The registration said the first trial starts only after the OpenTimestamps stamp has a Bitcoin attestation. That wait idles the GPU for hours without changing what is measured, so the rule is changed:
 the campaign starts once the stamp of the registration commit has been submitted (`docs/timestamps/study_gc_registration.txt.ots`, hashes only); the attestation is checked before the results are analysed, and the paper
 claims an external ordering for GC only if the stamp is attested by then (otherwise it says the ordering rests on the git history alone: the binding commit is on `main` before any GC trial). No GC datum is read before the analysis step.
+
+**Note 4 (restart after a launch error, before any analysable GC trial).** I started the campaign twice by mistake (two `gc_run.sh` instances, one launched in the background and one by hand), so two `run_campaign.py` processes drove the same Gazebo
+container and wrote to the same ledger for about an hour: 18 of the first 48 rows are `StackFailure` (a second stack refusing to start, or `guard_graph_watch` exiting) and the results that did come out cannot be trusted
+(a world shared between two runs). Both processes and the stale stacks were stopped; the ledger is kept as `experiments/results/gc_attempt3_overlap_ledger.jsonl` (with its stdout log) and **is not part of GC**; the campaign is restarted from an empty
+ledger with a single runner, with the same protocol, arms, claims and worlds. Disclosure: I read the outcome counts of the overlapped rows once to see that something was wrong (`cal` fire worlds: 11 hazard refusals, 1 delivery; `v36`: 8 refusals,
+2 deliveries; 18 failures); no rule, claim or threshold was changed after seeing them, and none of these rows enters the analysis.
+
