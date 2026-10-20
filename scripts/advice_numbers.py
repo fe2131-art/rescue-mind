@@ -899,6 +899,14 @@ def failed_claims():
                             ja='GC1（較正した閾値の閉ループの見逃し：上限15%以下）'))
         if not c['GC2_false_stops_at_most_1']:
             out.append(dict(key='GC2', tex='GC2 (calibrated threshold, false stops)', en='GC2 (at most one false hazard stop in fire-free worlds)', ja='GC2（火のない世界の誤停止は1件まで）'))
+    gd = _load('gd_summary.json')      # registered claims GD1-GD2 (PREREGISTRATION_GD): the calibrated threshold at the depot, closed loop
+    if gd is not None:
+        c = gd['criteria']
+        if not c['GD1_cal_upper_at_most_25pct']:
+            out.append(dict(key='GD1', tex='GD1 (calibrated threshold at the depot, closed-loop budget)', en='GD1 (depot: calibrated closed-loop upper bound at most 25%)',
+                            ja='GD1（倉庫で較正した閾値の閉ループの見逃し：上限25%以下）'))
+        if not c['GD2_false_stops_at_most_2']:
+            out.append(dict(key='GD2', tex='GD2 (calibrated threshold at the depot, false stops)', en='GD2 (at most two false hazard stops in fire-free depot worlds)', ja='GD2（倉庫の火のない世界の誤停止は2件まで）'))
     return out
 
 
