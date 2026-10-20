@@ -10,6 +10,7 @@ where the calibration worlds and the site's worlds are exchangeable (same genera
 """
 from __future__ import annotations
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -22,6 +23,13 @@ def false_stop_bound(m: int) -> float:
     if m < 1:
         raise ValueError('need at least one calibration world')
     return 1.0 / (m + 1)
+
+
+def worlds_needed(alpha: float) -> int:
+    """Fewest calibration worlds with 1/(m+1) <= alpha (5% -> 19, 1% -> 99)."""
+    if not 0 < alpha < 1:
+        raise ValueError('alpha must be in (0, 1)')
+    return math.ceil(round(1 / alpha, 9)) - 1
 
 
 def world_maxima(records: list) -> list:
