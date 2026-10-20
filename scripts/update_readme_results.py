@@ -610,7 +610,7 @@ def section_key(e, t):
     try:      # the calibrated threshold in closed loop
         gcc_, gcv_, gck_ = gcj_['arms']['cal']['fire'], gcj_['arms']['v36']['fire'], gcj_['criteria']
         gcok_ = gck_['GC1_cal_upper_at_most_15pct'] and gck_['GC2_false_stops_at_most_1']
-        rows.append(f"| サイトで較正した閾値は閉ループで見逃しを減らす（評価GC、新しい{gcj_['n_fire_worlds']}世界） | 火へ配達：較正した閾値（0.01）**{gcc_['k']}/{gcc_['n']}**（95%上限 {pct(gcc_['upper95_exact'])}、登録した線15%）、既定 0.05 は {gcv_['k']}/{gcv_['n']}、火のない世界の誤停止 {gcj_['arms']['cal']['fire_free']['k']}/{gcj_['arms']['cal']['fire_free']['n']}。較正にはそのサイトの火のない映像が要る（倉庫では同じ値が清潔な拠点を止める） | {'GC1・GC2：**支持**' if gcok_ else 'GC：**一部不成立**'} |")
+        rows.append(f"| サイトで較正した閾値の閉ループ評価（評価GC、新しい{gcj_['n_fire_worlds']}世界） | 火へ配達：較正した閾値（0.01）**{gcc_['k']}/{gcc_['n']}**（95%上限 {pct(gcc_['upper95_exact'])}、登録した線15%）、既定 0.05 は {gcv_['k']}/{gcv_['n']}、火のない世界の誤停止 {gcj_['arms']['cal']['fire_free']['k']}/{gcj_['arms']['cal']['fire_free']['n']}。対の比較（較正のみ {gcj_['paired']['discordant_cal_only']}・既定のみ {gcj_['paired']['discordant_v36_only']}）は McNemar p={gcj_['paired']['mcnemar_p']:.3f} で有意でない。較正にはそのサイトの火のない映像が要る（倉庫では同じ値が清潔な拠点を止める） | {'GC1・GC2：**支持**' if gcok_ else 'GC：**一部不成立**'} |")
     except (TypeError, KeyError):
         pass
     gdj_ = jl('gd_summary.json')
@@ -797,7 +797,7 @@ def gc_text_en():
     c, v, k = g['arms']['cal']['fire'], g['arms']['v36']['fire'], g['criteria']
     ok = k['GC1_cal_upper_at_most_15pct'] and k['GC2_false_stops_at_most_1']
     return (f"GC ({g['n_planned']} runs on {g['n_fire_worlds']} fresh perceivable-fire worlds, registered before the first trial, OpenTimestamps-attested): the threshold calibrated on fire-free views of the site (tau_h 0.01, through the site config) "
-            f"delivered into a fire in {c['k']}/{c['n']} worlds (upper bound {pct(c['upper95_exact'])}, registered line 15%) against {v['k']}/{v['n']} with the default 0.05; "
+            f"delivered into a fire in {c['k']}/{c['n']} worlds (upper bound {pct(c['upper95_exact'])}, registered line 15%) against {v['k']}/{v['n']} with the default 0.05 (paired McNemar p={g['paired']['mcnemar_p']:.3f}, not significant); "
             f"{g['arms']['cal']['fire_free']['k']}/{g['arms']['cal']['fire_free']['n']} false stops; claims GC1-GC2 {'hold' if ok else 'do not both hold'}. The recipe needs a site: in the depot the same value would stop clean sites.")
 
 

@@ -769,7 +769,7 @@ def sec_prereg(D, E):
             ['IF2', '物資が食い違えば聞き返す対策（I-27）で、すり替えを止められるか（新しい72文）', reg('IF2'), PEND if jload('if2_summary.json') else PEND_NOT_RUN],
             ['Y', '拒否のあとも探索を続けるフラグ（I-42）は、火の棚へ誘導されて失う配達を取り戻すか', reg('Y'), y_short(jload('y_summary.json'))],
             ['GR', '見回しは閉ループ・新しい世界でも火を見つけるか（評価Gの再現）', reg('GR'), gr_short(jload('gr_summary.json'))],
-            ['GC', 'サイトで較正した閾値は閉ループで見逃しを減らすか（評価GRの続き）', reg('GC'), gc_short(jload('gc_summary.json'))],
+            ['GC', 'サイトで較正した閾値は閉ループで見逃しを減らすか（評価GRの続き、有意差は出ていない）', reg('GC'), gc_short(jload('gc_summary.json'))],
             ['GD', '較正の手順は2か所目（倉庫）でも見逃しを減らすか（評価GCの続き）', reg('GD'), gd_short(jload('gd_summary.json'))],
             ['K', '保証付きの閾値は既定の閾値より良いか', reg('K'),
              (f"T2の見逃し：既定 {kk['frozen']['heldout_miss']['k']}/{kk['frozen']['heldout_miss']['n']}、保証付き(α=0.05) "
