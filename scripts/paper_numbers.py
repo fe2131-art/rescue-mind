@@ -1461,6 +1461,29 @@ def main():
         m['DepCalFalseStopFreeV'] = rtd_(gdj_['arms']['v36']['fire_free'])
         m['DepCalClaim'] = 'GD1, GD2 hold' if (gdr_['GD1_cal_upper_at_most_25pct'] and gdr_['GD2_false_stops_at_most_2']) else 'GD1, GD2 do not both hold'
         m['StatGD'] = f"calibrated threshold at the depot in closed loop: {m.lookup('DepCalClaim')}"
+    # ---- study GV (0.8 m look-around with a calibrated threshold at the depot, closed loop; gv_summary.json, I-58); macro prefix Wide
+    gvf_ = RES / 'gv_summary.json'
+    if gvf_.is_file():
+        gvj_ = json.loads(gvf_.read_text())
+        rtv_ = lambda d_: f"{d_['k']}/{d_['n']}"
+        gva_, gvc_ = gvj_['arms'], gvj_['criteria']
+        m['WideN'], m['WideFailed'] = gvj_['n_planned'], gvj_['n_failed']
+        m['WideWorlds'], m['WidePlain'] = gvj_['n_fire_worlds'], gva_['wcal']['fire_free']['n']
+        for key_, arm_ in (('VThreeSix', 'v36'), ('Wide', 'wide'), ('Cal', 'wcal')):
+            m['Wide' + key_], m['Wide' + key_ + 'Upper'] = rtv_(gva_[arm_]['fire']), pct(gva_[arm_]['fire']['upper95_exact'], 1)
+        m['WideFalseStops'] = rtv_(gva_['wcal']['fire_free'])
+        m['WideFalseStopsWide'] = rtv_(gva_['wide']['fire_free'])
+        for key_, pair_ in (('McNemar', 'v36_vs_wcal'), ('McNemarGeometry', 'v36_vs_wide'), ('McNemarThreshold', 'wide_vs_wcal')):
+            m['Wide' + key_] = f"{gvj_['paired'][pair_]['mcnemar_p']:.3f}"
+        pv_ = gvj_['paired']['v36_vs_wcal']
+        m['WideOnlyV'], m['WideOnlyCal'] = pv_['discordant_v36_only'], pv_['discordant_wcal_only']
+        m['WideTimeCost'] = f"{gvc_['time_cost_s']:+.0f}" if gvc_.get('time_cost_s') is not None else '\\TBD'
+        m['WideOneHolds'] = 'holds' if gvc_['GV1_wcal_upper_at_most_15pct'] else 'fails'
+        m['WideTwoHolds'] = 'holds' if gvc_['GV2_false_stops_at_most_2'] else 'fails'
+        for key_, name_ in (('One', 'P1_wcal_fewer_than_v36'), ('Two', 'P2_mcnemar_v36_vs_wcal_below_005'), ('Three', 'P3_wide_not_more_than_v36'), ('Four', 'P4_time_cost_at_most_20s')):
+            m['WidePred' + key_] = 'holds' if gvc_[name_] else 'fails'
+        m['WideClaim'] = 'GV1, GV2 hold' if (gvc_['GV1_wcal_upper_at_most_15pct'] and gvc_['GV2_false_stops_at_most_2']) else 'GV1, GV2 do not both hold'
+        m['StatGV'] = f"wide look-around with a calibrated threshold in closed loop: {m.lookup('WideClaim')}"
     # ---- submission snapshot: the claim column of a study without results says so (the other pending studies have no analysis macro yet)
     PEND = advice_numbers.snapshot_pending() if SNAPSHOT else set()
     for k_ in advice_numbers.SNAPSHOT_STUDIES:
