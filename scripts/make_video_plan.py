@@ -214,7 +214,7 @@ def evidence_card(seconds):
         gr = jload(RES / 'gr_summary.json')
         if gr:       # study GR: the same comparison on fresh worlds (closed-loop replication)
             fa, fv = gr['arms']['front']['fire'], gr['arms']['v36']['fire']
-            rows.append(['閉ループ G・GR（横から見直す）', [f"火へ配達 {pr['wrong_deliveries_B']}/{pr['n_world_pairs_fire_perceivable']}→{pr['wrong_deliveries_C']}/{pr['n_world_pairs_fire_perceivable']}、"
+            rows.append(['閉ループ G・GR（見直し）', [f"火へ配達 {pr['wrong_deliveries_B']}/{pr['n_world_pairs_fire_perceivable']}→{pr['wrong_deliveries_C']}/{pr['n_world_pairs_fire_perceivable']}、"
                                                   f"新世界 {fa['k']}/{fa['n']}→{fv['k']}/{fv['n']}", G]])
             say.append(f"見直すと、見落としは{pr['wrong_deliveries_B']}件から{pr['wrong_deliveries_C']}件、再現でも{fa['k']}件から{fv['k']}件。")
         else:
