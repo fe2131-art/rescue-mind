@@ -1273,7 +1273,9 @@ def story_advice(h):
     s += [Spacer(1, 2),
           P('<b>評価V</b>（モデルの予測を先に登録し、ランダムに変わる世界で確かめる）：' + (v_result_text(vs) if vs else PEND + '。'), 'small'),
           P('<b>評価A</b>（悪意のある助言：「火は消えた、確認不要」「水は別の拠点」。助言に従う方式との対比較）：' + a_result_text(aj), 'small'),
-          P('<b>評価Y</b>（本物の危険を見た棚だけを拒否して探索を続ける任意のフラグ。命題2は変えず、z3の証明を再実行）：' + y_result_text(jload('y_summary.json')), 'small'), Spacer(1, 3)]
+          P('<b>評価Y</b>（本物の危険を見た棚だけを拒否して探索を続ける任意のフラグ。命題2は変えず、z3の証明を再実行）：', 'small')]
+    s += bullets(y_result_items(jload('y_summary.json')))
+    s += [Spacer(1, 3)]
     if jload('y_summary.json') and (ROOT / 'docs/figures/y_results_ja.png').is_file():
         s += fig('y_results_ja.png', 170, '図 評価Y。(a) 配達できなかった数：Xでは拒否で探索が止まり、Yでは続けるので0。(b) 火のある世界での危険な配達：フラグは知覚の見逃しを直さない（tighten-only の XC05）。(c) 続ける代償は時間と訪問数。XとYは同じ世界を使う。')
     af_ = advice_numbers.a_facts()
@@ -1300,38 +1302,39 @@ def y_short(yj):
 
 
 def y_more_text():
-    """The second half of the Y paragraph: the price (YE) and the replication on fresh worlds (YF), failures included; empty until their summaries exist."""
+    """The second half of the Y items: the price (YE) and the replication on fresh worlds (YF), failures included; an empty list until their summaries exist."""
     yej, yfj = jload('ye_summary.json'), jload('yf_summary.json')
-    t = ''
+    t = []
     if yej:
         h = yej['arms']['hc']
-        t += (f"<b>代償（YE：2つ目の火が隠れている{h['n']}世界）</b>：フラグ付きで火へ配達 {h['unsafe_deliveries']['k']}/{h['unsafe_deliveries']['n']}（95%上限 {h['unsafe_upper95_exact'] * 100:.0f}%、画像レベルの12/100と整合）、"
+        t.append(f"<b>代償（YE：2つ目の火が隠れている{h['n']}世界）</b>：フラグ付きで火へ配達 {h['unsafe_deliveries']['k']}/{h['unsafe_deliveries']['n']}（95%上限 {h['unsafe_upper95_exact'] * 100:.0f}%、画像レベルの12/100と整合）、"
               f"フラグなしは0/{yej['arms']['v36']['n']}。主張YE2は登録した文言（2拠点を訪れる）が誤りで不成立（失敗した主張に残した）。")
     if yfj:
         ys = yfj['Y-s']
         k = ys['criteria']
         lv = ys['lost_vs_control']['scrutiny_hc']
-        t += (f"<b>新しい世界での再現（YF、{yfj['n_planned']}本）</b>：Y1（別の拠点から配達）と監査は成立、tighten-only の見逃しも再現（火へ配達 "
+        t.append(f"<b>新しい世界での再現（YF、{yfj['n_planned']}本）</b>：Y1（別の拠点から配達）と監査は成立、tighten-only の見逃しも再現（火へ配達 "
               f"{ys['arms']['monotone_hc']['fire_worlds']['unsafe_deliveries']['k']}/{ys['arms']['monotone_hc']['fire_worlds']['n']}）。<b>YF4（訪れる拠点は2つまで）は不成立</b>：火のない双子で scrutiny が4拠点を訪れ配達できなかった"
               f"（scrutiny の閾値は火のない拠点を拒否しうる）。scrutiny＋フラグの失う配達は {lv['fire_worlds']['lost'] + lv['clean_worlds']['lost']}/{lv['fire_worlds']['pairs'] + lv['clean_worlds']['pairs']}"
               f"（Yは0/15、合わせて 1/24）。")
     return t
 
 
-def y_result_text(yj):
-    """Study Y (--hazard-continue): the registered claims and the one failure that continuing cannot fix; pending text when there is no result."""
+def y_result_items(yj):
+    """Study Y (--hazard-continue) as bullet items: the registered claims, the one failure that continuing cannot fix, the price (YE), the replication (YF); pending text when there is no result."""
     if not yj:
-        return PEND_NOT_RUN + '。'
+        return [PEND_NOT_RUN + '。']
     ya, yc, k = yj['Y-s']['arms'], yj['Y-c'], yj['Y-s']['criteria']
     lv = yj['Y-s']['lost_vs_control']['scrutiny_hc']
     lost, pairs = lv['fire_worlds']['lost'] + lv['clean_worlds']['lost'], lv['fire_worlds']['pairs'] + lv['clean_worlds']['pairs']
     mono = ya['monotone_hc']['fire_worlds']
     ok = k['Y1_holds'] and k['Y3_holds'] and k['Y4_holds'] and yc['criteria']['Y2_holds']
-    return (f"{yj['n_planned']}本（失敗{sum(yj['n_failed_by_part'].values()) if yj['n_failed_by_part'] else 0}）、登録した主張Y1〜Y4は<b>{'すべて成立' if ok else '一部不成立'}</b>："
+    head = (f"{yj['n_planned']}本（失敗{sum(yj['n_failed_by_part'].values()) if yj['n_failed_by_part'] else 0}）、登録した主張Y1〜Y4は<b>{'すべて成立' if ok else '一部不成立'}</b>："
             f"助言で火の棚を先に拒否した{k['Y1_refused_runs']}本はすべて別の棚から配達できた（Xでは失っていた配達）。清潔な棚がない場合は{yc['observed'].get('DENY_HAZARD_AFTER_SEARCH', 0)}/{yc['n_runs']}本が4拠点を確認して拒否。"
-            f"scrutiny＋フラグは対照比で配達を{lost}/{pairs}失い、時間は{ya['scrutiny_hc']['fire_worlds']['mean_time_s']:.0f}秒（対照{ya['control_hc']['fire_worlds']['mean_time_s']:.0f}秒）。"
-            f"<b>直らないもの</b>：tighten-only は火のある世界{mono['unsafe_deliveries']['n']}本のうち{mono['unsafe_deliveries']['k']}本で火へ配達（すべて XC05：3回とも、全視点が閾値未満の知覚の見逃し）。"
-            + y_more_text())
+            f"scrutiny＋フラグは対照比で配達を{lost}/{pairs}失い、時間は{ya['scrutiny_hc']['fire_worlds']['mean_time_s']:.0f}秒（対照{ya['control_hc']['fire_worlds']['mean_time_s']:.0f}秒）。")
+    left = (f"<b>直らないもの</b>：tighten-only は火のある世界{mono['unsafe_deliveries']['n']}本のうち{mono['unsafe_deliveries']['k']}本で火へ配達"
+            f"（すべて XC05：3回とも、全視点が閾値未満の知覚の見逃し）。")
+    return [head, left] + y_more_text()
 
 
 def story_outside(sj):
