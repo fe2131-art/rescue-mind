@@ -1452,6 +1452,13 @@ def main():
         m['DepCalPredOne'] = 'holds' if gdr_['P1_cal_misses_at_most_3'] else 'fails'
         m['DepCalPredTwo'] = 'holds' if gdr_['P2_cal_only_not_more_than_v36_only'] else 'fails'
         m['DepCalPredThree'] = 'holds' if gdr_['P3_v36_delivers_into_more_fires_than_cal'] else 'fails'
+        gcj2_ = RES / 'gc_summary.json'
+        if gcj2_.is_file():                                      # the plug-in budget of the hard class: v3.6 control arms of G, GR, GC and GD
+            pg_ = json.loads(gcj2_.read_text())['criteria']['pooled_v36_with_G_GR']
+            if pg_:
+                kp_, np_ = pg_['k'] + gdv_['k'], pg_['n'] + gdv_['n']
+                m['DepCalPool'], m['DepCalPoolUpper'], m['DepCalPoolRate'] = f"{kp_}/{np_}", pct(__import__('scripts.x_analysis', fromlist=['cp_upper']).cp_upper(kp_, np_), 1), pct(kp_ / np_, 1)
+        m['DepCalFalseStopFreeV'] = rtd_(gdj_['arms']['v36']['fire_free'])
         m['DepCalClaim'] = 'GD1, GD2 hold' if (gdr_['GD1_cal_upper_at_most_25pct'] and gdr_['GD2_false_stops_at_most_2']) else 'GD1, GD2 do not both hold'
         m['StatGD'] = f"calibrated threshold at the depot in closed loop: {m.lookup('DepCalClaim')}"
     # ---- submission snapshot: the claim column of a study without results says so (the other pending studies have no analysis macro yet)

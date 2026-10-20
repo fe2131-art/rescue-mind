@@ -7,12 +7,12 @@
 
 ---
 
-## ★ 最新（2026-10-21 00:30）：研究 GD を実行中（I-51、修正1）
+## ★ 最新（2026-10-21 08:00）：研究 GD 完了・反映済み（I-51、I-53、I-54、I-55）
 
-* **GD（倉庫での較正の閉ループ）**：`bash scripts/gd_run.sh > experiments/results/gd_run.log`（ロック付き。二重起動しない）。順序：①倉庫の火のない100世界で閾値を切って（τ=1.0）3視点の最大得点を取り、順位則（α=2%）で τ_cal を決める（`gd_calibrate.py`、止め規則：τ_cal≥0.05 なら GD は走らせず、それが結果）→ ②予行 → ③登録コミット → ④本番128本 → ⑤解析（`gd_summary.json`）。
-* **経緯**：最初の予行で火のない世界が 0.133（右の視点）で止まった。画像較正（XD の双子）は閉ループの裾を過小評価しうる。事前登録の修正1に全部書いてある。失敗した予行の台帳は `gd_pilot_attempt1_ledger.jsonl`。
-* **状況（2026-10-21 04:45）**：較正100本は完了（失敗0、GDK052 は自動再試行で有効）、**τ_cal = 0.028**（最大 0.0415、保証上限 1.98%、止め規則は不発動）、予行 OK、登録コミットと OTS 済み、本番128本を実行中（約10時間、31/128 完了時点で失敗0）。途中の結果は見ない（アーム別の件数だけ数えた）。図 `fig_calibration.pdf` は GD の曲線入りに更新済み（I-54）。
-* **完了後**：`ots upgrade docs/timestamps/study_gd_registration.txt.ots` → コミット、`python3 scripts/gd_readout.py`（I-53：較正の余裕・原因分類、事後）、`paper_numbers`（DepCal マクロ）で補足資料の GD 節（下書きはスクラッチパッド `gd_subsection_draft.tex`、なければ GC 節を雛形に）と main.tex の一文を足す（本文は8頁以内、9頁目は参考文献のみ）、`make paper`（`fig_*.pdf` のうち fig_calibration 以外は `git checkout --` で戻す）、README・説明資料（本文9頁を確認）・概要欄・動画の証拠カード（20秒枠）・FINDINGS #43・IMPROVEMENT_LOG I-51 の After。GD1/GD2 が外れたら failed_claims に自動で入る。
+* **GD の結果（128本、失敗0、OTS 承認済み）**：較正は倉庫の火のない100本（閾値オフ、実ミッション）で τ_cal=0.028。**GD1 成立（5/40、上限24.5%、登録線25%の縁）、GD2 成立（誤停止 1/24）**。だが**見逃しは減らなかった**：既定 0.05 も 5/40、対の差 2 対 2（McNemar p=1.0）、予測 P1（≤3）と P3 は外れ、P2 は成立。較正腕の見逃し5件の得点は 0.0107〜0.0233（τ_cal 未満）で、火のない世界の裾（中央値 0.011、99%点 0.028）に入る。同じ世界・視点でも走行ごとに最大約20倍変わる。新しい火のない24世界は較正の最大 0.0415 を超えず、誤停止は保証どおり。
+* **読み**：較正の手順は誤停止の保証（サイトをまたいで成り立つ）であり、見逃しの削減は arena（GC）だけで確認できた。v3.6 の閉ループ見逃し（G・GR・GC・GD 対照）は **14/136（10.3%、上限15.6%）**：論文・DEPLOYMENT・README の予算の数字はこれに更新済み。失敗した主張は14のまま（登録主張は不成立なし）。FINDINGS #43。
+* **反映済み**：補足資料の GD 節（`sec:moved-gd`）、main.tex（GR–GD の一文。本文8頁・9頁目は参考文献のみ）、README、説明資料（本文9頁）、概要欄、DEPLOYMENT（3.2b と表）、FINDINGS #43、図 `fig_calibration`（GD の曲線入り）。`gd_readout.py` は実行済み。
+* **動画**：v10 の証拠カードに GD の行は未追加（20秒枠。必要なら `scripts/make_video_plan.py` を直して再描画。レシピは上の GC の項）。
 
 ## ★ 最新（2026-10-20 23:00）：研究 GC 完了・反映済み（I-45、I-47、I-48、I-49）
 
@@ -214,7 +214,7 @@
 | Q（Wikimedia Commons 405 枚） | 実写の物資確認 | 登録済み・**未実行**（GPU 約 40 分。W の後の連鎖が .gitignore の衝突で止まり、一度も走っていない） |
 
 * 登録済み 7 本（A・B・IF・Q・S・X・XD）は統合マージ 09:08 で main に載り、A の予備走行が 09:14 に始まった時点で、IF・S・B・XD・X・Q は試行も推論もしていない。これらの登録ファイルには「DRAFT」の行が残るが、拘束力のある版は `docs/REGISTRATIONS.md` の表の版（ファイルは変えない。変更は日付とコミットつきの Amendment で追記する）。
-* テスト関数は 1534 件（`python3 scripts/count_tests.py` の静的な数え方）。FINDINGS は 42 件。
+* テスト関数は 1558 件（`python3 scripts/count_tests.py` の静的な数え方）。FINDINGS は 43 件。
 
 ### D. GPU の順番と、その動かし方
 
@@ -358,7 +358,7 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 ## 7. 主要ファイルの地図
 
 * 現在地・履歴：このファイル。旧版の全文：`docs/HANDOFF_ARCHIVE.md`。
-* `docs/ARCHITECTURE.md`（全体フロー図）、`docs/DESIGN_DECISIONS.md`（D1–D15）、`docs/IMPROVEMENT_LOG.md`（I-01–I-24）、`docs/FINDINGS.md`（実行で見つけた42件）、`docs/REVIEW_AND_PLAN.md`（審査基準別レビュー）。
+* `docs/ARCHITECTURE.md`（全体フロー図）、`docs/DESIGN_DECISIONS.md`（D1–D15）、`docs/IMPROVEMENT_LOG.md`（I-01–I-24）、`docs/FINDINGS.md`（実行で見つけた43件）、`docs/REVIEW_AND_PLAN.md`（審査基準別レビュー）。
 * `docs/REGISTRATIONS.md`（事前登録の台帳：main に載った最初のコミットと sha256）、`docs/REPRODUCE.md`（クリーンな Ubuntu＋NVIDIA 環境での 3 段階の再現手順）、`docs/REPRODUCIBILITY.md`。
 * `docs/evaluations/`（第三者採点、第1〜8回と固定の指示文）、`docs/paper/`（論文・補足・`REVIEW_NOTES*.md`・`LITERATURE_*.md`・`PROOF_REVIEW.md`）、`docs/report/`（説明資料）、`docs/design/`（I-19〜I-24 の設計、動画 v5 の計画）。
 * `experiments/`（事前登録 `PREREGISTRATION_*.md`・プロトコル・開発セット・台帳 `results/campaign_*_ledger.jsonl`・要約 `results/*_summary.json`）。

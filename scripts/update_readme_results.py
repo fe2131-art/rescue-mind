@@ -617,7 +617,9 @@ def section_key(e, t):
     try:      # the calibrated threshold at the depot (second site), closed loop
         gdc_, gdv_, gdk_ = gdj_['arms']['cal']['fire'], gdj_['arms']['v36']['fire'], gdj_['criteria']
         gdok_ = gdk_['GD1_cal_upper_at_most_25pct'] and gdk_['GD2_false_stops_at_most_2']
-        rows.append(f"| 較正の手順は2か所目（倉庫）でも閉ループで効く（評価GD、新しい{gdj_['n_fire_worlds']}世界） | 火へ配達：較正した閾値（0.023）**{gdc_['k']}/{gdc_['n']}**（95%上限 {pct(gdc_['upper95_exact'])}、登録した線25%）、既定 0.05 は {gdv_['k']}/{gdv_['n']}、火のない世界の誤停止 {gdj_['arms']['cal']['fire_free']['k']}/{gdj_['arms']['cal']['fire_free']['n']}。閾値は現場ごとに違う（arena 0.01、倉庫 0.023） | GD1・GD2：**{'成立' if gdok_ else '一部不成立'}** | `experiments/results/gd_summary.json` |")
+        tau_ = json.loads((ROOT / 'experiments/gd_site_cal.json').read_text())['hazard_threshold']
+        better_ = gdc_['k'] < gdv_['k']
+        rows.append(f"| 較正の手順は2か所目（倉庫）では誤停止の保証は成り立つが、見逃しは減らない（評価GD、新しい{gdj_['n_fire_worlds']}世界） | 火へ配達：較正した閾値（{tau_}）**{gdc_['k']}/{gdc_['n']}**（95%上限 {pct(gdc_['upper95_exact'])}、登録した線25%）、既定 0.05 は {gdv_['k']}/{gdv_['n']}{'' if better_ else '（差なし）'}、火のない世界の誤停止 {gdj_['arms']['cal']['fire_free']['k']}/{gdj_['arms']['cal']['fire_free']['n']}。倉庫の閉ループの火のない得点は画像より裾が重く、小さな火の得点はその中に入る | GD1・GD2：**{'成立' if gdok_ else '一部不成立'}**、予測P1・P3は外れ | `experiments/results/gd_summary.json` |")
     except (TypeError, KeyError):
         pass
     iff_ = advice_numbers.if_facts()
@@ -806,9 +808,10 @@ def gd_text_en():
         return ''
     c, v, k = g['arms']['cal']['fire'], g['arms']['v36']['fire'], g['criteria']
     ok = k['GD1_cal_upper_at_most_25pct'] and k['GD2_false_stops_at_most_2']
-    return (f"GD ({g['n_planned']} runs on {g['n_fire_worlds']} fresh perceivable-fire depot worlds, registered before the first trial): the same recipe at a second site gives a different threshold (tau_h 0.023, the arena's was 0.01) and "
-            f"delivered into a fire in {c['k']}/{c['n']} worlds (upper bound {pct(c['upper95_exact'])}, registered line 25%) against {v['k']}/{v['n']} with the default 0.05; "
-            f"{g['arms']['cal']['fire_free']['k']}/{g['arms']['cal']['fire_free']['n']} false stops; claims GD1-GD2 {'hold' if ok else 'do not both hold'}.")
+    tau = json.loads((ROOT / 'experiments/gd_site_cal.json').read_text())['hazard_threshold']
+    return (f"GD ({g['n_planned']} runs on {g['n_fire_worlds']} fresh perceivable-fire depot worlds, registered before the first trial): the threshold calibrated on 100 closed-loop fire-free depot missions (tau_h {tau}; the arena's was 0.01) "
+            f"kept false stops at {g['arms']['cal']['fire_free']['k']}/{g['arms']['cal']['fire_free']['n']} but delivered into a fire in {c['k']}/{c['n']} worlds (upper bound {pct(c['upper95_exact'])}, registered line 25%) against {v['k']}/{v['n']} with the default 0.05, "
+            f"so it does not lower misses at this site; claims GD1-GD2 {'hold' if ok else 'do not both hold'}, predictions P1 and P3 fail.")
 
 
 def gr_text_en():

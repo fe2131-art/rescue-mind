@@ -304,8 +304,8 @@ def line_gd(res):
     g = jload(Path(res) / 'gd_summary.json')
     try:
         c, v = g['arms']['cal']['fire'], g['arms']['v36']['fire']
-        return (f"・較正の手順を2か所目（倉庫）で検証（評価GD、新しい{g['n_fire_worlds']}世界・{g['n_planned']}試行）：火へ配達 較正 {c['k']}/{c['n']}（95%上限 {c['upper95_exact'] * 100:.1f}%）、既定 {v['k']}/{v['n']}、"
-                f"火のない世界の誤停止 {g['arms']['cal']['fire_free']['k']}/{g['arms']['cal']['fire_free']['n']}")
+        return (f"・較正の手順を2か所目（倉庫）で検証（評価GD、新しい{g['n_fire_worlds']}世界・{g['n_planned']}試行）：火のない世界の誤停止は {g['arms']['cal']['fire_free']['k']}/{g['arms']['cal']['fire_free']['n']} と保証どおりだが、"
+                f"火へ配達は 較正 {c['k']}/{c['n']}（95%上限 {c['upper95_exact'] * 100:.1f}%）、既定 {v['k']}/{v['n']} で、見逃しは減らなかった")
     except (TypeError, KeyError):
         return ''
 
