@@ -34,7 +34,7 @@ STUDIES = [
     ('V', 'V', 'v_summary.json'), ('W', 'W', 'w_summary.json'), ('Z', 'Z', 'z_summary.json'), ('K', 'K', 'k_summary.json'),
     ('P', 'P', 'p_summary.json'), ('P2', 'P2', 'p2_summary.json'), ('A', 'A', 'a_summary.json'), ('S', 'S', 's_summary.json'),
     ('X', 'X', 'x_summary.json'), ('XD', 'XD', 'xd_summary.json'), ('Q', 'Q', 'q_summary.json'),
-    ('B', 'B', 'b_summary.json'), ('IF', 'IF', 'if_summary.json'), ('IF2', 'IF2', 'if2_summary.json'), ('Y', 'Y', 'y_summary.json'), ('YE', 'YE', 'ye_summary.json'), ('YF', 'YF', 'yf_summary.json'), ('GR', 'GR', 'gr_summary.json'), ('GC', 'GC', 'gc_summary.json'), ('GD', 'GD', 'gd_summary.json')]
+    ('B', 'B', 'b_summary.json'), ('IF', 'IF', 'if_summary.json'), ('IF2', 'IF2', 'if2_summary.json'), ('Y', 'Y', 'y_summary.json'), ('YE', 'YE', 'ye_summary.json'), ('YF', 'YF', 'yf_summary.json'), ('GR', 'GR', 'gr_summary.json'), ('GC', 'GC', 'gc_summary.json'), ('GD', 'GD', 'gd_summary.json'), ('GV', 'GV', 'gv_summary.json')]
 # facts about the running campaigns that git cannot show (source: the untracked campaign ledger in the main checkout)
 NOTES = {'A': 'the A campaign (226 trials) started 2026-10-18 11:11 JST (first trial A001): after both amendments and after the commits above'}
 HEAD = 'HEAD'
