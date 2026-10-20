@@ -11,7 +11,8 @@
 
 * **GD（倉庫での較正の閉ループ）**：`bash scripts/gd_run.sh > experiments/results/gd_run.log`（ロック付き。二重起動しない）。順序：①倉庫の火のない100世界で閾値を切って（τ=1.0）3視点の最大得点を取り、順位則（α=2%）で τ_cal を決める（`gd_calibrate.py`、止め規則：τ_cal≥0.05 なら GD は走らせず、それが結果）→ ②予行 → ③登録コミット → ④本番128本 → ⑤解析（`gd_summary.json`）。
 * **経緯**：最初の予行で火のない世界が 0.133（右の視点）で止まった。画像較正（XD の双子）は閉ループの裾を過小評価しうる。事前登録の修正1に全部書いてある。失敗した予行の台帳は `gd_pilot_attempt1_ledger.jsonl`。
-* **完了後**：読み出し（`calibration_sites` の閉ループ版を書くなら任意）、`paper_numbers`（DepCal マクロ）で補足資料の GD 節と main.tex の一文を足す（本文は8頁以内）、README・説明資料（本文9頁を確認）・概要欄・動画の証拠カード（20秒枠）・FINDINGS #43・IMPROVEMENT_LOG I-51 の After。止め規則に当たった場合は、その結果（τ_cal≥0.05）を正直に書く。
+* **状況（2026-10-21 04:45）**：較正100本は完了（失敗0、GDK052 は自動再試行で有効）、**τ_cal = 0.028**（最大 0.0415、保証上限 1.98%、止め規則は不発動）、予行 OK、登録コミットと OTS 済み、本番128本を実行中（約10時間、31/128 完了時点で失敗0）。途中の結果は見ない（アーム別の件数だけ数えた）。図 `fig_calibration.pdf` は GD の曲線入りに更新済み（I-54）。
+* **完了後**：`ots upgrade docs/timestamps/study_gd_registration.txt.ots` → コミット、`python3 scripts/gd_readout.py`（I-53：較正の余裕・原因分類、事後）、`paper_numbers`（DepCal マクロ）で補足資料の GD 節（下書きはスクラッチパッド `gd_subsection_draft.tex`、なければ GC 節を雛形に）と main.tex の一文を足す（本文は8頁以内、9頁目は参考文献のみ）、`make paper`（`fig_*.pdf` のうち fig_calibration 以外は `git checkout --` で戻す）、README・説明資料（本文9頁を確認）・概要欄・動画の証拠カード（20秒枠）・FINDINGS #43・IMPROVEMENT_LOG I-51 の After。GD1/GD2 が外れたら failed_claims に自動で入る。
 
 ## ★ 最新（2026-10-20 23:00）：研究 GC 完了・反映済み（I-45、I-47、I-48、I-49）
 
