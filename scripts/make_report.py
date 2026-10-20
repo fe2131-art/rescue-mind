@@ -770,7 +770,7 @@ def sec_prereg(D, E):
             ['Y', '拒否のあとも探索を続けるフラグ（I-42）は、火の棚へ誘導されて失う配達を取り戻すか', reg('Y'), y_short(jload('y_summary.json'))],
             ['GR', '見回しは閉ループ・新しい世界でも火を見つけるか（評価Gの再現）', reg('GR'), gr_short(jload('gr_summary.json'))],
             ['GC', 'サイトで較正した閾値は閉ループで見逃しを減らすか（評価GRの続き）', reg('GC'), gc_short(jload('gc_summary.json'))],
-            ['GD', '較正の手順は2か所目（倉庫）でも効くか（評価GCの続き）', reg('GD'), gd_short(jload('gd_summary.json'))],
+            ['GD', '較正の手順は2か所目（倉庫）でも見逃しを減らすか（評価GCの続き）', reg('GD'), gd_short(jload('gd_summary.json'))],
             ['K', '保証付きの閾値は既定の閾値より良いか', reg('K'),
              (f"T2の見逃し：既定 {kk['frozen']['heldout_miss']['k']}/{kk['frozen']['heldout_miss']['n']}、保証付き(α=0.05) "
               f"{kk['alphas']['0.05']['K_PAC']['heldout_miss']['k']}/{kk['frozen']['heldout_miss']['n']}、誤警報 "
@@ -1323,13 +1323,17 @@ def gc_short(gj):
             f"{gj['arms']['cal']['fire_free']['k']}/{gj['arms']['cal']['fire_free']['n']}")
 
 
+def GD_TAU():
+    return json.loads((ROOT / 'experiments/gd_site_cal.json').read_text())['hazard_threshold']
+
+
 def gd_short(gj):
     """One cell of the study table for GD: the calibrated threshold at the depot and its two registered claims."""
     if not gj:
         return PEND_NOT_RUN
     c, v, k = gj['arms']['cal']['fire'], gj['arms']['v36']['fire'], gj['criteria']
     ok = k['GD1_cal_upper_at_most_25pct'] and k['GD2_false_stops_at_most_2']
-    return (f"主張 GD1・GD2 {'成立' if ok else '一部不成立'}：火へ配達 較正（0.023）{c['k']}/{c['n']}（95%上限 {c['upper95_exact'] * 100:.1f}%）、既定 {v['k']}/{v['n']}、誤停止 "
+    return (f"主張 GD1・GD2 {'成立' if ok else '一部不成立'}（予測 P1・P3 は外れ）：火へ配達 較正（{GD_TAU()}）{c['k']}/{c['n']}（95%上限 {c['upper95_exact'] * 100:.1f}%）、既定 {v['k']}/{v['n']}、誤停止 "
             f"{gj['arms']['cal']['fire_free']['k']}/{gj['arms']['cal']['fire_free']['n']}")
 
 
@@ -1338,8 +1342,9 @@ def gd_items(gj):
     if not gj:
         return []
     c, v, k = gj['arms']['cal']['fire'], gj['arms']['v36']['fire'], gj['criteria']
-    return [(f"<b>較正の手順を倉庫でも（GD：新しい{gj['n_fire_worlds']}世界）</b>：火へ配達 較正（0.023）<b>{c['k']}/{c['n']}</b>（上限 {c['upper95_exact'] * 100:.1f}%）、既定 0.05 は {v['k']}/{v['n']}、"
-             f"誤停止 {gj['arms']['cal']['fire_free']['k']}/{gj['arms']['cal']['fire_free']['n']}（GD1・GD2 {'成立' if k['GD1_cal_upper_at_most_25pct'] and k['GD2_false_stops_at_most_2'] else '一部不成立'}）。閾値は現場ごとに違う（arena 0.01、倉庫 0.023）。")]
+    return [(f"<b>倉庫での較正（GD、{gj['n_fire_worlds']}世界）</b>：火へ配達 較正（{GD_TAU()}）<b>{c['k']}/{c['n']}</b>（上限 {c['upper95_exact'] * 100:.1f}%）、既定 0.05 は {v['k']}/{v['n']}（差なし）、"
+             f"誤停止 {gj['arms']['cal']['fire_free']['k']}/{gj['arms']['cal']['fire_free']['n']}（GD1・GD2 {'成立' if k['GD1_cal_upper_at_most_25pct'] and k['GD2_false_stops_at_most_2'] else '一部不成立'}）。"
+             f"見逃しは減らない（小さな火の得点が火のない世界の裾に入る）。")]
 
 
 def gc_items(gj):
