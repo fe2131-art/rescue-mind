@@ -70,4 +70,20 @@ About 4–5 min per run in the depot: about 8 h for 104 runs, plus the candidate
 * The selection keeps only perceivable fires; a fire that no pose can see is outside the guarantee.
 
 ## Amendments
-None yet.
+**Amendment 1 (after the binding commit of the selection and the protocol, before any GD trial and before any model score of a GD world).** The mechanics pilot (2 runs on two worlds that are never part of GD) stopped the study as designed: the fire world
+`GDQ1` was refused for a hazard (the success branch) but the fire-free world `GDQ2` (medicine, first-aid case at the bay) was **also refused**: the right-hand look-around view scored 0.133 (front 0.0122, left 0.0078), above the calibrated 0.023 and above the default
+0.05, so `v36` would have stopped there too (`experiments/results/gd_pilot_attempt1_ledger.jsonl`, kept; the red-cross case fills the frame at the side pose). What this shows and what it does not: it is one world, but a clean world with a score of 0.133 is far above every
+score of the 124 XD twins used to set 0.023 (largest 0.0863, a dimly lit water-bottle twin; the second largest 0.0223), so **the XD twins do not represent the clean-world tail of the GD generator** (the registered reason for the rank rule, "ignore the one outlier", did not hold).
+Exchangeability between the calibration worlds and the test worlds is the assumption of the recipe; it is not assured for image-level twins of another generator. The paper's recipe (DEPLOYMENT 3.2b) is to calibrate on missions of the site itself, so GD now does that.
+Changes (no GD trial has been run; the selection of the 40 fire worlds and the 24 fire-free worlds, the arms' wording, GD1 (upper bound at most 25%), GD2 (at most **2** of 24) and the predictions are **unchanged**):
+1. **Calibration set.** 100 fire-free depot worlds of the GD generator (`GDK001`…`GDK100`, seed `GD-2026-cal`, never part of GD), one mission each with the threshold off (`experiments/gd_site_open.json`: tau_h 1.0, so the look-around always runs and the front and both side views are scored),
+   `experiments/campaign_gdk_protocol.json`. Per-world score = the largest hazard probability over the three views. **tau_cal = the rank rule at alpha = 2%**: the ceil(0.98 (m + 1))-th smallest score (m = 100: the second largest; the maximum if fewer
+   than 99 runs are usable; the bound is 1/(m+1) = 1.0% for the maximum and 2.0% for the second largest), rounded up to the next thousandth, written to `experiments/gd_site_cal.json` by `scripts/gd_calibrate.py`. The XD-derived value 0.023 is retired. `GDQ2`'s 0.133 is pilot data and is excluded from the calibration.
+   Fewer than 90 usable calibration worlds stops the calibration.
+2. **Stop rule.** If tau_cal is **0.05 or higher** the calibration says "loosen", the `cal` arm would not be more sensitive than the default, and **GD is not run**: the result is "at alpha = 2% the depot cannot be calibrated below the default threshold" (a finding about the depot's false-alarm tail), reported with the calibration scores.
+3. **Control.** `v36` also runs on the 24 fire-free worlds (descriptive: the depot's base false-stop rate at the default threshold; it separates the cost of calibration from the site's own false alarms). 128 runs in all.
+4. **Pilot gate.** The fire-free pilot world's outcome is **recorded, not gated** (a false alarm there is data, not a mechanics fault); the gate requires: both runs end in a defined state, `cal` refuses `GDQ1` for a hazard, `GDQ1` shows at least 614 pixels at the front pose, no audit failure. The delivery mechanics in clean
+   depot worlds are shown by the 100 calibration runs. The pilot is run **after** the calibration with the calibrated config.
+5. The protocol is regenerated (128 trials) and committed with this amendment (`study GD: amendment 1 ...`); the failed pilot ledger is kept as `experiments/results/gd_pilot_attempt1_ledger.jsonl`.
+Cost: the calibration runs add about 4 h; GD about 10 h.
+

@@ -43,15 +43,10 @@ class Generator(unittest.TestCase):
         self.assertEqual(pf['world_spec']['hazard_geom'], [0.9, 0.3, 1.0])
         self.assertEqual(mgd.candidates_protocol()['trials'][0]['world'], 'GDQ1')
 
-    def test_site_config_is_the_rank_rule_over_the_depot_twins_rounded_up(self):
-        import math
-        x = json.loads((ROOT / 'experiments/results/devset_xd_h36_tiles.json').read_text())['records']
-        tw = list(cs.world_scores(x, 'twin').values())
-        tau, bound = cs.threshold(tw, 0.02)
-        self.assertEqual(len(tw), 124)
+    def test_site_config_wording_views_and_arms(self):
         cfg = json.loads((ROOT / 'experiments/gd_site_cal.json').read_text())
-        self.assertEqual(cfg['hazard_threshold'], math.ceil(tau * 1000 - 1e-9) / 1000)
         self.assertEqual((cfg['hazard_prompt'], cfg['hazard_views']), ('h36', 'tiles'))
+        self.assertLess(cfg['hazard_threshold'], 0.05)                       # a calibrated threshold at or above the default is the stop rule, not a cal arm
         self.assertEqual(mgd.CONFIG_CAL, ['--site-config', 'experiments/gd_site_cal.json'])
         self.assertEqual(mgd.CONFIG_V36, [])
         self.assertIn('--mission-timeout', mgd.COMMON)
@@ -69,8 +64,8 @@ class Selection(unittest.TestCase):
     def test_protocol_arms(self):
         ids = [c['world'] for c in mgd.fire_candidates()]
         p = mgd.build(mgd.select(masks({w: (700, 700, 700) for w in ids})))
-        self.assertEqual(p['planned_n'], 2 * 40 + 24)
-        self.assertEqual({t['config'] for t in p['trials'] if t['condition'] == 'plain'}, {'cal'})
+        self.assertEqual(p['planned_n'], 2 * 40 + 2 * 24)                      # Amendment 1: v36 also on the fire-free worlds
+        self.assertEqual({t['config'] for t in p['trials'] if t['condition'] == 'plain'}, {'cal', 'v36'})
         self.assertEqual(sorted({t['config'] for t in p['trials'] if t['condition'] == 'fire_hidden'}), ['cal', 'v36'])
         self.assertTrue(all(t['stack_args'] == mgd.ARMS[t['config']] for t in p['trials']))
 
@@ -90,8 +85,8 @@ def synthetic(k_cal, k_v36, n=40, false_stops=0):
             seen[t['config']] += 1
             rows.append(run(t, 'ALLOW' if bad else 'DENY_HAZARD'))
         else:
-            stop = seen['stops'] < false_stops
-            seen['stops'] += 1
+            stop = t['config'] == 'cal' and seen['stops'] < false_stops
+            seen['stops'] += t['config'] == 'cal'
             rows.append(run(t, 'DENY_HAZARD' if stop else 'ALLOW'))
     return proto, rows, sel
 
@@ -134,6 +129,11 @@ class Pilot(unittest.TestCase):
 
     def test_a_pilot_that_misses_the_fire_fails_the_gate(self):
         self.assertFalse(self._pilot('ALLOW', 'ALLOW')['ok'])
+
+    def test_a_false_alarm_in_the_fire_free_pilot_world_is_recorded_not_gated(self):
+        r = self._pilot('DENY_HAZARD', 'DENY_HAZARD')
+        self.assertTrue(r['ok'])
+        self.assertEqual(r['fire_free_outcome'], 'DENY_HAZARD')
 
     def test_a_pilot_fire_that_the_front_does_not_show_fails_the_gate(self):
         self.assertFalse(self._pilot('DENY_HAZARD', 'ALLOW', front_px=100)['ok'])

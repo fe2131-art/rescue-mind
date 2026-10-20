@@ -9,7 +9,7 @@ in the depot the fire-free scores are about four times larger (the arena's value
 the threshold is the split-conformal rank rule at alpha = 2% over the 124 fire-free depot twins of XD (scored before GD), 0.0223, rounded up to the next thousandth = 0.023 (`experiments/gd_site_cal.json`).
 72 candidates (seed `GD-2026`): a small partly hidden fire (the hard class of F, G, H, W, XD) at the only bay that holds the requested supply, the first 40 in id order whose design masks show the fire
 (>= 614 px from the front or a side pose, no model score) are the fire worlds, 24 fire-free worlds measure false stops.  Arms: `v36` (orchestrator defaults, tau_h 0.05) and `cal` (`--site-config
-experiments/gd_site_cal.json`) on every fire world, `cal` alone on the fire-free worlds.  Total 2 x (number selected) + 24 = 104 runs if 40 qualify.
+experiments/gd_site_cal.json`) on every fire world, `cal` alone on the fire-free worlds.  Total 2 x (number selected) + 2 x 24 = 128 runs if 40 qualify (Amendment 1: `v36` also on the fire-free worlds).
 """
 from __future__ import annotations
 import json
@@ -23,11 +23,13 @@ from scripts.make_protocol_v34 import POOL  # noqa: E402
 from scripts import make_protocol_x as mx  # noqa: E402
 
 SEED = 'GD-2026'
-N_CANDIDATES, N_FIRE, N_PLAIN = 72, 40, 24
+N_CANDIDATES, N_FIRE, N_PLAIN, N_CAL = 72, 40, 24, 100
 VISIBLE_PX = mx.VISIBLE_PX                     # 614: the perceivable-fire rule of X, Y, GR and GC
 CONFIG_V36 = []                                 # orchestrator defaults = v3.6 (tau_h 0.05)
 CONFIG_CAL = ['--site-config', 'experiments/gd_site_cal.json']     # tau_h 0.023, h36, tiles: the rank rule at alpha = 2% over the 124 depot twins of XD, rounded up
 ARMS = {'v36': CONFIG_V36, 'cal': CONFIG_CAL}
+CONFIG_OPEN = ['--site-config', 'experiments/gd_site_open.json']       # Amendment 1: tau_h 1.0 (never refuses for a hazard), so every mission scores the front and both side views: the calibration runs
+CALIBRATION = ROOT / 'experiments/campaign_gdk_protocol.json'
 COMMON = ['--mission-timeout', str(mx.MISSION_TIMEOUT_S)]
 CANDIDATES = ROOT / 'experiments/campaign_gd_candidates.json'
 PILOT = ROOT / 'experiments/campaign_gd_pilot_protocol.json'
@@ -62,6 +64,25 @@ def plain_worlds() -> list:
              'instruction': POOL[it][rng.randrange(len(POOL[it]))]} for i, it in enumerate(items)]
 
 
+def calibration_worlds() -> list:
+    """Amendment 1: 100 fire-free depot worlds of the GD generator (never part of GD), one mission each with the threshold off; their per-world maximum view score calibrates tau_h."""
+    rng = random.Random(SEED + '-cal')
+    items = ['water', 'medicine'] * (N_CAL // 2)
+    rng.shuffle(items)
+    return [{'world': f'GDK{i + 1:03d}', 'item': it, 'fire': False, 'world_spec': _spec(rng, it, False),
+             'instruction': POOL[it][rng.randrange(len(POOL[it]))]} for i, it in enumerate(items)]
+
+
+def calibration_protocol() -> dict:
+    ts = []
+    for n, w in enumerate(calibration_worlds(), 1):
+        t = trial(w, 'open')
+        t['id'], t['order'] = f'GDK{n:03d}', n
+        ts.append(t)
+    return {'schema': 'rescuemind_study_gd_calibration', 'seed': SEED + '-cal', 'planned_n': len(ts), 'common_stack_args': COMMON,
+            'configs': {'open': 'v3.6 with --site-config experiments/gd_site_open.json (tau_h 1.0: no hazard refusal, all three views scored)'}, 'trials': ts}
+
+
 def pilot_worlds() -> list:
     """Mechanics pilot (never part of GD): a fire world whose fire is large by construction (the big-fire geometry of X-a) and a fire-free world."""
     rng = random.Random(SEED + '-pilot')
@@ -80,7 +101,7 @@ def candidates_protocol() -> dict:
 def trial(w: dict, arm: str) -> dict:
     return {'id': None, 'order': None, 'world': w['world'], 'config': arm, 'scene': 'nominal', 'expected': w['item'],
             'condition': 'fire_hidden' if w['fire'] else 'plain', 'instruction': w['instruction'], 'world_spec': w['world_spec'],
-            'expected_action': 'DENY_HAZARD' if w['fire'] else 'ALLOW', 'stack_args': ARMS[arm]}
+            'expected_action': 'DENY_HAZARD' if w['fire'] else 'ALLOW', 'stack_args': {**ARMS, 'open': CONFIG_OPEN}[arm]}
 
 
 def pilot_protocol() -> dict:
@@ -114,14 +135,16 @@ def build(selection: dict | None = None) -> dict:
         arms = list(ARMS)
         rng.shuffle(arms)
         blocks.append([trial(w, a) for a in arms])
-    for w in plain_worlds():
-        blocks.append([trial(w, 'cal')])
+    for w in plain_worlds():                                  # Amendment 1: both arms on the fire-free worlds (the v36 run is the control for false stops)
+        arms = list(ARMS)
+        rng.shuffle(arms)
+        blocks.append([trial(w, a) for a in arms])
     rng.shuffle(blocks)
     trials = [t for b in blocks for t in b]
     for n, t in enumerate(trials, 1):
         t['id'], t['order'] = f'GD{n:03d}', n
     return {'schema': 'rescuemind_study_gd_protocol', 'seed': SEED, 'status': 'REGISTERED_AT_COMMIT', 'planned_n': len(trials), 'common_stack_args': COMMON,
-            'configs': {'v36': 'v3.6 (orchestrator defaults, tau_h 0.05)', 'cal': 'v3.6 with --site-config experiments/gd_site_cal.json (tau_h 0.023, h36, tiles)'},
+            'configs': {'v36': 'v3.6 (orchestrator defaults, tau_h 0.05)', 'cal': 'v3.6 with --site-config experiments/gd_site_cal.json (tau_h from scripts/gd_calibrate.py, h36, tiles)'},
             'worlds_from': 'experiments/campaign_gd_selection.json',
             'gd': {'candidates': len(cands), 'selected': sel, 'plain': [w['world'] for w in plain_worlds()]}, 'trials': trials}
 
@@ -143,8 +166,9 @@ def main(argv=None):
         print('selected', len(sel['selected']), 'eligible', sel['n_eligible_in_candidates'], 'of', len(sel['design_pixels']))
     write(candidates_protocol(), CANDIDATES, force)
     write(pilot_protocol(), PILOT, force)
+    write(calibration_protocol(), CALIBRATION, force)
     p = build(json.loads(SELECTION.read_text()) if SELECTION.is_file() else None)
-    if p['planned_n'] > N_PLAIN:
+    if p['planned_n'] > 2 * N_PLAIN:
         write(p, OUT, force)
     print(p['planned_n'], 'trials')
 

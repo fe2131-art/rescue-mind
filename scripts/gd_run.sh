@@ -16,10 +16,11 @@ MASKS=experiments/campaign_gd_candidates_design_fire_masks.json
 SEL=experiments/campaign_gd_selection.json
 PROTO=experiments/campaign_gd_protocol.json
 PILOT=experiments/campaign_gd_pilot_protocol.json
+CALPROTO=experiments/campaign_gdk_protocol.json
 IN_NEXT=(docker exec rm-next rescuemind-entrypoint)
 abort() { echo "GD_ABORT: $*" >&2; exit 1; }
 mkdir -p "$RES"
-for f in experiments/PREREGISTRATION_GD.md "$CAND" "$PILOT" scripts/make_protocol_gd.py scripts/gd_analysis.py rescuemind/robust_scenes.py scripts/make_protocol_v34.py; do
+for f in experiments/PREREGISTRATION_GD.md "$CAND" "$PILOT" "$CALPROTO" experiments/gd_site_open.json scripts/make_protocol_gd.py scripts/gd_analysis.py scripts/gd_calibrate.py rescuemind/robust_scenes.py scripts/make_protocol_v34.py; do
   git ls-files --error-unmatch "$f" >/dev/null 2>&1 || abort "$f is not committed"
   git diff --quiet HEAD -- "$f" || abort "$f differs from the committed version"
 done
@@ -42,6 +43,23 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>" -- "$MASKS" "$SEL" "$
 fi
 echo "GD_BINDING_COMMIT_DONE"
 python3 scripts/make_protocol_gd.py >/dev/null && git diff --quiet HEAD -- "$PROTO" || abort "the protocol differs from its generator"
+
+# (b0) Amendment 1: calibrate the depot threshold on 100 fire-free depot worlds of the GD generator (the mission with the threshold off), BEFORE the pilot and any GD trial.
+#      Stop rule: tau_cal >= 0.05 (the depot cannot be calibrated below the default at alpha = 2%): GD is not run.
+python3 scripts/make_protocol_gd.py >/dev/null && git diff --quiet HEAD -- "$CALPROTO" || abort "the calibration protocol differs from its generator"
+if [ ! -f "$RES/gd_calibration_done" ]; then
+  python3 scripts/ledger_stack_check.py --protocol "$CALPROTO" --ledger "$RES/campaign_GDK_ledger.jsonl" || abort "stale calibration ledger (see above)"
+  for i in $(seq 1 60); do awk '{exit !($1 < 6)}' /proc/loadavg && break; sleep 60; done
+  "${IN_NEXT[@]}" python3 scripts/run_campaign.py --protocol "$CALPROTO" --ledger "$RES/campaign_GDK_ledger.jsonl" 2>&1 | tee -a "$RES/campaign_GDK_stdout.log" | grep -E "^\[|trial|ERROR" | tail -3
+  python3 scripts/gd_calibrate.py > "$RES/gd_calibrate_stdout.log"; CRC=$?
+  git add "$RES/gd_calibration.json" "$RES/campaign_GDK_ledger.jsonl" experiments/gd_site_cal.json
+  git commit -q -m "study GD: calibration (100 fire-free depot worlds, threshold off) and tau_cal, before any GD trial
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>" -- "$RES/gd_calibration.json" "$RES/campaign_GDK_ledger.jsonl" experiments/gd_site_cal.json && git push -q || echo "GD_NOTE: nothing new to commit or push" >&2
+  [ "$CRC" -eq 0 ] || abort "GD_STOP_RULE: the calibration stop rule applies (see $RES/gd_calibration.json); GD NOT started"
+  touch "$RES/gd_calibration_done"
+fi
+echo "GD_CALIBRATION_DONE $(python3 -c "import json;print(json.load(open('experiments/gd_site_cal.json'))['hazard_threshold'])")"
 python3 scripts/ledger_stack_check.py --protocol "$PILOT" --ledger "$RES/campaign_GD_pilot_ledger.jsonl" || abort "stale pilot ledger (see above)"
 
 # (b) mechanics pilot (2 runs; STOPS unless the pilot behaves)
