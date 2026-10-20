@@ -69,3 +69,7 @@ are unchanged; the protocol is regenerated and committed again (`study GC: amend
 **Note 2 (code fix, I-46; no change to the registered arms, claims, selection or worlds; before any GC trial).** The second pilot attempt showed that the orchestrator's RUN path never passed `--site-config` to the mission (only `--plan` did):
 the mission did not record the site config and the audit still compared the server's tau_h with 0.05 (`experiments/results/gc_pilot_attempt2_ledger.jsonl`). The run path now passes it (`scripts/v32_orchestrate.py`, `tests/test_i46_site_config_run_path.py`).
 The pilot is repeated with the fixed code; no GC world was run.
+
+**Note 3 (change of the start rule, before any GC trial).** The registration said the first trial starts only after the OpenTimestamps stamp has a Bitcoin attestation. That wait idles the GPU for hours without changing what is measured, so the rule is changed:
+the campaign starts once the stamp of the registration commit has been submitted (`docs/timestamps/study_gc_registration.txt.ots`, hashes only); the attestation is checked before the results are analysed, and the paper
+claims an external ordering for GC only if the stamp is attested by then (otherwise it says the ordering rests on the git history alone: the binding commit is on `main` before any GC trial). No GC datum is read before the analysis step.
