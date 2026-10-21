@@ -909,3 +909,9 @@
 - **Hypothesis.** A script that checks every table block for a constant number of cells finds no other irregular row.
 - **Change.** `scripts/update_readme_results.py`: the file pointer moves into the state cell of both rows (the other rows were regular).
 - **Before/After.** Before: 2 rows with 4 cells in a 3-column table. After: all 14 table blocks of the README have a constant cell count (checked); `check_consistency` 0 mismatches.
+
+## I-64 (2026-10-21): supervisor escalation test: the "polite" child must not inherit an ignored SIGINT
+- **Motivation.** `tests/test_v33_supervisor_escalation.py::test_sigint_first_then_kill_whole_group` failed in two full runs (`-15 != 0`: the polite child was killed by the SIGTERM escalation) and passed alone. I first blamed host load.
+- **Hypothesis (corrected).** Load is not the cause (10 CPU spinners: old and new test both pass). A pytest started in the background of a non-interactive shell (`cmd &`, as in the cron-driven runs) has SIGINT set to SIG_IGN, Python children inherit it and never install their KeyboardInterrupt handler, so SIGINT is ignored and the supervisor escalates. Reproduced on demand by `execvp` of pytest after `signal(SIGINT, SIG_IGN)`.
+- **Change.** `tests/test_v33_supervisor_escalation.py` only: the polite child restores `signal.default_int_handler` itself; both children are awaited by readiness (`wait_for`, ready file / printed pid) instead of a fixed sleep. No source change (the supervisor behaved correctly: it escalated).
+- **Before/After.** Before: fails 1/1 when started with SIGINT ignored, and in 2 background full runs. After: passes in both settings.
