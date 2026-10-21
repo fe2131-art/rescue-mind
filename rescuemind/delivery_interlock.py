@@ -146,7 +146,7 @@ def decide(raw, policy: Policy = Policy(), file_sha=sha256_file) -> Decision:
         need_ad = policy.require_adaptive or _pos(cfg.get('adaptive_views'))
         if need_la or need_ad:
             _need(isinstance(la, dict) and la.get('station') == station, 'look_around_missing')
-            _need({'L', 'R'} <= {pk.get('side') for pk in peeks}, 'standard_side_views_missing')
+            _need(set(str(cfg.get('look_around_sides') or 'LR')) <= {pk.get('side') for pk in peeks}, 'standard_side_views_missing')      # I-74: the sides the record says were required (default L and R)
         if need_ad:
             _need(isinstance(la.get('adaptive'), dict), 'adaptive_views_missing')
         out.checks.append('required_views')
