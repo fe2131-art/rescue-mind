@@ -342,7 +342,8 @@ class ModelWorker:
                 '_scores':{'method':'closed_set_logprob','prompt_set':self.prompt_set,'supply_probs':supply_probs,
                            'hazard_prob':round(hazard_p,4),'hazard_threshold':self.hazard_threshold,
                            'hazard_views':self.hazard_views,'hazard_prompt':self.hazard_prompt,
-                           'hazard_view_probs':views,'hazard_cached':cached}}
+                           'hazard_view_probs':views,'hazard_cached':cached,
+                           **({'judge':self.judge_name,'judge_threshold':self.judge_threshold} if getattr(self,'judge',None) is not None else {})}}
 
     # I-11: hazard question variants. 'h35' = the v35 prompt; 'h36' asks explicitly about small, partly hidden or
     # cut-off fire and smoke.  'tiles' also asks on three enlarged overlapping crops (left, right, top) and takes the max.
@@ -378,6 +379,12 @@ class ModelWorker:
         p=max(views)
         if len(cache)>64:
             cache.clear()
+        j=getattr(self,'judge',None)
+        if j is not None:      # I-77 (Jev): a heterogeneous judge may only veto; on the gate's own scale the max rule is: flagged iff p_qwen >= tau_h or p_judge >= tau_judge
+            pj=j.hazard(pic)['max']
+            self.last_judge={'judge':self.judge_name,'judge_threshold':self.judge_threshold,'hazard_prob_judge':round(pj,4),'hazard_prob_qwen':round(p,4)}
+            p=max(p,pj*self.hazard_threshold/self.judge_threshold)
+            views=views+[round(pj*self.hazard_threshold/self.judge_threshold,4)]
         cache[key]=(p,views)
         return p,views,False
 
@@ -533,6 +540,8 @@ def main():
     p.add_argument('--hazard-threshold',type=float,default=None,help='p(Yes) at or above which the scene is a hazard (I-10; default 0.5)')
     p.add_argument('--hazard-views',choices=['full','tiles'],default=None,help='I-11: also ask on enlarged crops (default full)')
     p.add_argument('--hazard-prompt',choices=['h35','h36','h36ign'],default=None,help='I-11: hazard question wording (default h35)')
+    p.add_argument('--judge',default=None,help='I-77 (Jev): a heterogeneous judge VLM (scripts/jev_score.py JUDGES) that may only veto: the scene is a hazard if the gate OR the judge flags it')
+    p.add_argument('--judge-threshold',type=float,default=None,help='the judge\'s own threshold (rank rule on its clean scores); required with --judge')
     p.add_argument('--site-config',default=None,
                    help='I-26: site.json; its hazard_threshold (and hazard_prompt / hazard_views if present) are used, and a conflicting '
                         'flag is an error.  The same file goes to the mission node and the interlock')
@@ -547,7 +556,11 @@ def main():
         p.error(str(e))
     if not 1024<=a.port<=65535: p.error('invalid port')
     if not 0<a.hazard_threshold<=1: p.error('hazard threshold must be in (0, 1]')
+    if a.judge and not (a.judge_threshold and 0<a.judge_threshold<=1): p.error('--judge needs --judge-threshold in (0, 1]')
     worker=ModelWorker(a.model,method=a.method,prompt_set=a.prompt_set,dtype=a.dtype)
+    if a.judge:
+        from jev_score import Judge
+        worker.judge=Judge(a.judge); worker.judge_name=a.judge; worker.judge_threshold=a.judge_threshold
     worker.describe_prompt=a.describe_prompt
     worker.intent_prompt=a.intent_prompt
     worker.hazard_threshold=a.hazard_threshold

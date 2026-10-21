@@ -86,7 +86,7 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
                intent_prompt: str = 'i34', describe_prompt: str = 'e0', inject_stall: float = 0.0,
                hazard_threshold: float = 0.5, control_qos: str = 'reliable', hazard_views: str = 'full',
                hazard_prompt: str = 'h35', jev_local: str = 'off', jev_hazard_threshold: float = .35, jev_schema: str = 'jev',
-               look_around: float = 0.0, memory_file: str | None = None, memory_mode: str = 'off', adaptive_views: float = 0.0, look_around_sides: str = 'LR',
+               look_around: float = 0.0, memory_file: str | None = None, memory_mode: str = 'off', adaptive_views: float = 0.0, look_around_sides: str = 'LR', judge: str | None = None, judge_threshold: float | None = None,
                advice_file: str | None = None, advice_mode: str = 'off', advice_from_instruction: bool = False,
                caution_soft: bool = False, hazard_continue: bool = False, advice_scrutiny: bool = False, advice_credit: str | None = None,
                delivery_interlock: bool = False, interlock_key: str | None = None,
@@ -173,7 +173,8 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
         services.insert(0,ManagedCommand('primary_local_vlm', shell_exec([
             'python3',str(ROOT/'scripts/local_vlm_server.py'),'--model',model or PRIMARY_MODEL,'--port','8765',
             '--prompt-set',prompt_set,'--intent-prompt',intent_prompt,'--describe-prompt',describe_prompt,
-            '--hazard-threshold',str(hazard_threshold),'--hazard-views',hazard_views,'--hazard-prompt',hazard_prompt])))
+            '--hazard-threshold',str(hazard_threshold),'--hazard-views',hazard_views,'--hazard-prompt',hazard_prompt]
+            +(['--judge',judge,'--judge-threshold',str(judge_threshold)] if judge else []))))
         if jev_local == 'clef':
             # I-13: the original plan's Jev role, answered locally by Clef-Flash (Jev/SystemOne API)
             services.insert(1,ManagedCommand('jev_role_clef', shell_exec([
@@ -410,6 +411,8 @@ def main(argv=None):
                         'best_effort = best-effort request/heartbeat topics')
     p.add_argument('--adaptive-views', type=float, default=0.0,
                    help='I-20: suspicion-triggered extra views at this side offset (m); 0 = off (v3.6)')
+    p.add_argument('--judge', default=None, help='I-77 (Jev): heterogeneous judge VLM served in the VLM server, veto only (hazard if the gate or the judge flags); needs --judge-threshold')
+    p.add_argument('--judge-threshold', type=float, default=None, help='the judge\'s own threshold')
     p.add_argument('--look-around-sides', choices=['LR', 'L', 'R'], default='LR',
                    help='I-74: which side views the look-around takes (default both: v3.6; L = left only, a site-specific option of study GL)')
     p.add_argument('--look-around', type=float, default=0.4,
@@ -517,7 +520,7 @@ def main(argv=None):
                  intent_backend=args.intent_backend, intent_prompt=args.intent_prompt,
                  describe_prompt=args.describe_prompt, inject_stall=args.inject_warmup_stall,
                  hazard_threshold=args.hazard_threshold, hazard_views=args.hazard_views,
-                 hazard_prompt=args.hazard_prompt, jev_local=args.jev_local, look_around=args.look_around, adaptive_views=args.adaptive_views, look_around_sides=args.look_around_sides,
+                 hazard_prompt=args.hazard_prompt, jev_local=args.jev_local, look_around=args.look_around, adaptive_views=args.adaptive_views, look_around_sides=args.look_around_sides, judge=args.judge, judge_threshold=args.judge_threshold,
                  jev_hazard_threshold=args.jev_hazard_threshold, jev_schema=args.jev_schema,
                  memory_file=args.memory_file, memory_mode=args.memory_mode,
                  advice_file=args.advice_file, advice_mode=args.advice_mode,
