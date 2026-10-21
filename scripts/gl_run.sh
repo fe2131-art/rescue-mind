@@ -7,7 +7,7 @@
 # Everything before the campaign uses no model score: the selection rule reads design fire masks only.  Resumable.
 set -uo pipefail
 cd "$(dirname "$0")/.."
-for _ in $(seq 1 1440); do pgrep -f "[j]h_run.sh" >/dev/null || break; sleep 60; done          # study JH scoring first (its steps would otherwise queue behind this 15 h campaign)
+for _ in $(seq 1 1440); do pgrep -f "[j]h_run" >/dev/null || break; sleep 60; done          # study JH scoring first (its steps would otherwise queue behind this 15 h campaign)
 exec 9>/tmp/rescuemind_campaign.lock                       # one campaign at a time (the GC double launch, PREREGISTRATION_GC Note 4)
 flock 9                                                    # GL waits for the lock (study JH scoring steps hold it one at a time), it does not abort
 export PATH="$HOME/.local/bin:$PATH"
