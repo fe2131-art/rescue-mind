@@ -1,0 +1,9 @@
+# GPU queue (I-71): the next job to launch when nothing is running
+
+Rule: every cron tick starts with `bash scripts/idle_check.sh`; if it prints IDLE, the first open job below is launched in that same turn (register/commit first where a registration is needed, never wait for approval or attestation).
+A job is crossed out only when its result is integrated. Add a job here whenever a result opens a new question, so the queue is never empty.
+
+1. **GVD** (development pass, 40 GD fire worlds, 0.8 m views, threshold off): running since 2026-10-21 22:17; readout `python3 scripts/gvd_readout.py`; decision rule in IMPROVEMENT_LOG I-70.
+2. **If GVD says go:** one-sided look-around option (`--look-around-sides`, mission code + test), registration (power statement, GVD and GVK disclosed, site-specific wording), calibration reuse of GVK front/left, then the paired closed-loop study (v36 against left-only wide on fresh worlds + fire-free worlds).
+3. **If GVD says no-go (or while 2 is being written):** tighten the pooled depot budget: `v36` alone on ~120 fresh GD-generator fire worlds (about 5 h) so that the pooled upper bound (now 15.6%) rests on more than 136 worlds; register first (claim: the upper bound of the pooled rate), disclose that it adds no new arm.
+4. Fallback if 2 and 3 are blocked: image-level replications that need only the GPU (frozen Qwen3.5-9B on saved images) for any open question listed in FINDINGS "what is not known".
