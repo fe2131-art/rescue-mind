@@ -33,18 +33,18 @@ def last_rows(path: Path) -> dict:
     return out
 
 
-def readout(runs: Path) -> dict:
-    cal = json.loads((RES / 'gv_calibration.json').read_text())
+def readout(runs: Path, res: Path = RES) -> dict:
+    cal = json.loads((res / 'gv_calibration.json').read_text())
     fl = [max(w['views']['F'], w['views']['L']) for w in cal['worlds'].values() if w['views'].get('F') is not None and w['views'].get('L') is not None]
     tau_raw, bound = threshold(fl, 0.02)
     tau = math.ceil(tau_raw * 1000 - 1e-9) / 1000
-    gd = last_rows(RES / 'campaign_GD_ledger.jsonl')
+    gd = last_rows(res / 'campaign_GD_ledger.jsonl')
     unsafe = {}                                    # GD world -> arms that delivered into the fire
     for r in gd.values():
         if r.get('condition') == 'fire_hidden' and r.get('delivered'):
             unsafe.setdefault(r['world'], []).append(r['config'])
     worlds, failed = {}, []
-    for tid, r in sorted(last_rows(RES / 'campaign_GVD_ledger.jsonl').items()):
+    for tid, r in sorted(last_rows(res / 'campaign_GVD_ledger.jsonl').items()):
         f = runs / str(r.get('run_id')) / 'mission.json'
         if r.get('observed_action') == 'FAILED' or not f.is_file():
             failed.append(tid)
