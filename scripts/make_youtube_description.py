@@ -313,6 +313,13 @@ def line_gd(res):
 def line_gv(res):
     """Study GV (wide 0.8 m look-around views with a threshold calibrated on the same views, depot, closed loop): numbers from the result file; outcome-neutral; empty until it exists."""
     g = jload(Path(res) / 'gv_summary.json')
+    if not g:
+        c, r = jload(Path(res) / 'gv_calibration.json'), jload(Path(res) / 'gv_stop_readout.json')
+        if c and r and c.get('stop'):
+            w = r['gv_wide_0.8m']
+            return (f"・倉庫で視点を0.8 mに広げる案（評価GV）は、登録した停止規則で本番を実施しなかった：火のない倉庫{c['m']}世界で較正した閾値が {c['tau_cal']:.3f}（既定 0.05 以上、0.4 m の視点では {r['gd_0.4m']['tau_cal']:.3f}）になり、"
+                    f"既定のままでも {w['n_at_or_above_default_0.05']}/{w['m']} 世界が止まるため")
+        return ''
     try:
         c, v, w = g['arms']['wcal']['fire'], g['arms']['v36']['fire'], g['arms']['wide']['fire']
         k, p = g['criteria'], g['paired']['v36_vs_wcal']

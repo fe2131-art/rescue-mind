@@ -7,12 +7,14 @@
 
 ---
 
-## ★ 最新（2026-10-21 08:50）：研究 GV を実行中（I-58。広い見回し 0.8 m ＋ その見回しで較正した閾値）
+## ★ 最新（2026-10-21 13:50）：研究 GV は登録した停止規則で中止（I-58、I-60）。本番168試行は実施していない
 
-* **動機**：GC・GD とも較正は誤停止の保証にはなるが見逃しは有意に減らない。GD の保存得点は、小さな火が 0.4 m の横視点では火のない世界の裾に入ることを示した。XD の画像（事後）では 0.8 m の横視点（L2・R2）が火と火のない世界をよく分け（難しい類 100 世界の見逃し 6→1、α=5%）、閉ループで確かめる。
-* **GV**：`bash scripts/gv_run.sh > experiments/results/gv_run.log`（ロック付き。二重起動しない）。登録コミット `f6310cc`。順序：候補のマスク（モデル得点なし）→拘束コミット（選択とプロトコル）→**火のない100世界で広い視点・閾値オフの較正**（τ_cal=順位則 α=2%、止め規則 τ_cal≥0.05 なら GV は走らせない）→予行→登録コミット＋OTS→本番 168本（v36・wide・wcal を火の世界40、wcal・wide を火のない24）→`gv_analysis.py`。主張 GV1（wcal の火への配達の95%上限≤15%、n=40 なら k≤2）、GV2（誤停止≤2/24）。予測 P1〜P4（P2 の McNemar は検出力が足りない可能性を登録に明記）。所要は約 12〜14 時間。
-* **完了後**：`ots upgrade docs/timestamps/study_gv_registration.txt.ots`→コミット、GD と同じ手順（`gd_readout.py` に相当する読み出しが要れば書く）、`paper_numbers`（Wide マクロ・フック済み）で補足資料の GV 節と main.tex の一文（本文8頁・9頁目は参考文献のみ。GD の節の「どちらのサイトでも有意でない」の記述は GV の結果で更新）、README・説明資料（本文9頁）・概要欄・動画の証拠カード・FINDINGS #44・IMPROVEMENT_LOG I-58 の After・失敗した主張（GV1/GV2 が外れたら自動で入る）。README・report・youtube のフックはまだ（結果の文面が結果に依るので結果後に書く）。
-* **途中の結果は見ない**（件数と失敗だけ数える）。GD の内容は下の GD 節。
+* **結果**：火のない倉庫100世界（閾値を切った実ミッション、失敗0）の較正で、2%の規則の閾値 **0.071**（0.05 以上）→停止規則が働き、GV は走らせない。0.4 m の視点（GD）は 0.028。既定 0.05 のままでも100世界中4世界が止まる。主張 GV1・GV2 は未検証（失敗した主張には**数えない**）。登録の拘束コミットは `350d14a`（結果 `76f7920` より前）。外部 OTS は作っていない（予行の後の手順のため）。
+* **事後の読み**（`scripts/gv_stop_readout.py`、I-60）：0.03 以上の7視点はすべて薬の箱の右 0.8 m 視点（赤い十字が画面を占める。最高4枚を目視）。水は最大 0.027。XD の画像にはこの偏りがない（薬の最大 0.0385）。GD の見逃し配達10件中9件（較正腕5件すべて）が薬の世界。**仮説であり未検証**。
+* **反映済み**：補足資料 `sec:moved-gv`、main.tex の一文、README 行、レポート表、YouTube 説明文、FINDINGS #44（44件）、`paper_numbers` の `WideStop*` マクロ。`gv_summary.json` が無いので Wide 系の本番用フックは動かない（停止時用のフックは動く）。
+* **次**：薬の箱の赤い十字の混同を直す手段（例：危険の質問文）を、既存の閉ループ画像（GVK 3視点×100、GD の火あり・なし）で開発→新しい世界で登録→閉ループで試す。開発データは登録に明記する。
+* 以前の「GV を実行中」の記述は廃止（上のとおり中止）。
+
 
 ## ★ 最新（2026-10-21 08:00）：研究 GD 完了・反映済み（I-51、I-53、I-54、I-55）
 
@@ -221,7 +223,7 @@
 | Q（Wikimedia Commons 405 枚） | 実写の物資確認 | 登録済み・**未実行**（GPU 約 40 分。W の後の連鎖が .gitignore の衝突で止まり、一度も走っていない） |
 
 * 登録済み 7 本（A・B・IF・Q・S・X・XD）は統合マージ 09:08 で main に載り、A の予備走行が 09:14 に始まった時点で、IF・S・B・XD・X・Q は試行も推論もしていない。これらの登録ファイルには「DRAFT」の行が残るが、拘束力のある版は `docs/REGISTRATIONS.md` の表の版（ファイルは変えない。変更は日付とコミットつきの Amendment で追記する）。
-* テスト関数は 1559 件（`python3 scripts/count_tests.py` の静的な数え方）。FINDINGS は 43 件。
+* テスト関数は 1577 件（`python3 scripts/count_tests.py` の静的な数え方）。FINDINGS は 44 件。
 
 ### D. GPU の順番と、その動かし方
 
@@ -365,7 +367,7 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 ## 7. 主要ファイルの地図
 
 * 現在地・履歴：このファイル。旧版の全文：`docs/HANDOFF_ARCHIVE.md`。
-* `docs/ARCHITECTURE.md`（全体フロー図）、`docs/DESIGN_DECISIONS.md`（D1–D15）、`docs/IMPROVEMENT_LOG.md`（I-01–I-24）、`docs/FINDINGS.md`（実行で見つけた43件）、`docs/REVIEW_AND_PLAN.md`（審査基準別レビュー）。
+* `docs/ARCHITECTURE.md`（全体フロー図）、`docs/DESIGN_DECISIONS.md`（D1–D15）、`docs/IMPROVEMENT_LOG.md`（I-01–I-24）、`docs/FINDINGS.md`（実行で見つけた44件）、`docs/REVIEW_AND_PLAN.md`（審査基準別レビュー）。
 * `docs/REGISTRATIONS.md`（事前登録の台帳：main に載った最初のコミットと sha256）、`docs/REPRODUCE.md`（クリーンな Ubuntu＋NVIDIA 環境での 3 段階の再現手順）、`docs/REPRODUCIBILITY.md`。
 * `docs/evaluations/`（第三者採点、第1〜8回と固定の指示文）、`docs/paper/`（論文・補足・`REVIEW_NOTES*.md`・`LITERATURE_*.md`・`PROOF_REVIEW.md`）、`docs/report/`（説明資料）、`docs/design/`（I-19〜I-24 の設計、動画 v5 の計画）。
 * `experiments/`（事前登録 `PREREGISTRATION_*.md`・プロトコル・開発セット・台帳 `results/campaign_*_ledger.jsonl`・要約 `results/*_summary.json`）。

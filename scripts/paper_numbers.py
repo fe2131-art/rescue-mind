@@ -1484,6 +1484,28 @@ def main():
             m['WidePred' + key_] = 'holds' if gvc_[name_] else 'fails'
         m['WideClaim'] = 'GV1, GV2 hold' if (gvc_['GV1_wcal_upper_at_most_15pct'] and gvc_['GV2_false_stops_at_most_2']) else 'GV1, GV2 do not both hold'
         m['StatGV'] = f"wide look-around with a calibrated threshold in closed loop: {m.lookup('WideClaim')}"
+    # ---- study GV stopped at its registered calibration stop rule (gv_calibration.json 'stop': true; gv_stop_readout.json, I-60): no GV trial exists
+    gvcal_, gvsr_ = RES / 'gv_calibration.json', RES / 'gv_stop_readout.json'
+    if not gvf_.is_file() and gvcal_.is_file() and gvsr_.is_file():
+        gc_, gs_ = json.loads(gvcal_.read_text()), json.loads(gvsr_.read_text())
+        if gc_.get('stop'):
+            w_, g4_ = gs_['gv_wide_0.8m'], gs_['gd_0.4m']
+            m['WideStopTau'], m['WideStopM'] = f"{gc_['tau_cal']:.3f}", gc_['m']
+            m['WideStopMax'], m['WideStopMedian'] = f"{w_['max']:.3f}", f"{w_['median']:.3f}"
+            m['WideStopAbove'] = f"{w_['n_at_or_above_default_0.05']}/{w_['m']}"
+            m['WideStopMedicine'] = f"{w_['by_item']['medicine']['n_at_or_above_default']}/{w_['by_item']['medicine']['n']}"
+            m['WideStopWaterMax'], m['WideStopRightMax'] = f"{w_['by_item']['water']['max']:.3f}", f"{w_['by_view']['R']['max']:.3f}"
+            m['WideStopFrontMax'], m['WideStopLeftMax'] = f"{w_['by_view']['F']['max']:.3f}", f"{w_['by_view']['L']['max']:.3f}"
+            m['WideStopFiveTau'] = f"{w_['rank_rule']['0.05']:.3f}"
+            m['WideStopNarrowTau'], m['WideStopNarrowMedMax'] = f"{g4_['tau_cal']:.3f}", f"{g4_['by_item']['medicine']['max']:.3f}"
+            xi_, gu_ = gs_['xd_images_fire_free'], gs_['gd_unsafe_deliveries_by_item']
+            m['WideStopXdMedicine'], m['WideStopXdWater'] = f"{xi_['medicine']['n_at_or_above_default']}/{xi_['medicine']['n_images']}", f"{xi_['water']['n_at_or_above_default']}/{xi_['water']['n_images']}"
+            m['WideStopXdMedicineMax'] = f"{xi_['medicine']['max']:.3f}"
+            m['WideStopHighViews'] = sum(gs_['views_at_or_above_0.03_by_item_side_crop'].values())
+            m['WideStopHighMedRight'] = gs_['views_at_or_above_0.03_by_item_side_crop'].get('medicine/R/crop3', 0)
+            m['WideStopGdMedicine'], m['WideStopGdUnsafe'] = gu_['all_arms'].get('medicine', 0), sum(gu_['all_arms'].values())
+            m['WideStopGdMedicineCal'], m['WideStopGdCalUnsafe'] = gu_['cal'].get('medicine', 0), sum(gu_['cal'].values())
+            m['StatGV'] = f"wide look-around with a calibrated threshold in closed loop: stopped by its registered rule (tau_cal {m.lookup('WideStopTau')} at or above 0.05), not run"
     # ---- submission snapshot: the claim column of a study without results says so (the other pending studies have no analysis macro yet)
     PEND = advice_numbers.snapshot_pending() if SNAPSHOT else set()
     for k_ in advice_numbers.SNAPSHOT_STUDIES:
