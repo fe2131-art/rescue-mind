@@ -45,10 +45,53 @@ def summarise(worlds: dict) -> dict:
     return out
 
 
+def xd_clean(path: Path) -> dict:
+    """Image-level reference: the fire-free records of XD's set (teleported camera, same detector) per item: the largest hazard score over all views and the count at or above 0.05."""
+    recs = [r for r in json.loads(path.read_text(encoding='utf8'))['records'] if r.get('hazard_at') is None]
+    out = {}
+    for item in ('medicine', 'water'):
+        x = [r['passes']['1']['scores']['hazard_prob'] for r in recs if r['station'] == item]
+        out[item] = {'n_images': len(x), 'max': max(x), 'n_at_or_above_default': sum(v >= DEFAULT_TAU for v in x)}
+    return out
+
+
+def tile_of_high_scores(ledger: Path, runs: Path, floor: float = 0.03) -> dict:
+    """Which view and which of the four scored crops (index 3 = the last one) holds a score at or above `floor` in the calibration missions (needs the local run folders)."""
+    n = {}
+    for line in ledger.read_text(encoding='utf8').splitlines():
+        r = json.loads(line)
+        f = runs / r['run_id'] / 'mission.json'
+        if not f.is_file():
+            continue
+        m = json.loads(f.read_text(encoding='utf8'))
+        views = {'F': (((m.get('checkpoint') or {}).get('model_calls') or {}).get('first') or {}).get('scores', {}).get('hazard_view_probs')}
+        views.update({pk['side']: pk['model_calls']['first']['scores']['hazard_view_probs'] for pk in (m.get('look_around') or {}).get('peeks') or []})
+        for side, p in views.items():
+            if p and max(p) >= floor:
+                key = f"{r.get('expected_supply')}/{side}/crop{p.index(max(p))}"
+                n[key] = n.get(key, 0) + 1
+    return n
+
+
+def gd_unsafe_by_item() -> dict:
+    """GD's unsafe deliveries (post hoc, from gd_readout.json) by requested item, all arms and the `cal` arm."""
+    item = {t['world']: t['expected'] for t in json.loads((ROOT / 'experiments/campaign_gd_protocol.json').read_text(encoding='utf8'))['trials']}
+    u = json.loads((RES / 'gd_readout.json').read_text(encoding='utf8'))['digest']['unsafe_deliveries']
+    out = {'all_arms': {}, 'cal': {}}
+    for d in u:
+        out['all_arms'][item[d['world']]] = out['all_arms'].get(item[d['world']], 0) + 1
+        if d['arm'] == 'cal':
+            out['cal'][item[d['world']]] = out['cal'].get(item[d['world']], 0) + 1
+    return out
+
+
 def main():
     gv = json.loads((RES / 'gv_calibration.json').read_text(encoding='utf8'))
     gd = json.loads((RES / 'gd_calibration.json').read_text(encoding='utf8'))
-    res = {'note': 'post hoc, descriptive (I-60); not a registered analysis', 'gv_wide_0.8m': {'tau_cal': gv['tau_cal'], **summarise(gv['worlds'])}, 'gd_0.4m': {'tau_cal': gd['tau_cal'], **summarise(gd['worlds'])}}
+    res = {'note': 'post hoc, descriptive (I-60); not a registered analysis', 'gv_wide_0.8m': {'tau_cal': gv['tau_cal'], **summarise(gv['worlds'])}, 'gd_0.4m': {'tau_cal': gd['tau_cal'], **summarise(gd['worlds'])},
+           'xd_images_fire_free': xd_clean(RES / 'devset_xd_h36_tiles.json'),
+           'gd_unsafe_deliveries_by_item': gd_unsafe_by_item(),
+           'views_at_or_above_0.03_by_item_side_crop': tile_of_high_scores(RES / 'campaign_GVK_ledger.jsonl', ROOT / 'outputs/runs')}
     (RES / 'gv_stop_readout.json').write_text(json.dumps(res, ensure_ascii=False, indent=1) + '\n', encoding='utf8')
     for k in ('gv_wide_0.8m', 'gd_0.4m'):
         r = res[k]

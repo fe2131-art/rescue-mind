@@ -630,6 +630,9 @@ def section_key(e, t):
         rows.append(f"| 倉庫で視点を0.8 mに広げ、同じ視点で閾値を較正した閉ループ評価（評価GV、新しい{gvj_['n_fire_worlds']}世界） | 火へ配達：広い視点＋較正（{gvtau_}）**{gvc_['k']}/{gvc_['n']}**（95%上限 {pct(gvc_['upper95_exact'])}、登録した線15%）、既定 v3.6 は {gvv_['k']}/{gvv_['n']}、視点だけ広げた場合は {gvw_['k']}/{gvw_['n']}、火のない世界の誤停止 {gvj_['arms']['wcal']['fire_free']['k']}/{gvj_['arms']['wcal']['fire_free']['n']}。対の比較（広い視点＋較正のみ {gvp_['discordant_wcal_only']}・既定のみ {gvp_['discordant_v36_only']}）は McNemar p={gvp_['mcnemar_p']:.3f}、時間の増加（中央値）{gvk_['time_cost_s']} 秒 | GV1・GV2：**{'成立' if gvok_ else '一部不成立'}** | `experiments/results/gv_summary.json` |")
     except (TypeError, KeyError):
         pass
+    gvs_ = gv_stop_facts()
+    if gvs_ and not gvj_:      # GV stopped at its registered calibration stop rule: no trial was run
+        rows.append(f"| 倉庫で視点を0.8 mに広げれば、較正した閾値で見逃しを減らせるか（評価GV：登録した停止規則で中止、本番は未実施） | 火のない倉庫{gvs_['m']}世界で較正すると閾値が {gvs_['tau']}（既定 0.05 以上）になり、既定 0.05 のままでも {gvs_['above']} 世界が止まる。0.4 m の視点（GD）では 0.028。最大の得点は薬の箱の右側の視点（赤い十字が画面を占める）に集中した（事後の観察） | 主張 GV1・GV2 は検証していない（失敗した主張には数えない）。前提（0.8 m で下げられる）は外れた | `experiments/results/gv_calibration.json` |")
     iff_ = advice_numbers.if_facts()
     if iff_:
         rows.append(f"| 依頼文で頼まれた物資はすり替えられない（評価IF、オフライン） | 書き換えた{iff_['n']}文のうち、注入された物資を受理 **{iff_['k']}/{iff_['n']}**（95%信頼区間 {iff_['ci'][0] * 100:.0f}〜{iff_['ci'][1] * 100:.0f}%）。依頼物資は保証の外。対策の聞き返し（I-27）は研究IF2で再測定（"
@@ -823,6 +826,24 @@ def gv_text_en():
             f"claims GV1-GV2 {'hold' if ok else 'do not both hold'}.")
 
 
+def gv_stop_facts():
+    """Study GV stopped at its registered calibration stop rule (tau_cal >= 0.05): the facts for the README / report / YouTube texts; None otherwise (or when gv_summary.json exists)."""
+    c, r = jl('gv_calibration.json'), jl('gv_stop_readout.json')
+    if jl('gv_summary.json') or not c or not r or not c.get('stop'):
+        return None
+    w = r['gv_wide_0.8m']
+    return {'m': c['m'], 'tau': f"{c['tau_cal']:.3f}", 'above': f"{w['n_at_or_above_default_0.05']}/{w['m']}", 'narrow': f"{r['gd_0.4m']['tau_cal']:.3f}", 'max': f"{w['max']:.3f}"}
+
+
+def gv_stop_en():
+    f = gv_stop_facts()
+    if not f:
+        return ''
+    return (f"GV (registered before any calibration mission; stopped by its own rule, no trial run): with the look-around widened to 0.8 m the calibration on {f['m']} fire-free depot missions gave tau_h {f['tau']}, not below the default 0.05 "
+            f"({f['above']} clean worlds would already stop at 0.05; GD's 0.4 m views gave {f['narrow']}). Claims GV1-GV2 were not tested and are not counted as failed; the premise failed. "
+            f"Post hoc: the highest clean scores are the right 0.8 m view of the medicine crate, where its red cross fills the frame.")
+
+
 def gd_text_en():
     """English cell of the README table for study GD (the calibrated threshold at the depot, closed loop); empty until gd_summary.json exists."""
     g = jl('gd_summary.json')
@@ -1003,7 +1024,7 @@ def section_en(e, v):
     gdt_ = gd_text_en()
     if gdt_:
         L.append('| GD: the calibration recipe at a second site, the depot (I-51) | ' + gdt_ + ' |')
-    gvt_ = gv_text_en()
+    gvt_ = gv_text_en() or gv_stop_en()
     if gvt_:
         L.append('| GV: wide look-around views with a calibrated threshold at the depot (I-58) | ' + gvt_ + ' |')
     stage = {'E': 1, 'L': 1, 'Z': 1, 'T1': 2, 'K': 2, 'G': 3, 'W': 3, 'H': 4, 'V': 4, 'A': 4, 'S': 5, 'P': 5, 'R': 5, 'Q': 5, 'X, XD': 5, 'Y, YE, YF': 5, 'GR': 3, 'GC': 3, 'GD': 3, 'GV': 3, 'J': 6, 'I-23': 4, 'I-24': 4, 'B': 4, 'IF': 4, 'IF2': 4}

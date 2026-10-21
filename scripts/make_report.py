@@ -771,7 +771,7 @@ def sec_prereg(D, E):
             ['GR', '見回しは閉ループ・新しい世界でも火を見つけるか（評価Gの再現）', reg('GR'), gr_short(jload('gr_summary.json'))],
             ['GC', 'サイトで較正した閾値は閉ループで見逃しを減らすか（評価GRの続き、有意差は出ていない）', reg('GC'), gc_short(jload('gc_summary.json'))],
             ['GD', '較正の手順は2か所目（倉庫）でも見逃しを減らすか（評価GCの続き）', reg('GD'), gd_short(jload('gd_summary.json'))],
-            *([['GV', '倉庫で視点を0.8 mに広げ、同じ視点で閾値を較正すると見逃しは減るか（評価GDの続き）', reg('GV'), gv_short(jload('gv_summary.json'))]] if jload('gv_summary.json') else []),
+            *([['GV', '倉庫で視点を0.8 mに広げ、同じ視点で閾値を較正すると見逃しは減るか（評価GDの続き）', reg('GV'), gv_short(jload('gv_summary.json'))]] if jload('gv_summary.json') else [['GV', '倉庫で視点を0.8 mに広げ、同じ視点で閾値を較正すると見逃しは減るか（評価GDの続き）', reg('GV'), gv_stop_short()]] if (jload('gv_calibration.json') or {}).get('stop') else []),
             ['K', '保証付きの閾値は既定の閾値より良いか', reg('K'),
              (f"T2の見逃し：既定 {kk['frozen']['heldout_miss']['k']}/{kk['frozen']['heldout_miss']['n']}、保証付き(α=0.05) "
               f"{kk['alphas']['0.05']['K_PAC']['heldout_miss']['k']}/{kk['frozen']['heldout_miss']['n']}、誤警報 "
@@ -1336,6 +1336,14 @@ def gd_short(gj):
     ok = k['GD1_cal_upper_at_most_25pct'] and k['GD2_false_stops_at_most_2']
     return (f"主張 GD1・GD2 {'成立' if ok else '一部不成立'}（予測 P1・P3 は外れ）：火へ配達 較正（{GD_TAU()}）{c['k']}/{c['n']}（95%上限 {c['upper95_exact'] * 100:.1f}%）、既定 {v['k']}/{v['n']}、誤停止 "
             f"{gj['arms']['cal']['fire_free']['k']}/{gj['arms']['cal']['fire_free']['n']}")
+
+
+def gv_stop_short():
+    """Study table cell for GV when it stopped at its registered calibration stop rule (no trial was run)."""
+    c, r = jload('gv_calibration.json'), jload('gv_stop_readout.json')
+    w = r['gv_wide_0.8m']
+    return (f"登録した停止規則で中止（本番は未実施）：火のない倉庫{c['m']}世界で較正した閾値は {c['tau_cal']:.3f}（既定 0.05 以上、0.4 m の視点では {r['gd_0.4m']['tau_cal']:.3f}）、"
+            f"既定のままでも {w['n_at_or_above_default_0.05']}/{w['m']} 世界が止まる。主張 GV1・GV2 は検証していない")
 
 
 def gv_short(gj):
