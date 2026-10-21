@@ -939,3 +939,9 @@
 - **Hypothesis.** Citing the section as the other 29 supplement references do ("Supp. Sec. S12-M") fixes it, and a PDF-level scan for "??" in both PDFs would have caught it.
 - **Change.** `docs/paper/main.tex`: "Supp. Sec. S12-M"; `scripts/check_consistency.py`: two new checks (main.pdf and supplement.pdf contain no "??"); paper, README, report rebuilt.
 - **Before/After.** Before: 1 unresolved reference in main.pdf, checks silent. After: 0 in both PDFs; the new check reports MISMATCH on the previous committed PDF (verified by stashing), `check_consistency` 0 mismatches, body 8 pages with references on page 9, abstract 196 words, report main part 9 pages.
+
+## I-69 (2026-10-21): HANDOFF top block lists I-64 to I-68
+- **Motivation.** After a context reset the next session reads HANDOFF first; it still ended at I-63 and said nothing of the test-flake cause, the fresh-clone run or the new PDF check.
+- **Hypothesis.** One added bullet (with the next free log number) lets a session resume without reading the whole log.
+- **Change.** `docs/HANDOFF.md` top block: one bullet for I-64 to I-68.
+- **Before/After.** Before: HANDOFF stopped at I-63. After: it lists I-64 to I-68 and the next number (I-69 used here, next free: I-70).
