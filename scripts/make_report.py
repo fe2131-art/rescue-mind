@@ -771,6 +771,7 @@ def sec_prereg(D, E):
             ['GR', '見回しは閉ループ・新しい世界でも火を見つけるか（評価Gの再現）', reg('GR'), gr_short(jload('gr_summary.json'))],
             ['GC', 'サイトで較正した閾値は閉ループで見逃しを減らすか（評価GRの続き、有意差は出ていない）', reg('GC'), gc_short(jload('gc_summary.json'))],
             ['GD', '較正の手順は2か所目（倉庫）でも見逃しを減らすか（評価GCの続き）', reg('GD'), gd_short(jload('gd_summary.json'))],
+            *([['GV', '倉庫で視点を0.8 mに広げ、同じ視点で閾値を較正すると見逃しは減るか（評価GDの続き）', reg('GV'), gv_short(jload('gv_summary.json'))]] if jload('gv_summary.json') else []),
             ['K', '保証付きの閾値は既定の閾値より良いか', reg('K'),
              (f"T2の見逃し：既定 {kk['frozen']['heldout_miss']['k']}/{kk['frozen']['heldout_miss']['n']}、保証付き(α=0.05) "
               f"{kk['alphas']['0.05']['K_PAC']['heldout_miss']['k']}/{kk['frozen']['heldout_miss']['n']}、誤警報 "
@@ -1335,6 +1336,16 @@ def gd_short(gj):
     ok = k['GD1_cal_upper_at_most_25pct'] and k['GD2_false_stops_at_most_2']
     return (f"主張 GD1・GD2 {'成立' if ok else '一部不成立'}（予測 P1・P3 は外れ）：火へ配達 較正（{GD_TAU()}）{c['k']}/{c['n']}（95%上限 {c['upper95_exact'] * 100:.1f}%）、既定 {v['k']}/{v['n']}、誤停止 "
             f"{gj['arms']['cal']['fire_free']['k']}/{gj['arms']['cal']['fire_free']['n']}")
+
+
+def gv_short(gj):
+    """One cell of the study table for GV (wide 0.8 m views + a threshold calibrated on the same views, depot); outcome-neutral, every figure from the summary."""
+    if not gj:
+        return PEND_NOT_RUN
+    c, v, w, k, p = gj['arms']['wcal']['fire'], gj['arms']['v36']['fire'], gj['arms']['wide']['fire'], gj['criteria'], gj['paired']['v36_vs_wcal']
+    tau = json.loads((ROOT / 'experiments/gv_site_cal.json').read_text())['hazard_threshold']
+    return (f"主張 GV1・GV2 {'成立' if k['GV1_wcal_upper_at_most_15pct'] and k['GV2_false_stops_at_most_2'] else '一部不成立'}：火へ配達 広い視点＋較正（{tau}）{c['k']}/{c['n']}（95%上限 {c['upper95_exact'] * 100:.1f}%）、"
+            f"既定 {v['k']}/{v['n']}、視点だけ広げた場合 {w['k']}/{w['n']}、誤停止 {gj['arms']['wcal']['fire_free']['k']}/{gj['arms']['wcal']['fire_free']['n']}、対の比較 p={p['mcnemar_p']:.3f}")
 
 
 def gd_items(gj):
