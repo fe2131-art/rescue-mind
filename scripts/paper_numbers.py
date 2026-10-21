@@ -1505,6 +1505,16 @@ def main():
             m['WideStopHighMedRight'] = gs_['views_at_or_above_0.03_by_item_side_crop'].get('medicine/R/crop3', 0)
             m['WideStopGdMedicine'], m['WideStopGdUnsafe'] = gu_['all_arms'].get('medicine', 0), sum(gu_['all_arms'].values())
             m['WideStopGdMedicineCal'], m['WideStopGdCalUnsafe'] = gu_['cal'].get('medicine', 0), sum(gu_['cal'].values())
+            gdv_f_ = RES / 'gv_dev_analysis.json'
+            if gdv_f_.is_file():       # I-61: development scoring of two hazard questions that exclude the red cross (post hoc)
+                dv_ = json.loads(gdv_f_.read_text())
+                m['WideDevViews'] = dv_['n_views']
+                for key_, nm_ in (('h36', 'Frozen'), ('h37a', 'QA'), ('h37b', 'QB')):
+                    q_ = dv_['prompts'][key_]
+                    m['WideDevTau' + nm_] = f"{q_['clean_0.4m']['tau_alpha2']:.3f}"
+                    m['WideDevDetect' + nm_] = f"{q_['fire_runs_0.4m']['reach_tau']}/{q_['fire_runs_0.4m']['n']}"
+                    m['WideDevMedicine' + nm_] = f"{q_['fire_runs_0.4m']['by_item']['medicine']['reach_tau']}/{q_['fire_runs_0.4m']['by_item']['medicine']['n']}"
+                    m['WideDevMissed' + nm_] = f"{q_['fire_runs_0.4m']['delivered_into_fire']['reach_tau']}/{q_['fire_runs_0.4m']['delivered_into_fire']['n']}"
             m['StatGV'] = f"wide look-around with a calibrated threshold in closed loop: stopped by its registered rule (tau_cal {m.lookup('WideStopTau')} at or above 0.05), not run"
     # ---- submission snapshot: the claim column of a study without results says so (the other pending studies have no analysis macro yet)
     PEND = advice_numbers.snapshot_pending() if SNAPSHOT else set()
