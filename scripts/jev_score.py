@@ -119,10 +119,20 @@ def main(argv=None):
     from PIL import Image
     j = Judge(a.judge)
     print('yes ids', j.yes, 'no ids', j.no, flush=True)
+    failures = 0
     with out.open('a', encoding='utf8') as fh:
         for n, x in enumerate(todo, 1):
-            pic = Image.open(x['file']).convert('RGB')
-            fh.write(json.dumps({**{k: v for k, v in x.items() if k != 'file'}, 'judge': a.judge, 'score': j.hazard(pic)}) + '\n')
+            try:
+                pic = Image.open(x['file']).convert('RGB')
+                score = j.hazard(pic)
+            except Exception as e:                                # a broken image or a chat-template problem must not drop the judge silently: count and stop after 5 in a row
+                failures += 1
+                print('ERROR', x['key'], repr(e)[:200], flush=True)
+                if failures >= 5:
+                    raise SystemExit(f'{a.judge}: 5 scoring errors, stopping (fix the judge, rerun resumes)')
+                continue
+            failures = 0
+            fh.write(json.dumps({**{k: v for k, v in x.items() if k != 'file'}, 'judge': a.judge, 'score': score}) + '\n')
             fh.flush()
             if n % 100 == 0:
                 print(n, '/', len(todo), flush=True)
