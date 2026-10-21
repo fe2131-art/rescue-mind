@@ -927,3 +927,9 @@
 - **Hypothesis.** Dropping the trailing "of \GRWorlds{}" keeps the claim identical and the abstract shorter.
 - **Change.** `docs/paper/main.tex` abstract: "and in GR from 21/40 to 3/40."; rebuilt paper, README, report, registry.
 - **Before/After.** Before: 198 words, redundant denominator. After: 196 words, body 8 pages with page 9 starting at the references, report main part 9 pages, `check_consistency` 0 mismatches.
+
+## I-67 (2026-10-21): table captions described a "pending" state that no study is in
+- **Motivation.** The captions of Table II (main) and S12 (supplement) printed "pending: not yet run (or analyzed)" in the branch used when nothing is pending (the two branches of `\IfAnyPend` were the wrong way round for the all-results case), so the final PDF mentioned a status that no row has.
+- **Hypothesis.** Naming the statuses that do occur ("supported, not supported or descriptive, as registered") is accurate in the final build and leaves the pending branch for snapshots.
+- **Change.** `docs/paper/main.tex` (Table II caption) and `docs/paper/supplement.tex` (Table S12 caption); rebuilt paper, README, report, registry.
+- **Before/After.** Before: caption mentions "pending" with 0 pending studies. After: caption lists the real statuses; body still 8 pages (page 9 = references), abstract 196 words, report main part 9 pages, 0 mismatches.
