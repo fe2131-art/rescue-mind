@@ -82,13 +82,12 @@ def inventory(which: str) -> list:
     if which == 'closed_loop':
         from scripts.gv_dev_prompts import inventory as inv, VIEWS, RUNS
         rows = list(inv())
-        gvd = RES / 'campaign_GVD_ledger.jsonl'                  # development pass GVD (0.8 m views of GD's fire worlds), once it has run
-        if gvd.is_file():
-            trials = {t['id']: t for t in json.loads((ROOT / 'experiments/campaign_gvd_protocol.json').read_text(encoding='utf8'))['trials']}
-            for line in gvd.read_text(encoding='utf8').splitlines():
+        trials = {t['id']: t for t in json.loads((ROOT / 'experiments/campaign_gvd_protocol.json').read_text(encoding='utf8'))['trials']}
+        for gvd in (RES / 'campaign_GVD_ledger.jsonl', RES / 'campaign_GVD_rerun_ledger.jsonl'):      # development pass GVD (0.8 m views of GD's fire worlds); the rerun ledger holds the 2 trials that failed on the guard
+            for line in (gvd.read_text(encoding='utf8').splitlines() if gvd.is_file() else []):
                 r = json.loads(line)
                 t = trials.get(r['trial_id'])
-                if t and r.get('final', True) and r.get('run_id'):
+                if t and r.get('final', True) and r.get('run_id') and r.get('observed_action') != 'FAILED':
                     for v, fn in VIEWS.items():
                         f = RUNS / r['run_id'] / fn
                         if f.is_file():
