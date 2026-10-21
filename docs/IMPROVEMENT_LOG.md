@@ -921,3 +921,9 @@
 - **Hypothesis.** Tests and `check_consistency` depend only on tracked files, except the tests that need the third-party depot assets (skipped by design).
 - **Change.** `git clone` into the scratchpad, `pytest -q tests` and `check_consistency` there; result recorded in `docs/REPRODUCTION_RECORD.md` (second run).
 - **Before/After.** Before: only the third-party-style `make verify` run was recorded. After: fresh clone 1564 passed, 16 skipped (10 more than the working copy, all depot-asset skips), 0 failed, 0 mismatches.
+
+## I-66 (2026-10-21): abstract: "from 21/40 to 3/40 of 40 in GR" read as a duplicated denominator
+- **Motivation.** The abstract's GR clause printed the fractions `21/40` and `3/40` and then "of 40 worlds" again, so a reader meets the denominator twice (a reviewer's first-page nit).
+- **Hypothesis.** Dropping the trailing "of \GRWorlds{}" keeps the claim identical and the abstract shorter.
+- **Change.** `docs/paper/main.tex` abstract: "and in GR from 21/40 to 3/40."; rebuilt paper, README, report, registry.
+- **Before/After.** Before: 198 words, redundant denominator. After: 196 words, body 8 pages with page 9 starting at the references, report main part 9 pages, `check_consistency` 0 mismatches.
