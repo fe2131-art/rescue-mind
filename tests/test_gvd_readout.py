@@ -41,7 +41,7 @@ class Readout(unittest.TestCase):
             self.assertEqual(out['gd_unsafe_worlds'], ['W1'])
             self.assertEqual(out['gd_unsafe_below_tau'], ['W1'])
             self.assertEqual(out['failed'], ['GVD003'])
-            self.assertFalse(out['go'])                                     # a failed run blocks "go"
+            self.assertTrue(out['go'])                                      # 1 below + 1 failed = 2 <= 3 (a failed run counts as a possible miss)
 
     def test_protocol_uses_the_selected_gd_worlds_with_the_wide_open_config(self):
         p = mgvd.build()
