@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -124,7 +125,9 @@ def main(argv=None):
         for n, x in enumerate(todo, 1):
             try:
                 pic = Image.open(x['file']).convert('RGB')
+                t0 = time.perf_counter()
                 score = j.hazard(pic)
+                score['latency_s'] = round(time.perf_counter() - t0, 3)      # I-77: Jev's value is speed; the four passes (full image + three crops) per image, GPU shared with nothing else in a JH step
             except Exception as e:                                # a broken image or a chat-template problem must not drop the judge silently: count and stop after 5 in a row
                 failures += 1
                 print('ERROR', x['key'], repr(e)[:200], flush=True)
