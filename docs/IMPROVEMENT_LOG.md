@@ -915,3 +915,9 @@
 - **Hypothesis (corrected).** Load is not the cause (10 CPU spinners: old and new test both pass). A pytest started in the background of a non-interactive shell (`cmd &`, as in the cron-driven runs) has SIGINT set to SIG_IGN, Python children inherit it and never install their KeyboardInterrupt handler, so SIGINT is ignored and the supervisor escalates. Reproduced on demand by `execvp` of pytest after `signal(SIGINT, SIG_IGN)`.
 - **Change.** `tests/test_v33_supervisor_escalation.py` only: the polite child restores `signal.default_int_handler` itself; both children are awaited by readiness (`wait_for`, ready file / printed pid) instead of a fixed sleep. No source change (the supervisor behaved correctly: it escalated).
 - **Before/After.** Before: fails 1/1 when started with SIGINT ignored, and in 2 background full runs. After: passes in both settings.
+
+## I-65 (2026-10-21): the full test suite and the consistency check pass on a fresh clone of `main`
+- **Motivation.** The repository goes public from `main`; the working copy holds many untracked result files (logs, image sets, a ledger) that a visitor will not have, so a green local suite does not show that the public tree is self-consistent.
+- **Hypothesis.** Tests and `check_consistency` depend only on tracked files, except the tests that need the third-party depot assets (skipped by design).
+- **Change.** `git clone` into the scratchpad, `pytest -q tests` and `check_consistency` there; result recorded in `docs/REPRODUCTION_RECORD.md` (second run).
+- **Before/After.** Before: only the third-party-style `make verify` run was recorded. After: fresh clone 1564 passed, 16 skipped (10 more than the working copy, all depot-asset skips), 0 failed, 0 mismatches.
