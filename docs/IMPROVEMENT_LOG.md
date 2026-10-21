@@ -982,3 +982,9 @@
 - **Hypothesis.** On 120 fresh worlds of the same generator the left-only arm (`--look-around 0.8 --look-around-sides L`, tau_h 0.028) delivers into fewer fires than v3.6 (GL1: exact one-sided McNemar p < 0.05), keeps its budget bound at most 10% (k <= 6 of 120) and its false stops at most 2 of 40.
 - **Change.** `experiments/PREREGISTRATION_GL.md` (power stated: 92% / 55% at 12% -> 5% for nested / independent misses at n = 120; the confound geometry + threshold stated, GD's `cal` arm as the threshold-only control; disclosures of what was seen), `scripts/make_protocol_gl.py`, `scripts/gl_analysis.py` (+ pilot check that only the left point is scheduled), `scripts/gl_run.sh` (waits for JH, lock, masks, binding commit, pilot, OTS, campaign), `experiments/gl_site_cal.json`, `tests/test_study_gl.py` (4 tests); registration commit e075bd5; runner started.
 - **Before/After.** Before: no closed-loop test of a viewpoint change on fresh worlds. After: registered and queued; results in `experiments/results/gl_summary.json` (about 16 h after JH ends).
+
+## I-76 (2026-10-22): a trial-and-error record (the user: trial and error is also evaluated)
+- **Motivation.** The assignment is judged on creativity, technique, practicality and expression; the user noted that trial and error is evaluated too. The failures (two-AI study J, GC/GD, GV's own stop, the red-cross wording) sit in 76 log entries and a reader has to dig for them.
+- **Hypothesis.** One table (attempt, hypothesis, result, what was learned) makes the research path visible in a minute without changing any number.
+- **Change.** `docs/TRIAL_AND_ERROR.md` (11 attempts, 3 methodology lessons including the wrong "load" diagnosis of I-64 and the idle GPU of I-71), one README bullet.
+- **Before/After.** Before: failures only in the log. After: one page, linked from the README; Jev (JH) and GL rows are filled when their results exist.
