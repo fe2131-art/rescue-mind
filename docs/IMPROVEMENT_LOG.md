@@ -933,3 +933,9 @@
 - **Hypothesis.** Naming the statuses that do occur ("supported, not supported or descriptive, as registered") is accurate in the final build and leaves the pending branch for snapshots.
 - **Change.** `docs/paper/main.tex` (Table II caption) and `docs/paper/supplement.tex` (Table S12 caption); rebuilt paper, README, report, registry.
 - **Before/After.** Before: caption mentions "pending" with 0 pending studies. After: caption lists the real statuses; body still 8 pages (page 9 = references), abstract 196 words, report main part 9 pages, 0 mismatches.
+
+## I-68 (2026-10-21): main.pdf printed "Supp. Sec. ??" (unresolved reference); check added
+- **Motivation.** The clause added for study GV (I-58) cites the supplement with `\ref{sec:moved-gv}`, but the label lives in `supplement.tex` and the main paper cites the supplement by hard-coded section numbers (no cross-document reference), so the submitted `main.pdf` read "Supp. Sec. ??". `check_consistency` did not look for it (0 mismatches).
+- **Hypothesis.** Citing the section as the other 29 supplement references do ("Supp. Sec. S12-M") fixes it, and a PDF-level scan for "??" in both PDFs would have caught it.
+- **Change.** `docs/paper/main.tex`: "Supp. Sec. S12-M"; `scripts/check_consistency.py`: two new checks (main.pdf and supplement.pdf contain no "??"); paper, README, report rebuilt.
+- **Before/After.** Before: 1 unresolved reference in main.pdf, checks silent. After: 0 in both PDFs; the new check reports MISMATCH on the previous committed PDF (verified by stashing), `check_consistency` 0 mismatches, body 8 pages with references on page 9, abstract 196 words, report main part 9 pages.

@@ -487,6 +487,10 @@ def main():
             abstract = re.split(r'(?i)introduction', pt, maxsplit=1)[0][:6000]
             extra.append(('main.pdf: abstract without pending marker', 'MISMATCH' if re.search(r'TBD|\(pending\)', abstract) else 'ok', ''))
             extra.append(('main.pdf: no red "TBD" text', 'MISMATCH' if 'TBD' in pt else 'ok', ''))
+            sp_ = mp.with_name('supplement.pdf')           # a LaTeX reference that did not resolve prints "??" (I-68: main.pdf had "Supp. Sec. ??")
+            for _n, _t in (('main.pdf', pt), ('supplement.pdf', pdf_text(sp_) if sp_.is_file() else None)):
+                if _t is not None:
+                    extra.append((f'{_n}: no unresolved reference "??"', 'MISMATCH' if '??' in _t else 'ok', ''))
             try:   # page 1 in reading order (not -layout: that interleaves the two columns)
                 p1_ = subprocess.run(['docker', 'run', '--rm', '-v', f'{mp.parent}:/w:ro', LATEX_IMG, 'pdftotext', '-f', '1', '-l', '1', f'/w/{mp.name}', '-'],
                                      capture_output=True, text=True).stdout
