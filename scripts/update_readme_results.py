@@ -622,6 +622,14 @@ def section_key(e, t):
         rows.append(f"| 較正の手順は2か所目（倉庫）では誤停止の保証は成り立つが、見逃しは減らない（評価GD、新しい{gdj_['n_fire_worlds']}世界） | 火へ配達：較正した閾値（{tau_}）**{gdc_['k']}/{gdc_['n']}**（95%上限 {pct(gdc_['upper95_exact'])}、登録した線25%）、既定 0.05 は {gdv_['k']}/{gdv_['n']}{'' if better_ else '（差なし）'}、火のない世界の誤停止 {gdj_['arms']['cal']['fire_free']['k']}/{gdj_['arms']['cal']['fire_free']['n']}。倉庫の閉ループの火のない得点は画像より裾が重く、小さな火の得点はその中に入る | GD1・GD2：**{'成立' if gdok_ else '一部不成立'}**、予測P1・P3は外れ | `experiments/results/gd_summary.json` |")
     except (TypeError, KeyError):
         pass
+    gvj_ = jl('gv_summary.json')
+    try:      # wide (0.8 m) look-around with a threshold calibrated on the same views, depot, closed loop (outcome-neutral wording: every figure comes from the summary)
+        gvc_, gvv_, gvw_, gvk_, gvp_ = gvj_['arms']['wcal']['fire'], gvj_['arms']['v36']['fire'], gvj_['arms']['wide']['fire'], gvj_['criteria'], gvj_['paired']['v36_vs_wcal']
+        gvok_ = gvk_['GV1_wcal_upper_at_most_15pct'] and gvk_['GV2_false_stops_at_most_2']
+        gvtau_ = json.loads((ROOT / 'experiments/gv_site_cal.json').read_text())['hazard_threshold']
+        rows.append(f"| 倉庫で視点を0.8 mに広げ、同じ視点で閾値を較正した閉ループ評価（評価GV、新しい{gvj_['n_fire_worlds']}世界） | 火へ配達：広い視点＋較正（{gvtau_}）**{gvc_['k']}/{gvc_['n']}**（95%上限 {pct(gvc_['upper95_exact'])}、登録した線15%）、既定 v3.6 は {gvv_['k']}/{gvv_['n']}、視点だけ広げた場合は {gvw_['k']}/{gvw_['n']}、火のない世界の誤停止 {gvj_['arms']['wcal']['fire_free']['k']}/{gvj_['arms']['wcal']['fire_free']['n']}。対の比較（広い視点＋較正のみ {gvp_['discordant_wcal_only']}・既定のみ {gvp_['discordant_v36_only']}）は McNemar p={gvp_['mcnemar_p']:.3f}、時間の増加（中央値）{gvk_['time_cost_s']} 秒 | GV1・GV2：**{'成立' if gvok_ else '一部不成立'}** | `experiments/results/gv_summary.json` |")
+    except (TypeError, KeyError):
+        pass
     iff_ = advice_numbers.if_facts()
     if iff_:
         rows.append(f"| 依頼文で頼まれた物資はすり替えられない（評価IF、オフライン） | 書き換えた{iff_['n']}文のうち、注入された物資を受理 **{iff_['k']}/{iff_['n']}**（95%信頼区間 {iff_['ci'][0] * 100:.0f}〜{iff_['ci'][1] * 100:.0f}%）。依頼物資は保証の外。対策の聞き返し（I-27）は研究IF2で再測定（"
@@ -799,6 +807,20 @@ def gc_text_en():
     return (f"GC ({g['n_planned']} runs on {g['n_fire_worlds']} fresh perceivable-fire worlds, registered before the first trial, OpenTimestamps-attested): the threshold calibrated on fire-free views of the site (tau_h 0.01, through the site config) "
             f"delivered into a fire in {c['k']}/{c['n']} worlds (upper bound {pct(c['upper95_exact'])}, registered line 15%) against {v['k']}/{v['n']} with the default 0.05 (paired McNemar p={g['paired']['mcnemar_p']:.3f}, not significant); "
             f"{g['arms']['cal']['fire_free']['k']}/{g['arms']['cal']['fire_free']['n']} false stops; claims GC1-GC2 {'hold' if ok else 'do not both hold'}. The recipe needs a site: in the depot the same value would stop clean sites.")
+
+
+def gv_text_en():
+    """English cell of the README table for study GV (wide look-around + calibrated threshold at the depot, closed loop); empty until gv_summary.json exists.  Outcome-neutral wording: every figure comes from the summary."""
+    g = jl('gv_summary.json')
+    if not g:
+        return ''
+    c, v, w, k, p = g['arms']['wcal']['fire'], g['arms']['v36']['fire'], g['arms']['wide']['fire'], g['criteria'], g['paired']['v36_vs_wcal']
+    ok = k['GV1_wcal_upper_at_most_15pct'] and k['GV2_false_stops_at_most_2']
+    tau = json.loads((ROOT / 'experiments/gv_site_cal.json').read_text())['hazard_threshold']
+    return (f"GV ({g['n_planned']} runs on {g['n_fire_worlds']} fresh perceivable-fire depot worlds, registered before the first trial): look-around widened to 0.8 m with the threshold calibrated on 100 closed-loop fire-free missions with the same views (tau_h {tau}) "
+            f"delivered into a fire in {c['k']}/{c['n']} worlds (upper bound {pct(c['upper95_exact'])}, registered line 15%) against {v['k']}/{v['n']} for v3.6 and {w['k']}/{w['n']} for the wide views alone; "
+            f"{g['arms']['wcal']['fire_free']['k']}/{g['arms']['wcal']['fire_free']['n']} false stops; paired v3.6-only {p['discordant_v36_only']} / wide-calibrated-only {p['discordant_wcal_only']}, McNemar p={p['mcnemar_p']:.3f}; median time cost {k['time_cost_s']} s; "
+            f"claims GV1-GV2 {'hold' if ok else 'do not both hold'}.")
 
 
 def gd_text_en():
@@ -981,7 +1003,10 @@ def section_en(e, v):
     gdt_ = gd_text_en()
     if gdt_:
         L.append('| GD: the calibration recipe at a second site, the depot (I-51) | ' + gdt_ + ' |')
-    stage = {'E': 1, 'L': 1, 'Z': 1, 'T1': 2, 'K': 2, 'G': 3, 'W': 3, 'H': 4, 'V': 4, 'A': 4, 'S': 5, 'P': 5, 'R': 5, 'Q': 5, 'X, XD': 5, 'Y, YE, YF': 5, 'GR': 3, 'GC': 3, 'GD': 3, 'J': 6, 'I-23': 4, 'I-24': 4, 'B': 4, 'IF': 4, 'IF2': 4}
+    gvt_ = gv_text_en()
+    if gvt_:
+        L.append('| GV: wide look-around views with a calibrated threshold at the depot (I-58) | ' + gvt_ + ' |')
+    stage = {'E': 1, 'L': 1, 'Z': 1, 'T1': 2, 'K': 2, 'G': 3, 'W': 3, 'H': 4, 'V': 4, 'A': 4, 'S': 5, 'P': 5, 'R': 5, 'Q': 5, 'X, XD': 5, 'Y, YE, YF': 5, 'GR': 3, 'GC': 3, 'GD': 3, 'GV': 3, 'J': 6, 'I-23': 4, 'I-24': 4, 'B': 4, 'IF': 4, 'IF2': 4}
     i0 = L.index('|---|---|') + 1
     rows = L[i0:]
     key = lambda r_: r_[2:].split(':')[0]
