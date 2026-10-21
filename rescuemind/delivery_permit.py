@@ -225,13 +225,13 @@ class PermitGate:
         return 0.0, 0.0, prefix + why
 
 
-def build_record(mission: dict, *, image_dir, front_name: str, look_around: float = 0.0, adaptive_views: float = 0.0) -> str:
+def build_record(mission: dict, *, image_dir, front_name: str, look_around: float = 0.0, adaptive_views: float = 0.0, look_around_sides: str = 'LR') -> str:
     """The approval record the mission node publishes before the delivery leg: everything the interlock needs to redo the
     decision (station, saved model outputs incl. look-around, the applied plan with advice and caution) plus where the
     saved images are.  A snapshot: later changes to `mission` do not alter it."""
     rec = {'v': RECORD_VERSION, 'run_id': mission.get('run_id'), 'station': mission.get('checkpoint_station'),
            'expected': (mission.get('intent') or {}).get('item'), 'checkpoint': mission.get('checkpoint'),
            'plan': mission.get('memory'), 'advice_scrutiny': bool(mission.get('advice_scrutiny')),
-           'stations': mission.get('stations'), 'config': {'look_around': float(look_around), 'adaptive_views': float(adaptive_views)},
+           'stations': mission.get('stations'), 'config': {'look_around': float(look_around), 'adaptive_views': float(adaptive_views), 'look_around_sides': str(look_around_sides)},
            'images': {'dir': str(image_dir), 'front': str(front_name)}}
     return json.dumps(json.loads(json.dumps(rec)), sort_keys=True, ensure_ascii=False)

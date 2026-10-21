@@ -32,6 +32,20 @@ class Plan(unittest.TestCase):
         self.assertNotIn('--look-around', ' '.join(plan['mission'].argv))
 
 
+class OneSided(unittest.TestCase):
+    def test_sides_flag_reaches_the_mission_only_when_not_both(self):
+        plan = orch.build_plan('live', '避難所Bに飲料水を届けて', mission_timeout=900, evidence_dir=Path('/tmp/abcdef0123456789'), look_around=0.8, look_around_sides='L')
+        self.assertIn('--look-around 0.8 --look-around-sides L', ' '.join(plan['mission'].argv))
+        plan = orch.build_plan('live', '避難所Bに飲料水を届けて', mission_timeout=900, evidence_dir=Path('/tmp/abcdef0123456789'), look_around=0.8)
+        self.assertNotIn('--look-around-sides', ' '.join(plan['mission'].argv))
+
+    def test_record_carries_the_sides(self):
+        import json
+        from rescuemind import delivery_permit as dp
+        raw = dp.build_record({'run_id': 'r', 'checkpoint_station': 'water'}, image_dir='/tmp', front_name='f.jpg', look_around=0.8, look_around_sides='L')
+        self.assertEqual(json.loads(raw)['config']['look_around_sides'], 'L')
+
+
 class DenialAudit(unittest.TestCase):
     def test_extra_points_extend_the_allowed_dwell_area(self):
         import inspect

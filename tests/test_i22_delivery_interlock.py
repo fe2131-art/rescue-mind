@@ -243,6 +243,18 @@ class Deny(Base):
         fx = self.fx(look_around=False); fx.look = .4          # the node says it ran --look-around 0.4 but shows no views
         self.denied(fx.raw(), 'look_around_missing')
 
+    def test_left_only_record_needs_only_the_left_view(self):
+        # I-74: a record that declares look_around_sides 'L' is complete with the left peek alone; one that declares L but shows no left peek is denied
+        fx = self.fx()
+        raw = json.loads(fx.raw())
+        peeks = raw['checkpoint']['look_around']['peeks']
+        raw['config']['look_around_sides'] = 'L'
+        raw['checkpoint']['look_around']['peeks'] = [pk for pk in peeks if pk['side'] == 'L']
+        d = decide(json.dumps(raw), Policy(require_look_around=True))
+        self.assertTrue(d.permit, d.reason)
+        raw['checkpoint']['look_around']['peeks'] = [pk for pk in peeks if pk['side'] == 'R']
+        self.denied(json.dumps(raw), 'standard_side_views_missing', Policy(require_look_around=True))
+
     def test_only_one_side_view(self):
         fx = self.fx()
         raw = json.loads(fx.raw())

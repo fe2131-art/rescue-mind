@@ -516,6 +516,7 @@ def run_ros(route, args, record):
         vx,vy=-(cy-wy)/n,(cx-wx)/n
         d=float(args.look_around)
         pts=[('L',(round(wx-d*vx,3),round(wy-d*vy,3))),('R',(round(wx+d*vx,3),round(wy+d*vy,3)))]
+        pts=[q for q in pts if q[0] in getattr(args,'look_around_sides','LR')]      # I-74: one-sided look-around (default both sides)
         caution=((record.get('memory') or {}).get('caution') or {}).get(station) or {}
         if caution.get('first_side')=='R':
             pts.reverse()     # I-15: look first from the side that revealed the remembered hazard
@@ -693,7 +694,8 @@ def run_ros(route, args, record):
         il['phase']=dp.PHASE_DELIVER
         img=Path(args.checkpoint_image)
         il['raw']=dp.build_record(record,image_dir=img.parent,front_name=img.name,
-                                  look_around=getattr(args,'look_around',0.),adaptive_views=getattr(args,'adaptive_views',0.))
+                                  look_around=getattr(args,'look_around',0.),adaptive_views=getattr(args,'adaptive_views',0.),
+                                  look_around_sides=getattr(args,'look_around_sides','LR'))
         h=dp.record_hash(il['raw'])
         record['delivery_interlock'].update({'record_hash':h,'station':record.get('checkpoint_station'),
                                              'requested_t_wall_s':round(time.monotonic()-start,3)})
@@ -925,6 +927,8 @@ def main():
     ap.add_argument('--vlm-model',default='Qwen/Qwen2.5-VL-3B-Instruct',help='model id served on the local endpoint')
     ap.add_argument('--recovery',action='store_true',help='I-02: if the supply is missing/wrong, check the other station once')
     ap.add_argument('--explain',action='store_true',help='I-03: one-sentence Japanese report after each checkpoint (not used for decisions)')
+    ap.add_argument('--look-around-sides',choices=['LR','L','R'],default='LR',
+                    help='I-74: which side views the look-around takes (default both)')
     ap.add_argument('--look-around',type=float,default=0.0,
                     help='I-14: after an approval, look again from this far (m) left and right of the station waypoint')
     ap.add_argument('--jev-url',default=None,help='I-13: local Jev-role model (Clef-Flash) URL; both models must approve')
