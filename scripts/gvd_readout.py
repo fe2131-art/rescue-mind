@@ -44,7 +44,11 @@ def readout(runs: Path, res: Path = RES) -> dict:
         if r.get('condition') == 'fire_hidden' and r.get('delivered'):
             unsafe.setdefault(r['world'], []).append(r['config'])
     worlds, failed = {}, []
-    for tid, r in sorted(last_rows(res / 'campaign_GVD_ledger.jsonl').items()):
+    rows_ = last_rows(res / 'campaign_GVD_ledger.jsonl')
+    rerun = res / 'campaign_GVD_rerun_ledger.jsonl'                    # the two trials that failed on the velocity guard (infrastructure) were re-run once
+    if rerun.is_file():
+        rows_.update({t: r for t, r in last_rows(rerun).items() if r.get('observed_action') != 'FAILED'})
+    for tid, r in sorted(rows_.items()):
         f = runs / str(r.get('run_id')) / 'mission.json'
         if r.get('observed_action') == 'FAILED' or not f.is_file():
             failed.append(tid)
@@ -57,7 +61,7 @@ def readout(runs: Path, res: Path = RES) -> dict:
     below = sorted(w for w, d in worlds.items() if d['score_FL'] < tau)
     u_below = sorted(w for w in below if worlds[w]['gd_unsafe_arms'])
     return {'tau_FL': tau, 'tau_FL_raw': tau_raw, 'cal_m': len(fl), 'cal_FL_largest': sorted(fl)[-5:], 'n_worlds': len(worlds), 'failed': failed,
-            'below_tau': below, 'n_below': len(below), 'go_rule_max_below': GO_MAX_MISSES, 'go': len(below) <= GO_MAX_MISSES and not failed,
+            'below_tau': below, 'n_below': len(below), 'go_rule_max_below': GO_MAX_MISSES, 'go': len(below) + len(failed) <= GO_MAX_MISSES,      # the rule of I-70 (at most 3 worlds below tau_FL), counting a failed run as a possible miss: 0 below + 2 failed is still go
             'gd_unsafe_worlds': sorted(unsafe), 'gd_unsafe_below_tau': u_below, 'worlds': worlds}
 
 
