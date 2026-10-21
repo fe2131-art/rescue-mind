@@ -65,3 +65,14 @@ No failure; no missing file; no author-machine path was needed. Documentation an
    (an old file from a previous run was in fact present and was overwritten). New Make variable `SMT_TMP` (default `/tmp`, so behaviour is unchanged); documented.
 
 Not exercised here: `make numbers`, `make check`, `make test`, `make verify-quick` as separate targets (`docs/REPRODUCE.md` section 9 records them on the reference host).
+
+## Second run (2026-10-21): the full test suite and the consistency check on a fresh clone of `main` (commit `4df45aa`, host python, no depot assets)
+
+`git clone` of the working repository, then `python3 -m pytest -q tests` and `python3 scripts/check_consistency.py` inside the clone, nothing else installed or copied.
+
+| | Working copy | Fresh clone |
+|---|---|---|
+| pytest | 1574 passed, 6 skipped, 0 failed (454 s) | **1564 passed, 16 skipped, 0 failed** (456 s) |
+| `check_consistency` | 0 mismatches | **0 mismatches**, abstract 198 words |
+
+The 10 extra skips are tests that need the third-party depot assets (`scripts/fetch_depot_assets.sh`, not bundled; `tests/test_depot.py`, `test_study_x.py`, `test_study_ye.py`), skipped with that reason by design, not tests that depend on untracked result files.
