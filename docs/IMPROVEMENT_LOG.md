@@ -903,3 +903,9 @@
 - **Change.** Stated in the supplement (GV subsection), FINDINGS #45, HANDOFF; no new study registered.
 - **Before/After.** Before: next step undecided. After: the plug-in budget stays the paper's number; further work would need new viewpoints chosen by geometry, not a threshold or a wording.
 - **Addendum (image-level estimate of a left-only wide view; post hoc, CPU only, not run).** With thresholds taken from the closed-loop calibrations (rank rule alpha = 2%) and applied to XD's 120 perceivable hard-class worlds: 0.4 m F+L+R at GD's 0.028 misses 11/120 (9.2%; GD's closed loop gave 10/80 runs, 12.5%, so the image estimate is in the right range); 0.8 m F+L2 at 0.028 (the left and front clean tails transfer from image level to closed loop: left max 0.028 against 0.033, front 0.021 against 0.028; only the right view diverged) misses 5/100 (5%); F+L2+R2 would need 0.0706 and misses 2/100. A left-only 0.8 m study would need a mission change (one-sided look-around) and an expected effect of about 9% -> 5% (about 2 vs 4 misses in 40 worlds), which 40 worlds cannot show (McNemar needs 6 vs 0). Not registered; stated as the remaining lever.
+
+## I-63 (2026-10-21): README results table: the GD and GV rows had a fourth cell
+- **Motivation.** The top README table has three columns (claim, result, state); the GD row (I-51) and the GV row (I-58) appended the result file as a fourth cell, which GitHub drops when rendering, so the evidence-file pointer of both rows was invisible on the public page.
+- **Hypothesis.** A script that checks every table block for a constant number of cells finds no other irregular row.
+- **Change.** `scripts/update_readme_results.py`: the file pointer moves into the state cell of both rows (the other rows were regular).
+- **Before/After.** Before: 2 rows with 4 cells in a 3-column table. After: all 14 table blocks of the README have a constant cell count (checked); `check_consistency` 0 mismatches.
