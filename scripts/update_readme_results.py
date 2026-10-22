@@ -633,6 +633,14 @@ def section_key(e, t):
     gvs_ = gv_stop_facts()
     if gvs_ and not gvj_:      # GV stopped at its registered calibration stop rule: no trial was run
         rows.append(f"| 倉庫で視点を0.8 mに広げれば、較正した閾値で見逃しを減らせるか（評価GV：登録した停止規則で中止、本番は未実施） | 火のない倉庫{gvs_['m']}世界で較正すると閾値が {gvs_['tau']}（既定 0.05 以上）になり、既定 0.05 のままでも {gvs_['above']} 世界が止まる。0.4 m の視点（GD）では 0.028。最大の得点は薬の箱の右側の視点（赤い十字が画面を占める）に集中した（事後の観察） | 主張 GV1・GV2 は検証していない（失敗した主張には数えない）。前提（0.8 m で下げられる）は外れた（`experiments/results/gv_calibration.json`） |")
+    qi_ = jl('qi_summary.json')
+    try:      # generated and photo-realised images scored by the frozen gate (registered QI1, QI2, QI3, QI3c; outcome-neutral wording: every figure comes from the summary)
+        qr_, qb_ = qi_['R'], qi_['xd_baseline']['miss']
+        qg_ = qi_['G']['excluded']
+        qc_ = qi_['claims']
+        rows.append(f"| 画像生成モデルで写実化した画像でも、凍結したゲートは火を見つけるか（評価QI） | 写実化したフレームの見逃し {qr_['miss']['k']}/{qr_['miss']['n']}（上限 {pct(qr_['miss']['upper95'])}、元のシミュレータ画像 {qb_['k']}/{qb_['n']}、登録した線 20）、火なし世界の誤停止 {qr_['false_stops']['k']}/{qr_['false_stops']['n']}。描き足した火は {qg_['n_excluded']}/{qg_['n_generated']} 枚が炎の色を持たず登録した停止規則で止まり、中立の対照編集は {qi_['C']['flips']}/{qi_['C']['n']} の双子を危険と判定させた（生成器が煙を描いたため）。シミュレータの灰色の煙の円盤が写実的な背景に残ると見逃す | 誤停止のみ **{'支持' if qc_.get('QI3_realised_false_stops_small') else '不成立'}**、見逃し（QI1）**{'支持' if qc_.get('QI1_realised_miss_not_much_worse') else '不成立'}**、生成した火（QI2）**{'支持' if qc_.get('QI2_generated_fire_miss_rate') else '不成立（停止規則）'}**、対照編集（QI3c）**{'支持' if qc_.get('QI3c_control_edits_do_not_create_hazards') else '不成立'}** |")
+    except (TypeError, KeyError):
+        pass
     gl_ = jl('gl_summary.json')
     try:      # left-only 0.8 m look-around at the depot, fresh worlds (registered GL1-GL3; outcome-neutral wording: every figure comes from the summary)
         glk_, glv_, glf_, glp_, glc_ = gl_['arms']['left']['fire'], gl_['arms']['v36']['fire'], gl_['arms']['left']['fire_free'], gl_['paired'], gl_['criteria']
