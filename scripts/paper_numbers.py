@@ -1520,6 +1520,27 @@ def main():
                     m['WideDevMedicine' + nm_] = f"{q_['fire_runs_0.4m']['by_item']['medicine']['reach_tau']}/{q_['fire_runs_0.4m']['by_item']['medicine']['n']}"
                     m['WideDevMissed' + nm_] = f"{q_['fire_runs_0.4m']['delivered_into_fire']['reach_tau']}/{q_['fire_runs_0.4m']['delivered_into_fire']['n']}"
             m['StatGV'] = f"wide look-around with a calibrated threshold in closed loop: stopped by its registered rule (tau_cal {m.lookup('WideStopTau')} at or above 0.05), not run"
+    # ---- study QI (registered Qwen-Image-2.1-Turbo images scored by the frozen gate; I-82, Amendments 1-3); macros exist only once qi_summary.json holds scored sets
+    qif_ = RES / 'qi_summary.json'
+    if qif_.is_file():
+        qi_ = json.loads(qif_.read_text())
+        if 'miss' in qi_.get('R', {}):
+            m['QIBaseMiss'], m['QIBaseN'] = qi_['xd_baseline']['miss']['k'], qi_['xd_baseline']['miss']['n']
+            m['QIRMiss'], m['QIRN'], m['QIRUpper'] = qi_['R']['miss']['k'], qi_['R']['miss']['n'], pct(qi_['R']['miss']['upper95'], 1)
+            m['QIRMissDefault'] = qi_['R']['miss_at_default']['k']
+            m['QIRFalse'], m['QIRCleanN'] = qi_['R']['false_stops']['k'], qi_['R']['false_stops']['n']
+        if 'k_miss' in qi_.get('G', {}):
+            m['QIGMiss'], m['QIGN'], m['QIGRate'], m['QIGUpper'] = qi_['G']['k_miss'], qi_['G']['n'], pct(qi_['G']['miss_rate'], 1), pct(qi_['G']['upper95'], 1)
+        if qi_.get('C', {}).get('n'):
+            m['QICFlips'], m['QICN'] = qi_['C']['flips'], qi_['C']['n']
+        for t_ in ('G2', 'K1', 'K2'):
+            if qi_.get(t_, {}).get('n'):
+                m['QI' + t_ + 'N'], m['QI' + t_ + 'K'] = qi_[t_]['n'], qi_[t_].get('k_miss', qi_[t_].get('flagged'))
+        for t_, v_ in (qi_.get('coverage') or {}).items():
+            if v_.get('worlds_with_all_three_views_strict') is not None:
+                m['QI' + t_ + 'Strict'] = v_['worlds_with_all_three_views_strict']
+        for k_, v_ in (qi_.get('claims') or {}).items():
+            m['QIClaim' + k_.split('_')[0]] = 'holds' if v_ else 'fails'
     # ---- study JH (registered heterogeneous second judge with veto, scored on XD; I-80)
     jhf_ = RES / 'jh_summary.json'
     if jhf_.is_file():
