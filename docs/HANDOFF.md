@@ -7,6 +7,15 @@
 
 ---
 
+## ★ 最新（2026-10-22 夜）：GL 実行中、JH 不成立、QI は GL 終了後に自動開始（I-78〜I-83）
+
+* **実行中（バックグラウンド）**：`bash scripts/gl_run.sh`（研究 GL、320本中およそ290完了、インフラ失敗3件）→終了後に `bash scripts/qi_run.sh`（研究 QI、Qwen-Image-2.1-Turbo、自動開始）。監視は `bash scripts/bg_watch.sh`（終了・abort/FAIL マーカー・45分無進捗で通知）。GPU が空なら `scripts/idle_check.sh` が教える。
+* **JH（I-80）**：第2審判（InternVL3-8B）の登録主張 JH1 は不成立（残り見逃し14→10、基準は9以下）。`failed_claims()` に JH1 を追加済み（15件目）。**論文・README・説明資料の再ビルドは GL/QI 終了後**に行い、そこで件数 14→15 を HANDOFF・README・論文マクロに反映し `check_consistency.py` を通す。
+* **GL の結果が出たら**：`experiments/results/gl_summary.json`（GL1 が主要。不成立なら failed_claims に追加）。→ 補足資料・FINDINGS・README・説明資料・TRIAL_AND_ERROR に反映。
+* **QI の結果が出たら**：`experiments/results/qi_summary.json`（基準線は 14/126 と 0/104 に一致するはず）。失敗した QI1〜3 は failed_claims へ。ポストパイロットの fp16/bf16、生成速度、`qi_excluded.json` を確認。
+* **次の候補**：閉ループ Jev（`--judge`、JH 選定 InternVL3 tau_J 0.902、GPU 未実行）、運転審判の研究（登録先行）、関連研究の比較表、FINAL=1 ビルドと SUBMISSION_CHECKLIST。
+* **失敗の教訓**：同一ファイルへ書く curl は1本だけ（InternVL3 の破損）。ダウンロードはハブの `?blobs=true` でサイズ検証。`rm` 禁止（`~/rescue-mind-trash/` へ）。
+
 ## ★ 最新（2026-10-21 13:50）：研究 GV は登録した停止規則で中止（I-58、I-60）。本番168試行は実施していない
 
 * **結果**：火のない倉庫100世界（閾値を切った実ミッション、失敗0）の較正で、2%の規則の閾値 **0.071**（0.05 以上）→停止規則が働き、GV は走らせない。0.4 m の視点（GD）は 0.028。既定 0.05 のままでも100世界中4世界が止まる。主張 GV1・GV2 は未検証（失敗した主張には**数えない**）。登録の拘束コミットは `350d14a`（結果 `76f7920` より前）。外部 OTS は作っていない（予行の後の手順のため）。
