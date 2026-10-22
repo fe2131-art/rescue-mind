@@ -5,7 +5,7 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 RES=experiments/results
 IN_NEXT=(docker exec rm-next rescuemind-entrypoint)
-abort() { echo "QI_ABORT: $*" >&2; exit 1; }
+abort() { echo "QI_ABORT: $*" | tee -a experiments/results/qi_run.log >&2; exit 1; }
 for _ in $(seq 1 1440); do pgrep -f '^bash scripts/gl_run\.sh$' >/dev/null || break; sleep 60; done          # study GL first (one GPU, one lock)
 exec 9>/tmp/rescuemind_campaign.lock
 flock 9
@@ -35,7 +35,7 @@ curl -s -m 5 http://127.0.0.1:8765/health | grep -q ready || abort "gate server 
 for m in R G C; do
   [ -f "$RES/devset_qi_${m}_h36_tiles.json" ] && continue
   [ -s "outputs/qi/devset_$m/labels.jsonl" ] || continue
-  python3 scripts/vlm_devset_eval.py --model Qwen/Qwen3.5-9B --devset outputs/qi/devset_$m --tag qi_${m}_h36_tiles > "$RES/qi_score_$m.log" 2>&1 || echo "QI_NOTE: scoring $m failed"
+  python3 scripts/vlm_devset_eval.py --model Qwen/Qwen3.5-9B --devset outputs/qi/devset_$m --tag qi_${m}_h36_tiles > "$RES/qi_score_$m.log" 2>&1 || abort "QI_FAIL scoring $m failed (qi_score_$m.log)"
 done
 "${IN_NEXT[@]}" pkill -f local_vlm_server.py >/dev/null 2>&1 || true
 for j in internvl3 idefics3 smolvlm2; do            # P3 (descriptive): the other families on the generated fires and the control edits
