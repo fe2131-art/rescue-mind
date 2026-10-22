@@ -48,7 +48,7 @@ Verify any row: `git log 587f033^1 --first-parent --format='%h %cI' --diff-filte
 | GV | `f6310cc` 2026-10-21T08:12 | `de478aabd72cd221` | `76f7920` 2026-10-21T13:00 | `de478aabd72cd221` | yes | `f6310cc` 2026-10-21T08:12 | `de478aabd72cd221` (= bound) |
 | JH | `7c7d6ce` 2026-10-21T22:50 | `2ee6d73e1791e9b9` | `a323a3f` 2026-10-22T12:20 | `2ee6d73e1791e9b9` | yes | `7c7d6ce` 2026-10-21T22:50 | `2ee6d73e1791e9b9` (= bound) |
 | GL | `e075bd5` 2026-10-22T00:14 | `bf31c565f9b21c84` | `318b848` 2026-10-22T23:39 | `bf31c565f9b21c84` | yes | `e075bd5` 2026-10-22T00:14 | `bf31c565f9b21c84` (= bound) |
-| QI | `b691593` 2026-10-22T20:58 | `909586248325770b` | -- | -- | no results yet | `b691593` 2026-10-22T20:58 | `909586248325770b` (= bound) |
+| QI | `b691593` 2026-10-22T20:58 | `909586248325770b` | -- | -- | no results yet | `a25b184` 2026-10-23T00:03 | `63db6e806b543985` |
 
 ## Amendments
 
@@ -76,6 +76,7 @@ One row per `Amendment` heading in a registration file (the rows of the amendmen
 | YF | 1 | `11d7599` 2026-10-19T20:12 | -- | -- | `0fa75e9` 2026-10-19T23:49 | yes |
 | GC | 1 | `3df94ac` 2026-10-20T18:05 | -- | -- | `2e50aa7` 2026-10-20T22:47 | yes |
 | GD | 1 | `a230246` 2026-10-20T23:52 | -- | -- | `47ff908` 2026-10-21T07:42 | yes |
+| QI | 1 | `a25b184` 2026-10-23T00:03 | 2026-10-23 | no | none yet | no results yet |
 
 * Study A: the A campaign (226 trials) started 2026-10-18 11:11 JST (first trial A001): after both amendments and after the commits above.
 

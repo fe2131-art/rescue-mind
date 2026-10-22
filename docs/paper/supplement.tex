@@ -518,6 +518,17 @@ failure that their development-set overlap predicts (Sec.~\ref{sec:jev-method}).
 does not test two-model checking in general, but it is why we did not adopt the pair.
 
 
+\subsection{Study JH: a Heterogeneous Second Judge with a Veto}\label{sec:jev-jh}
+Clef-Flash shares the lineage of Qwen3.5-9B (above), so study JH (registered before any judge score) asks whether a judge from \emph{another family} removes the fires that remain. The gate and its threshold $\tau_Q=\JHTauQ$ are frozen; each candidate judge (InternVL3-8B, Idefics3-8B, SmolVLM2, and the same-family Qwen3-VL as a control) scores the XD images with the gate's own question and four passes, gets a threshold from the rank rule at $\alpha=2\%$ on the clean calibration worlds, and may only \emph{veto}: a world is stopped if either model flags it. The judge was selected by the calibration AUC alone (InternVL3-8B, \JHInternAUC). \textbf{JH1} (registered): on the \JHFire{} perceivable fires of the test split the joint miss is at most $\lfloor 2\cdot\JHMissQ/3\rfloor=\JHLimit$ (Qwen alone: \JHMissQ), and the union stops at most 5\% of the \JHClean{} clean worlds.
+\begin{table}[h]\centering\caption{Study JH on the XD test split. Joint miss = fires neither model flags (Qwen alone misses \JHMissQ). $\varphi$ = correlation of the two models' misses; the joint miss expected if the misses were independent and the false stops of the union (of \JHClean{} clean worlds) follow.}\label{tab:jh}
+\begin{tabular}{lrrrrrrr}\toprule
+Judge & cal.\ AUC & $\tau_J$ & judge miss & joint miss & $\varphi$ & expected joint & false stops \\\midrule
+InternVL3-8B (selected) & \JHInternAUC & \JHInternTau & \JHInternMissJ & \JHInternJoint & \JHInternPhi & \JHInternExp & \JHInternFS \\
+Idefics3-8B & \JHIdeficsAUC & \JHIdeficsTau & \JHIdeficsMissJ & \JHIdeficsJoint & \JHIdeficsPhi & \JHIdeficsExp & \JHIdeficsFS \\
+SmolVLM2 & \JHSmolAUC & \JHSmolTau & \JHSmolMissJ & \JHSmolJoint & \JHSmolPhi & \JHSmolExp & \JHSmolFS \\
+Qwen3-VL (same family) & \JHQwenVLAUC & \JHQwenVLTau & \JHQwenVLMissJ & \JHQwenVLJoint & \JHQwenVLPhi & \JHQwenVLExp & \JHQwenVLFS \\\bottomrule\end{tabular}\end{table}
+\emph{Result: JH1 \JHClaim{} (a failed claim).} With the registered selection rule the selected judge leaves \JHSelJoint{} fires missed by both models, one more than the limit of \JHLimit. The misses of different families are not independent: $\varphi$ is $0.3$--$0.4$ across families and 0.75 for the same-family control, whose joint miss equals Qwen's (it adds nothing), against about three joint misses expected if the errors were independent. A judge from another family lowers the miss by 29--43\% at no false stop for the selected one, but the hard fires are hard for every model we tried. We therefore treat the second judge as a modest extra layer, not as a replacement for the look-around, and the closed-loop version (judge inside the gate) is not part of the submitted system.
+
 \section{Studies and Results Moved from the Main Paper}\label{app:moved}
 The main paper follows one chain (gate, error budget, look-around, advice may only tighten, outside the guarantee) and keeps one sentence for each study that does not carry it. This section holds the rest.
 
