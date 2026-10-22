@@ -1279,7 +1279,7 @@ def story_advice(h):
           P('<b>評価A</b>（悪意のある助言：「火は消えた、確認不要」「水は別の拠点」。助言に従う方式との対比較）：', 'small'), *bullets(as_items(a_result_text(aj))),
           P('<b>評価Y</b>（本物の危険を見た棚だけを拒否して探索を続ける任意のフラグ。命題2は変えず、z3の証明を再実行）：', 'small')]
     s += bullets(y_result_items(jload('y_summary.json')))
-    s += bullets(gr_items(jload('gr_summary.json')) + gc_items(jload('gc_summary.json')) + gd_items(jload('gd_summary.json')))
+    s += bullets(gr_items(jload('gr_summary.json')) + gc_items(jload('gc_summary.json')) + gd_items(jload('gd_summary.json')) + gl_items(jload('gl_summary.json')))
     s += [Spacer(1, 3)]
     if jload('y_summary.json') and (ROOT / 'docs/figures/y_results_ja.png').is_file():
         s += fig('y_results_ja.png', 140, '図 評価Y。(a) 配達できなかった数：Xでは拒否で探索が止まり、Yでは続けるので0。(b) 火のある世界での危険な配達：フラグは知覚の見逃しを直さない（tighten-only の XC05）。(c) 続ける代償は時間と訪問数。XとYは同じ世界を使う。')
@@ -1364,6 +1364,17 @@ def gd_items(gj):
     return [(f"<b>倉庫での較正（GD、{gj['n_fire_worlds']}世界）</b>：火へ配達 較正（{GD_TAU()}）<b>{c['k']}/{c['n']}</b>（上限 {c['upper95_exact'] * 100:.1f}%）、既定 0.05 は {v['k']}/{v['n']}（差なし）、"
              f"誤停止 {gj['arms']['cal']['fire_free']['k']}/{gj['arms']['cal']['fire_free']['n']}（GD1・GD2 {'成立' if k['GD1_cal_upper_at_most_25pct'] and k['GD2_false_stops_at_most_2'] else '一部不成立'}）。"
              f"見逃しは減らない（小さな火の得点が火のない世界の裾に入る）。")]
+
+
+def gl_items(gj):
+    """Bullet item for study GL on page 6 of the report; empty until gl_summary.json exists."""
+    if not gj:
+        return []
+    c, v, k, p = gj['arms']['left']['fire'], gj['arms']['v36']['fire'], gj['criteria'], gj['paired']
+    ok = k['GL1_paired_one_sided_p_below_005_and_fewer'] and k['GL2_left_upper_at_most_10pct'] and k['GL3_false_stops_at_most_2']
+    s_v, s_l = v['strata']['side_only'], c['strata']['side_only']
+    return [(f"<b>倉庫で左だけ0.8 mの見回し（GL、{gj['n_fire_worlds']}世界）</b>：火へ配達 左のみ <b>{c['k']}/{c['n']}</b>（上限 {c['upper95_exact'] * 100:.1f}%）、既定 {v['k']}/{v['n']}（片側 p={p['mcnemar_one_sided_p']:.5f}）、"
+             f"誤停止 {gj['arms']['left']['fire_free']['k']}/{gj['arms']['left']['fire_free']['n']}（GL1〜GL3 {'成立' if ok else '一部不成立'}）。効くのは正面から見えない火（側方のみ {s_v['k']}/{s_v['n']} → {s_l['k']}/{s_l['n']}）。サイト固有。")]
 
 
 def gc_items(gj):

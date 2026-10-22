@@ -310,6 +310,18 @@ def line_gd(res):
         return ''
 
 
+def line_gl(res):
+    """Study GL (left-only 0.8 m look-around with a calibrated threshold, depot, fresh worlds, closed loop): numbers from the result file; outcome-neutral wording; empty until it exists."""
+    g = jload(Path(res) / 'gl_summary.json')
+    try:
+        c, v, k, p = g['arms']['left']['fire'], g['arms']['v36']['fire'], g['criteria'], g['paired']
+        ok = k['GL1_paired_one_sided_p_below_005_and_fewer'] and k['GL2_left_upper_at_most_10pct'] and k['GL3_false_stops_at_most_2']
+        return (f"・倉庫で左だけ0.8 mの見回し＋較正した閾値（0.028）を新しい{g['n_fire_worlds']}世界で検証（評価GL・{g['n_with_result']}試行）：火へ配達は 左のみ {c['k']}/{c['n']}（95%上限 {c['upper95_exact'] * 100:.1f}%）、既定 {v['k']}/{v['n']}"
+                f"（対の比較 片側 p={p['mcnemar_one_sided_p']:.5f}）、火のない世界の誤停止 {g['arms']['left']['fire_free']['k']}/{g['arms']['left']['fire_free']['n']}。主張 GL1〜GL3 {'成立' if ok else '一部不成立'}（サイト固有の選択肢、既定は変えない）")
+    except (TypeError, KeyError):
+        return ''
+
+
 def line_gv(res):
     """Study GV (wide 0.8 m look-around views with a threshold calibrated on the same views, depot, closed loop): numbers from the result file; outcome-neutral; empty until it exists."""
     g = jload(Path(res) / 'gv_summary.json')
@@ -404,7 +416,7 @@ def line_pending(res):
 
 
 def number_lines(res):
-    fns = (line_t1, line_t2, line_z, line_r, line_p, line_l, line_h, line_v, line_w, line_xd, line_a, line_y, line_gr, line_gc, line_gd, line_gv, line_if, line_j, line_pending)
+    fns = (line_t1, line_t2, line_z, line_r, line_p, line_l, line_h, line_v, line_w, line_xd, line_a, line_y, line_gr, line_gc, line_gd, line_gv, line_gl, line_if, line_j, line_pending)
     return [x for x in (f(res) for f in fns) if x]
 
 
