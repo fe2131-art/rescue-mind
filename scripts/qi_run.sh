@@ -11,7 +11,7 @@ exec 9>/tmp/rescuemind_campaign.lock
 flock 9
 grep -q FETCH_DONE "$RES/qi_fetch.log" && ! grep -q "^BAD" "$RES/qi_fetch.log" || abort "weights incomplete (qi_fetch.log)"
 git ls-files --error-unmatch experiments/PREREGISTRATION_QI.md >/dev/null 2>&1 || abort "PREREGISTRATION_QI.md is not committed"
-gen() { "${IN_NEXT[@]}" bash -c "cd $PWD && HF_HUB_OFFLINE=1 PYTHONPATH=/hf/qi_pylib python3 scripts/qi_generate.py $*"; }
+gen() { "${IN_NEXT[@]}" bash -c "cd $PWD && HF_HUB_OFFLINE=1 PYTHONPATH=/hf/qi_pylib python3 scripts/qi_generate.py --fast $*"; }
 DT=float16
 if [ ! -s "$RES/qi_manifest_G_pilot.jsonl" ]; then
   gen --mode G --limit 3 --tag _pilot --dtype float16 >> "$RES/qi_generate.log" 2>&1 || { DT=bfloat16; gen --mode G --limit 3 --tag _pilot --dtype bfloat16 >> "$RES/qi_generate.log" 2>&1 || abort "pilot failed in fp16 and bf16 (qi_generate.log)"; }

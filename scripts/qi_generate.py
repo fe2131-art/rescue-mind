@@ -79,11 +79,18 @@ def inventory(mode: str, split: str, views: list) -> list:
     return items
 
 
-def load_pipe(dtype: str):
+CHUNK = 12
+
+
+def load_pipe(dtype: str, fast: bool = False):
     import torch
     from diffusers import QwenImage21Pipeline
     pipe = QwenImage21Pipeline.from_pretrained(MODEL, dtype=getattr(torch, dtype))
-    pipe.enable_model_cpu_offload()
+    if fast:
+        QwenImage21Pipeline._execution_device = property(lambda self: torch.device('cuda'))    # no offload hooks: the models are moved by hand
+        pipe.vae.to('cuda')
+    else:
+        pipe.enable_model_cpu_offload()
     return pipe, torch
 
 
@@ -102,6 +109,7 @@ def main(argv=None):
     ap.add_argument('--dtype', default='float16', choices=['float16', 'bfloat16', 'float32'])
     ap.add_argument('--tag', default='')
     ap.add_argument('--prompt-key', default=None, help='development pilots only: a key of PROMPTS other than the mode (e.g. R2, R3)')
+    ap.add_argument('--fast', action='store_true', help='chunked two-phase run: text encoder and transformer take turns on the GPU (no per-image offload)')
     ap.add_argument('--only', default='', help='development pilots only: comma-separated substrings of the image keys')
     a = ap.parse_args(argv)
     from PIL import Image
@@ -109,7 +117,9 @@ def main(argv=None):
     out_dir.mkdir(parents=True, exist_ok=True)
     manifest = RES / f'qi_manifest_{a.mode}{a.tag}.jsonl'
     done = {json.loads(x)['key'] for x in manifest.read_text(encoding='utf8').splitlines() if x.strip()} if manifest.is_file() else set()
-    todo = [x for x in inventory(a.mode, a.split, a.views.split(',')) if x['key'] not in done]
+    inv = inventory(a.mode, a.split, a.views.split(','))
+    seed_of = {x['key']: 20261022 + n for n, x in enumerate(inv, 1)}       # the seed belongs to the image (its place in the inventory), not to the order of this run
+    todo = [x for x in inv if x['key'] not in done]
     if a.only:
         todo = [x for x in todo if any(k in x['key'] for k in a.only.split(','))]
     if a.limit:
@@ -117,15 +127,58 @@ def main(argv=None):
     print(f'mode {a.mode}: {len(todo)} images to generate', flush=True)
     if not todo:
         return
-    pipe, torch = load_pipe(a.dtype)
-    with manifest.open('a', encoding='utf8') as fh:
-        for n, x in enumerate(todo, 1):
-            base = Image.open(BASE / x['src']).convert('RGB')
-            base_np = np.asarray(base)
+    pipe, torch = load_pipe(a.dtype, a.fast)
+    prompt = PROMPTS[a.prompt_key or a.mode]
+
+    def one(x):
+        base = Image.open(BASE / x['src']).convert('RGB')
+        return base, base.resize((W, H), Image.LANCZOS).convert('RGBA'), torch.Generator('cpu').manual_seed(seed_of[x['key']])
+
+    def stream():
+        """Yields (x, base, res, latency_s).  Default: the pipeline's own CPU offload, image by image.  --fast: chunks of CHUNK images, the text encoder
+        embeds the chunk (the embeddings of an edit cover the condition image, so they are made per image), then the transformer denoises it: no model moves per image."""
+        if not a.fast:
+            for x in todo:
+                base, img, gen = one(x)
+                t0 = time.perf_counter()
+                res = pipe(prompt=prompt, image=img, width=W, height=H, use_kv_cache=True, generator=gen).images[0]
+                yield x, base, res, round(time.perf_counter() - t0, 2)
+            return
+        orig = pipe.encode_prompt
+
+        class Enough(Exception):
+            pass
+        for c in range(0, len(todo), CHUNK):
+            chunk, cache = todo[c:c + CHUNK], []
             t0 = time.perf_counter()
-            res = pipe(prompt=PROMPTS[a.prompt_key or a.mode], image=base.resize((W, H), Image.LANCZOS).convert('RGBA'), width=W, height=H, use_kv_cache=True,
-                       generator=torch.Generator('cpu').manual_seed(20261022 + n)).images[0]
-            lat = round(time.perf_counter() - t0, 2)
+            pipe.transformer.to('cpu')
+            pipe.text_encoder.to('cuda')
+
+            def record(*args, **kw):
+                cache.append(tuple(t.cpu() if t is not None else None for t in orig(*args, **kw)))
+                raise Enough
+            pipe.encode_prompt = record
+            for x in chunk:
+                base, img, gen = one(x)
+                try:
+                    pipe(prompt=prompt, image=img, width=W, height=H, use_kv_cache=True, generator=gen)
+                except Enough:
+                    pass
+            pipe.text_encoder.to('cpu')
+            torch.cuda.empty_cache()
+            pipe.transformer.to('cuda')
+            t_enc = (time.perf_counter() - t0) / len(chunk)
+            for x, emb in zip(chunk, cache):
+                base, img, gen = one(x)
+                pipe.encode_prompt = lambda *args, _e=emb, **kw: tuple(t.to('cuda') if t is not None else None for t in _e)
+                t1 = time.perf_counter()
+                res = pipe(prompt=prompt, image=img, width=W, height=H, use_kv_cache=True, generator=gen).images[0]
+                yield x, base, res, round(t_enc + time.perf_counter() - t1, 2)
+        pipe.encode_prompt = orig
+
+    with manifest.open('a', encoding='utf8') as fh:
+        for n, (x, base, res, lat) in enumerate(stream(), 1):
+            base_np = np.asarray(base)
             edited = np.asarray(res.convert('RGB').resize(base.size, Image.LANCZOS))
             if x['mask']:
                 m = fire_pixels_of(np.asarray(Image.open(BASE / x['mask']).convert('RGB')))
@@ -137,7 +190,7 @@ def main(argv=None):
                 final = edited
                 qc = {'mean_abs_diff': round(float(np.abs(edited.astype(np.int16) - base_np.astype(np.int16)).mean()), 2)}
             Image.fromarray(final).save(out_dir / (x['key'].replace('/', '_').rsplit('.', 1)[0] + '.jpg'), quality=92)
-            fh.write(json.dumps({**x, 'mode': a.mode, 'prompt': PROMPTS[a.prompt_key or a.mode], 'dtype': a.dtype, 'latency_s': lat, 'qc': qc}) + '\n')
+            fh.write(json.dumps({**x, 'mode': a.mode, 'prompt': PROMPTS[a.prompt_key or a.mode], 'dtype': a.dtype, 'latency_s': lat, 'qc': qc, 'fast': a.fast, 'seed': seed_of[x['key']]}) + '\n')
             fh.flush()
             print(n, x['key'], lat, qc, flush=True)
 
