@@ -31,8 +31,13 @@ def main():
         a = np.asarray(Image.open(BASE / m['src']).convert('RGB'))
         b = np.asarray(Image.open(OUT / 'R' / (m['key'].replace('/', '_').rsplit('.', 1)[0] + '.jpg')).convert('RGB'))
         before, after = fire_colour_fraction(a, region), fire_colour_fraction(b, region)
+        from scipy.ndimage import binary_dilation
+        ring = binary_dilation(region, iterations=15) & ~binary_dilation(region, iterations=2)
+        lum = lambda im: im.astype(float) @ np.array([0.299, 0.587, 0.114])
+        c0, c1 = float(lum(a)[region].mean() - lum(a)[ring].mean()), float(lum(b)[region].mean() - lum(b)[ring].mean())
+        kept = bool(after >= 0.5 * before) if before > 0.02 else bool(c0 * c1 > 0 and abs(c1) >= 0.5 * abs(c0))
         rows.append({'key': m['key'], 'world': m['world'], 'view': m['view'], 'region_px': int(region.sum()), 'flame_share_before': round(before, 3), 'flame_share_after': round(after, 3),
-                     'mean_abs_change_in_region': round(float(np.abs(a.astype(int) - b.astype(int))[region].mean()), 1), 'kept': bool(after >= 0.5 * before)})
+                     'mean_abs_change_in_region': round(float(np.abs(a.astype(int) - b.astype(int))[region].mean()), 1), 'contrast_before': round(c0, 1), 'contrast_after': round(c1, 1), 'kept': kept})
     out = {'n_images': len(rows), 'n_kept': sum(r['kept'] for r in rows), 'rows': rows}
     (RES / 'qi_r_audit.json').write_text(json.dumps(out, ensure_ascii=False, indent=1) + '\n')
     print(out['n_images'], 'fire images with a design render,', out['n_kept'], 'kept the flame colour')
