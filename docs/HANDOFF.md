@@ -7,14 +7,13 @@
 
 ---
 
-## ★ 最新（2026-10-22 夜）：GL 実行中、JH 不成立、QI は GL 終了後に自動開始（I-78〜I-83）
+## ★ 最新（2026-10-23 朝）：GL 成立、JH1 不成立、QI 生成中（I-83〜I-86）
 
-* **実行中（バックグラウンド）**：`bash scripts/gl_run.sh`（研究 GL、320本中およそ290完了、インフラ失敗3件）→終了後に `bash scripts/qi_run.sh`（研究 QI、Qwen-Image-2.1-Turbo、自動開始）。監視は `bash scripts/bg_watch.sh`（終了・abort/FAIL マーカー・45分無進捗で通知）。GPU が空なら `scripts/idle_check.sh` が教える。
-* **JH（I-80）**：第2審判（InternVL3-8B）の登録主張 JH1 は不成立（残り見逃し14→10、基準は9以下）。`failed_claims()` に JH1 を追加済み（15件目）。**論文・README・説明資料の再ビルドは GL/QI 終了後**に行い、そこで件数 14→15 を HANDOFF・README・論文マクロに反映し `check_consistency.py` を通す。
-* **GL の結果が出たら**：`experiments/results/gl_summary.json`（GL1 が主要。不成立なら failed_claims に追加）。→ 補足資料・FINDINGS・README・説明資料・TRIAL_AND_ERROR に反映。
-* **QI の結果が出たら**：`experiments/results/qi_summary.json`（基準線は 14/126 と 0/104 に一致するはず）。失敗した QI1〜3 は failed_claims へ。ポストパイロットの fp16/bf16、生成速度、`qi_excluded.json` を確認。
-* **次の候補**：閉ループ Jev（`--judge`、JH 選定 InternVL3 tau_J 0.902、GPU 未実行）、運転審判の研究（登録先行）、関連研究の比較表、FINAL=1 ビルドと SUBMISSION_CHECKLIST。
-* **失敗の教訓**：同一ファイルへ書く curl は1本だけ（InternVL3 の破損）。ダウンロードはハブの `?blobs=true` でサイズ検証。`rm` 禁止（`~/rescue-mind-trash/` へ）。
+* **GL 完了（I-84）**：GL1・GL2・GL3 すべて成立。倉庫の新しい120世界で、火への配達 v3.6 20/120 → 左のみ0.8 m 6/120（p=0.00066、誤停止 2/40）。効くのは正面から見えない火（側方のみ 16/24 → 3/24）。サイト固有の選択肢で、既定は v3.6 のまま。論文は補足（GL の節）・限界の節・要旨に反映済み。倉庫の基線（pooled）には GL の v3.6 腕も含めた（I-86）。
+* **JH（I-80）**：JH1 不成立（15件目の失敗した主張）。補足に JH の節。
+* **実行中（バックグラウンド）**：`bash scripts/qi_run.sh`（研究 QI：R 768枚→G 205→C、`--fast` で1枚14秒）→ 続けて `bash scripts/qi_run2.sh`（訂正2：G2 大きな火、K1 ベスト、K2 警告灯、約615枚）。監視は `bash scripts/bg_watch.sh`。結果は `experiments/results/qi_summary.json`。事前登録は `experiments/PREREGISTRATION_QI.md`（訂正1：マスクの色判定と写実化プロンプト、訂正2：記述的な拡張、訂正3：世界得点は欠けた視点を双子の元スコアで補う／写実化の火が残ったかの監査 `scripts/qi_r_audit.py`）。
+* **QI が終わったら**：(1) `python3 scripts/qi_r_audit.py`、見逃した写実化世界を目で確認（火が消えたか・残って見逃したか）、(2) `qi_summary.json` を読む（基線は 14/126 と 0/104 に一致するはず。失敗した主張は `advice_numbers.failed_claims()` が自動で拾う）、(3) 補足に QI の節（マクロは `paper_numbers.py` に準備済み、引用は ROSIE・Cosmos-Transfer1・Sim2Real Diffusion・SPIE・合成煙の領域差）、(4) FINDINGS・TRIAL_AND_ERROR・README、(5) 全テスト、`/tmp/rebuild.sh` 相当の再ビルド、本文8頁・要旨200語、(6) **動画 v12**（`docs/design/video_v12_plan.md`。v11 は GL を含まないのでそのまま YouTube に上げない）、(7) FINAL=1 ビルドと SUBMISSION_CHECKLIST。
+* **失敗の教訓**：同一ファイルへの書き込みは1本だけ。`pkill -f` のパターンを自分のコマンド行に含めない（シェルが死ぬ）。画像を見る前に採点へ進まない（QI のマスクと写実化の欠陥は目視で見つかった）。
 
 ## ★ 最新（2026-10-21 13:50）：研究 GV は登録した停止規則で中止（I-58、I-60）。本番168試行は実施していない
 
