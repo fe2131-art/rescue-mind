@@ -25,8 +25,12 @@ MODEL = '/hf/jev_models/Qwen-Image-2.1-Turbo'
 W, H = 1024, 768                                    # 4:3, multiples of 16; XD frames are 640 x 480
 DILATE_PX = 12
 PROMPTS = {
-    'R': ('Redraw this simulated warehouse camera image as a real photograph taken by a robot camera in a real warehouse. Keep every object, its position, shape and colour exactly where it is, '
+    'R': ('Convert this 3D-rendered image into a photograph shot on a real camera: replace the flat computer-graphics shading with real materials (corrugated cardboard fibres, shrink-wrap, scuffed painted steel, worn concrete), '
+           'natural uneven lighting, film grain and slight depth of field. The composition, every object and its position, and any fire, flame or smoke must stay exactly the same; add nothing and remove nothing.'),
+    'R0': ('Redraw this simulated warehouse camera image as a real photograph taken by a robot camera in a real warehouse. Keep every object, its position, shape and colour exactly where it is, '
           'and keep any fire, flame or smoke exactly where it is. Do not add or remove anything.'),
+    'R2': ('A real photograph taken with a mobile robot\'s wide-angle camera inside a real, slightly dusty warehouse: natural lighting, realistic cardboard and plastic textures, subtle sensor noise and lens softness, '
+           'a worn concrete floor. Keep the same layout, the same objects in the same places and the same colours; keep any fire, flame or smoke exactly where it is; do not add or remove anything.'),
     'G': ('Photorealistic edit: a small, partly hidden fire with a few orange and yellow flame tongues and thin grey smoke is burning behind the shelf crates, '
           'low and partly covered by the crates. Keep everything else in the picture exactly as it is.'),
     'C': 'Photorealistic edit: keep the whole picture exactly as it is, with real camera texture. Do not add anything.',
@@ -97,6 +101,8 @@ def main(argv=None):
     ap.add_argument('--limit', type=int, default=0)
     ap.add_argument('--dtype', default='float16', choices=['float16', 'bfloat16', 'float32'])
     ap.add_argument('--tag', default='')
+    ap.add_argument('--prompt-key', default=None, help='development pilots only: a key of PROMPTS other than the mode (e.g. R2, R3)')
+    ap.add_argument('--only', default='', help='development pilots only: comma-separated substrings of the image keys')
     a = ap.parse_args(argv)
     from PIL import Image
     out_dir = OUT / (a.mode + a.tag)
@@ -104,6 +110,8 @@ def main(argv=None):
     manifest = RES / f'qi_manifest_{a.mode}{a.tag}.jsonl'
     done = {json.loads(x)['key'] for x in manifest.read_text(encoding='utf8').splitlines() if x.strip()} if manifest.is_file() else set()
     todo = [x for x in inventory(a.mode, a.split, a.views.split(',')) if x['key'] not in done]
+    if a.only:
+        todo = [x for x in todo if any(k in x['key'] for k in a.only.split(','))]
     if a.limit:
         todo = todo[:a.limit]
     print(f'mode {a.mode}: {len(todo)} images to generate', flush=True)
@@ -115,7 +123,7 @@ def main(argv=None):
             base = Image.open(BASE / x['src']).convert('RGB')
             base_np = np.asarray(base)
             t0 = time.perf_counter()
-            res = pipe(prompt=PROMPTS[a.mode], image=base.resize((W, H), Image.LANCZOS).convert('RGBA'), width=W, height=H, use_kv_cache=True,
+            res = pipe(prompt=PROMPTS[a.prompt_key or a.mode], image=base.resize((W, H), Image.LANCZOS).convert('RGBA'), width=W, height=H, use_kv_cache=True,
                        generator=torch.Generator('cpu').manual_seed(20261022 + n)).images[0]
             lat = round(time.perf_counter() - t0, 2)
             edited = np.asarray(res.convert('RGB').resize(base.size, Image.LANCZOS))
@@ -129,7 +137,7 @@ def main(argv=None):
                 final = edited
                 qc = {'mean_abs_diff': round(float(np.abs(edited.astype(np.int16) - base_np.astype(np.int16)).mean()), 2)}
             Image.fromarray(final).save(out_dir / (x['key'].replace('/', '_').rsplit('.', 1)[0] + '.jpg'), quality=92)
-            fh.write(json.dumps({**x, 'mode': a.mode, 'prompt': PROMPTS[a.mode], 'dtype': a.dtype, 'latency_s': lat, 'qc': qc}) + '\n')
+            fh.write(json.dumps({**x, 'mode': a.mode, 'prompt': PROMPTS[a.prompt_key or a.mode], 'dtype': a.dtype, 'latency_s': lat, 'qc': qc}) + '\n')
             fh.flush()
             print(n, x['key'], lat, qc, flush=True)
 
