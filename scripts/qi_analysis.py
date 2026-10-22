@@ -68,6 +68,15 @@ def main():
             sel = list(ws)
             fl = sum(1 for w in sel if ws[w]['score'] >= TAU)
             out['C'] = {'n': len(sel), 'flips': fl, 'rate': round(fl / len(sel), 4) if sel else None}
+    for tag in ('G2', 'K1', 'K2'):                     # Amendment 2 (descriptive, no claim): a larger fire; two non-fire look-alikes
+        f = RES / f'devset_qi_{tag}_h36_tiles.json'
+        if not f.is_file():
+            out[tag] = {'status': 'not scored'}
+            continue
+        ws = world_scores(f)
+        sel = list(ws)
+        k = sum(1 for w in sel if (ws[w]['score'] < TAU if tag == 'G2' else ws[w]['score'] >= TAU))
+        out[tag] = {'n': len(sel), ('k_miss' if tag == 'G2' else 'flagged'): k, 'rate': round(k / len(sel), 4) if sel else None, 'upper95': round(cp_upper(k, len(sel)), 4) if sel else None}
     cl = {}
     if 'miss' in out.get('R', {}):
         cl['QI1_realised_miss_not_much_worse'] = out['R']['miss']['k'] <= QI1_MAX_MISS
