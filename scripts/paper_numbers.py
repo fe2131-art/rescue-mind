@@ -1516,6 +1516,26 @@ def main():
                     m['WideDevMedicine' + nm_] = f"{q_['fire_runs_0.4m']['by_item']['medicine']['reach_tau']}/{q_['fire_runs_0.4m']['by_item']['medicine']['n']}"
                     m['WideDevMissed' + nm_] = f"{q_['fire_runs_0.4m']['delivered_into_fire']['reach_tau']}/{q_['fire_runs_0.4m']['delivered_into_fire']['n']}"
             m['StatGV'] = f"wide look-around with a calibrated threshold in closed loop: stopped by its registered rule (tau_cal {m.lookup('WideStopTau')} at or above 0.05), not run"
+    # ---- study GL (registered left-only 0.8 m look-around with the front + left threshold, closed loop at the depot, fresh worlds; I-84)
+    glf_ = RES / 'gl_summary.json'
+    if glf_.is_file():
+        gl_ = json.loads(glf_.read_text())
+        ga_, gp_, gcr_ = gl_['arms'], gl_['paired'], gl_['criteria']
+        kv_, kl_ = ga_['v36']['fire'], ga_['left']['fire']
+        m['GLTrials'], m['GLWorlds'], m['GLPlain'] = gl_['n_with_result'], gl_['n_fire_worlds'], ga_['left']['fire_free']['n']
+        m['GLV'], m['GLVRate'], m['GLVUpper'] = f"{kv_['k']}/{kv_['n']}", pct(kv_['rate'], 1), pct(kv_['upper95_exact'], 1)
+        m['GLLeft'], m['GLLeftRate'], m['GLLeftUpper'] = f"{kl_['k']}/{kl_['n']}", pct(kl_['rate'], 1), pct(kl_['upper95_exact'], 1)
+        m['GLOnlyV'], m['GLOnlyLeft'], m['GLP'] = gp_['discordant_v36_only'], gp_['discordant_left_only'], f"{gp_['mcnemar_one_sided_p']:.5f}".rstrip('0')
+        m['GLFalseStops'], m['GLFalseStopsV'] = f"{ga_['left']['fire_free']['k']}/{ga_['left']['fire_free']['n']}", f"{ga_['v36']['fire_free']['k']}/{ga_['v36']['fire_free']['n']}"
+        m['GLTimeV'], m['GLTimeLeft'] = f"{kv_['median_time_s']:.1f}", f"{kl_['median_time_s']:.1f}"
+        for key_, nm_ in (('side_only', 'Side'), ('front_visible', 'Front')):
+            m['GL' + nm_ + 'V'] = f"{kv_['strata'][key_]['k']}/{kv_['strata'][key_]['n']}"
+            m['GL' + nm_ + 'Left'] = f"{kl_['strata'][key_]['k']}/{kl_['strata'][key_]['n']}"
+        m['GLFailed'], m['GLAudit'] = gl_['n_failed'], gl_['audit_failures']
+        for name_, key_ in (('One', 'GL1_paired_one_sided_p_below_005_and_fewer'), ('Two', 'GL2_left_upper_at_most_10pct'), ('Three', 'GL3_false_stops_at_most_2'),
+                            ('PredOne', 'P1_left_false_stops_not_more_than_v36_plus_2'), ('PredTwo', 'P2_time_cost_at_most_20s')):
+            m['GL' + name_ + 'Holds'] = 'holds' if gcr_[key_] else 'fails'
+        m['StatGL'] = f"left-only 0.8 m look-around at the depot, closed loop: GL1, GL2, GL3 {'hold' if all(gcr_[k] for k in ('GL1_paired_one_sided_p_below_005_and_fewer', 'GL2_left_upper_at_most_10pct', 'GL3_false_stops_at_most_2')) else 'do not all hold'}"
     # ---- submission snapshot: the claim column of a study without results says so (the other pending studies have no analysis macro yet)
     PEND = advice_numbers.snapshot_pending() if SNAPSHOT else set()
     for k_ in advice_numbers.SNAPSHOT_STUDIES:
