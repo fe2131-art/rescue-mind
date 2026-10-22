@@ -1,0 +1,32 @@
+# Pre-registration — study QI (Qwen-Image-2.1-Turbo: photo-realised and edited images, frozen gate), fixed before any generated image is scored
+
+The registration is the commit that adds this file together with `scripts/qi_generate.py`, `scripts/qi_build_devset.py`, `scripts/qi_analysis.py` and `tests/test_qi_generate.py`, **before any generated image is scored by the gate**
+(`study QI: registration`; stamped with OpenTimestamps, hashes only). Generating images uses no gate score; a pilot of at most 20 images per mode (generated before this commit) fixes only the numeric precision (fp16 or bf16) and may refit the pixel check `FIRE_MIN`; its images are not part of the study.
+Design note: `docs/QWENIMAGE_DESIGN.md` (idea: the user). Study GL must be finished before generation starts (one GPU, one lock, GL forbids downloads and other GPU work while it runs).
+
+## What QI asks
+The paper's weakest points are the simulator-to-reality gap and the small hard-class sample. The gate (Qwen3.5-9B, v3.6: h36 + tiles, both passes, fail-closed) and its threshold are **frozen**; nothing is fitted on any QI image.
+1. **Does the gate still catch the simulator's hard fires when the frame is photo-realised?** (QI-R)
+2. **Does it catch a fire that a generative image model draws, behind the same crates, in the clean twin of an XD fire world?** (QI-G)
+3. **Do the generative pixels themselves create false alarms?** (QI-R clean worlds; QI-C controls)
+
+## Image sets (all from `experiments/vlm_testset_xd`, 640 x 480; the generator works at 1024 x 768 and the result is resized back)
+* **QI-R:** every XD **test** image with view F, L or R (768 images; 126 perceivable hard-class fire worlds, 104 clean worlds counted as in JH), photo-realised with one fixed prompt (`PROMPTS['R']`), seed 20261022 + index. Ground truth = the XD label.
+* **QI-G:** the clean twin of every XD fire world that has a fire mask for the view (test split: 44 worlds, 205 images), the fire pixels edited **only inside the fire world's own dilated fire mask** (12 px); every pixel outside is the twin's own byte (checked). Ground truth = fire (by construction).
+* **QI-C:** the same twins and masks, a neutral prompt that adds nothing: the pipeline's artifacts alone (clean by construction).
+Pixel check (from pixels only, never from a gate score): a QI-G image is **excluded and listed** if pixels outside the mask changed or the flame-coloured share of the mask is below `FIRE_MIN` = 0.02 (an edit without any did not draw a fire); QI-C: pixels outside the mask changed. QI-R has no pixel check: the simulator's own fires are rarely flame-coloured (median share 0 for small tongues), so a realised frame in which the editor removed the fire cannot be told from a miss; this limit is stated, and sample pairs are inspected by eye (descriptive, no exclusion). More than 15% excluded images in QI-G stops the QI-G claim (then it is "the editor does not draw the fire reliably").
+
+## Score and threshold
+World score = largest hazard score (both passes, fail-closed) over F, L, R (the rule of XD and JH). **tau = 0.088** (XD rank rule at alpha = 2% on its clean calibration worlds; 0.05, the v3.6 default, is reported). The scoring path is `scripts/vlm_devset_eval.py` with the XD tag settings. The analysis first checks its own baseline: XD's original scores must give **14 of 126 misses and 0 of 104 false stops** (the JH numbers); a different baseline means the scoring path differs and nothing is claimed.
+
+## Claims (`scripts/qi_analysis.py`)
+* **QI1 (realism transfer).** On QI-R the miss on the 126 perceivable hard-class worlds is **at most 20** (XD's own: 14; the tolerance is about 5 points).
+* **QI2 (a drawn fire).** On QI-G the miss rate over the generated fire worlds is **at most 20%** (n <= 44; reported with the exact one-sided 95% upper bound).
+* **QI3 (no new false alarms).** On QI-R the realised clean worlds give **at most 5 false stops of 104** (XD's own: 0); on QI-C at most **5%** of the control-edited twins cross tau.
+A failed claim goes to `failed_claims`. Descriptive (predictions registered now, failing them is reported): P1 realised frames lower the miss or leave it (the gate does not depend on the simulator's rendering style); P2 generated fires are easier than the simulator's small tongues (miss rate below 14/126); P3 the three families of study JH agree with the gate on QI-G (a gap would show a circular advantage, since the generator's text encoder is Qwen3-VL, the gate's own family).
+
+## Known limits, stated now
+* Generated images are not real photographs; "more realistic and different" is the claim, not "real". The generator is of the gate's family (circularity); P3 and the JH judges are the check.
+* QI-G worlds are the 44 XD test fire worlds with twins (same geometry as XD), so the independent sample is not larger than XD's; the study measures a different rendering, not a bigger sample.
+* The tolerances (20 misses, 20%, 5) are set before any generated image is scored; they are not derived from a power calculation.
+* One generator checkpoint (Turbo, 8 steps), one prompt per mode, one seed per image.
