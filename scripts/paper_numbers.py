@@ -1457,6 +1457,10 @@ def main():
             pg_ = json.loads(gcj2_.read_text())['criteria']['pooled_v36_with_G_GR']
             if pg_:
                 kp_, np_ = pg_['k'] + gdv_['k'], pg_['n'] + gdv_['n']
+                glp_ = RES / 'gl_summary.json'
+                if glp_.is_file():                                # the largest depot sample, GL's v3.6 arm (fresh worlds), belongs in the pool whatever it shows (reviewer check, I-86)
+                    glv_ = json.loads(glp_.read_text())['arms']['v36']['fire']
+                    kp_, np_ = kp_ + glv_['k'], np_ + glv_['n']
                 m['DepCalPool'], m['DepCalPoolUpper'], m['DepCalPoolRate'] = f"{kp_}/{np_}", pct(__import__('scripts.x_analysis', fromlist=['cp_upper']).cp_upper(kp_, np_), 1), pct(kp_ / np_, 1)
         m['DepCalFalseStopFreeV'] = rtd_(gdj_['arms']['v36']['fire_free'])
         m['DepCalClaim'] = 'GD1, GD2 hold' if (gdr_['GD1_cal_upper_at_most_25pct'] and gdr_['GD2_false_stops_at_most_2']) else 'GD1, GD2 do not both hold'
