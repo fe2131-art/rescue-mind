@@ -36,6 +36,13 @@ class Pure(unittest.TestCase):
             self.assertTrue((q.BASE / x['src']).is_file())
             self.assertIn('_', x['key'])
 
+    def test_design_mask_is_a_render_keyed_by_colour(self):
+        import numpy as np
+        from PIL import Image
+        items = q.inventory('G', 'test', ['F', 'L', 'R'])
+        px = [int(q.fire_pixels_of(np.asarray(Image.open(q.BASE / x['mask']).convert('RGB'))).sum()) for x in items]
+        self.assertTrue(all(0 < n < 640 * 480 // 2 for n in px), (min(px), max(px)))   # the old '> 0' rule read the whole 640x480 frame as fire
+
 
 if __name__ == '__main__':
     unittest.main()

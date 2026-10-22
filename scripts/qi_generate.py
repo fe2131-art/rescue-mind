@@ -83,6 +83,12 @@ def load_pipe(dtype: str):
     return pipe, torch
 
 
+def fire_pixels_of(render):
+    """The design 'mask' files are renders of the fire alone, not binary masks: fire pixels are the magenta key colour (the rule of scripts/fire_mask_at_pose.py)."""
+    a = np.asarray(render).astype(int)
+    return (a[..., 0] > 150) & (a[..., 2] > 150) & (a[..., 1] < 100)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--mode', required=True, choices=['R', 'G', 'C'])
@@ -114,7 +120,7 @@ def main(argv=None):
             lat = round(time.perf_counter() - t0, 2)
             edited = np.asarray(res.convert('RGB').resize(base.size, Image.LANCZOS))
             if x['mask']:
-                m = np.asarray(Image.open(BASE / x['mask']).convert('L')) > 0
+                m = fire_pixels_of(np.asarray(Image.open(BASE / x['mask']).convert('RGB')))
                 region = dilate(m, DILATE_PX)
                 final = composite(base_np, edited, region)
                 qc = {'mask_px': int(m.sum()), 'region_px': int(region.sum()), 'fire_colour_in_mask': round(fire_colour_fraction(final, m), 4),
