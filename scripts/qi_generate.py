@@ -34,6 +34,13 @@ PROMPTS = {
     'G': ('Photorealistic edit: a small, partly hidden fire with a few orange and yellow flame tongues and thin grey smoke is burning behind the shelf crates, '
           'low and partly covered by the crates. Keep everything else in the picture exactly as it is.'),
     'C': 'Photorealistic edit: keep the whole picture exactly as it is, with real camera texture. Do not add anything.',
+    # Amendment 2 (descriptive extension, no claim): a larger fire and two non-fire look-alikes inside the same masks
+    'G2': ('Photorealistic edit: a large fire with tall orange and yellow flames and dark smoke is burning behind the shelf crates and rising above them. '
+           'Keep everything else in the picture exactly as it is.'),
+    'K1': ('Photorealistic edit: an orange high-visibility safety vest lies folded behind the shelf crates, low and partly covered by the crates. '
+           'Keep everything else in the picture exactly as it is.'),
+    'K2': ('Photorealistic edit: an orange warning beacon lamp, switched on and glowing, stands behind the shelf crates, low and partly covered by the crates. '
+           'Keep everything else in the picture exactly as it is.'),
 }
 
 
@@ -75,7 +82,7 @@ def inventory(mode: str, split: str, views: list) -> list:
             f, t = byw.get((fw, v)), byw.get((tw, v))
             if not f or not t or t['split'] != split or not f['truth_hazard_visible'] or not (BASE / 'fire_masks' / f"{fw}_{v}.png").is_file():
                 continue
-            items.append({'key': f'{mode}_{tw}_{v}', 'src': t['image'], 'mask': f'fire_masks/{fw}_{v}.png', 'world': tw, 'fire_world': fw, 'view': v, 'fire': mode == 'G', 'kind': 'twin'})
+            items.append({'key': f'{mode}_{tw}_{v}', 'src': t['image'], 'mask': f'fire_masks/{fw}_{v}.png', 'world': tw, 'fire_world': fw, 'view': v, 'fire': mode in ('G', 'G2'), 'kind': 'twin'})
     return items
 
 
@@ -102,7 +109,7 @@ def fire_pixels_of(render):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('--mode', required=True, choices=['R', 'G', 'C'])
+    ap.add_argument('--mode', required=True, choices=['R', 'G', 'C', 'G2', 'K1', 'K2'])
     ap.add_argument('--split', default='test')
     ap.add_argument('--views', default='F,L,R')
     ap.add_argument('--limit', type=int, default=0)
