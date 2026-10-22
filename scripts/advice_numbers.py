@@ -915,6 +915,10 @@ def failed_claims():
                             ja='GV1（広い見回し＋較正した閾値の閉ループの見逃し：上限15%以下）'))
         if not c['GV2_false_stops_at_most_2']:
             out.append(dict(key='GV2', tex='GV2 (wide look-around, false stops)', en='GV2 (at most two false hazard stops in fire-free depot worlds)', ja='GV2（火のない世界の誤停止は2件まで）'))
+    jh = _load('jh_summary.json')      # registered claim JH1 (PREREGISTRATION_JH): the selected second judge cuts the remaining misses by a third without more than 5% false stops
+    if jh is not None and not jh['xd']['JH1']['holds']:
+        out.append(dict(key='JH1', tex='JH1 (a second judge removes a third of the remaining misses)', en='JH1 (a second VLM judge removes a third of the remaining misses)',
+                        ja='JH1（第2のVLM審判が残りの見逃しの3分の1を減らす）'))
     return out
 
 
