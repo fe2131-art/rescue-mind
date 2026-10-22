@@ -95,6 +95,11 @@ def inventory(which: str) -> list:
                             rows.append({'study': 'GVD', 'trial_id': r['trial_id'], 'run_id': r['run_id'], 'world': t['gd_world'], 'arm': 'open', 'item': t['expected'], 'fire': True,
                                          'view': v, 'offset_m': 0.8, 'file': str(f)})
         return [{**x, 'set': 'closed_loop', 'key': f"{x['run_id']}:{x['view']}"} for x in rows]
+    if which.startswith('qi_'):                                   # study QI: the generated devsets (outputs/qi/devset_<R|G|C>), XD-format labels
+        base = ROOT / 'outputs/qi' / f'devset_{which[3:]}'
+        rows = [json.loads(x) for x in (base / 'labels.jsonl').read_text(encoding='utf8').splitlines() if x.strip()]
+        return [{'set': which, 'key': r['image'], 'file': str(base / r['image']), 'world': r['world_id'], 'view': r['view'], 'world_kind': r['world_kind'],
+                 'fire': bool(r.get('truth_hazard_visible')), 'perceivable_any': bool(r.get('world_perceivable_any_view'))} for r in rows]
     if which == 'xd':
         base = ROOT / 'experiments/vlm_testset_xd'
         rows = [json.loads(x) for x in (base / 'labels.jsonl').read_text(encoding='utf8').splitlines() if x.strip()]
@@ -106,7 +111,7 @@ def inventory(which: str) -> list:
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--judge', required=True, choices=list(JUDGES))
-    ap.add_argument('--set', required=True, choices=['closed_loop', 'xd'])
+    ap.add_argument('--set', required=True, choices=['closed_loop', 'xd', 'qi_R', 'qi_G', 'qi_C'])
     ap.add_argument('--limit', type=int, default=0)
     a = ap.parse_args(argv)
     out = RES / f'jev_scores_{a.judge}_{a.set}.jsonl'

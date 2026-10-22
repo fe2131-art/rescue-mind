@@ -76,6 +76,22 @@ def main():
         cl['QI2_generated_fire_miss_rate'] = out['G']['miss_rate'] <= QI2_MAX_MISS_RATE
     if out.get('C', {}).get('rate') is not None:
         cl['QI3c_control_edits_do_not_create_hazards'] = out['C']['rate'] <= QI3C_MAX_FLIPS
+    # P3 (descriptive, added after the registration; no score had been seen): the judges of study JH on the generated fires and the control edits, at their own JH thresholds
+    jh = json.loads((RES / 'jh_summary.json').read_text())['xd']['candidates']
+    p3 = {}
+    for j, c in jh.items():
+        for tag in ('G', 'C'):
+            f = RES / f'jev_scores_{j}_qi_{tag}.jsonl'
+            if not f.is_file() or 'tau_J' not in c:
+                continue
+            by: dict = {}
+            for line in f.read_text().splitlines():
+                r = json.loads(line)
+                by.setdefault(r['world'], {})[r['view']] = r['score']['max']
+            ws = [max(v.values()) for v in by.values() if set(v) == set(VIEWS)]
+            hit = sum(1 for x in ws if x >= c['tau_J'])
+            p3.setdefault(j, {})[tag] = {'n': len(ws), 'flagged': hit, 'rate': round(hit / len(ws), 4) if ws else None, 'tau_J': c['tau_J']}
+    out['P3_judges'] = p3
     out['claims'] = cl
     (RES / 'qi_summary.json').write_text(json.dumps(out, ensure_ascii=False, indent=1) + '\n')
     print(json.dumps({'xd_baseline': base['miss'] | {'worlds': '...'}, 'claims': cl}, ensure_ascii=False))

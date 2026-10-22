@@ -38,5 +38,10 @@ for m in R G C; do
   python3 scripts/vlm_devset_eval.py --model Qwen/Qwen3.5-9B --devset outputs/qi/devset_$m --tag qi_${m}_h36_tiles > "$RES/qi_score_$m.log" 2>&1 || echo "QI_NOTE: scoring $m failed"
 done
 "${IN_NEXT[@]}" pkill -f local_vlm_server.py >/dev/null 2>&1 || true
+for j in internvl3 idefics3 smolvlm2; do            # P3 (descriptive): the other families on the generated fires and the control edits
+  for m in G C; do
+    [ -s "outputs/qi/devset_$m/labels.jsonl" ] && "${IN_NEXT[@]}" bash -c "cd $PWD && HF_HUB_OFFLINE=1 python3 scripts/jev_score.py --judge $j --set qi_$m" >> "$RES/qi_judges.log" 2>&1
+  done
+done
 python3 scripts/qi_analysis.py > "$RES/qi_analysis_stdout.log" || abort "analysis"
 echo QI_DONE
