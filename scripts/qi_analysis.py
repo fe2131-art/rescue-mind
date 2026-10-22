@@ -21,6 +21,7 @@ TAU_DEFAULT = 0.05
 VIEWS = ('F', 'L', 'R')
 QI1_MAX_MISS = 20          # of 126 perceivable hard-class test worlds (XD's own: 14)
 QI2_MAX_MISS_RATE = 0.20   # generated fires, per world
+QI2_MAX_EXCLUDED_SHARE = 0.15   # registered stop rule for QI2: more than this share of generated fire images excluded by the pixel check
 QI3_MAX_FALSE_STOPS = 5    # of 104 realised clean test worlds (XD's own: 0)
 QI3C_MAX_FLIPS = 0.05      # control edits: share of clean twins pushed over the threshold
 FILL: dict = {}
@@ -125,7 +126,12 @@ def main():
             cl['QI1k_rate_on_kept_worlds_within_registered_rate'] = out['R']['fire_kept_audit']['miss_rate_on_worlds_with_fire_kept'] <= QI1_MAX_MISS / 126   # descriptive companion, not the registered claim
         cl['QI3_realised_false_stops_small'] = out['R']['false_stops']['k'] <= QI3_MAX_FALSE_STOPS
     if 'miss_rate' in out.get('G', {}):
-        cl['QI2_generated_fire_miss_rate'] = out['G']['miss_rate'] <= QI2_MAX_MISS_RATE
+        exc = json.loads((RES / 'qi_excluded.json').read_text()) if (RES / 'qi_excluded.json').is_file() else {}
+        n_exc, n_all = len(exc.get('G', [])), sum(1 for _ in (RES / 'qi_manifest_G.jsonl').open())
+        out['G']['excluded'] = {'n_excluded': n_exc, 'n_generated': n_all, 'share': round(n_exc / n_all, 4) if n_all else None, 'stop_rule_share': QI2_MAX_EXCLUDED_SHARE}
+        # registered stop rule (PREREGISTRATION_QI): more than 15% of the generated fire images excluded => the QI-G claim stops ("the editor does not draw the fire reliably"); a stopped claim does not hold
+        out['G']['claim_stopped'] = bool(n_all and n_exc / n_all > QI2_MAX_EXCLUDED_SHARE)
+        cl['QI2_generated_fire_miss_rate'] = (not out['G']['claim_stopped']) and out['G']['miss_rate'] <= QI2_MAX_MISS_RATE
     if out.get('C', {}).get('rate') is not None:
         cl['QI3c_control_edits_do_not_create_hazards'] = out['C']['rate'] <= QI3C_MAX_FLIPS
     # P3 (descriptive, added after the registration; no score had been seen): the judges of study JH on the generated fires and the control edits, at their own JH thresholds
