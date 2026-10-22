@@ -1531,6 +1531,10 @@ def main():
             m['QIRFalse'], m['QIRCleanN'] = qi_['R']['false_stops']['k'], qi_['R']['false_stops']['n']
         if 'k_miss' in qi_.get('G', {}):
             m['QIGMiss'], m['QIGN'], m['QIGRate'], m['QIGUpper'] = qi_['G']['k_miss'], qi_['G']['n'], pct(qi_['G']['miss_rate'], 1), pct(qi_['G']['upper95'], 1)
+        if qi_.get('G', {}).get('excluded'):
+            ex_ = qi_['G']['excluded']
+            m['QIGExcl'], m['QIGGen'], m['QIGExclShare'] = ex_['n_excluded'], ex_['n_generated'], pct(ex_['share'], 0)
+            m['QIGStopped'] = 'stopped by its registered rule' if qi_['G'].get('claim_stopped') else 'not stopped'
         if qi_.get('C', {}).get('n'):
             m['QICFlips'], m['QICN'] = qi_['C']['flips'], qi_['C']['n']
         for t_ in ('G2', 'K1', 'K2'):
