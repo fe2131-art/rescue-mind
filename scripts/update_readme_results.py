@@ -633,6 +633,13 @@ def section_key(e, t):
     gvs_ = gv_stop_facts()
     if gvs_ and not gvj_:      # GV stopped at its registered calibration stop rule: no trial was run
         rows.append(f"| 倉庫で視点を0.8 mに広げれば、較正した閾値で見逃しを減らせるか（評価GV：登録した停止規則で中止、本番は未実施） | 火のない倉庫{gvs_['m']}世界で較正すると閾値が {gvs_['tau']}（既定 0.05 以上）になり、既定 0.05 のままでも {gvs_['above']} 世界が止まる。0.4 m の視点（GD）では 0.028。最大の得点は薬の箱の右側の視点（赤い十字が画面を占める）に集中した（事後の観察） | 主張 GV1・GV2 は検証していない（失敗した主張には数えない）。前提（0.8 m で下げられる）は外れた（`experiments/results/gv_calibration.json`） |")
+    gl_ = jl('gl_summary.json')
+    try:      # left-only 0.8 m look-around at the depot, fresh worlds (registered GL1-GL3; outcome-neutral wording: every figure comes from the summary)
+        glk_, glv_, glf_, glp_, glc_ = gl_['arms']['left']['fire'], gl_['arms']['v36']['fire'], gl_['arms']['left']['fire_free'], gl_['paired'], gl_['criteria']
+        glok_ = glc_['GL1_paired_one_sided_p_below_005_and_fewer'] and glc_['GL2_left_upper_at_most_10pct'] and glc_['GL3_false_stops_at_most_2']
+        rows.append(f"| 倉庫で左だけ0.8 mの見回しにすると、見逃しは減るか（評価GL、新しい{gl_['n_fire_worlds']}世界、サイト固有の選択肢） | 火へ配達：v3.6 **{glv_['k']}/{glv_['n']}**（95%上限 {pct(glv_['upper95_exact'])}）、左0.8 m＋較正閾値0.028 **{glk_['k']}/{glk_['n']}**（上限 {pct(glk_['upper95_exact'])}、登録した線10%）。対の比較は v3.6 のみ {glp_['discordant_v36_only']}・左のみ {glp_['discordant_left_only']}（片側 McNemar p={glp_['mcnemar_one_sided_p']:.5f}）、火のない世界の誤停止 {glf_['k']}/{glf_['n']}。効くのは正面から見えない火（側方のみ {glv_['strata']['side_only']['k']}/{glv_['strata']['side_only']['n']} → {glk_['strata']['side_only']['k']}/{glk_['strata']['side_only']['n']}）。幾何と閾値を同時に変えた比較で、左のみは箱の向きに依存する。既定は v3.6 のまま | **{'支持' if glok_ else '不成立'}**（GL1〜GL3） |")
+    except (TypeError, KeyError):
+        pass
     iff_ = advice_numbers.if_facts()
     if iff_:
         rows.append(f"| 依頼文で頼まれた物資はすり替えられない（評価IF、オフライン） | 書き換えた{iff_['n']}文のうち、注入された物資を受理 **{iff_['k']}/{iff_['n']}**（95%信頼区間 {iff_['ci'][0] * 100:.0f}〜{iff_['ci'][1] * 100:.0f}%）。依頼物資は保証の外。対策の聞き返し（I-27）は研究IF2で再測定（"
