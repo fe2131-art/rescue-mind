@@ -1,0 +1,18 @@
+# Qwen-Image-2.1 (7B) for realism and data expansion (design, 2026-10-22; idea: the user)
+
+**Model.** Qwen-Image-2.1 (released 2026-09-20): text-to-image **and image editing**, 7B visual generator (32 single-stream DiT layers), up to 10 reference images, local edits by mask or annotation, 40 steps (Turbo variant: 8 steps), Diffusers `QwenImage21Pipeline`, Qwen Research License (research use; the paper is research). Sources: github.com/QwenLM/Qwen-Image-2.1, huggingface.co/Qwen/Qwen-Image-2.1.
+
+**Why there is room.** RescueMind is inference-only, so the use is not training data but (a) *measuring* the gate under more realistic pixels and (b) *more evaluation images*:
+1. **Sim-to-real gap (the weakest point of study Q: real photographs).** Photo-realise the Gazebo frames of XD (img2img / edit with the layout fixed) and score both versions with the same gate and threshold. Question: does the hard-class miss and the clean tail move when the pixels look real?
+2. **A larger hard-class set with exact ground truth.** Our design fire masks (`fire_mask_at_pose.py`) give the pixels of the fire. Edit only inside the (dilated) mask: a flame-and-smoke prompt gives a fire image, no edit (or a neutral prompt: a red cross, a lamp) gives the clean twin. Ground truth is by construction. n = 126 perceivable fires bounds the miss at 15% (Clopper-Pearson); 1000 images would bound it near 1-2% at the same rate, and the rank-rule threshold would rest on m = 500 clean images (bound 0.2%) instead of 65-104.
+3. **Look-alike negatives** (red cross, lamp, orange crate) generated on purpose, to attack the clean tail that decided GD/GV.
+
+**What it cannot do.** It cannot replace the closed loop (Gazebo renders its own frames), and it is not a real photograph: the claim is "more realistic and more numerous", not "real".
+
+**Risks and the controls registered with the study.**
+* *Label drift:* the editor may not draw a fire in the mask, or draw one elsewhere. Controls: paste the edited pixels back only inside the dilated mask (outside = original bytes); an automatic check (changed-pixel fraction outside the mask is 0; fire-coloured pixels inside the mask exceed a floor for fire images); failures are listed, not dropped.
+* *Circularity:* Qwen-Image's text encoder is Qwen3-VL, the same family as the gate (Qwen3.5-9B). Flames "in Qwen's style" could be easier for the gate than real ones (optimistic bias). Control: also score with the other families of study JH (InternVL3, Idefics3, SmolVLM2); a gap between the gate and the others on generated fires is the warning sign.
+* *Hardware:* V100 has no native bf16 (fp16 may overflow in the DiT; a pilot of 20 images decides fp16 or a GGUF build). About 16 GB for the generator does not fit beside the 18.5 GB gate server: generate first, score afterwards.
+* *Queue:* study GL forbids downloads and scoring while it runs (`PREREGISTRATION_GL.md`): download, pilot and generation start after GL.
+
+**Study QI (to be registered before the first generated image is scored).** Sets: QI-R (photo-realised XD test images, same ground truth), QI-G (mask-edited fires and clean twins, hard class, >= 500 per cell), QI-N (look-alike negatives). Frozen: XD's threshold (tau_Q 0.088) and the depot's calibrated 0.028. Claims: QI1 the hard-class miss on QI-R does not exceed XD's by more than 5 points (sim-to-real transfer); QI2 on QI-G the gate's miss has an exact upper bound at most 10%; QI3 the false-stop rate on QI-N/clean twins is at most 5%. Descriptive: the gap between the gate and the JH judges (circularity), the mask-pasted vs full-frame edit difference. A failed claim goes to `failed_claims`.
