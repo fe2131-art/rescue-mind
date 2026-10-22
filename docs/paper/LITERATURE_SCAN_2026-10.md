@@ -422,3 +422,12 @@ Author lists are copied from the abstract pages; in `huang2025trustsurvey` the s
 * Only AuthGuard-R, SafeCommit and TMA-NM were read in HTML full text (partly). Every other rating is from the abstract; if a reviewer names one of them, re-read it first.
 * Ratings are our judgement against the strongest reading a hostile reviewer could give, as in the earlier review.
 * Peer-review status unknown for all entries; they are claims of the authors and unreplicated.
+
+## Addendum 2026-10-23: generative images for simulator realism and data expansion (study QI)
+Gap noticed by the user: the literature scan did not cover generative image models. Searches (WebSearch, then the arXiv abstract pages) found, all verified at the abstract level only:
+* **ROSIE** (Yu et al., arXiv 2302.11550, RSS 2023): text-to-image editing inpaints unseen objects, backgrounds and distractors into robot demonstrations; the policy (RT-1) is trained on the edited data. Closest in method to QI-G (edit inside a mask), but for training data, not for testing a safety monitor.
+* **Cosmos-Transfer1** (Abu Alhaija et al., NVIDIA, arXiv 2503.14492): conditional world generation with segmentation/depth/edge controls for Sim2Real transfer; the same idea as QI-R at larger scale and with geometry controls (our R uses a single image edit prompt, no control signal, and we check pixels instead).
+* **Sim2Real Diffusion** (Samak et al., arXiv 2507.00236): latent diffusion maps simulated driving frames to realistic ones, reports a perceptual gap reduction above 40% (their figure, not verified by us); driving, perception metrics, no safety gate.
+* **SPIE** (Benarous, Du, Yang, arXiv 2504.12833): post-trains an image-editing diffusion model with AI feedback; one application is making simulated robot scenes more realistic, motivated by policy evaluation in simulation (with SIMPLER, already cited).
+* **Synthetic fire/smoke data** (Gaba, arXiv 2511.16617; other work on GAN-generated fire images): generated or composited smoke datasets show a synthetic-to-real domain gap; this supports our own limit: generated fires are not real fires, and a pass on QI-G is not evidence on real photographs.
+What we found NOT in the literature (as far as these searches go): using a generative image model to **stress-test a VLM safety gate** under a pre-registered, pixel-checked protocol with the gate and threshold frozen. This is a narrow novelty claim and stays in the supplement.
