@@ -20,3 +20,15 @@ The gate's accuracy cost is time: Qwen3.5-9B scores a station with four passes (
 2. **Early exit at the station.** Because the rule is a conjunction, the order does not change the decision: the fast judge looks first; if it flags, the robot refuses at once (no Qwen call, a refusal is seconds faster); if it passes, Qwen decides. Accuracy is that of the conjunction, mean time is lower on refusals.
 3. **Disagreement triggers the look-around.** If the fast judge flags but Qwen does not (or the reverse), take the side view instead of refusing at once: the slow, accurate look is spent only where the two disagree.
 Measured per judge in study JH from now on: `latency_s` per image (four passes) in `jev_scores_*.jsonl` (additive field; rows scored before this note lack it). Code: `scripts/local_vlm_server.py --judge NAME --judge-threshold TAU` (the judge's score is put on the gate's scale, effective hazard = max(p_qwen, p_judge x tau_h / tau_judge): a veto, never an approval), `scripts/v32_orchestrate.py --judge ... --judge-threshold ...`; `tests/test_judge_veto.py`.
+
+## Result of study JH (2026-10-22, `experiments/results/jh_summary.json`)
+XD test split (126 perceivable fires, 104 clean twins), threshold of each judge by the rank rule at alpha = 2% on the clean calibration worlds, Qwen3.5-9B alone misses 14.
+
+| judge | cal AUC | joint miss (union) | phi with Qwen | false stops (union, of 104) |
+|---|---|---|---|---|
+| InternVL3-8B (selected) | 0.976 | 10 | 0.41 | 0 |
+| Idefics3-8B | 0.933 | 8 | 0.30 | 1 |
+| SmolVLM2-2.2B | 0.954 | 9 | 0.42 | 4 |
+| Qwen3-VL-8B | 0.958 | 14 | 0.75 | 0 |
+
+**JH1 fails** for the judge selected by the registered rule (10 > floor(2 x 14 / 3) = 9); it is a failed claim. What survives (descriptive): the veto lowers the miss by 29-43% at 0-1 extra false stops, the same-family judge adds nothing (every miss shared), and the misses of other families still overlap with Qwen's (phi 0.3-0.4, about three times the overlap that independence would give). Small, partly hidden fires are hard for every model tested; a second judge is a modest extra layer, not a way to the zero-miss budget.
