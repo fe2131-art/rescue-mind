@@ -9,3 +9,6 @@ A job is crossed out only when its result is integrated. Add a job here whenever
 2. **If GVD says go:** one-sided look-around option (`--look-around-sides`, mission code + test), registration (power statement, GVD and GVK disclosed, site-specific wording), calibration reuse of GVK front/left, then the paired closed-loop study (v36 against left-only wide on fresh worlds + fire-free worlds).
 3. **If GVD says no-go (or while 2 is being written):** tighten the pooled depot budget: `v36` alone on ~120 fresh GD-generator fire worlds (about 5 h) so that the pooled upper bound (now 15.6%) rests on more than 136 worlds; register first (claim: the upper bound of the pooled rate), disclose that it adds no new arm.
 4. Fallback if 2 and 3 are blocked: image-level replications that need only the GPU (frozen Qwen3.5-9B on saved images) for any open question listed in FINDINGS "what is not known".
+
+## Rule (I-79): always keep one visible background task
+Whenever a job runs, `bash scripts/bg_watch.sh` must run via Bash `run_in_background` (it ends when the whole queue ends). The Stop hook blocks the end of a turn without it.

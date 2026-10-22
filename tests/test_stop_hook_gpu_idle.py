@@ -23,6 +23,15 @@ class Decide(unittest.TestCase):
         self.assertIsNone(out)
         self.assertEqual(st, {'blocks': h.MAX_BLOCKS})
 
+    def test_running_without_watcher_blocks(self):
+        out, st = h.decide(False, {}, is_watched=False)
+        self.assertEqual(out['decision'], 'block')
+        self.assertIn('bg_watch.sh', out['reason'])
+        self.assertEqual(st, {'blocks': 1})
+
+    def test_running_with_watcher_allows(self):
+        self.assertEqual(h.decide(False, {'blocks': 2}, is_watched=True), (None, {'blocks': 0}))
+
 
 if __name__ == '__main__':
     unittest.main()
