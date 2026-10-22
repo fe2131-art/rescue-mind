@@ -1516,6 +1516,21 @@ def main():
                     m['WideDevMedicine' + nm_] = f"{q_['fire_runs_0.4m']['by_item']['medicine']['reach_tau']}/{q_['fire_runs_0.4m']['by_item']['medicine']['n']}"
                     m['WideDevMissed' + nm_] = f"{q_['fire_runs_0.4m']['delivered_into_fire']['reach_tau']}/{q_['fire_runs_0.4m']['delivered_into_fire']['n']}"
             m['StatGV'] = f"wide look-around with a calibrated threshold in closed loop: stopped by its registered rule (tau_cal {m.lookup('WideStopTau')} at or above 0.05), not run"
+    # ---- study JH (registered heterogeneous second judge with veto, scored on XD; I-80)
+    jhf_ = RES / 'jh_summary.json'
+    if jhf_.is_file():
+        jx_ = json.loads(jhf_.read_text())['xd']
+        jc_ = jx_['candidates']
+        m['JHFire'], m['JHClean'] = jx_['n']['test_fire'], jx_['n']['test_clean']
+        m['JHMissQ'], m['JHTauQ'] = jc_['internvl3']['miss_Q'], f"{jx_['tau_Q']:.3f}"
+        m['JHLimit'] = (2 * jc_['internvl3']['miss_Q']) // 3
+        for key_, nm_ in (('internvl3', 'Intern'), ('idefics3', 'Idefics'), ('smolvlm2', 'Smol'), ('qwen3vl', 'QwenVL')):
+            c_ = jc_[key_]
+            m['JH' + nm_ + 'Joint'], m['JH' + nm_ + 'Phi'] = c_['miss_joint'], f"{c_['phi']:.2f}"
+            m['JH' + nm_ + 'MissJ'], m['JH' + nm_ + 'AUC'], m['JH' + nm_ + 'Tau'] = c_['miss_J'], f"{c_['auc_cal']:.3f}", f"{c_['tau_J']:.3f}"
+            m['JH' + nm_ + 'FS'], m['JH' + nm_ + 'Exp'] = c_['false_stops_union'], f"{c_['expected_joint_if_independent']:.1f}"
+        m['JHSelJoint'] = jc_[jx_['selected']]['miss_joint']
+        m['JHClaim'] = 'holds' if jx_['JH1']['holds'] else 'fails'
     # ---- study GL (registered left-only 0.8 m look-around with the front + left threshold, closed loop at the depot, fresh worlds; I-84)
     glf_ = RES / 'gl_summary.json'
     if glf_.is_file():
