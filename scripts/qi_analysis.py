@@ -22,15 +22,35 @@ QI1_MAX_MISS = 20          # of 126 perceivable hard-class test worlds (XD's own
 QI2_MAX_MISS_RATE = 0.20   # generated fires, per world
 QI3_MAX_FALSE_STOPS = 5    # of 104 realised clean test worlds (XD's own: 0)
 QI3C_MAX_FLIPS = 0.05      # control edits: share of clean twins pushed over the threshold
+FILL: dict = {}
 
 
-def world_scores(path: Path, key=lambda r: r['world_id']) -> dict:
+def world_scores(path: Path, key=lambda r: r['world_id'], fill: dict | None = None) -> dict:
+    """World score = max hazard score over F, L, R.  fill = {(twin, view): score} of the clean XD twins (Amendment 3): a generated world whose fire was drawn in only some views
+    (the fire world shows it only there, or the pixel check excluded a view) keeps the twin's own unedited score in the other views, i.e. 'no fire drawn there'; without fill a world needs all three views."""
     recs = json.loads(path.read_text())['records']
     by: dict = {}
+    twin: dict = {}
     for r in recs:
         if r['view'] in VIEWS:
             by.setdefault(key(r), {})[r['view']] = r
-    return {w: {'score': max(hazard_score(r) for r in v.values()), 'views': sorted(v), 'rec': next(iter(v.values()))} for w, v in by.items() if set(v) == set(VIEWS)}
+            if r.get('qi_key'):
+                twin[key(r)] = r['qi_key'].split('_', 1)[1].rsplit('_', 1)[0]            # 'G_xd233_F' -> 'xd233'
+    out = {}
+    for w, v in by.items():
+        sc = {vw: hazard_score(r) for vw, r in v.items()}
+        if fill is not None and set(v) != set(VIEWS) and w in twin:
+            for vw in VIEWS:
+                if vw not in sc and (twin[w], vw) in fill:
+                    sc[vw] = fill[(twin[w], vw)]
+        if set(sc) == set(VIEWS):
+            out[w] = {'score': max(sc.values()), 'views': sorted(v), 'rec': next(iter(v.values()))}
+    return out
+
+
+def xd_fill() -> dict:
+    recs = json.loads((RES / 'devset_xd_h36_tiles.json').read_text())['records']
+    return {(r['world_id'], r['view']): hazard_score(r) for r in recs if r['view'] in VIEWS}
 
 
 def hard_fire(rec) -> bool:
@@ -48,6 +68,8 @@ def count(ws: dict, tau: float, fire: bool, pred) -> dict:
 
 
 def main():
+    global FILL
+    FILL = xd_fill()
     out = {'registered': 'experiments/PREREGISTRATION_QI.md', 'tau': TAU}
     xd = world_scores(RES / 'devset_xd_h36_tiles.json')
     base = {'miss': count(xd, TAU, True, hard_fire), 'false_stops': count(xd, TAU, False, clean)}
@@ -57,7 +79,7 @@ def main():
         if not f.is_file():
             out[tag] = {'status': 'not scored'}
             continue
-        ws = world_scores(f)
+        ws = world_scores(f) if tag == 'R' else world_scores(f, fill=FILL)
         if tag == 'R':
             out['R'] = {'miss': count(ws, TAU, True, hard_fire), 'false_stops': count(ws, TAU, False, clean), 'miss_at_default': count(ws, TAU_DEFAULT, True, hard_fire)}
         elif tag == 'G':
@@ -73,10 +95,15 @@ def main():
         if not f.is_file():
             out[tag] = {'status': 'not scored'}
             continue
-        ws = world_scores(f)
+        ws = world_scores(f, fill=FILL)
         sel = list(ws)
         k = sum(1 for w in sel if (ws[w]['score'] < TAU if tag == 'G2' else ws[w]['score'] >= TAU))
         out[tag] = {'n': len(sel), ('k_miss' if tag == 'G2' else 'flagged'): k, 'rate': round(k / len(sel), 4) if sel else None, 'upper95': round(cp_upper(k, len(sel)), 4) if sel else None}
+    out['coverage'] = {t: {'scored_worlds_filled': (out[t].get('n') if t in out and isinstance(out[t], dict) else None)} for t in ('G', 'C', 'G2', 'K1', 'K2')}
+    for t in ('G', 'C', 'G2', 'K1', 'K2'):
+        f = RES / f'devset_qi_{t}_h36_tiles.json'
+        if f.is_file():
+            out['coverage'][t]['worlds_with_all_three_views_strict'] = len(world_scores(f))
     cl = {}
     if 'miss' in out.get('R', {}):
         cl['QI1_realised_miss_not_much_worse'] = out['R']['miss']['k'] <= QI1_MAX_MISS
