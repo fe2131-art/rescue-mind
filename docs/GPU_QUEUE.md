@@ -12,5 +12,7 @@ A job is crossed out only when its result is integrated. Add a job here whenever
 
 5. **QI (the user's idea 2026-10-22; start right after GL ends):** Qwen-Image-2.1 for photo-realised XD frames and mask-edited fire/clean images (`docs/QWENIMAGE_DESIGN.md`). Steps: download weights with curl and verify sizes against `https://huggingface.co/api/models/<id>?blobs=true` (one writer per file) -> 20-image fp16 pilot -> register (binding commit, OTS) -> generate -> score with the gate and the JH judges -> analysis.
 
+6. **State of 2026-10-23 03:00 (queue refresh):** JH, GL, GVD are integrated (items 0-3 done: item 3 is covered because GL's 120 `v36` runs entered the pooled baseline, `DepCalPool`). QI (item 5) runs now: `qi_run.sh` (R, G, C, scoring, analysis) then `qi_run2.sh` (G2/K1/K2 descriptive). **Next after QI_DONE / QI2_DONE (in this order, register first):** (a) QJ: text-to-image *new* scenes (no simulator frame as input; fire / no-fire, hard-class phrasing, 100+ images per arm) scored by the frozen gate, claim = false-stop rate and miss rate against the QI numbers; only after the QI readout shows the editor keeps fire present; (b) driving-judge closed loop (Jev, JH-selected InternVL3 tau_J 0.902; JH1 failed, so descriptive only); (c) item 4 fallback.
+
 ## Rule (I-79): always keep one visible background task
 Whenever a job runs, `bash scripts/bg_watch.sh` must run via Bash `run_in_background` (it ends when the whole queue ends). The Stop hook blocks the end of a turn without it.
