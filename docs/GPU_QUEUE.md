@@ -10,5 +10,7 @@ A job is crossed out only when its result is integrated. Add a job here whenever
 3. **If GVD says no-go (or while 2 is being written):** tighten the pooled depot budget: `v36` alone on ~120 fresh GD-generator fire worlds (about 5 h) so that the pooled upper bound (now 15.6%) rests on more than 136 worlds; register first (claim: the upper bound of the pooled rate), disclose that it adds no new arm.
 4. Fallback if 2 and 3 are blocked: image-level replications that need only the GPU (frozen Qwen3.5-9B on saved images) for any open question listed in FINDINGS "what is not known".
 
+5. **QI (the user's idea 2026-10-22; start right after GL ends):** Qwen-Image-2.1 for photo-realised XD frames and mask-edited fire/clean images (`docs/QWENIMAGE_DESIGN.md`). Steps: download weights with curl and verify sizes against `https://huggingface.co/api/models/<id>?blobs=true` (one writer per file) -> 20-image fp16 pilot -> register (binding commit, OTS) -> generate -> score with the gate and the JH judges -> analysis.
+
 ## Rule (I-79): always keep one visible background task
 Whenever a job runs, `bash scripts/bg_watch.sh` must run via Bash `run_in_background` (it ends when the whole queue ends). The Stop hook blocks the end of a turn without it.
