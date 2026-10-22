@@ -51,6 +51,9 @@ def wilson(k, n, z=1.959964):
     return max(0.0, c - h), min(1.0, c + h)
 
 
+DIGITW = str.maketrans({'1': 'One', '2': 'Two', '3': 'Three'})   # macro names are letters only
+
+
 def pct(x, nd=1):
     return f'{100 * x:.{nd}f}\\%'
 
@@ -1531,6 +1534,16 @@ def main():
             m['QIRFalse'], m['QIRCleanN'] = qi_['R']['false_stops']['k'], qi_['R']['false_stops']['n']
         if 'k_miss' in qi_.get('G', {}):
             m['QIGMiss'], m['QIGN'], m['QIGRate'], m['QIGUpper'] = qi_['G']['k_miss'], qi_['G']['n'], pct(qi_['G']['miss_rate'], 1), pct(qi_['G']['upper95'], 1)
+        ka_ = qi_.get('R', {}).get('fire_kept_audit')
+        if ka_:
+            m['QIRKeptMiss'], m['QIRKeptN'], m['QIRKeptRate'] = ka_['miss_on_worlds_with_fire_kept']['k'], ka_['miss_on_worlds_with_fire_kept']['n'], pct(ka_['miss_rate_on_worlds_with_fire_kept'], 1)
+            m['QIRErased'] = ka_['n_erased']
+            bw_, rw_ = set(qi_['xd_baseline']['miss']['worlds']), set(qi_['R']['miss']['worlds'])
+            m['QIRBoth'], m['QIRNew'], m['QIRRecovered'] = len(bw_ & rw_), len(rw_ - bw_), len(bw_ - rw_)
+        for j_, nm_ in (('internvl3', 'Intern'), ('idefics3', 'Idefics'), ('smolvlm2', 'Smol')):
+            c_ = (qi_.get('P3_judges') or {}).get(j_, {}).get('C')
+            if c_ and c_.get('n'):
+                m['QIPJudge' + nm_ + 'C'] = f"{c_['flagged']}/{c_['n']}"
         if qi_.get('G', {}).get('excluded'):
             ex_ = qi_['G']['excluded']
             m['QIGExcl'], m['QIGGen'], m['QIGExclShare'] = ex_['n_excluded'], ex_['n_generated'], pct(ex_['share'], 0)
@@ -1539,12 +1552,12 @@ def main():
             m['QICFlips'], m['QICN'] = qi_['C']['flips'], qi_['C']['n']
         for t_ in ('G2', 'K1', 'K2'):
             if qi_.get(t_, {}).get('n'):
-                m['QI' + t_ + 'N'], m['QI' + t_ + 'K'] = qi_[t_]['n'], qi_[t_].get('k_miss', qi_[t_].get('flagged'))
+                m['QI' + t_.translate(DIGITW) + 'N'], m['QI' + t_.translate(DIGITW) + 'K'] = qi_[t_]['n'], qi_[t_].get('k_miss', qi_[t_].get('flagged'))
         for t_, v_ in (qi_.get('coverage') or {}).items():
             if v_.get('worlds_with_all_three_views_strict') is not None:
-                m['QI' + t_ + 'Strict'] = v_['worlds_with_all_three_views_strict']
+                m['QI' + t_.translate(DIGITW) + 'Strict'] = v_['worlds_with_all_three_views_strict']
         for k_, v_ in (qi_.get('claims') or {}).items():
-            m['QIClaim' + k_.split('_')[0]] = 'holds' if v_ else 'fails'
+            m['QIClaim' + k_.split('_')[0].translate(DIGITW)] = 'holds' if v_ else 'fails'
     # ---- study JH (registered heterogeneous second judge with veto, scored on XD; I-80)
     jhf_ = RES / 'jh_summary.json'
     if jhf_.is_file():
