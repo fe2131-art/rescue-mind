@@ -11,6 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / 'scripts'))
 from scripts.x_analysis import cp_upper  # noqa: E402
 from scripts.xd_analysis import hazard_score  # noqa: E402
 
@@ -70,6 +71,8 @@ def count(ws: dict, tau: float, fire: bool, pred) -> dict:
 def main():
     global FILL
     FILL = xd_fill()
+    import qi_r_audit
+    qi_r_audit.main()                                  # Amendment 4: which realised fire worlds still show their fire (pixels only)
     out = {'registered': 'experiments/PREREGISTRATION_QI.md', 'tau': TAU}
     xd = world_scores(RES / 'devset_xd_h36_tiles.json')
     base = {'miss': count(xd, TAU, True, hard_fire), 'false_stops': count(xd, TAU, False, clean)}
@@ -82,6 +85,17 @@ def main():
         ws = world_scores(f) if tag == 'R' else world_scores(f, fill=FILL)
         if tag == 'R':
             out['R'] = {'miss': count(ws, TAU, True, hard_fire), 'false_stops': count(ws, TAU, False, clean), 'miss_at_default': count(ws, TAU_DEFAULT, True, hard_fire)}
+            audit = json.loads((RES / 'qi_r_audit.json').read_text())['rows']
+            seen: dict = {}
+            for r in audit:
+                if r['region_px'] >= 614:
+                    seen[r['world']] = seen.get(r['world'], False) or r['kept']
+            kept_w = {w for w, k in seen.items() if k}
+            lost_w = {w for w, k in seen.items() if not k}
+            sub = count({w: x for w, x in ws.items() if w not in lost_w}, TAU, True, hard_fire)
+            out['R']['fire_kept_audit'] = {'worlds_audited': len(seen), 'worlds_fire_erased': sorted(lost_w), 'n_erased': len(lost_w), 'miss_on_worlds_with_fire_kept': sub,
+                                           'miss_rate_on_worlds_with_fire_kept': round(sub['k'] / sub['n'], 4) if sub['n'] else None,
+                                           'erased_worlds_that_are_missed': sorted(w for w in lost_w if w in ws and ws[w]['score'] < TAU)}
         elif tag == 'G':
             sel = list(ws)
             k = sum(1 for w in sel if ws[w]['score'] < TAU)
@@ -107,6 +121,8 @@ def main():
     cl = {}
     if 'miss' in out.get('R', {}):
         cl['QI1_realised_miss_not_much_worse'] = out['R']['miss']['k'] <= QI1_MAX_MISS
+        if out['R'].get('fire_kept_audit', {}).get('miss_rate_on_worlds_with_fire_kept') is not None:
+            cl['QI1k_rate_on_kept_worlds_within_registered_rate'] = out['R']['fire_kept_audit']['miss_rate_on_worlds_with_fire_kept'] <= QI1_MAX_MISS / 126   # descriptive companion, not the registered claim
         cl['QI3_realised_false_stops_small'] = out['R']['false_stops']['k'] <= QI3_MAX_FALSE_STOPS
     if 'miss_rate' in out.get('G', {}):
         cl['QI2_generated_fire_miss_rate'] = out['G']['miss_rate'] <= QI2_MAX_MISS_RATE
