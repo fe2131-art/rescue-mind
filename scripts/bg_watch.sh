@@ -10,10 +10,13 @@ stale() { # $1 = process pattern, $2 = progress file glob; stalled if the proces
   newest=$(ls -t $2 2>/dev/null | head -1); [ -n "$newest" ] || return 1
   [ $(( $(date +%s) - $(stat -c %Y "$newest") )) -gt 2700 ]
 }
+declare -A BASE
+for f in $RES/gl_run.log $RES/qi_run.log $RES/jh_stdout.log; do BASE[$f]=$(grep -c "_ABORT\|_FAIL" "$f" 2>/dev/null || true); BASE[$f]=${BASE[$f]:-0}; done     # markers already in a log at start are old news
 while bash scripts/idle_check.sh >/dev/null 2>&1; do
   sleep 120
   for f in $RES/gl_run.log $RES/qi_run.log $RES/jh_stdout.log; do
-    if [ -f "$f" ] && [ "$(stat -c %Y "$f")" -ge "$START" ] && grep -q "_ABORT\|_FAIL" "$f"; then echo "FAILURE MARKER in $f: $(grep -h '_ABORT\|_FAIL' "$f" | tail -1)"; exit 0; fi
+    n=$(grep -c "_ABORT\|_FAIL" "$f" 2>/dev/null || true); n=${n:-0}
+    if [ "$n" -gt "${BASE[$f]}" ]; then echo "FAILURE MARKER in $f: $(grep -h '_ABORT\|_FAIL' "$f" | tail -1)"; exit 0; fi
   done
   stale '^python3 scripts/run_campaign.py' "$RES/campaign_GL_ledger.jsonl" && { echo "STALLED: GL ledger has not grown for 45 min while run_campaign.py runs"; exit 0; }
   stale 'qi_generate\.py' "$RES/qi_manifest_*.jsonl" && { echo "STALLED: no new Qwen-Image output for 45 min"; exit 0; }
