@@ -1216,3 +1216,8 @@
 - **Motivation:** the card showed that the second judge failed (JH) but not what works instead; JI is the registered replication of "more views" (13 -> 3 misses).
 - **Change:** `scripts/make_video_plan.py`: a JI row ("見逃し 3視点13→6視点3/120・誤停止 0", green only if JI1-JI4 all hold) and one narration sentence; the slot `EVIDENCE_S` grows to 24 s (narration 23.2 s with the pad); all 11 video-depot tests pass. Expected total of video v13: v12's 171.0 s plus about 1 s (opening, I-98) plus 4 s = about 176 s, under the 180 s limit; measured at the rebuild.
 - **Before / After:** before, 9 rows without JI at 20 s; after, JI joins the card, nothing else is dropped. Video v13 is rebuilt after JK (CPU-heavy); v12 stays the file to review until then.
+
+## I-113 (2026-10-24) YouTube description: JI, JC, IH (and JK when it exists)
+- **Motivation:** after I-110 the description still lacked the registered results of the last day, among them two failed claims (JC1, IH1) and the study that says what works instead (JI). Omitting the failures while listing the successes would break the honesty rule.
+- **Change:** `line_views` in `scripts/make_youtube_description.py` (numbers from `ji_summary.json`, `ji_cascade_summary.json`, `ih_summary.json`, and `jk_summary.json` once it exists; outcome-neutral wording).
+- **Before / After:** 4,633 -> 4,817 characters without JK (limit 5,000, measured as `final_check.sh` does); the JK line adds about 110 characters, so the final margin is about 70 characters: if JK pushes it over, shorten the GM/IG lines, not the failed-claim wording. `tests/test_youtube_description.py` passes (8).
