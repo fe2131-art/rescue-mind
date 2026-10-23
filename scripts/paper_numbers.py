@@ -1679,6 +1679,25 @@ def main():
                             ('Four', 'JI4_internvl3_veto_joint_miss_at_most_3_and_false_stops_at_most_6')):
             m['JI' + name_ + 'Holds'] = 'holds' if ji_['claims'][key_] else 'fails'
         m['StatJI'] = f"six look-around views against three on fresh image-level worlds: JI1, JI2, JI3, JI4 {'hold' if all(ji_['claims'].values()) else 'do not all hold'}"
+    # ---- study JC (registered: JEV as a fast sentinel that decides where to look, on JI's scores; I-100); macros exist only once ji_cascade_summary.json exists
+    jcf_ = RES / 'ji_cascade_summary.json'
+    if jcf_.is_file():
+        jc_ = json.loads(jcf_.read_text())
+        jp_ = jc_['policies']
+        m['JCPrimary'] = {'internvl3': 'InternVL3', 'idefics3': 'Idefics3', 'smolvlm2': 'SmolVLM2'}.get(jc_.get('primary_sentinel'), 'none')
+        for nm_, key_ in (('Three', 'always3'), ('Six', 'always6'), ('Own', 'gate_own_trigger'), ('Sent', 'sentinel_' + str(jc_.get('primary_sentinel')))):
+            if key_ in jp_:
+                m['JC' + nm_ + 'Miss'], m['JC' + nm_ + 'FS'] = f"{jp_[key_]['miss']}/{jc_['n_fire']}", f"{jp_[key_]['false_stops']}/{jc_['n_clean']}"
+                m['JC' + nm_ + 'Views'], m['JC' + nm_ + 'Secs'] = f"{jp_[key_]['mean_views_clean']:.2f}", f"{jp_[key_]['est_extra_seconds_per_clean_mission']:.1f}"
+        if 'sentinel_' + str(jc_.get('primary_sentinel')) in jp_:
+            m['JCTrigFire'], m['JCTrigClean'] = pct(jp_['sentinel_' + jc_['primary_sentinel']]['trigger_fire'], 0), pct(jp_['sentinel_' + jc_['primary_sentinel']]['trigger_clean'], 0)
+            m['JCLatSent'] = f"{jc_['sentinel_latency_median_s'][jc_['primary_sentinel']]:.2f}"
+        m['JCLatIntern'] = f"{(jc_['sentinel_latency_median_s'].get('internvl3') or 0):.2f}"
+        for name_, key_ in (('One', 'JC1_primary_sentinel_misses_within_3_of_always_six'), ('Two', 'JC2_primary_sentinel_mean_views_clean_at_most_4'), ('Three', 'JC3_primary_sentinel_false_stops_at_most_5'),
+                            ('PredOne', 'P1_primary_sentinel_fewer_misses_than_always_three'), ('PredTwo', 'P2_primary_sentinel_faster_than_always_six_estimate')):
+            if key_ in (jc_.get('claims') or {}):
+                m['JC' + name_ + 'Holds'] = 'holds' if jc_['claims'][key_] else 'fails'
+        m['StatJC'] = f"a fast sentinel decides where to look, on fresh worlds: JC1, JC2, JC3 {'hold' if all(jc_.get('claims', {}).get(k) for k in ('JC1_primary_sentinel_misses_within_3_of_always_six', 'JC2_primary_sentinel_mean_views_clean_at_most_4', 'JC3_primary_sentinel_false_stops_at_most_5')) else 'do not all hold'}"
     # ---- study IG (registered: the frozen request parser on fresh operator texts; I-99); macros exist only once ig_summary.json exists
     igf_ = RES / 'ig_summary.json'
     if igf_.is_file():

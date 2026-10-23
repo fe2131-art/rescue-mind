@@ -938,6 +938,15 @@ def failed_claims():
                 ('GM3_false_stops_at_most_3', 'GM3', 'GM3 (GL transfer: false stops)', 'GM3 (at most three false stops of 32 fire-free variant worlds)', 'GM3（変種の火のない32世界で誤停止は3件まで）')):
             if not c[key]:
                 out.append(dict(key=name, tex=tex, en=en, ja=ja))
+    jc = _load('ji_cascade_summary.json')      # registered claims JC1-JC3 (PREREGISTRATION_JC): the fast sentinel that decides where to look, on JI's scores
+    if jc is not None and jc.get('claims'):
+        c = jc['claims']
+        for key, name, tex, en, ja in (
+                ('JC1_primary_sentinel_misses_within_3_of_always_six', 'JC1', 'JC1 (sentinel keeps the six-view recall)', 'JC1 (sentinel-triggered extra views miss at most 3 more fires than always six views)', 'JC1（見張り役が起動する追加視点でも、常に6視点との差は見逃し3件以内）'),
+                ('JC2_primary_sentinel_mean_views_clean_at_most_4', 'JC2', 'JC2 (sentinel saves views)', 'JC2 (at most 4.0 views per clean mission on average)', 'JC2（火のない世界の視点数が平均4.0以下）'),
+                ('JC3_primary_sentinel_false_stops_at_most_5', 'JC3', 'JC3 (sentinel: false stops)', 'JC3 (at most 5 false stops of 120 clean worlds)', 'JC3（火のない120世界の誤停止5件以下）')):
+            if key in c and not c[key]:
+                out.append(dict(key=name, tex=tex, en=en, ja=ja))
     ig = _load('ig_summary.json')      # registered claims IG1-IG2 (PREREGISTRATION_IG): the frozen request parser on fresh operator texts
     if ig is not None:
         c = ig['criteria']
