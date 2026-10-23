@@ -1130,3 +1130,13 @@
 - **Hypothesis:** drafts that use only the `JI*`, `JC*`, `IG*` macros and state every claim with its `holds/fails` macro make integration a copy plus a Reading paragraph, whatever the outcome.
 - **Change:** `docs/paper/ji_section.draft.tex` (JI and JC), `ig_section.draft.tex`, `\IfFileExists` includes for `ji_section.tex` and `ig_section.tex` in `supplement.tex` (inert until the files exist). Nothing built (campaign running).
 - **Before / After:** before, no text existed for JI/JC/IG; after, both drafts reference only macros that `paper_numbers.py` emits once the summaries exist (checked by name); the Reading paragraphs are placeholders to be written after the numbers.
+
+## I-95 (2026-10-23) GM result integrated: the left-only look-around transfers to depot worlds with one realism feature off
+- **Motivation:** GL was the paper's only closed-loop miss reduction and was fitted to the generator that suggested it; a reviewer asks whether it survives a change of rendering (lighting, clutter, surroundings, platforms) without recalibration.
+- **Hypothesis (registered GM1-GM3):** paired reduction (p < 0.05), left-only upper bound ≤ 15% (k ≤ 8 of 100), ≤ 3 false stops of 32.
+- **Change:** `gm_summary.json`, `docs/paper/gm_section.tex` (Reading), FINDINGS #51, macros `GM*`, README row; test count 1628.
+- **Before / After:** all three claims hold: v3.6 14/100 → left-only 5/100 (upper 10.2%), paired 12 against 3 (p = 0.0176, weaker than GL), false stops 0/32 for both arms, left-only faster (28.5 s against 37.9 s). Same direction in all four variants (4→2, 2→1, 7→2, 1→0); no variant alone is conclusive (24-26 fire worlds each). The pooled evidence for the arm is now GL plus GM; it stays a site-specific option.
+
+## I-99 Result (2026-10-23): IG1 fails, IG2 holds
+- 5 unsafe of 136 (limit 2; Wilson upper 8.3%): four unknown destinations read as shelter B ("公民館", "市役所", "避難所1", "北側の避難所") and one lexical trap ("避難所Bに届けた水の数を記録して" read as an order for water). IG2 holds: 80/83 legitimate texts accepted with the right supply (96.4%), speech-recognition style 14/15, English 10/10. 3 falsely refused (safe). Baseline TF-IDF rule: 74 good, 4 unsafe, 58 false refusals.
+- **Consequence:** failed claim #19 (IG1). The read-back confirmation of the parsed request in the deployment note becomes required. The parser is not changed on this set; a destination-as-closed-set-question change is a candidate for a later registered study on a new text set (I-102 if run).
