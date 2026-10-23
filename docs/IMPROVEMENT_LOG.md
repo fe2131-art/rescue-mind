@@ -1203,3 +1203,6 @@
 
 ## I-107 Amendment 2 (2026-10-24): the near pose N is dropped before the campaign
 - The second pilot attempt showed the extra views work (JKPILOT2: L2, R2, N with model calls, ALLOW) and found a real fault: in one world the run failed twice right after the 0.3 m near pose (guard `front_obstacle_too_close`; odometry drift 0.91 m). Post hoc, N is dispensable: identical misses and false stops with and without N on XD and on JI. The arm now omits N (`--adaptive-near 0`), a fourth pilot world was added, claims and analysis are unchanged. Had the campaign started with N, the failure rate would have risked the 10% stop rule.
+
+## I-107 Amendment 3 (2026-10-24): the independent audit learned that the arm has two extra views
+- The third pilot attempt: JKPILOT2/3 failed the completion audit (it required three extra views; the arm takes two). The audit's expected count now follows the recorded near distance (3 if > 0, else 2), strict both ways; the saved pilot records re-audit as pass. This is why the pilot exists: three independent defects (flag not plumbed, near pose unsafe at the depot, audit constant) were found before the first JK trial.
