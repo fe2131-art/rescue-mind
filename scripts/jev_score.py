@@ -100,10 +100,10 @@ def inventory(which: str) -> list:
         rows = [json.loads(x) for x in (base / 'labels.jsonl').read_text(encoding='utf8').splitlines() if x.strip()]
         return [{'set': which, 'key': r['image'], 'file': str(base / r['image']), 'world': r['world_id'], 'view': r['view'], 'world_kind': r['world_kind'],
                  'fire': bool(r.get('truth_hazard_visible')), 'perceivable_any': bool(r.get('world_perceivable_any_view'))} for r in rows]
-    if which == 'xd':
-        base = ROOT / 'experiments/vlm_testset_xd'
+    if which in ('xd', 'ji'):                                    # XD's depot images, or study JI's fresh set (same format)
+        base = ROOT / f'experiments/vlm_testset_{which}'
         rows = [json.loads(x) for x in (base / 'labels.jsonl').read_text(encoding='utf8').splitlines() if x.strip()]
-        return [{'set': 'xd', 'key': r['image'], 'file': str(base / r['image']), 'world': r['world_id'], 'view': r['view'], 'world_kind': r['world_kind'],
+        return [{'set': which, 'key': r['image'], 'file': str(base / r['image']), 'world': r['world_id'], 'view': r['view'], 'world_kind': r['world_kind'],
                  'fire': bool(r.get('truth_hazard_visible')), 'perceivable_any': bool(r.get('world_perceivable_any_view'))} for r in rows]
     raise SystemExit('unknown set')
 
@@ -111,7 +111,7 @@ def inventory(which: str) -> list:
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--judge', required=True, choices=list(JUDGES))
-    ap.add_argument('--set', required=True, choices=['closed_loop', 'xd', 'qi_R', 'qi_G', 'qi_C'])
+    ap.add_argument('--set', required=True, choices=['closed_loop', 'xd', 'ji', 'qi_R', 'qi_G', 'qi_C'])
     ap.add_argument('--limit', type=int, default=0)
     a = ap.parse_args(argv)
     out = RES / f'jev_scores_{a.judge}_{a.set}.jsonl'
