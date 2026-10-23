@@ -341,6 +341,37 @@ def line_gm_ig(res):
     return '\n'.join(out)
 
 
+def line_views(res):
+    """Studies JI (six views against three on fresh worlds), JC (a fast judge as view selector), IH (a destination rule for the request parser) and JK (suspicion-triggered extra views in the closed loop): numbers from the result files; outcome-neutral; empty until they exist."""
+    out = []
+    j = jload(Path(res) / 'ji_summary.json')
+    try:
+        g3, g6, k = j['viewsets']['v36_FLR']['scorers']['qwen35'], j['viewsets']['all_six']['scorers']['qwen35'], j['claims']
+        out.append(f"・視点を増やす評価JI（新しい{j['n_fire']}世界）：見逃し 3視点 {g3['miss']} → 6視点 {g6['miss']}、誤停止 {g6['false_stops']}。主張JI1〜JI4 {'成立' if all(k.values()) else '一部不成立'}。別系統の審判の上乗せは小さい")
+    except (TypeError, KeyError):
+        pass
+    c = jload(Path(res) / 'ji_cascade_summary.json')
+    try:
+        p = c['policies']['sentinel_' + c['primary_sentinel']]
+        out.append(f"・別系統の速いAIを追加視点の見張り役にする評価JC：見逃し {p['miss']}（常に6視点は {c['policies']['always6']['miss']}）で{'成立' if c['claims']['JC1_primary_sentinel_misses_within_3_of_always_six'] else 'JC1不成立'}")
+    except (TypeError, KeyError):
+        pass
+    h = jload(Path(res) / 'ih_summary.json')
+    try:
+        s_, v_ = h['strict']['unsafe'], h['v36']['unsafe']
+        out.append(f"・行き先の規則（評価IH、新しい依頼文{h['n']}件）：危険な結果 {v_['k']}→{s_['k']}件で{'成立' if h['criteria']['IH1_strict_unsafe_at_most_5'] else 'IH1不成立（リストにない場所が漏れる）'}")
+    except (TypeError, KeyError):
+        pass
+    kk = jload(Path(res) / 'jk_summary.json')
+    try:
+        a_, v_ = kk['arms']['adapt']['fire'], kk['arms']['v36']['fire']
+        ok = all(kk['criteria'][x] for x in ('JK1_paired_one_sided_p_below_005_and_fewer', 'JK2_adapt_upper_at_most_10pct', 'JK3_false_stops_at_most_3'))
+        out.append(f"・疑わしいとき追加の視点を取る方式を倉庫の閉ループで検証（評価JK）：火へ配達 {v_['k']}→{a_['k']}/{a_['n']}（上限 {a_['upper95_exact'] * 100:.1f}%）で{'成立' if ok else '一部不成立'}")
+    except (TypeError, KeyError):
+        pass
+    return '\n'.join(out)
+
+
 def line_qi(res):
     """Studies JH (a second judge from another model family) and QI (images made or realised by an image-generation model, scored by the frozen gate): numbers from the result files; outcome-neutral; empty until they exist."""
     out = []
@@ -454,7 +485,7 @@ def line_pending(res):
 
 
 def number_lines(res):
-    fns = (line_t1, line_t2, line_z, line_r, line_p, line_l, line_h, line_v, line_w, line_xd, line_a, line_y, line_gr, line_gc, line_gd, line_gv, line_gl, line_gm_ig, line_qi, line_if, line_j, line_pending)
+    fns = (line_t1, line_t2, line_z, line_r, line_p, line_l, line_h, line_v, line_w, line_xd, line_a, line_y, line_gr, line_gc, line_gd, line_gv, line_gl, line_gm_ig, line_views, line_qi, line_if, line_j, line_pending)
     return [x for x in (f(res) for f in fns) if x]
 
 
