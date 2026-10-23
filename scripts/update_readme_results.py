@@ -667,6 +667,13 @@ def section_key(e, t):
         rows.append(f"| 視点を6つに増やすと見逃しは減るか。拒否権の審判を足すとさらに減るか（評価JI、新しい{ji_['n_fire']}世界と火のない双子、画像単位、閾値は凍結） | 見逃し：3視点 **{jg3_['miss']}/{ji_['n_fire']}** → 6視点 **{jg6_['miss']}/{ji_['n_fire']}**（上限 {pct(jg6_['miss_upper95'])}）、誤停止 {jg3_['false_stops']}→{jg6_['false_stops']}/{ji_['n_clean']}。対の比較 p={ji_['paired_six_vs_three']['mcnemar_one_sided_p']:.4f}。6視点＋InternVL3の拒否権：見逃し {jj4_['miss']}、誤停止 {jj4_['false_stops']}。{'登録した主張JI1〜JI4はすべて成立' if all(jc_.values()) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k, v in jc_.items() if not v) + '）'} | [PREREGISTRATION_JI](experiments/PREREGISTRATION_JI.md)、[結果](experiments/results/ji_summary.json) |")
     except (TypeError, KeyError):
         pass
+    jc_ = jl('ji_cascade_summary.json')
+    try:      # JEV as a fast sentinel that decides where to look (registered JC1-JC3; outcome-neutral wording: every figure comes from the summary)
+        jcp_, jcs_ = jc_['policies'], 'sentinel_' + jc_['primary_sentinel']
+        jcc_ = jc_['claims']
+        rows.append(f"| 高速な別系統のAI（JEV）を「追加の視点を取りに行くか」だけ決める見張り役にすると、視点を減らして見逃しを保てるか（評価JC、評価JIのスコアを再解析） | 見逃し：常に3視点 {jcp_['always3']['miss']}、常に6視点 {jcp_['always6']['miss']}、見張り役（{jc_['primary_sentinel']}）{jcp_[jcs_]['miss']}／{jc_['n_fire']}。火のない世界の視点数 平均 {jcp_[jcs_]['mean_views_clean']:.2f}（3〜6）、誤停止 {jcp_[jcs_]['false_stops']}。見張り役の中央値 {jc_['sentinel_latency_median_s'][jc_['primary_sentinel']]} 秒/画像。画像単位で走行時間は概算 | {'JC1〜JC3：**支持**' if all(jcc_[k] for k in ('JC1_primary_sentinel_misses_within_3_of_always_six', 'JC2_primary_sentinel_mean_views_clean_at_most_4', 'JC3_primary_sentinel_false_stops_at_most_5')) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k in ('JC1_primary_sentinel_misses_within_3_of_always_six', 'JC2_primary_sentinel_mean_views_clean_at_most_4', 'JC3_primary_sentinel_false_stops_at_most_5') if not jcc_[k]) + '）'} |")
+    except (TypeError, KeyError):
+        pass
     ig_ = jl('ig_summary.json')
     try:      # the frozen request parser on fresh operator texts (registered IG1-IG2; outcome-neutral wording: every figure comes from the summary)
         igc_ = ig_['criteria']
