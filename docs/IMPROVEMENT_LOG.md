@@ -1106,3 +1106,9 @@
 - **Hypothesis:** a reader decides on the first screen; a plain description plus the video link on top, six headline rows (best result, safety, attack test, fresh-world replication, one honest failure) and the rest one click away read better without hiding anything.
 - **Change:** `README.md` gains a "30秒で" paragraph (what the robot does in three steps) and the video/report line moved above the table; `section_key` in `scripts/update_readme_results.py` shows E, G, T1 (failed), A, GR, GL and folds the other 10 rows into `<details>` (failed claims stay listed there and in the honesty line). Tests `test_readme_tables`, `test_set_video_url` pass; consistency 1 mismatch left (report text, rebuild after GM).
 - **Before / After:** before, the video link sat below a 17-row table and the first sentence was a bound on ε_any; after, the first screen answers "what / where is the video / how well" in order, with every registered study still present.
+
+## I-98 (2026-10-23) Video opening: first sentence says what the robot does
+- **Motivation:** the first narration began with the problem ("在庫表と現場は違い…") and never said that this is a delivery robot for disaster sites; a viewer who stops after 10 s would not know what is being delivered. Same lesson as I-97.
+- **Hypothesis:** one plain sentence first ("災害現場へ物資を届けるロボットです") makes the following problem/answer pair readable without costing a slot (the card is 6 s; +about 1 s of narration, total stays under 180 s).
+- **Change:** `open_say` in `scripts/make_video_plan.py`. The plan and video v13 are rebuilt after GM ends (rendering is heavy CPU); v12 stays the file to review until then.
+- **Before / After:** before, 171.0 s and the opening started with the problem; after (to be measured at rebuild): opening starts with the task; total length must stay ≤ 180 s (checked by `final_check.sh`).
