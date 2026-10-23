@@ -23,6 +23,8 @@ Physical AI 応用1講座 最終課題 ｜ ROS 2 Jazzy × Gazebo Harmonic × ロ
 | 較正の手順は2か所目（倉庫）では誤停止の保証は成り立つが、見逃しは減らない（評価GD、新しい40世界） | 火へ配達：較正した閾値（0.028）**5/40**（95%上限 24.5%、登録した線25%）、既定 0.05 は 5/40（差なし）、火のない世界の誤停止 1/24。倉庫の閉ループの火のない得点は画像より裾が重く、小さな火の得点はその中に入る | GD1・GD2：**成立**、予測P1・P3は外れ（`experiments/results/gd_summary.json`） |
 | 倉庫で視点を0.8 mに広げれば、較正した閾値で見逃しを減らせるか（評価GV：登録した停止規則で中止、本番は未実施） | 火のない倉庫100世界で較正すると閾値が 0.071（既定 0.05 以上）になり、既定 0.05 のままでも 4/100 世界が止まる。0.4 m の視点（GD）では 0.028。最大の得点は薬の箱の右側の視点（赤い十字が画面を占める）に集中した（事後の観察） | 主張 GV1・GV2 は検証していない（失敗した主張には数えない）。前提（0.8 m で下げられる）は外れた（`experiments/results/gv_calibration.json`） |
 | 画像生成モデルで写実化した画像でも、凍結したゲートは火を見つけるか（評価QI） | 写実化したフレームの見逃し 26/126（上限 27.5%、元のシミュレータ画像 14/126、登録した線 20）、火なし世界の誤停止 0/104。描き足した火は 140/205 枚が炎の色を持たず登録した停止規則で止まり、中立の対照編集は 39/72 の双子を危険と判定させた（生成器が煙を描いたため）。シミュレータの灰色の煙の円盤が写実的な背景に残ると見逃す | 誤停止のみ **支持**、見逃し（QI1）**不成立**、生成した火（QI2）**不成立（停止規則）**、対照編集（QI3c）**不成立** |
+| 別系統のAIを「拒否権だけの第2の審判」にすると、見逃しは減るか（評価JH、事後の要因分析つき） | 見逃し 14→10（登録した目標 9 以下）、誤停止 0/104。**元世界で数えると 11→10**（減少は1つの世界の複製）。残りは全審判が見逃す知覚の限界。見え方を増やす方が効く（ゲート単独：提出版3視点 14 → 6視点 5、事後）。研究JIで新しい世界で再現を検証する | **不成立**（JH1） |
+| テキストだけで生成した新しい場面でも、凍結したゲートは火を見つけるか（評価QJ） | 火なしの誤停止 0/120、大きな火の見逃し 0/120、小さな火の見逃し 0/120（各上限 2.5%）。生成した「隠れた火」の多くは見える位置にあり、ハードクラスの再現ではない。生成画像で実写ではない | QJ1 **支持**、QJ2 **支持**、QJ3 **支持** |
 | 倉庫で左だけ0.8 mの見回しにすると、見逃しは減るか（評価GL、新しい120世界、サイト固有の選択肢） | 火へ配達：v3.6 **20/120**（95%上限 23.3%）、左0.8 m＋較正閾値0.028 **6/120**（上限 9.6%、登録した線10%）。対の比較は v3.6 のみ 16・左のみ 2（片側 McNemar p=0.00066）、火のない世界の誤停止 2/40。効くのは正面から見えない火（側方のみ 16/24 → 3/24）。幾何と閾値を同時に変えた比較で、左のみは箱の向きに依存する。既定は v3.6 のまま | **支持**（GL1〜GL3） |
 | 依頼文で頼まれた物資はすり替えられない（評価IF、オフライン） | 書き換えた36文のうち、注入された物資を受理 **12/36**（95%信頼区間 20〜50%）。依頼物資は保証の外。対策の聞き返し（I-27）は研究IF2で再測定（結果は論文を参照） | **不成立** |
 
@@ -311,7 +313,7 @@ Qwen3.5-9B（ローカル・V100）、回復探索・状況報告・LLM指示理
 | **「拒否」と「故障」を区別** | 拒否は「拒否イベント＋2.5秒の停止保持＋真値で拠点から動いていない＋bag確定」が揃って初めて成功扱い。VLMがエラーで止まっただけでは成功にしない。 |
 | **sudo不要で再現** | Ubuntu 22.04 ホストでも Docker（ROS 2 Jazzy + Gazebo Harmonic + CUDA PyTorch）で動作。Gazebo は EGL ヘッドレス描画。 |
 
-参考資料：改善の経緯（Before/After）[`IMPROVEMENT_LOG.md`](docs/IMPROVEMENT_LOG.md) ／ 実際に動かして初めて分かった48件の問題と対策 [`FINDINGS.md`](docs/FINDINGS.md) ／ 設計判断 [`DESIGN_DECISIONS.md`](docs/DESIGN_DECISIONS.md) ／ 作業の引継ぎ・現状 [`HANDOFF.md`](docs/HANDOFF.md)。
+参考資料：改善の経緯（Before/After）[`IMPROVEMENT_LOG.md`](docs/IMPROVEMENT_LOG.md) ／ 実際に動かして初めて分かった50件の問題と対策 [`FINDINGS.md`](docs/FINDINGS.md) ／ 設計判断 [`DESIGN_DECISIONS.md`](docs/DESIGN_DECISIONS.md) ／ 作業の引継ぎ・現状 [`HANDOFF.md`](docs/HANDOFF.md)。
 
 ![devset](docs/figures/devset_ablation.png)
 
@@ -337,7 +339,7 @@ bash docker/build.sh                                   # ROS 2 Jazzy + Gazebo Ha
 #    旧環境（v3.3: torch 2.5.1 / transformers 4.53。図・PDF・テスト用の rm-dev）: docker build --build-arg STACK=v33 -t rescuemind:jazzy docker
 # 1) モデル重みを一度だけ取得（以降の実行は HF_HUB_OFFLINE=1）
 HF_HUB_OFFLINE=0 bash docker/run.sh python3 -c "from huggingface_hub import snapshot_download as s; s('Qwen/Qwen3.5-9B')"
-# 2) テスト（テスト関数 1612 件。数え方は静的で `python3 scripts/count_tests.py`。ROS/Gazebo不要の部分はDockerなしでも実行可）
+# 2) テスト（テスト関数 1621 件。数え方は静的で `python3 scripts/count_tests.py`。ROS/Gazebo不要の部分はDockerなしでも実行可）
 bash docker/run.sh python3 -m unittest discover -s tests -q
 # 3) 1回のAIミッション（Gazebo・ブリッジ・ガード・VLMを自動起動、証拠は outputs/runs/<run_id>/）
 V34="--model Qwen/Qwen3.5-9B --prompt-set v35 --intent-backend llm --intent-prompt i35 --recovery --explain"
