@@ -149,6 +149,14 @@ def main():
             ws = [max(v.values()) for v in by.values() if set(v) == set(VIEWS)]
             hit = sum(1 for x in ws if x >= c['tau_J'])
             p3.setdefault(j, {})[tag] = {'n': len(ws), 'flagged': hit, 'rate': round(hit / len(ws), 4) if ws else None, 'tau_J': c['tau_J']}
+            if tag == 'C':        # per-world overlap with the gate's own flips among the worlds with all three views (the control edits that the gate pushes over tau)
+                cf = RES / 'devset_qi_C_h36_tiles.json'
+                gv: dict = {}
+                for r in json.loads(cf.read_text())['records']:
+                    gv.setdefault(r['world_id'], {})[r['view']] = hazard_score(r)
+                gate = {w for w, v in gv.items() if set(v) == set(VIEWS) and max(v.values()) >= TAU}
+                judge = {w for w, v in by.items() if set(v) == set(VIEWS) and max(v.values()) >= c['tau_J']}
+                p3[j][tag].update({'gate_flips_strict': len(gate), 'judge_flags_also_gate_flips': len(judge & gate)})
     out['P3_judges'] = p3
     out['claims'] = cl
     (RES / 'qi_summary.json').write_text(json.dumps(out, ensure_ascii=False, indent=1) + '\n')

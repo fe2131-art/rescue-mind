@@ -1544,6 +1544,8 @@ def main():
             c_ = (qi_.get('P3_judges') or {}).get(j_, {}).get('C')
             if c_ and c_.get('n'):
                 m['QIPJudge' + nm_ + 'C'] = f"{c_['flagged']}/{c_['n']}"
+                if 'judge_flags_also_gate_flips' in c_:
+                    m['QIPJudge' + nm_ + 'Both'], m['QIGateFlipsStrict'] = c_['judge_flags_also_gate_flips'], c_['gate_flips_strict']
         if qi_.get('G', {}).get('excluded'):
             ex_ = qi_['G']['excluded']
             m['QIGExcl'], m['QIGGen'], m['QIGExclShare'] = ex_['n_excluded'], ex_['n_generated'], pct(ex_['share'], 0)
