@@ -70,6 +70,17 @@ class Claims(unittest.TestCase):
         self.assertFalse(self.synthetic(14, 0)['criteria']['JK1_paired_one_sided_p_below_005_and_fewer'])       # no difference to v36
 
 
+class Wiring(unittest.TestCase):
+    def test_orchestrator_passes_tau_sus_only_when_given(self):
+        import scripts.v32_orchestrate as orch
+        kw = dict(mission_timeout=900, evidence_dir=Path('/tmp/abcdef0123456789'), adaptive_views=0.8)
+        argv = ' '.join(orch.build_plan('live', '避難所Bに飲料水を届けて', **kw)['mission'].argv)
+        self.assertIn('--adaptive-views 0.8', argv)
+        self.assertNotIn('--adaptive-tau-sus', argv)                                   # the registered arm keeps the mission's default 0.005
+        argv = ' '.join(orch.build_plan('live', '避難所Bに飲料水を届けて', adaptive_tau_sus=0.0, **kw)['mission'].argv)
+        self.assertIn('--adaptive-tau-sus 0.0', argv)                                  # the pilot forces the extra views
+
+
 class Guards(unittest.TestCase):
     def test_run_script_lock_and_guards(self):
         s = (ROOT / 'scripts/jk_run.sh').read_text()

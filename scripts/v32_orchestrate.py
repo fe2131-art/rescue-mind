@@ -86,7 +86,7 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
                intent_prompt: str = 'i34', describe_prompt: str = 'e0', inject_stall: float = 0.0,
                hazard_threshold: float = 0.5, control_qos: str = 'reliable', hazard_views: str = 'full',
                hazard_prompt: str = 'h35', jev_local: str = 'off', jev_hazard_threshold: float = .35, jev_schema: str = 'jev',
-               look_around: float = 0.0, memory_file: str | None = None, memory_mode: str = 'off', adaptive_views: float = 0.0, look_around_sides: str = 'LR', judge: str | None = None, judge_threshold: float | None = None,
+               look_around: float = 0.0, memory_file: str | None = None, memory_mode: str = 'off', adaptive_views: float = 0.0, adaptive_tau_sus: float | None = None, look_around_sides: str = 'LR', judge: str | None = None, judge_threshold: float | None = None,
                advice_file: str | None = None, advice_mode: str = 'off', advice_from_instruction: bool = False,
                caution_soft: bool = False, hazard_continue: bool = False, advice_scrutiny: bool = False, advice_credit: str | None = None,
                delivery_interlock: bool = False, interlock_key: str | None = None,
@@ -114,6 +114,8 @@ def build_plan(scenario: str, instruction: str, *, mission_timeout: int, scene: 
             cmd += ['--look-around-sides', look_around_sides]        # I-74: one-sided look-around (default both sides: v3.6)
     if adaptive_views:
         cmd += ['--adaptive-views', str(adaptive_views)]     # I-20 (tau_sus and near keep their defaults)
+        if adaptive_tau_sus is not None:
+            cmd += ['--adaptive-tau-sus', str(adaptive_tau_sus)]   # study JK pilot only (forces the extra views with 0); unset = the mission's default 0.005
     if memory_file:
         cmd += ['--memory-file', str(memory_file), '--memory-mode', memory_mode]
     if advice_file or advice_from_instruction:      # I-19: advice from a file (peer/inventory/memory) and/or the instruction text
@@ -411,6 +413,7 @@ def main(argv=None):
                         'best_effort = best-effort request/heartbeat topics')
     p.add_argument('--adaptive-views', type=float, default=0.0,
                    help='I-20: suspicion-triggered extra views at this side offset (m); 0 = off (v3.6)')
+    p.add_argument('--adaptive-tau-sus', type=float, default=None, help='suspicion threshold of --adaptive-views (default: the mission node\'s 0.005); the study JK pilot forces the extra views with 0')
     p.add_argument('--judge', default=None, help='I-77 (Jev): heterogeneous judge VLM served in the VLM server, veto only (hazard if the gate or the judge flags); needs --judge-threshold')
     p.add_argument('--judge-threshold', type=float, default=None, help='the judge\'s own threshold')
     p.add_argument('--look-around-sides', choices=['LR', 'L', 'R'], default='LR',
@@ -520,7 +523,7 @@ def main(argv=None):
                  intent_backend=args.intent_backend, intent_prompt=args.intent_prompt,
                  describe_prompt=args.describe_prompt, inject_stall=args.inject_warmup_stall,
                  hazard_threshold=args.hazard_threshold, hazard_views=args.hazard_views,
-                 hazard_prompt=args.hazard_prompt, jev_local=args.jev_local, look_around=args.look_around, adaptive_views=args.adaptive_views, look_around_sides=args.look_around_sides, judge=args.judge, judge_threshold=args.judge_threshold,
+                 hazard_prompt=args.hazard_prompt, jev_local=args.jev_local, look_around=args.look_around, adaptive_views=args.adaptive_views, adaptive_tau_sus=args.adaptive_tau_sus, look_around_sides=args.look_around_sides, judge=args.judge, judge_threshold=args.judge_threshold,
                  jev_hazard_threshold=args.jev_hazard_threshold, jev_schema=args.jev_schema,
                  memory_file=args.memory_file, memory_mode=args.memory_mode,
                  advice_file=args.advice_file, advice_mode=args.advice_mode,

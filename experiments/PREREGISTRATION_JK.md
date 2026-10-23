@@ -23,3 +23,6 @@ The submitted default stays v3.6 until the result is integrated. If JK2 and JK3 
 
 ## Known limits, stated now
 Simulation; GM's generator, one fire geometry (small, partly hidden, behind the bay) and four realism variants; the comparators are historical (not concurrent); the arm cannot lower the miss count below the fires that no view shows (GM031 and GM079 were missed by both GM arms); JK1 holds nearly by construction; the same worlds were used by GM (not fresh for the paper as a whole).
+
+## Amendment 1 (2026-10-24, before any JK trial; the pilot did its job)
+The first pilot attempt (`campaign_JK_pilot_ledger_attempt1.jsonl`) stopped the campaign before it started, as designed: the two forced pilot runs ended in `NO_RUN_DIR` after 0.1 s because `scripts/v32_orchestrate.py` had no `--adaptive-tau-sus` option (the mission node has it, the orchestrator did not pass it); the real-arm run of the large fire (JKPILOT1) was refused for a hazard as registered. **Change:** the orchestrator gains `--adaptive-tau-sus` (default unset: nothing is passed, so the registered arm `adapt` and every earlier study run exactly as before; `build_plan(adaptive_tau_sus=None)`); a wiring test (`tests/test_study_jk.py`) checks that the flag appears only when given. The pilot is rerun with the same three runs. No claim, threshold, world or analysis changes; no JK trial has run.

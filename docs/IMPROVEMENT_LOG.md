@@ -1192,3 +1192,6 @@
 - **Motivation:** the description listed GL but not its replication GM, nor the request-parser failure IG1; a description that omits a failed claim while listing the successes contradicts the project's honesty rule.
 - **Change:** `line_gm_ig` in `scripts/make_youtube_description.py` (numbers from `gm_summary.json`, `ig_summary.json`; outcome-neutral wording: "成立" / "IG1不成立（未知の行き先を受理）"); regenerated.
 - **Before / After:** before, 4,506 characters without GM/IG; after, 4,633 (limit 5,000, measured as `final_check.sh` does). JI, JK, IH lines are added when their results exist.
+
+## I-107 Amendment (2026-10-24): the pilot caught a plumbing gap before the campaign
+- The JK mechanics pilot failed as a gate should: two forced runs exited 2 in 0.1 s (`--adaptive-tau-sus` unknown to the orchestrator). Fix: option added (default unset, nothing passed), wiring test, failed rows archived, pilot rerun. No JK trial ran; claims unchanged.
