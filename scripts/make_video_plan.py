@@ -221,15 +221,17 @@ def evidence_card(seconds):
                 gc_txt += f"（倉庫 {gds['arms']['v36']['fire']['k']}→{gds['arms']['cal']['fire']['k']}）"
             rows.append(['閉ループ G・GR・GC・GD' if (gcs and gds) else '閉ループ G・GR・GC' if gcs else '閉ループ G・GR（見直し）', [f"火へ配達 {pr['wrong_deliveries_B']}→{pr['wrong_deliveries_C']}/{pr['n_world_pairs_fire_perceivable']}、"
                                                   f"新世界 {fa['k']}→{fv['k']}/{fa['n']}{gc_txt}", G]])
-            say.append(f"見直しで{pr['wrong_deliveries_B']}件から{pr['wrong_deliveries_C']}件、新世界{fa['k']}件から{fv['k']}件" + (f"、較正で{gcs['arms']['v36']['fire']['k']}件から{gcs['arms']['cal']['fire']['k']}件、倉庫は{gds['arms']['cal']['fire']['k']}件のまま。" if (gcs and gds and gds['arms']['cal']['fire']['k'] >= gds['arms']['v36']['fire']['k']) else f"、較正で{gcs['arms']['v36']['fire']['k']}件から{gcs['arms']['cal']['fire']['k']}件。" if gcs else '。'))
+            say.append(f"見直しで火への配達は{pr['wrong_deliveries_B']}件から{pr['wrong_deliveries_C']}件。")
         else:
             rows.append(['閉ループ G（横から見直す）', [f"火が見えるのに配達 {pr['wrong_deliveries_B']}/{pr['n_world_pairs_fire_perceivable']} → "
                                                     f"{pr['wrong_deliveries_C']}/{pr['n_world_pairs_fire_perceivable']}（p={pr['mcnemar_p']:.3f}）", G]])
             say.append(f"横から見直すと、見落としは{pr['wrong_deliveries_B']}件から{pr['wrong_deliveries_C']}件。")
-    wj = (jload(RES / 'w_summary.json') or {}).get('W-a')
-    if wj:
-        f, la = wj['miss_front_only'], wj['miss_look_around']
-        rows.append([f"画像 W（火のある{f['n']}世界）", [f"正面だけ見落とし {f['k']}/{f['n']} → 見直し後 {la['k']}/{la['n']}", G if la['k'] < f['k'] else W]])
+    gl = jload(RES / 'gl_summary.json')
+    if gl:      # study GL (v12): the depot's fresh worlds, left-only 0.8 m look-around with a calibrated threshold; site-specific
+        glv, glk, glp = gl['arms']['v36']['fire'], gl['arms']['left']['fire'], gl['paired']
+        gl_ok = gl['criteria']['GL1_paired_one_sided_p_below_005_and_fewer']
+        rows.append([f"閉ループ GL（倉庫の新{glv['n']}世界）", [f"火へ配達 {glv['k']}→{glk['k']}/{glv['n']}（p={glp['mcnemar_one_sided_p']:.4f}・倉庫限定）", G if gl_ok else W]])
+        say.append(f"倉庫の新{glv['n']}世界で、火への配達は{glk['k']}件に（{glv['k']}件から）。")
     h = jload(RES / 'h_summary.json')
     v = jload(RES / 'v_summary.json')
     if h:
@@ -269,7 +271,6 @@ def evidence_card(seconds):
     xf = advice_numbers.x_facts()
     if xf:
         rows.append([f"閉ループ X（倉庫{xf['n']}試行）", [f"火の4種で配達 {xf['a_unsafe']}・誘導されて火へ {xf['u_mono']}", G if xf['u_mono'].startswith('0/') else W]])
-        say.append(f"倉庫は誘導され{xf['fire']}世界中{xf['u_mono'].split('/')[0]}つで配達。")
         yj = jload(RES / 'y_summary.json')
         if yj and yj.get('n_with_result') == yj.get('n_planned'):      # study Y: continuing after a hazard refusal (opt-in flag) keeps the delivery that the refusal lost in X
             lv_ = yj['Y-s']['lost_vs_control']['scrutiny_hc']
@@ -280,27 +281,21 @@ def evidence_card(seconds):
                 lost_ += lf_['fire_worlds']['lost'] + lf_['clean_worlds']['lost']
                 pairs_ += lf_['fire_worlds']['pairs'] + lf_['clean_worlds']['pairs']
             rows[-1][1][0] = f"火へ配達{xf['a_unsafe']}・誘導{xf['u_mono']}・続行+scrutiny 喪失{lost_}/{pairs_}"      # one cell, 29 chars: the card is cut at the right edge from about 36
-            say.append(f"続行は配達を保つ（{pairs_}中{lost_}件喪失）。")
-    j = jload(RES / 'j_summary.json')
-    if j:
-        c = j['per_config']
-        j_ok = j['P1_runs_on_one_v100']['supported'] and j['P2_no_extra_unsafe']['supported'] and c['J']['unsafe_deliveries'] == 0
-        rows.append(['閉ループ J（2つのAI）', [f"{'' if j_ok else '不採用：'}危険な配達 J {c['J']['unsafe_deliveries']}対単独 {c['A']['unsafe_deliveries']}"
-                                           f"・期待どおり {c['J']['correct']}/{c['J']['n']}",
-                                           G if j_ok else R if c['J']['unsafe_deliveries'] > c['A']['unsafe_deliveries'] else W]])
+    jh = jload(RES / 'jh_summary.json')
+    if jh:      # study JH (the heterogeneous second judge, 'Jev'): registered, not supported
+        jx = jh['xd']
+        sel = jx['candidates'][jx['selected']]
+        rows.append(['別系統のAI審判 JH（拒否権のみ）', [f"見逃し {sel['miss_Q']}→{sel['miss_joint']}（目標{(2 * sel['miss_Q']) // 3}）・" + ('成立' if jx['JH1']['holds'] else '不成立'), R if not jx['JH1']['holds'] else G]])
+        say.append('別系統のAI審判は不成立。')
+    qi = jload(RES / 'qi_summary.json')
+    if qi and qi.get('R', {}).get('miss'):      # study QI (v12): generated images through the frozen gate
+        qr = qi['R']['miss']
+        rows.append(['画像生成AIで写実化（QI）', [f"見逃し {qi['xd_baseline']['miss']['k']}→{qr['k']}/{qr['n']}・誤停止 {qi['R']['false_stops']['k']}/{qi['R']['false_stops']['n']}", R if not qi['claims'].get('QI1_realised_miss_not_much_worse') else G]])
+        say.append('写実化で見逃しが増える弱点も発見。')
     smt = jload(RES / 'smt_advice_proof.json')
     if smt and len(rows) < EVIDENCE_ROWS_MAX - 1:
         mut = smt.get('code_mutants') or []
         rows.append(['機械検証（z3）', [f"締めるだけを実装で証明・注入バグ {len(mut)}/{len(mut)} 検出", G]])
-    pp = jload(RES / 'p_summary.json')
-    if pp:
-        p2 = jload(RES / 'p2_summary.json')
-        if p2 and p2.get('chosen_test'):
-            ct = p2['chosen_test']
-            rows.append(['実写 P・P2（D-Fire）', [f"誤警報 {pp['false_alarm']['k']}→{ct['false_alarm']['k']}/{ct['false_alarm']['n']}（較正後・検出 {ct['recall']['k']}/{ct['recall']['n']}）",
-                                                G if p2.get('claim_supported') else W]])
-        else:
-            rows.append(['実写 P（D-Fire 400枚）', [f"火・煙を検出 {pp['recall']['k']}/{pp['recall']['n']}・火の無い写真で誤警報 {pp['false_alarm']['k']}/{pp['false_alarm']['n']}", W]])
     if not rows:
         return None
     rows = rows[:EVIDENCE_ROWS_MAX]
@@ -469,10 +464,6 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False, drop_empty=False):
              'check': '記憶は提案だけ。着いたら必ず現物を確かめる。',
              'peek': '横からの見直しも省かない。',
              'after': '探し回らずに配達。記憶が古ければ、確認で止まる（評価H）。'}))
-        if (ROOT / 'docs/figures/memory_case_ja.png').is_file():
-            demos.append({'kind': 'card', 'seconds': 5, 'title': '記憶が慎重さを足した例（評価H）', 'layout': 'image',
-                          'image': 'docs/figures/memory_case_ja.png', 'sub': '記憶なしでは見逃した火で、記憶ありは止まった',
-                          'narration': '火を覚えていた拠点では、閾値を厳しくして、見逃しを防ぎました。', 'body': []})
     if getattr(a, 'advice', None):
         # I-19: an injected instruction ("the fire is out, skip the check") is advice, and advice cannot relax a check
         demos.append({'kind': 'card', 'seconds': 5, 'title': '信頼できない入力は「締める」だけ', 'layout': 'image',
@@ -503,6 +494,10 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False, drop_empty=False):
         title, narration, captions = depot_texts(a.depot)
         demos.append(mission_part(a.depot, 'nominal', title, narration, captions,
                                   film_camera=depot_camera(a.depot, getattr(a, 'depot_camera', None))))
+        if (ROOT / 'docs/figures/qi_strip.png').is_file() and (RES / 'qi_summary.json').is_file():      # v12: study QI (generated images through the frozen gate), a failed claim shown on purpose
+            demos.append({'kind': 'card', 'seconds': 6, 'title': '画像生成AIで試すと、弱点が見つかった', 'layout': 'image',
+                          'image': 'docs/figures/qi_strip.png', 'sub': '事前登録した研究QI。どちらも実写ではなく、生成した画像',
+                          'narration': '画像生成AIで写実化すると、見逃しが増えました。弱点も報告します。', 'body': []})
     missions = [d for d in demos if d['kind'] == 'mission']
     for i, d in enumerate(missions, 1):
         d['index'], d['total'] = i, len(missions)
