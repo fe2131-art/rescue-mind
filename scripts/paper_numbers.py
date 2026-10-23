@@ -1567,6 +1567,22 @@ def main():
                 m['QI' + t_.translate(DIGITW) + 'Strict'] = v_['worlds_with_all_three_views_strict']
         for k_, v_ in (qi_.get('claims') or {}).items():
             m['QIClaim' + k_.split('_')[0].translate(DIGITW)] = 'holds' if v_ else 'fails'
+    # ---- study QJ (registered text-to-image scenes scored by the frozen gate; I-90); macros exist only once qj_summary.json holds evaluated claims
+    qjf_ = RES / 'qj_summary.json'
+    if qjf_.is_file():
+        qj_ = json.loads(qjf_.read_text())
+        if 'N0' in qj_:
+            fs_ = qj_['N0']['false_stops']
+            m['QJFalse'], m['QJN'], m['QJFalseUpper'] = fs_['k'], fs_['n'], pct(fs_['upper95'], 1)
+        for md_, nm_ in (('NB', 'Large'), ('NF', 'Small')):
+            if md_ in qj_:
+                a_ = qj_[md_]['all']
+                m['QJ' + nm_ + 'Miss'], m['QJ' + nm_ + 'N'], m['QJ' + nm_ + 'Rate'], m['QJ' + nm_ + 'Upper'] = a_['k'], a_['n'], pct(a_['rate'], 1), pct(a_['upper95'], 1)
+                b_ = qj_[md_].get('byeye_sample') or {}
+                if b_:
+                    m['QJ' + nm_ + 'Seen'], m['QJ' + nm_ + 'Sample'] = b_['present'], b_['n']
+        for k_, v_ in (qj_.get('claims') or {}).items():
+            m['QJClaim' + k_.split('_')[0].replace('QJ', 'QJ').translate(DIGITW)] = 'holds' if v_ else 'fails'
     # ---- study JH (registered heterogeneous second judge with veto, scored on XD; I-80)
     jhf_ = RES / 'jh_summary.json'
     if jhf_.is_file():
