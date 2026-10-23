@@ -1698,6 +1698,28 @@ def main():
             if key_ in (jc_.get('claims') or {}):
                 m['JC' + name_ + 'Holds'] = 'holds' if jc_['claims'][key_] else 'fails'
         m['StatJC'] = f"a fast sentinel decides where to look, on fresh worlds: JC1, JC2, JC3 {'hold' if all(jc_.get('claims', {}).get(k) for k in ('JC1_primary_sentinel_misses_within_3_of_always_six', 'JC2_primary_sentinel_mean_views_clean_at_most_4', 'JC3_primary_sentinel_false_stops_at_most_5')) else 'do not all hold'}"
+    # ---- study IH (registered: the destination rule for the request parser on a second fresh set; I-102); macros exist only once ih_summary.json exists
+    ihf_ = RES / 'ih_summary.json'
+    if ihf_.is_file():
+        ih_ = json.loads(ihf_.read_text())
+        ihs_, ihv_ = ih_['strict'], ih_['v36']
+        m['IHTexts'] = ih_['n']
+        m['IHUnsafe'], m['IHUnsafeUpper'] = f"{ihs_['unsafe']['k']}/{ihs_['unsafe']['n']}", pct(ihs_['unsafe']['ci95'][1], 1)
+        m['IHUnsafeV'], m['IHUnsafeVUpper'] = f"{ihv_['unsafe']['k']}/{ihv_['unsafe']['n']}", pct(ihv_['unsafe']['ci95'][1], 1)
+        m['IHAccepted'], m['IHAcceptedRate'] = f"{ihs_['accepted_right_supply']['k']}/{ihs_['accepted_right_supply']['n']}", pct(ihs_['accepted_right_supply']['rate'], 1)
+        m['IHAcceptedV'] = f"{ihv_['accepted_right_supply']['k']}/{ihv_['accepted_right_supply']['n']}"
+        m['IHWrongDest'], m['IHWrongDestV'] = f"{ihs_['wrong_destination_accepted']['k']}/{ihs_['wrong_destination_accepted']['n']}", f"{ihv_['wrong_destination_accepted']['k']}/{ihv_['wrong_destination_accepted']['n']}"
+        for cat_, nm_ in (('listed_place', 'Listed'), ('unlisted_place', 'Unlisted'), ('oriented', 'Oriented'), ('place_context', 'Context')):
+            pc_ = ihs_['per_category'].get(cat_)
+            if pc_:
+                m['IH' + nm_ + 'Bad'] = f"{pc_['unsafe'] if pc_['expect'] == 'reject' else pc_['false_refuse']}/{pc_['n']}"
+        igr_ = ih_.get('ig_rescored_with_rule_post_hoc') or {}
+        if 'unsafe' in igr_:
+            m['IHIgUnsafe'], m['IHIgAccepted'] = f"{igr_['unsafe']['k']}/{igr_['unsafe']['n']}", f"{igr_['accepted_right_supply']['k']}/{igr_['accepted_right_supply']['n']}"
+        for name_, key_ in (('One', 'IH1_strict_unsafe_at_most_5'), ('Two', 'IH2_strict_accepted_at_least_80pct'), ('Three', 'IH3_strict_fewer_unsafe_than_v36'),
+                            ('PredOne', 'P1_strict_wrong_destination_accepted_at_most_8'), ('PredTwo', 'P2_place_context_refused_at_most_4')):
+            m['IH' + name_ + 'Holds'] = 'holds' if ih_['criteria'][key_] else 'fails'
+        m['StatIH'] = f"destination rule for the request parser on fresh texts: IH1, IH2, IH3 {'hold' if all(ih_['criteria'][k] for k in ('IH1_strict_unsafe_at_most_5', 'IH2_strict_accepted_at_least_80pct', 'IH3_strict_fewer_unsafe_than_v36')) else 'do not all hold'}"
     # ---- study IG (registered: the frozen request parser on fresh operator texts; I-99); macros exist only once ig_summary.json exists
     igf_ = RES / 'ig_summary.json'
     if igf_.is_file():
