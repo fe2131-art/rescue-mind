@@ -4,7 +4,7 @@
 
   python3 scripts/make_protocol_jk.py          # pilot + protocol (the worlds and their selection are GM's: experiments/campaign_gm_selection.json)
 
-One new arm, `adapt` = the submitted v3.6 plus `--adaptive-views 0.8` (tau_h 0.05, tau_sus 0.005, near 0.3: defaults), on the 100 fire worlds and the 32 fire-free worlds of GM, 132 runs.  The comparators
+One new arm, `adapt` = the submitted v3.6 plus `--adaptive-views 0.8 --adaptive-near 0` (tau_h 0.05, tau_sus 0.005; Amendment 2: the near pose N is dropped, L2 and R2 stay), on the 100 fire worlds and the 32 fire-free worlds of GM, 132 runs.  The comparators
 `v36` and `left` are GM's own runs of the same worlds (campaign_GM_ledger.jsonl, final rows): the pairing is by world, NOT concurrent (disclosed in the registration).
 """
 from __future__ import annotations
@@ -19,8 +19,8 @@ from scripts import make_protocol_gm as mg  # noqa: E402
 from scripts.make_protocol_v34 import POOL  # noqa: E402
 
 SEED = 'JK-2026'
-ADAPT = ['--adaptive-views', '0.8']                           # tau_sus 0.005 and near 0.3 keep their defaults (I-20)
-ADAPT_FORCED = ['--adaptive-views', '0.8', '--adaptive-tau-sus', '0']      # pilot only: the extra views are forced so that the poses are exercised
+ADAPT = ['--adaptive-views', '0.8', '--adaptive-near', '0']       # tau_sus 0.005 keeps its default (I-20); Amendment 2: the near pose N (0.3 m) is dropped (--adaptive-near 0), L2 and R2 stay
+ADAPT_FORCED = ADAPT + ['--adaptive-tau-sus', '0']                  # pilot only: the extra views are forced so that the poses are exercised
 ARMS = {'adapt': ADAPT}
 COMMON = mg.COMMON
 PILOT = ROOT / 'experiments/campaign_jk_pilot_protocol.json'
@@ -33,6 +33,7 @@ def pilot_worlds() -> list:
     ws = mg.pilot_worlds()
     rng = random.Random(SEED + '-pilot3')
     ws.append({'world': 'JKQ3', 'item': 'water', 'fire': False, 'world_spec': mg.apply_variant(mg._spec(rng, 'water', False), 'default_light'), 'instruction': POOL['water'][0]})
+    ws.append({'world': 'JKQ4', 'item': 'medicine', 'fire': False, 'world_spec': mg.apply_variant(mg._spec(rng, 'medicine', False), 'plain_platforms'), 'instruction': POOL['medicine'][0]})       # Amendment 2: a fourth pilot world
     return ws
 
 
@@ -42,8 +43,8 @@ def trial(w: dict, arm: str, args: list) -> dict:
 
 
 def pilot_protocol() -> dict:
-    q1, q2, q3 = pilot_worlds()
-    ts = [trial(q1, 'adapt', ADAPT), trial(q2, 'adapt_forced', ADAPT_FORCED), trial(q3, 'adapt_forced', ADAPT_FORCED)]
+    q1, q2, q3, q4 = pilot_worlds()
+    ts = [trial(q1, 'adapt', ADAPT), trial(q2, 'adapt_forced', ADAPT_FORCED), trial(q3, 'adapt_forced', ADAPT_FORCED), trial(q4, 'adapt_forced', ADAPT_FORCED)]
     for n, t in enumerate(ts, 1):
         t['id'], t['order'] = f'JKPILOT{n}', n
     return {'schema': 'rescuemind_study_jk_pilot', 'seed': SEED, 'planned_n': len(ts), 'common_stack_args': COMMON, 'trials': ts}
@@ -59,7 +60,7 @@ def build(selection: dict) -> dict:
     for n, t in enumerate(trials, 1):
         t['id'], t['order'] = f'JKT{n:03d}', n
     return {'schema': 'rescuemind_study_jk_protocol', 'seed': SEED, 'status': 'REGISTERED_AT_COMMIT', 'planned_n': len(trials), 'common_stack_args': COMMON,
-            'configs': {'adapt': 'v3.6 (look-around 0.4 m both sides, tau_h 0.05) plus --adaptive-views 0.8 (tau_sus 0.005, near 0.3: the I-20 defaults)'},
+            'configs': {'adapt': 'v3.6 (look-around 0.4 m both sides, tau_h 0.05) plus --adaptive-views 0.8 --adaptive-near 0 (tau_sus 0.005 default; the near pose N dropped, Amendment 2)'},
             'worlds_from': 'experiments/campaign_gm_selection.json (the worlds and world specs of study GM)', 'trials': trials}
 
 

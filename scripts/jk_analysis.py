@@ -12,7 +12,7 @@ Claims (registered):
   JK2  budget: adapt's delivery into a perceivable fire, exact one-sided 95% upper bound at most 10% (k <= 4 of 100; predicted 4-6, a coin flip).
   JK3  false stops: adapt refuses at most 3 of the 32 fire-free worlds for a hazard (forecast from GV's calibration: about 1).
 Descriptive (predictions registered, failing them is reported, not a failed claim): P1 adapt delivers into no more fires than left (GM's left-only arm); P2 the median mission time of adapt exceeds v36's by at most 30 s;
-P3 the extra views are triggered in at least 70% of the missions that pass the standard views and every triggered mission takes all of L2, R2 and N or ends in a refusal.
+P3 the extra views (L2, R2) are triggered in at least 70% of the missions that pass the standard views and every triggered mission takes both or ends in a refusal.
 Infrastructure failures are excluded from the claims and listed; more than 10% fail stops the campaign.
 """
 from __future__ import annotations
@@ -53,7 +53,7 @@ def adaptive_record(row: dict | None) -> dict | None:
         return None
     la = json.loads(f.read_text(encoding='utf8')).get('look_around') or {}
     ad = la.get('adaptive')
-    taken = sorted({q.get('side') for q in la.get('peeks', [])} & {'L2', 'R2', 'N'})
+    taken = sorted({q.get('side') for q in la.get('peeks', [])} & {'L2', 'R2', 'N'})       # Amendment 2: the arm has L2 and R2 only (N dropped)
     return {'reached_extras_stage': ad is not None, 'triggered': bool((ad or {}).get('triggered')), 'p_max': (ad or {}).get('p_max'), 'extras_taken': taken}
 
 
@@ -105,9 +105,9 @@ def analyse(jk_protocol: dict, jk_rows: dict, gm_protocol: dict, gm_rows: dict, 
     recs = [adaptive_record(jk_rows.get(t['id'])) for t in jk_protocol['trials']]
     reached = [r for r in recs if r and r['reached_extras_stage']]
     trig = [r for r in reached if r['triggered']]
-    full = [r for r in trig if len(r['extras_taken']) == 3]
+    full = [r for r in trig if r['extras_taken'] == ['L2', 'R2']]
     out['extras'] = {'missions_reaching_the_extras_stage': len(reached), 'triggered': len(trig), 'trigger_share': round(len(trig) / len(reached), 3) if reached else None,
-                     'triggered_with_all_three_extras_taken': len(full), 'triggered_with_fewer_extras': sorted(len(r['extras_taken']) for r in trig if len(r['extras_taken']) < 3)}
+                     'triggered_with_all_extras_taken': len(full), 'triggered_with_fewer_extras': sorted(len(r['extras_taken']) for r in trig if r['extras_taken'] != ['L2', 'R2'])}
     P = ok('adapt', False)
     fsa = sum(p['false_hazard_stop'] for p in P)
     out['criteria'] = {
@@ -122,8 +122,8 @@ def analyse(jk_protocol: dict, jk_rows: dict, gm_protocol: dict, gm_rows: dict, 
 
 
 def pilot_check(protocol: dict, rows: dict) -> dict:
-    """Mechanics pilot (3 runs, never part of JK): the large fire is refused for a hazard at the front under the real arm; each fire-free pilot world, run with the extra views FORCED (tau_sus 0), takes the
-    L2, R2 and N poses with a model call each, ends in a defined state, nothing failed, no audit failure."""
+    """Mechanics pilot (4 runs, never part of JK): the large fire is refused for a hazard at the front under the real arm; each fire-free pilot world, run with the extra views FORCED (tau_sus 0), takes the
+    L2 and R2 poses with a model call each and no N pose (Amendment 2), end in a defined state, nothing failed, no audit failure."""
     per = {t['id']: label(t, rows.get(t['id']), {}) for t in protocol['trials']}
     fire = next(p for p in per.values() if p['fire'])
     checks = {'all_defined': all(not p['failed'] and not p.get('missing') for p in per.values()), 'fire_world_refused_for_hazard': fire.get('hazard_refused') is True, 'no_audit_failure': all(not p.get('audit_failed') for p in per.values())}
@@ -138,8 +138,8 @@ def pilot_check(protocol: dict, rows: dict) -> dict:
             continue
         la = json.loads(f.read_text(encoding='utf8')).get('look_around') or {}
         peeks = {q.get('side'): q for q in la.get('peeks', [])}
-        forced.append(bool((la.get('adaptive') or {}).get('triggered')) and all(s in peeks and (peeks[s].get('model_calls') or {}).get('first') for s in ('L2', 'R2', 'N')))
-    checks['forced_runs_took_L2_R2_N_with_model_calls'] = bool(forced) and all(forced)
+        forced.append(bool((la.get('adaptive') or {}).get('triggered')) and all(s in peeks and (peeks[s].get('model_calls') or {}).get('first') for s in ('L2', 'R2')) and 'N' not in peeks)
+    checks['forced_runs_took_L2_R2_with_model_calls_and_no_N'] = bool(forced) and all(forced)
     return {'ok': all(checks.values()), 'checks': checks, 'runs': [{k: p.get(k) for k in ('trial_id', 'arm', 'observed')} for p in per.values()]}
 
 
