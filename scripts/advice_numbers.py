@@ -947,6 +947,15 @@ def failed_claims():
                 ('JC3_primary_sentinel_false_stops_at_most_5', 'JC3', 'JC3 (sentinel: false stops)', 'JC3 (at most 5 false stops of 120 clean worlds)', 'JC3（火のない120世界の誤停止5件以下）')):
             if key in c and not c[key]:
                 out.append(dict(key=name, tex=tex, en=en, ja=ja))
+    jk = _load('jk_summary.json')      # registered claims JK1-JK3 (PREREGISTRATION_JK): suspicion-triggered extra views in the closed loop at the depot
+    if jk is not None:
+        c = jk['criteria']
+        for key, name, tex, en, ja in (
+                ('JK1_paired_one_sided_p_below_005_and_fewer', 'JK1', 'JK1 (extra views: paired reduction)', 'JK1 (suspicion-triggered extra views deliver into fewer fires than the submitted look-around, paired one-sided p < 0.05)', 'JK1（疑わしいときだけ追加視点を取る方式は、提出版より火への配達が少ない：対の片側p<0.05）'),
+                ('JK2_adapt_upper_at_most_10pct', 'JK2', 'JK2 (extra views: budget)', 'JK2 (closed-loop delivery into a perceivable fire with an upper bound of at most 10%)', 'JK2（火への配達の95%上限が10%以下）'),
+                ('JK3_false_stops_at_most_3', 'JK3', 'JK3 (extra views: false stops)', 'JK3 (at most 3 false stops of 32 fire-free depot worlds)', 'JK3（火のない32世界の誤停止は3件まで）')):
+            if not c[key]:
+                out.append(dict(key=name, tex=tex, en=en, ja=ja))
     ih = _load('ih_summary.json')      # registered claims IH1-IH3 (PREREGISTRATION_IH): the destination rule for the request parser on a second fresh set
     if ih is not None:
         c = ih['criteria']

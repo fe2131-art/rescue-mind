@@ -1181,3 +1181,9 @@
 - **Hypothesis:** four commands that need only the host's Python 3 (document-versus-result consistency, test count, the registered studies' claim logic on synthetic data, the frozen text set against its generator) give a first, honest verification at the top of the section.
 - **Change:** one block at the top of "動かし方" in `README.md`; all four commands were run on the host before writing (consistency 0 mismatches except the pending report text; 19 tests OK; no diff for the text set).
 - **Before / After:** before, no check without GPU/Docker was offered; after, four commands, each under a minute.
+
+## I-109 (2026-10-24) Integration hooks and supplement drafts for IH and JK
+- **Motivation:** IH (3 min) and JK (7 h) finish within a day of JI; hand-typed numbers or a missed failed claim are the likeliest errors in a late integration (the same reasoning as I-101).
+- **Change:** failed-claim hooks IH1-IH3 and JK1-JK3 (`advice_numbers.py`), macros `IH*`/`JK*` and `StatIH`/`StatJK` (`paper_numbers.py`), README rows (`update_readme_results.py`), `docs/paper/ih_section.draft.tex` and `jk_section.draft.tex` with inert `\IfFileExists` includes. The hooks were exercised on synthetic summaries (shape and failed-claim logic only).
+- **Before / After:** before, nothing would have surfaced a failing IH/JK claim in the paper, README or failed-claim list; after, a failed claim appears in all three as soon as the summary exists, whichever way the numbers fall.
+- **Side note (JI preview, read-only, nothing written):** with the gate-only JI scores, the gate on six views misses 3 of 120 against 13 on three views at 0 false stops; the InternVL3-triggered cascade (alpha_s 20%) misses 8 and the gate's own trigger at 0.01 misses 4 at 4.2 mean views, i.e. the cheap trigger beats the other-family sentinel; JC1 is therefore likely to fail for the InternVL3 sentinel and will be reported as such.

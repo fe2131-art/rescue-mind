@@ -1698,6 +1698,27 @@ def main():
             if key_ in (jc_.get('claims') or {}):
                 m['JC' + name_ + 'Holds'] = 'holds' if jc_['claims'][key_] else 'fails'
         m['StatJC'] = f"a fast sentinel decides where to look, on fresh worlds: JC1, JC2, JC3 {'hold' if all(jc_.get('claims', {}).get(k) for k in ('JC1_primary_sentinel_misses_within_3_of_always_six', 'JC2_primary_sentinel_mean_views_clean_at_most_4', 'JC3_primary_sentinel_false_stops_at_most_5')) else 'do not all hold'}"
+    # ---- study JK (registered: suspicion-triggered extra views in the closed loop at the depot, on GM's worlds; I-107); macros exist only once jk_summary.json exists
+    jkf_ = RES / 'jk_summary.json'
+    if jkf_.is_file():
+        jk_ = json.loads(jkf_.read_text())
+        ja_, jv_, jl_ = jk_['arms']['adapt'], jk_['arms']['v36'], jk_['arms']['left']
+        m['JKTrials'], m['JKWorlds'], m['JKPlain'] = jk_['n_with_result'], jk_['n_fire_worlds'], ja_['fire_free']['n']
+        m['JKAdapt'], m['JKAdaptRate'], m['JKAdaptUpper'] = f"{ja_['fire']['k']}/{ja_['fire']['n']}", pct(ja_['fire']['rate'], 1), pct(ja_['fire']['upper95_exact'], 1)
+        m['JKV'], m['JKLeft'] = f"{jv_['fire']['k']}/{jv_['fire']['n']}", f"{jl_['fire']['k']}/{jl_['fire']['n']}"
+        pv_, pl_ = jk_['paired_v36_vs_adapt'], jk_['paired_left_vs_adapt']
+        m['JKOnlyV'], m['JKOnlyAdapt'], m['JKP'] = pv_['v36_only_unsafe'], pv_['adapt_only_unsafe'], f"{pv_['mcnemar_one_sided_p_a_worse']:.5f}".rstrip('0')
+        m['JKOnlyLeft'], m['JKOnlyAdaptL'] = pl_['left_only_unsafe'], pl_['adapt_only_unsafe']
+        m['JKFalseStops'], m['JKFalseStopsV'] = f"{ja_['fire_free']['k']}/{ja_['fire_free']['n']}", f"{jv_['fire_free']['k']}/{jv_['fire_free']['n']}"
+        m['JKTimeAdapt'], m['JKTimeV'] = f"{ja_['fire']['median_time_s']:.1f}", f"{jv_['fire']['median_time_s']:.1f}"
+        ex_ = jk_['extras']
+        m['JKReached'], m['JKTriggered'], m['JKAllExtras'] = ex_['missions_reaching_the_extras_stage'], ex_['triggered'], ex_['triggered_with_all_three_extras_taken']
+        m['JKTriggerShare'] = pct(ex_['trigger_share'], 0) if ex_['trigger_share'] is not None else 'n/a'
+        m['JKFailed'], m['JKAudit'] = jk_['n_failed'], jk_['audit_failures']
+        for name_, key_ in (('One', 'JK1_paired_one_sided_p_below_005_and_fewer'), ('Two', 'JK2_adapt_upper_at_most_10pct'), ('Three', 'JK3_false_stops_at_most_3'),
+                            ('PredOne', 'P1_adapt_not_more_than_left'), ('PredTwo', 'P2_time_cost_at_most_30s'), ('PredThree', 'P3_trigger_share_at_least_70pct_and_all_extras_taken')):
+            m['JK' + name_ + 'Holds'] = 'holds' if jk_['criteria'][key_] else 'fails'
+        m['StatJK'] = f"suspicion-triggered extra views in the closed loop: JK1, JK2, JK3 {'hold' if all(jk_['criteria'][k] for k in ('JK1_paired_one_sided_p_below_005_and_fewer', 'JK2_adapt_upper_at_most_10pct', 'JK3_false_stops_at_most_3')) else 'do not all hold'}"
     # ---- study IH (registered: the destination rule for the request parser on a second fresh set; I-102); macros exist only once ih_summary.json exists
     ihf_ = RES / 'ih_summary.json'
     if ihf_.is_file():
