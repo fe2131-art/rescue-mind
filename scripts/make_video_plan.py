@@ -402,7 +402,7 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False, drop_empty=False):
     cs = 0 if shrink else None      # shrink: result cards last exactly as long as their narration
     mem = bool(getattr(a, 'memory', None))
     # story arc of the first ~10 s: problem (stock list != scene, hazards hide) -> answer (look on the spot, look again from the side)
-    open_say = ('災害時、在庫表と現場は違い、危険も隠れます。そこで、自分で見ていない情報は「助言」として扱い、'
+    open_say = ('災害現場へ物資を届けるロボットです。在庫表と現場は違い、危険も隠れます。そこで、自分で見ていない情報は「助言」として扱い、'
                 '順番を変えるか、判断を厳しくするだけにします。')
     parts = [
         {'kind': 'card', 'seconds': 6, 'title': 'RescueMind', 'image': 'docs/figures/hero_gazebo.png',
