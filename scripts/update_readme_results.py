@@ -533,7 +533,7 @@ def storyline_lines():
 
 
 def section_key(e, t):
-    """First screen: key results (4-6 rows) with an honest status; every number from the result files, nothing hand-typed."""
+    """First screen: the headline results (6 rows) with an honest status, the other registered studies in a collapsed list; every number from the result files, nothing hand-typed."""
     head = ['| 主張（事前登録した評価） | 結果（すべてシミュレーション） | 状態 |', '|---|---|---|']
     rows = []
     if e:
@@ -689,6 +689,12 @@ def section_key(e, t):
     honest = ('**手法の誠実さ**：' + (f"論文の{sc['n']}研究の条件・閾値・解析を結果を見る前に登録し、git の履歴で登録が先だったことを機械的に確認（結果のある{sc['ok']}件）。" if sc else '条件・閾値・解析は結果を見る前に登録。')
               + (f"支持されなかった主張{len(fc)}件（{'・'.join(c['key'] for c in fc)}。[結果](#結果)・[限界](#限界)）も、そのまま載せている。" if fc else '')
               + '命題2は z3 で機械検証。')
+    # first screen: the claims that carry the paper stay visible (the best result, the safety claim, the attack test, the one fresh-world replication, and an honest failure); the rest is one click away
+    front = ('評価E：', '評価G）', '評価A、', '評価GR', '評価GL', '未使用の画像600枚')
+    vis = [r for r in rows if any(k in r for k in front)]
+    rest = [r for r in rows if r not in vis]
+    if rest:
+        return '\n'.join(head + vis + ['', f'<details><summary>残りの事前登録した評価 {len(rest)} 件（成立しなかったものも省略せず掲載）</summary>', ''] + head + rest + ['', '</details>', '', honest])
     return '\n'.join(head + rows + ['', honest])
 
 
