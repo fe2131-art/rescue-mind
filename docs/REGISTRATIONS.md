@@ -52,6 +52,8 @@ Verify any row: `git log 587f033^1 --first-parent --format='%h %cI' --diff-filte
 | QJ | `2e63722` 2026-10-23T07:45 | `590f69618f9da1c8` | `f3e00a3` 2026-10-23T11:20 | `ed751cb4d84f677e` | yes | `4990c94` 2026-10-23T10:10 | `ed751cb4d84f677e` |
 | GM | `257ada2` 2026-10-23T09:26 | `b1900005f5156076` | -- | -- | no results yet | `e3fa4a1` 2026-10-23T12:21 | `2a0654c857b25c1b` |
 | JI | `94a2e2e` 2026-10-23T12:19 | `bc5d428440d9b11d` | -- | -- | no results yet | `94a2e2e` 2026-10-23T12:19 | `bc5d428440d9b11d` (= bound) |
+| IG | `e464ff1` 2026-10-23T15:53 | `48b208df5bead9ec` | -- | -- | no results yet | `e464ff1` 2026-10-23T15:53 | `48b208df5bead9ec` (= bound) |
+| JC | `08099fc` 2026-10-23T16:08 | `962703082202c7d4` | -- | -- | no results yet | `08099fc` 2026-10-23T16:08 | `962703082202c7d4` (= bound) |
 
 ## Amendments
 
