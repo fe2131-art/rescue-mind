@@ -15,13 +15,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         fonts-noto-cjk fonts-ipaexfont curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
+# Security (2026-10-23, eMudhra emSign roots with weak keys): the newest ca-certificates, the emSign roots distrusted, and pip told to use the system bundle
+# (pip otherwise trusts its own vendored certifi, which still lists emSign).
+RUN apt-get update && apt-get install -y --no-install-recommends --only-upgrade ca-certificates \
+    && sed -i 's#^mozilla/emSign#!mozilla/emSign#' /etc/ca-certificates.conf && update-ca-certificates --fresh \
+    && printf '[global]\ncert = /etc/ssl/certs/ca-certificates.crt\n' > /etc/pip.conf \
+    && rm -rf /var/lib/apt/lists/*
+
 # Model-stack versions are build args (I-08): default = next (Qwen3.5); STACK=v33 rebuilds the v3.3 stack;
 #   docker build --build-arg STACK=next ...  -> torch 2.8 (cu126, still ships sm70 for V100)
 #   + transformers 5.x for Qwen3-VL / Qwen3.5.
 ARG STACK=next
 # Isolated venv that still sees apt-installed rclpy (system site packages).
 RUN python3 -m venv --system-site-packages /opt/rescuemind-venv \
-    && /opt/rescuemind-venv/bin/pip install -U 'pip<26' \
+    && /opt/rescuemind-venv/bin/pip install -U 'pip>=26.2.2' \
     && if [ "$STACK" = next ]; then \
          /opt/rescuemind-venv/bin/pip install 'torch==2.8.0' 'torchvision==0.23.0' \
            --index-url https://download.pytorch.org/whl/cu126 \
