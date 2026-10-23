@@ -1158,3 +1158,9 @@
 - **Hypothesis:** merging GM into the GL row ("火へ配達 20→6/120、描画を変えても 14→5/100（倉庫限定）") shows both within the same row and slot without dropping another study.
 - **Change:** `scripts/make_video_plan.py` (row and one narration sentence; rows only when `gm_summary.json` exists; the row turns amber if any of GL1-3, GM1-3 fails); the 11 tests of `tests/test_video_depot.py` pass (cell width ≤ 1130 px, narration + pad ≤ 20 s). Video v13 is rebuilt after the JI render (with the new opening sentence, I-98).
 - **Before / After:** before, GL only (v12); after, GL and GM on one row, narration 19.9 s of the 20 s slot.
+
+## I-105 (2026-10-23) README limits brought up to date (JEV, request parser)
+- **Motivation:** the "limits" list still said only "two AIs (study J) were not safer", although JH, JC and IG/IH changed what is known; a stale limits list is the first thing a hostile reviewer quotes.
+- **Hypothesis:** stating what failed (JH: one world; IG1) next to what is being tested (JC, IH) in outcome-neutral wording keeps the README honest whatever those studies find.
+- **Change:** two bullets in `README.md` ("採用しなかったもの" extended; new "依頼文の解析" bullet: unknown destinations read as shelter B, operator read-back stays mandatory, IH tests a rule). No new numbers (counts live in the results table).
+- **Before / After:** before, the limits did not mention the parser failure; after, they do, and point to the result rows.
