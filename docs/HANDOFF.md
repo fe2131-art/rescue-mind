@@ -7,6 +7,15 @@
 
 ---
 
+## ★ 最新（2026-10-23 17:00）：GM 実行中（192/264）、JI → IG → JC が待機、JEV を「速さを活かす見張り役」へ（I-93〜I-100）
+
+* **GPU の順番（すべてバックグラウンド、`flock /tmp/rescuemind_campaign.lock`）**：`gm_run.sh`（192/264 試行、失敗は再実行で解消、終了は 22〜23 時ごろ）→ `ji_run.sh`（描画3時間＋ゲート1.3時間＋審判4×1時間）→ `ig_run.sh`（依頼文の解析、約3分。ロックを取るので JI と順不同でも衝突しない）。`bg_watch.sh` を常に1つ動かす。
+* **登録済み（拘束コミット＋OTS）で結果待ち**：**JI**（6視点の再現、JI1〜JI4）、**IG**（凍結した依頼解析を新しい依頼文136件で検証、IG1・IG2、`experiments/intent_eval/ig_v1.jsonl`）、**JC**（JEV を「追加視点を取りに行くかを決める見張り役」にする。JI のスコアを GPU なしで読み直す `scripts/ji_cascade.py`、JI_DONE の後に実行）。登録済みファイルと `ji_run.sh` は **JI が終わるまで編集禁止**。
+* **JEV の立場（ユーザーに説明済み）**：評価JH の「見逃し29〜43%減」は元の世界で数えると11→10（1世界）。選んだ InternVL3 は速くない（1画像6.2秒、Qwen の1視点は2.15秒）。速さを活かすには小型の審判（SmolVLM2）。計画は `docs/design/jev_roles_plan.md`。閉ループ版は GPU メモリ（Qwen 約19 GB の隣に載るのは SmolVLM2 だけ）と閉ループ較正が要るので、JC/JI の結果を見てから登録。
+* **各結果が出たら**：失敗した主張フック・論文マクロ（`JI*` `IG*` `GM*`）・README 行は準備済み（合成の要約で動作確認）。残るのは補足資料の節（`ji_section.tex`、`ig`、`jc`）、FINDINGS #51〜、IMPROVEMENT_LOG の Result、動画の証拠カード。
+* **GM 終了後に必ずやること**：論文の全ビルド（`bash scripts/rebuild_docs.sh`、文献2本と README 変更の反映）、説明資料の再生成（テスト件数表記）、動画 v13 の再生成（冒頭の一文、I-98）、`bash scripts/final_check.sh`（全実行）。
+* **この日の改善**：I-96 文献2本（Hidden Clones、SmokeBench）、I-97 README の最初の画面（30秒で、動画リンクを上へ、結果表を6行＋折りたたみ）、I-98 動画の冒頭、I-99 IG、I-100 JC。
+
 ## ★ 最新（2026-10-23 12:00）：GM 本実行中（264試行、約13時間、2026-10-23 11:40 開始）
 
 * **GM（I-92、`experiments/PREREGISTRATION_GM.md`）**：GL の左のみ見回しが、現実感の要素を1つ外した倉庫（照明・散らかり・周囲・台）でも効くか。`bash scripts/gm_run.sh`（バックグラウンド、再開可能）。台帳 `experiments/results/campaign_GM_ledger.jsonl`、完了で `GM_DONE`、解析は `scripts/gm_analysis.py` → `gm_summary.json`。**実行中は CPU の重い処理（全テスト・ビルド・描画）禁止**（静かなホスト）。
