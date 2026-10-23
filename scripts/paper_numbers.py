@@ -1662,6 +1662,23 @@ def main():
                             ('PredOne', 'P1_left_false_stops_not_more_than_v36_plus_2'), ('PredTwo', 'P2_time_cost_at_most_20s')):
             m['GM' + name_ + 'Holds'] = 'holds' if gcr_[key_] else 'fails'
         m['StatGM'] = f"GL transferred to depot worlds with one realism feature off, closed loop: GM1, GM2, GM3 {'hold' if all(gcr_[k] for k in ('GM1_paired_one_sided_p_below_005_and_fewer', 'GM2_left_upper_at_most_15pct', 'GM3_false_stops_at_most_3')) else 'do not all hold'}"
+    # ---- study JI (registered replication of the I-93 view-count finding on fresh image-level worlds; I-94); macros exist only once ji_summary.json exists
+    jif_ = RES / 'ji_summary.json'
+    if jif_.is_file():
+        ji_ = json.loads(jif_.read_text())
+        jv6_, jv3_ = ji_['viewsets']['all_six']['scorers'], ji_['viewsets']['v36_FLR']['scorers']
+        g6_, g3_, j4_, ja_ = jv6_['qwen35'], jv3_['qwen35'], jv6_['qwen35+internvl3'], jv6_['qwen35+internvl3+idefics3+qwen3vl+smolvlm2']
+        m['JIFire'], m['JIClean'] = ji_['n_fire'], ji_['n_clean']
+        m['JISix'], m['JISixRate'], m['JISixUpper'] = f"{g6_['miss']}/{ji_['n_fire']}", pct(g6_['miss_rate'], 1), pct(g6_['miss_upper95'], 1)
+        m['JIThree'], m['JIThreeRate'], m['JIThreeUpper'] = f"{g3_['miss']}/{ji_['n_fire']}", pct(g3_['miss_rate'], 1), pct(g3_['miss_upper95'], 1)
+        m['JISixFS'], m['JIThreeFS'] = f"{g6_['false_stops']}/{ji_['n_clean']}", f"{g3_['false_stops']}/{ji_['n_clean']}"
+        m['JIOnlyThree'], m['JIOnlySix'], m['JIP'] = ji_['paired_six_vs_three']['three_only'], ji_['paired_six_vs_three']['six_only'], f"{ji_['paired_six_vs_three']['mcnemar_one_sided_p']:.5f}".rstrip('0')
+        m['JIVetoMiss'], m['JIVetoFS'] = f"{j4_['miss']}/{ji_['n_fire']}", f"{j4_['false_stops']}/{ji_['n_clean']}"
+        m['JIAllMiss'], m['JIAllFS'] = f"{ja_['miss']}/{ji_['n_fire']}", f"{ja_['false_stops']}/{ji_['n_clean']}"
+        for name_, key_ in (('One', 'JI1_gate_six_views_miss_at_most_8'), ('Two', 'JI2_six_views_fewer_misses_than_three'), ('Three', 'JI3_gate_six_views_false_stops_at_most_5'),
+                            ('Four', 'JI4_internvl3_veto_joint_miss_at_most_3_and_false_stops_at_most_6')):
+            m['JI' + name_ + 'Holds'] = 'holds' if ji_['claims'][key_] else 'fails'
+        m['StatJI'] = f"six look-around views against three on fresh image-level worlds: JI1, JI2, JI3, JI4 {'hold' if all(ji_['claims'].values()) else 'do not all hold'}"
     # ---- submission snapshot: the claim column of a study without results says so (the other pending studies have no analysis macro yet)
     PEND = advice_numbers.snapshot_pending() if SNAPSHOT else set()
     for k_ in advice_numbers.SNAPSHOT_STUDIES:
