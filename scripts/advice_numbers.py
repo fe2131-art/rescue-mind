@@ -929,6 +929,15 @@ def failed_claims():
                 ('QI3c_control_edits_do_not_create_hazards', 'QI3c', 'QI3c (control edits)', 'QI3c (control edits create hazards in at most 5% of twins)', 'QI3c（対照の編集で危険と誤る割合5%以下）')):
             if key in c and not c[key]:
                 out.append(dict(key=name, tex=tex, en=en, ja=ja))
+    qj = _load('qj_summary.json')      # registered claims QJ1-QJ3 (PREREGISTRATION_QJ): text-to-image scenes scored by the frozen gate; a claim is listed only once it has been evaluated (a stopped claim counts as failed)
+    if qj is not None:
+        c = qj.get('claims') or {}
+        for key, name, tex, en, ja in (
+                ('QJ1_clean_false_stops_at_most_5pct', 'QJ1', 'QJ1 (generated clean scenes, false stops)', 'QJ1 (at most 6 of 120 generated clean scenes flagged)', 'QJ1（生成した火のない場面の誤停止は6/120以下）'),
+                ('QJ2_large_fire_miss_at_most_10pct', 'QJ2', 'QJ2 (generated large fires)', 'QJ2 (generated large fires missed in at most 10%)', 'QJ2（生成した大きな火の見逃し10%以下）'),
+                ('QJ3_hard_fire_miss_at_most_20pct', 'QJ3', 'QJ3 (generated small hidden fires)', 'QJ3 (generated small hidden fires missed in at most 20%)', 'QJ3（生成した小さな隠れ火の見逃し20%以下）')):
+            if key in c and not c[key]:
+                out.append(dict(key=name, tex=tex, en=en, ja=ja))
     return out
 
 
