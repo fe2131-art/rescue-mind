@@ -25,7 +25,7 @@ class Protocol(unittest.TestCase):
 
     def test_each_variant_switches_exactly_its_feature_off(self):
         c = {x['world']: x['world_spec'] for x in mgm.fire_candidates()}
-        self.assertEqual(c['GM001'].get('lighting'), 'default')
+        self.assertNotIn('lighting', c['GM001'])                 # Amendment 1: the orchestrator's world_spec has no 'lighting' key; default lighting = no lighting_params
         self.assertNotIn('lighting_params', c['GM001'])
         self.assertIs(c['GM002']['depot'].get('clutter'), False)
         self.assertIs(c['GM003']['depot'].get('surroundings'), False)
