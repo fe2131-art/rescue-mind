@@ -20,3 +20,5 @@ A job is crossed out only when its result is integrated. Add a job here whenever
 
 ## Rule (I-79): always keep one visible background task
 Whenever a job runs, `bash scripts/bg_watch.sh` must run via Bash `run_in_background` (it ends when the whole queue ends). The Stop hook blocks the end of a turn without it.
+
+9. **IG registered (2026-10-23 evening):** request parser on 136 fresh operator texts (Japanese polite/casual/terse, speech-recognition style, English, mixed, traps), frozen v3.6 parser. `bash scripts/ig_run.sh` (about 3 min of GPU; it takes the campaign lock, so it runs after GM / JI release it; start it in the background right after JI has started and it will queue). After `IG_DONE`: `experiments/results/ig_summary.json`; integrate (failed-claim hook, `IG*` macros, supplement paragraph, README row, FINDINGS, I-99 Result).
