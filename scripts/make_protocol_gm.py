@@ -48,8 +48,7 @@ def apply_variant(spec: dict, variant: str | None) -> dict:
         return spec
     dep = spec['depot']
     if variant == 'default_light':
-        spec.pop('lighting_params', None)
-        spec['lighting'] = 'default'
+        spec.pop('lighting_params', None)             # Amendment 1: build_variant's own default lighting; the key spec['lighting'] = 'default' of XD's image builder is not a world_spec key of the orchestrator (exit 2)
     elif variant == 'no_clutter':
         dep['clutter'] = False
     elif variant == 'no_surroundings':
