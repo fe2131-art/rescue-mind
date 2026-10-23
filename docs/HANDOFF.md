@@ -7,6 +7,13 @@
 
 ---
 
+## ★ 最新（2026-10-23 12:00）：GM 本実行中（264試行、約13時間、2026-10-23 11:40 開始）
+
+* **GM（I-92、`experiments/PREREGISTRATION_GM.md`）**：GL の左のみ見回しが、現実感の要素を1つ外した倉庫（照明・散らかり・周囲・台）でも効くか。`bash scripts/gm_run.sh`（バックグラウンド、再開可能）。台帳 `experiments/results/campaign_GM_ledger.jsonl`、完了で `GM_DONE`、解析は `scripts/gm_analysis.py` → `gm_summary.json`。**実行中は CPU の重い処理（全テスト・ビルド・描画）禁止**（静かなホスト）。
+* **GM が終わったら**：`gm_summary.json` を読む → `cp docs/paper/gm_section.draft.tex docs/paper/gm_section.tex` と Reading を結果に合わせて書く（マクロは `GM*` 済み、失敗した主張フックと README 行は準備済み）→ FINDINGS #50、TRIAL_AND_ERROR、IMPROVEMENT_LOG I-92、HANDOFF 件数 → `bash scripts/final_check.sh`（全項目）→ 動画の証拠カード（GL の行の横に GM を足すか判断、枠は9行・20秒）。
+* **完了済み（本日）**：QI 結果反映（QI3 のみ成立、失敗した主張18件）、QJ 結果反映（QJ1〜3 すべて成立、0/120 ×3）、動画 v12（2:51）、サーバーのセキュリティ対応（pip・uv・Node・CA・Docker イメージ、`docs/SECURITY_RESPONSE_2026-10.md`。残りは管理者の root 作業）。
+* **未実行の最終確認**：`final_check.sh` のユニットテスト（GM の実行中は不可）。
+
 ## ★ 最新（2026-10-23 昼）：QI 結果反映（I-88〜I-91）、動画 v12 完成、QJ・GM を準備
 
 * **ユーザー指示（/goal 更新）**：実写は見送り。強い結果を出す改善、**最終確認を常に**（`bash scripts/final_check.sh`、QUICK=1 で軽量版）、動画更新、レポートに頁数制約なし、アドバイザーに相談。
@@ -387,7 +394,7 @@ scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34
 ## 7. 主要ファイルの地図
 
 * 現在地・履歴：このファイル。旧版の全文：`docs/HANDOFF_ARCHIVE.md`。
-* `docs/ARCHITECTURE.md`（全体フロー図）、`docs/DESIGN_DECISIONS.md`（D1–D15）、`docs/IMPROVEMENT_LOG.md`（I-01–I-24）、`docs/FINDINGS.md`（実行で見つけた48件）、`docs/REVIEW_AND_PLAN.md`（審査基準別レビュー）。
+* `docs/ARCHITECTURE.md`（全体フロー図）、`docs/DESIGN_DECISIONS.md`（D1–D15）、`docs/IMPROVEMENT_LOG.md`（I-01–I-24）、`docs/FINDINGS.md`（実行で見つけた49件）、`docs/REVIEW_AND_PLAN.md`（審査基準別レビュー）。
 * `docs/REGISTRATIONS.md`（事前登録の台帳：main に載った最初のコミットと sha256）、`docs/REPRODUCE.md`（クリーンな Ubuntu＋NVIDIA 環境での 3 段階の再現手順）、`docs/REPRODUCIBILITY.md`。
 * `docs/evaluations/`（第三者採点、第1〜8回と固定の指示文）、`docs/paper/`（論文・補足・`REVIEW_NOTES*.md`・`LITERATURE_*.md`・`PROOF_REVIEW.md`）、`docs/report/`（説明資料）、`docs/design/`（I-19〜I-24 の設計、動画 v5 の計画）。
 * `experiments/`（事前登録 `PREREGISTRATION_*.md`・プロトコル・開発セット・台帳 `results/campaign_*_ledger.jsonl`・要約 `results/*_summary.json`）。

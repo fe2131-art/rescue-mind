@@ -641,6 +641,13 @@ def section_key(e, t):
         rows.append(f"| 画像生成モデルで写実化した画像でも、凍結したゲートは火を見つけるか（評価QI） | 写実化したフレームの見逃し {qr_['miss']['k']}/{qr_['miss']['n']}（上限 {pct(qr_['miss']['upper95'])}、元のシミュレータ画像 {qb_['k']}/{qb_['n']}、登録した線 20）、火なし世界の誤停止 {qr_['false_stops']['k']}/{qr_['false_stops']['n']}。描き足した火は {qg_['n_excluded']}/{qg_['n_generated']} 枚が炎の色を持たず登録した停止規則で止まり、中立の対照編集は {qi_['C']['flips']}/{qi_['C']['n']} の双子を危険と判定させた（生成器が煙を描いたため）。シミュレータの灰色の煙の円盤が写実的な背景に残ると見逃す | 誤停止のみ **{'支持' if qc_.get('QI3_realised_false_stops_small') else '不成立'}**、見逃し（QI1）**{'支持' if qc_.get('QI1_realised_miss_not_much_worse') else '不成立'}**、生成した火（QI2）**{'支持' if qc_.get('QI2_generated_fire_miss_rate') else '不成立（停止規則）'}**、対照編集（QI3c）**{'支持' if qc_.get('QI3c_control_edits_do_not_create_hazards') else '不成立'}** |")
     except (TypeError, KeyError):
         pass
+    gm_ = jl('gm_summary.json')
+    try:      # GL transferred to depot worlds with one realism feature off (registered GM1-GM3; outcome-neutral wording: every figure comes from the summary)
+        gmv_, gmk_, gmc_ = gm_['arms']['v36']['fire'], gm_['arms']['left']['fire'], gm_['criteria']
+        gmok_ = gmc_['GM1_paired_one_sided_p_below_005_and_fewer'] and gmc_['GM2_left_upper_at_most_15pct'] and gmc_['GM3_false_stops_at_most_3']
+        rows.append(f"| 左のみ0.8 mの見回しは、現実感の要素を1つ外した倉庫（照明・散らかり・周囲・台）でも効くか（評価GM、新しい{gm_['n_fire_worlds']}世界、再較正なし） | 火へ配達：v3.6 **{gmv_['k']}/{gmv_['n']}**（95%上限 {pct(gmv_['upper95_exact'])}）、左のみ **{gmk_['k']}/{gmk_['n']}**（上限 {pct(gmk_['upper95_exact'])}、登録した線15%）。対の比較は v3.6 のみ {gm_['paired']['discordant_v36_only']}・左のみ {gm_['paired']['discordant_left_only']}（片側 McNemar p={gm_['paired']['mcnemar_one_sided_p']:.5f}）、火のない世界の誤停止 {gm_['arms']['left']['fire_free']['k']}/{gm_['arms']['left']['fire_free']['n']}。変種ごとの内訳は補足 | **{'支持' if gmok_ else '不成立'}**（GM1〜GM3） |")
+    except (TypeError, KeyError):
+        pass
     qj_ = jl('qj_summary.json')
     try:      # text-to-image scenes scored by the frozen gate (registered QJ1-QJ3; outcome-neutral wording: every figure comes from the summary)
         qjc_ = qj_['claims']

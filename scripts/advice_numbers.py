@@ -929,6 +929,15 @@ def failed_claims():
                 ('QI3c_control_edits_do_not_create_hazards', 'QI3c', 'QI3c (control edits)', 'QI3c (control edits create hazards in at most 5% of twins)', 'QI3c（対照の編集で危険と誤る割合5%以下）')):
             if key in c and not c[key]:
                 out.append(dict(key=name, tex=tex, en=en, ja=ja))
+    gm = _load('gm_summary.json')      # registered claims GM1-GM3 (PREREGISTRATION_GM): the GL look-around transferred to depot worlds with one realism feature off
+    if gm is not None:
+        c = gm['criteria']
+        for key, name, tex, en, ja in (
+                ('GM1_paired_one_sided_p_below_005_and_fewer', 'GM1', 'GM1 (GL transfer: paired reduction)', 'GM1 (left-only look-around: paired one-sided reduction in depot worlds with a realism feature off)', 'GM1（左のみの見回し：現実感の要素を外した倉庫世界での対の減少）'),
+                ('GM2_left_upper_at_most_15pct', 'GM2', 'GM2 (GL transfer: budget)', 'GM2 (left-only arm: closed-loop upper bound at most 15% under the variants)', 'GM2（左のみの腕：変種での閉ループの見逃し上限15%以下）'),
+                ('GM3_false_stops_at_most_3', 'GM3', 'GM3 (GL transfer: false stops)', 'GM3 (at most three false stops of 32 fire-free variant worlds)', 'GM3（変種の火のない32世界で誤停止は3件まで）')):
+            if not c[key]:
+                out.append(dict(key=name, tex=tex, en=en, ja=ja))
     qj = _load('qj_summary.json')      # registered claims QJ1-QJ3 (PREREGISTRATION_QJ): text-to-image scenes scored by the frozen gate; a claim is listed only once it has been evaluated (a stopped claim counts as failed)
     if qj is not None:
         c = qj.get('claims') or {}
