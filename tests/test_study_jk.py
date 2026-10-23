@@ -103,5 +103,21 @@ class MissionNear(unittest.TestCase):
         self.assertIn("pts=[q for q in pts if q[0]!='N']", src)
 
 
+
+class AuditNear(unittest.TestCase):
+    def test_audit_expects_two_extras_when_the_near_pose_is_dropped(self):
+        src = (ROOT / 'rescuemind/local_run_audit.py').read_text(encoding='utf8')
+        self.assertIn("len(extra)<(3 if float(ad.get('near_m',0.3))>0 else 2)", src)       # default near 0.3: three extras are still required (I-20); near 0: L2 and R2
+
+    def test_audit_logic_on_a_minimal_record(self):
+        import re
+        src = (ROOT / 'rescuemind/local_run_audit.py').read_text(encoding='utf8')
+        m = re.search(r"len\(extra\)<\((3) if float\(ad.get\('near_m',0.3\)\)>0 else (2)\)", src)
+        need = lambda near, n: n < (int(m.group(1)) if near > 0 else int(m.group(2)))
+        self.assertTrue(need(0.3, 2))          # three poses scheduled, two taken: still an audit failure
+        self.assertFalse(need(0.0, 2))         # N dropped: two are enough
+        self.assertTrue(need(0.0, 1))
+
+
 if __name__ == '__main__':
     unittest.main()

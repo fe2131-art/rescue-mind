@@ -75,7 +75,7 @@ def audit_local_checkpoint(checkpoint: dict, image_sha: str, *, expected: str,
             if abs(p_max-float(ad.get('p_max',-1)))>1e-3:
                 raise LocalReceiptError('adaptive-view suspicion does not match the saved outputs')
             if (not hazard_std and computed.get('allow') is not False and (p_max>=float(ad['tau_sus']) or ad.get('scrutiny'))
-                    and len(extra)<3):
+                    and len(extra)<(3 if float(ad.get('near_m',0.3))>0 else 2)):       # study JK Amendment 2: with --adaptive-near 0 the near pose N is not scheduled, L2 and R2 are
                 raise LocalReceiptError('suspicious station approved without the extra views (I-20)')
         computed=combine_with_look_around(computed,peeks)
     if checkpoint.get('image_sha256')!=image_sha or checkpoint.get('decision')!=computed:
