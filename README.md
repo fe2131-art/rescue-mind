@@ -332,6 +332,15 @@ Qwen3.5-9B（ローカル・V100）、回復探索・状況報告・LLM指示理
 
 ## 動かし方
 
+**GPU も Docker もなしで、まず確かめられること**（ホストの Python 3 だけ。1分以内）：
+
+```bash
+python3 scripts/check_consistency.py                 # README・論文・説明資料の数値が、結果ファイルと一致しているか（不一致 0 件が目標）
+python3 scripts/count_tests.py                       # テスト関数の数（静的に数える）
+python3 -m unittest tests.test_study_ig tests.test_study_ih tests.test_study_jk   # 登録済み研究の解析（合成データでの主張判定）
+python3 scripts/make_intent_ig_set.py && git diff --stat experiments/intent_eval   # 依頼文の評価集合が登録した版と同一か（差分なし）
+```
+
 **最短（Makefile）**：成果物ごとに1コマンドです。`make help` で一覧、`make doctor` で docker・コンテナ（rm-dev / rm-next）・イメージの有無を確認できます。
 
 | 欲しいもの | コマンド |
