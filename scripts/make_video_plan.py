@@ -187,7 +187,7 @@ def fix_card(seconds):
 _WARNED = set()
 EVIDENCE_ROWS_MAX = 9        # the table card holds 9 rows of 66 px (8 rows: 74 px) plus one note line (make_demo_video.table_card)
 EVIDENCE_CELL_PX = 1130      # width left for the result column at 38 px (1806 - 114 - 560)
-EVIDENCE_S = 20              # v5: 12 s (EVAL 9), 20 s with the study X row; the narration (<= 120 characters at 6.4 characters/s) keeps it there
+EVIDENCE_S = 24              # v5: 12 s (EVAL 9), 20 s with the study X row; the narration (<= 120 characters at 6.4 characters/s) keeps it there
 
 
 def cell_px(text, size=38):
@@ -294,6 +294,12 @@ def evidence_card(seconds):
         sel = jx['candidates'][jx['selected']]
         rows.append(['別系統AI審判 JH（拒否権）', [f"見逃し {sel['miss_Q']}→{sel['miss_joint']}（目標{(2 * sel['miss_Q']) // 3}）・" + ('成立' if jx['JH1']['holds'] else '不成立'), R if not jx['JH1']['holds'] else G]])
         say.append('別系統のAI審判は不成立。')
+    ji = jload(RES / 'ji_summary.json')
+    if ji:      # study JI (v13): the registered replication that more views beat a second judge (image level, fresh worlds)
+        g3, g6 = ji['viewsets']['v36_FLR']['scorers']['qwen35'], ji['viewsets']['all_six']['scorers']['qwen35']
+        ji_ok = all(ji['claims'].values())
+        rows.append(['視点を増やす JI（新世界）', [f"見逃し 3視点{g3['miss']}→6視点{g6['miss']}/{ji['n_fire']}・誤停止 {g6['false_stops']}", G if ji_ok else W]])
+        say.append(f"視点を6つに増やすと見逃しは{g3['miss']}件から{g6['miss']}件。")
     qi = jload(RES / 'qi_summary.json')
     if qi and qi.get('R', {}).get('miss'):      # study QI (v12): generated images through the frozen gate
         qr = qi['R']['miss']

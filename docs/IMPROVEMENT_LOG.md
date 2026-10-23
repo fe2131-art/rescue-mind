@@ -1211,3 +1211,8 @@
 - **Motivation:** the abstract (199 words) still frames GL as "site-specific" and does not carry the three results that make the paper stronger since it was written: the GM replication under changed rendering, JI (six views against three, a registered replication; the second judge adds almost nothing) and JK (pending). Deciding the wording after the last campaign leaves no time.
 - **Change:** `docs/paper/ABSTRACT_CANDIDATE.md` (macros only, 166 tokens before expansion; JK clause is a placeholder). Not applied: the abstract is changed together with the final numbers and the page check.
 - **Before / After:** before, no prepared text; after, a candidate that ends with the failed claims (IG/IH parser, QI) so that the honesty frame stays in the last sentence.
+
+## I-112 (2026-10-24) Video evidence card: the JI row (more views beat a second judge); slot 20 s -> 24 s
+- **Motivation:** the card showed that the second judge failed (JH) but not what works instead; JI is the registered replication of "more views" (13 -> 3 misses).
+- **Change:** `scripts/make_video_plan.py`: a JI row ("見逃し 3視点13→6視点3/120・誤停止 0", green only if JI1-JI4 all hold) and one narration sentence; the slot `EVIDENCE_S` grows to 24 s (narration 23.2 s with the pad); all 11 video-depot tests pass. Expected total of video v13: v12's 171.0 s plus about 1 s (opening, I-98) plus 4 s = about 176 s, under the 180 s limit; measured at the rebuild.
+- **Before / After:** before, 9 rows without JI at 20 s; after, JI joins the card, nothing else is dropped. Video v13 is rebuilt after JK (CPU-heavy); v12 stays the file to review until then.
