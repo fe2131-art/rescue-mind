@@ -55,6 +55,7 @@ Verify any row: `git log 587f033^1 --first-parent --format='%h %cI' --diff-filte
 | IG | `e464ff1` 2026-10-23T15:53 | `48b208df5bead9ec` | `2e944c8` 2026-10-23T18:44 | `48b208df5bead9ec` | yes | `e464ff1` 2026-10-23T15:53 | `48b208df5bead9ec` (= bound) |
 | JC | `08099fc` 2026-10-23T16:08 | `962703082202c7d4` | -- | -- | no results yet | `08099fc` 2026-10-23T16:08 | `962703082202c7d4` (= bound) |
 | IH | `4bac0fa` 2026-10-23T18:47 | `7795a98aa66ab0d1` | -- | -- | no results yet | `4bac0fa` 2026-10-23T18:47 | `7795a98aa66ab0d1` (= bound) |
+| JK | `f027aaa` 2026-10-23T22:48 | `6d98a70661b62d58` | -- | -- | no results yet | `f027aaa` 2026-10-23T22:48 | `6d98a70661b62d58` (= bound) |
 
 ## Amendments
 
