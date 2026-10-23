@@ -12,14 +12,14 @@ stale() { # $1 = process pattern, $2 = progress file glob; stalled if the proces
   [ $(( $(date +%s) - $(stat -c %Y "$newest") )) -gt 2700 ]
 }
 declare -A BASE
-for f in $RES/gl_run.log $RES/qi_run.log $RES/qj_run.log $RES/jh_stdout.log; do BASE[$f]=$(grep -c "_ABORT\|_FAIL" "$f" 2>/dev/null || true); BASE[$f]=${BASE[$f]:-0}; done     # markers already in a log at start are old news
+for f in $RES/gl_run.log $RES/gm_run.log $RES/ji_run.log $RES/qi_run.log $RES/qj_run.log $RES/jh_stdout.log; do BASE[$f]=$(grep -c "_ABORT\|_FAIL" "$f" 2>/dev/null || true); BASE[$f]=${BASE[$f]:-0}; done     # markers already in a log at start are old news
 while bash scripts/idle_check.sh >/dev/null 2>&1; do
   sleep 120
-  for f in $RES/gl_run.log $RES/qi_run.log $RES/qj_run.log $RES/jh_stdout.log; do
+  for f in $RES/gl_run.log $RES/gm_run.log $RES/ji_run.log $RES/qi_run.log $RES/qj_run.log $RES/jh_stdout.log; do
     n=$(grep -c "_ABORT\|_FAIL" "$f" 2>/dev/null || true); n=${n:-0}
     if [ "$n" -gt "${BASE[$f]}" ]; then echo "FAILURE MARKER in $f: $(grep -h '_ABORT\|_FAIL' "$f" | tail -1)"; exit 0; fi
   done
-  stale '^python3 scripts/run_campaign.py' "$RES/campaign_GL_ledger.jsonl" && { echo "STALLED: GL ledger has not grown for 45 min while run_campaign.py runs"; exit 0; }
+  stale '^python3 scripts/run_campaign.py' "$RES/campaign_G[LM]_ledger.jsonl" && { echo "STALLED: the newest campaign ledger (GL/GM) has not grown for 45 min while run_campaign.py runs"; exit 0; }
   stale 'qi_generate\.py' "$RES/qi_manifest_*.jsonl" && { echo "STALLED: no new Qwen-Image output for 45 min"; exit 0; }
   stale 'qj_generate\.py' "$RES/qj_manifest_*.jsonl" && { echo "STALLED: no new QJ image for 45 min"; exit 0; }
   stale 'jev_score\.py' "$RES/jev_scores_*.jsonl" && { echo "STALLED: no new judge score for 45 min"; exit 0; }
