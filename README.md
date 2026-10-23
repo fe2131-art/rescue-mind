@@ -80,6 +80,8 @@ Physical AI 応用1講座 最終課題 ｜ ROS 2 Jazzy × Gazebo Harmonic × ロ
 記憶・他のロボット・依頼文の言葉・在庫表のような「ロボットが自分で見ていないもの」は**助言**として扱い、助言は拠点を見る順序と判断の厳しさしか変えられない（確認は省けない）。AIの判断とロボットの実際の動きは、Gazebo の物理真値・ROS bag・判断ログで記録する。
 （「届ける」は、現物確認して避難所Bへ接近するところまで。把持・荷降ろしはシミュレーションしていない。）
 
+**入力と、VLA（画像と指示から動作を直接出すモデル）との違い**：依頼は**テキスト**（日本語・英語）で受け取る。マイクと音声認識は組み込んでいない（音声認識風の文は、認識結果の崩れを文字で真似たもの。評価IG）。VLM は**動作を出さない**。出すのは依頼文の解釈（物資と届け先）、台の物資の確認、火の有無の「許可／拒否」だけで、走行は通常のナビゲーション（ROS 2）、車輪を動かせるのは独立した速度ガードだけ。迷ったら届けずに止まって報告する。動画のナレーションは VOICEVOX による音声合成で、ロボットの入力ではない。
+
 ![Gazebo上のRescueMind（俯瞰カメラ＋ロボット搭載カメラ、実レンダリング）](docs/figures/hero_gazebo.png)
 
 処理の流れ（全体図。詳細は [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)）：
@@ -350,7 +352,7 @@ bash docker/build.sh                                   # ROS 2 Jazzy + Gazebo Ha
 #    旧環境（v3.3: torch 2.5.1 / transformers 4.53。図・PDF・テスト用の rm-dev）: docker build --build-arg STACK=v33 -t rescuemind:jazzy docker
 # 1) モデル重みを一度だけ取得（以降の実行は HF_HUB_OFFLINE=1）
 HF_HUB_OFFLINE=0 bash docker/run.sh python3 -c "from huggingface_hub import snapshot_download as s; s('Qwen/Qwen3.5-9B')"
-# 2) テスト（テスト関数 1628 件。数え方は静的で `python3 scripts/count_tests.py`。ROS/Gazebo不要の部分はDockerなしでも実行可）
+# 2) テスト（テスト関数 1635 件。数え方は静的で `python3 scripts/count_tests.py`。ROS/Gazebo不要の部分はDockerなしでも実行可）
 bash docker/run.sh python3 -m unittest discover -s tests -q
 # 3) 1回のAIミッション（Gazebo・ブリッジ・ガード・VLMを自動起動、証拠は outputs/runs/<run_id>/）
 V34="--model Qwen/Qwen3.5-9B --prompt-set v35 --intent-backend llm --intent-prompt i35 --recovery --explain"
