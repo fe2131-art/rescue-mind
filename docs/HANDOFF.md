@@ -7,6 +7,13 @@
 
 ---
 
+## ★ 最新（2026-10-23 22:00）：GM 成立・IG1 不成立を反映済み、JI はゲート採点中（描画完了）、IH は待機（I-95〜I-105）
+
+* **反映済み**：GM（GM1〜GM3 すべて成立、火へ配達 14/100→5/100、p=0.0176、誤停止 0/32）、IG（IG2 成立、IG1 不成立＝失敗した主張19件目：未知の行き先4件＋言い回しの罠1件）、FINDINGS #51・#52、README の最初の画面（30秒で・動画リンクを上・結果表6行＋折りたたみ）、README の限界、動画の証拠カード（GL・GM を1行）と冒頭の一文（コードのみ、動画本体は未再生成）。
+* **走行中（バックグラウンド）**：`ji_run.sh`（描画完了 → ゲート採点 → 審判4つ → `ji_analysis.py`、JI_DONE を待つ）、`ih_run.sh`（約3分、ロック待ち）、`bg_watch.sh`。JI の後に `python3 scripts/ji_cascade.py`（JC、GPU なし）。
+* **JI/IH/JC の結果が出たら**：`ji_section.draft.tex` → `ji_section.tex`（Reading を書く）、IH は補足に節（`ih_section.tex` を新規、IG 節の後）と失敗した主張フック・マクロ・README 行（IH は未準備：IG と同様に作る）、FINDINGS #53〜、IMPROVEMENT_LOG の Result、HANDOFF の件数。
+* **最後に**：`bash scripts/rebuild_docs.sh`（論文・説明資料。ページ判定は final_check.sh）、動画 v13 再生成（コマンドは下の「動画」）、`bash scripts/final_check.sh`（全実行）、`update_submission_facts.py`。
+
 ## ★ 最新（2026-10-23 17:00）：GM 実行中（192/264）、JI → IG → JC が待機、JEV を「速さを活かす見張り役」へ（I-93〜I-100）
 
 * **GPU の順番（すべてバックグラウンド、`flock /tmp/rescuemind_campaign.lock`）**：`gm_run.sh`（192/264 試行、失敗は再実行で解消、終了は 22〜23 時ごろ）→ `ji_run.sh`（描画3時間＋ゲート1.3時間＋審判4×1時間）→ `ig_run.sh`（依頼文の解析、約3分。ロックを取るので JI と順不同でも衝突しない）。`bg_watch.sh` を常に1つ動かす。
