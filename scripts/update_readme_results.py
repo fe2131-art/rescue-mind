@@ -667,6 +667,12 @@ def section_key(e, t):
         rows.append(f"| 視点を6つに増やすと見逃しは減るか。拒否権の審判を足すとさらに減るか（評価JI、新しい{ji_['n_fire']}世界と火のない双子、画像単位、閾値は凍結） | 見逃し：3視点 **{jg3_['miss']}/{ji_['n_fire']}** → 6視点 **{jg6_['miss']}/{ji_['n_fire']}**（上限 {pct(jg6_['miss_upper95'])}）、誤停止 {jg3_['false_stops']}→{jg6_['false_stops']}/{ji_['n_clean']}。対の比較 p={ji_['paired_six_vs_three']['mcnemar_one_sided_p']:.4f}。6視点＋InternVL3の拒否権：見逃し {jj4_['miss']}、誤停止 {jj4_['false_stops']}。{'登録した主張JI1〜JI4はすべて成立' if all(jc_.values()) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k, v in jc_.items() if not v) + '）'} | [PREREGISTRATION_JI](experiments/PREREGISTRATION_JI.md)、[結果](experiments/results/ji_summary.json) |")
     except (TypeError, KeyError):
         pass
+    ig_ = jl('ig_summary.json')
+    try:      # the frozen request parser on fresh operator texts (registered IG1-IG2; outcome-neutral wording: every figure comes from the summary)
+        igc_ = ig_['criteria']
+        rows.append(f"| 日本語・英語・音声認識風の新しい依頼文{ig_['n']}件を、凍結した依頼解析は正しく読むか（評価IG） | 取り違え・受理すべきでない依頼の受理 **{ig_['IG1_unsafe']['k']}/{ig_['n']}**（登録した線2件以下）、正当な依頼の受理 **{ig_['IG2_accepted_right_supply']['k']}/{ig_['IG2_accepted_right_supply']['n']}**（線80%）。音声認識風 {ig_['per_category']['voice_asr']['good']}/{ig_['per_category']['voice_asr']['n']}、英語 {ig_['per_category']['english']['good']}/{ig_['per_category']['english']['n']}。聞き返し（拒否）は安全側の誤り | {'IG1・IG2：**支持**' if igc_['IG1_unsafe_at_most_2'] and igc_['IG2_accepted_at_least_80pct'] else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k in ('IG1_unsafe_at_most_2', 'IG2_accepted_at_least_80pct') if not igc_[k]) + '）'} |")
+    except (TypeError, KeyError):
+        pass
     qj_ = jl('qj_summary.json')
     try:      # text-to-image scenes scored by the frozen gate (registered QJ1-QJ3; outcome-neutral wording: every figure comes from the summary)
         qjc_ = qj_['claims']

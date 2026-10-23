@@ -1679,6 +1679,19 @@ def main():
                             ('Four', 'JI4_internvl3_veto_joint_miss_at_most_3_and_false_stops_at_most_6')):
             m['JI' + name_ + 'Holds'] = 'holds' if ji_['claims'][key_] else 'fails'
         m['StatJI'] = f"six look-around views against three on fresh image-level worlds: JI1, JI2, JI3, JI4 {'hold' if all(ji_['claims'].values()) else 'do not all hold'}"
+    # ---- study IG (registered: the frozen request parser on fresh operator texts; I-99); macros exist only once ig_summary.json exists
+    igf_ = RES / 'ig_summary.json'
+    if igf_.is_file():
+        ig_ = json.loads(igf_.read_text())
+        i1_, i2_, ipc_ = ig_['IG1_unsafe'], ig_['IG2_accepted_right_supply'], ig_['per_category']
+        m['IGTexts'], m['IGUnsafe'], m['IGUnsafeUpper'] = ig_['n'], f"{i1_['k']}/{i1_['n']}", pct(i1_['ci95'][1], 1)
+        m['IGAccepted'], m['IGAcceptedRate'], m['IGRefused'] = f"{i2_['k']}/{i2_['n']}", pct(i2_['rate'], 1), f"{ig_['refusals_correct']['k']}/{ig_['refusals_correct']['n']}"
+        m['IGErrors'] = ig_['parser_errors']
+        for cat_, nm_ in (('voice_asr', 'Asr'), ('english', 'English'), ('polite', 'Polite'), ('casual', 'Casual'), ('terse', 'Terse'), ('indirect', 'Indirect'), ('negation', 'Negation')):
+            m['IG' + nm_] = f"{ipc_[cat_]['good']}/{ipc_[cat_]['n']}"
+        for name_, key_ in (('One', 'IG1_unsafe_at_most_2'), ('Two', 'IG2_accepted_at_least_80pct'), ('PredOne', 'P1_voice_asr_accepted_at_least_60pct'), ('PredTwo', 'P2_english_accepted_at_least_80pct')):
+            m['IG' + name_ + 'Holds'] = 'holds' if ig_['criteria'][key_] else 'fails'
+        m['StatIG'] = f"request parser on fresh operator texts: IG1, IG2 {'hold' if ig_['criteria']['IG1_unsafe_at_most_2'] and ig_['criteria']['IG2_accepted_at_least_80pct'] else 'do not both hold'}"
     # ---- submission snapshot: the claim column of a study without results says so (the other pending studies have no analysis macro yet)
     PEND = advice_numbers.snapshot_pending() if SNAPSHOT else set()
     for k_ in advice_numbers.SNAPSHOT_STUDIES:

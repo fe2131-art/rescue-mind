@@ -938,6 +938,14 @@ def failed_claims():
                 ('GM3_false_stops_at_most_3', 'GM3', 'GM3 (GL transfer: false stops)', 'GM3 (at most three false stops of 32 fire-free variant worlds)', 'GM3（変種の火のない32世界で誤停止は3件まで）')):
             if not c[key]:
                 out.append(dict(key=name, tex=tex, en=en, ja=ja))
+    ig = _load('ig_summary.json')      # registered claims IG1-IG2 (PREREGISTRATION_IG): the frozen request parser on fresh operator texts
+    if ig is not None:
+        c = ig['criteria']
+        for key, name, tex, en, ja in (
+                ('IG1_unsafe_at_most_2', 'IG1', 'IG1 (request parser: unsafe outcomes)', 'IG1 (at most 2 of 136 fresh operator texts parsed to a wrong supply or accepted although a refusal was expected)', 'IG1（新しい依頼文136件のうち、物資の取り違えや受理すべきでない依頼の受理は2件以下）'),
+                ('IG2_accepted_at_least_80pct', 'IG2', 'IG2 (request parser: usability)', 'IG2 (at least 80% of the 83 legitimate texts accepted with the right supply)', 'IG2（正当な依頼83件の8割以上を正しい物資で受理）')):
+            if not c[key]:
+                out.append(dict(key=name, tex=tex, en=en, ja=ja))
     ji = _load('ji_summary.json')      # registered claims JI1-JI4 (PREREGISTRATION_JI): six look-around views against three, image-level replication on fresh worlds
     if ji is not None:
         c = ji['claims']
