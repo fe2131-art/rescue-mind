@@ -7,6 +7,13 @@
 
 ---
 
+## ★ 最新（2026-10-24 06:00）：JI・JC・IH を反映済み、JK 本番（132試行）が走行中（I-94/100/102/107）
+
+* **反映済み**：JI（JI1〜JI4 成立、6視点 3/120 対 3視点 13/120、p=0.00098）、JC（JC1 不成立＝20件目：SmolVLM2 の見張り役は見逃し7、ゲート自身のスコア0.01をきっかけにすると4で、無料）、IH（IH1 不成立＝21件目：危険 19→10、リストにない場所が漏れる）。FINDINGS #53〜#55、TRIAL_AND_ERROR、補足の JI・JC・IH 節（`ji_section.tex` `ih_section.tex`）、README の限界。失敗した主張は **21件**。
+* **JK（I-107）**：パイロットが本番前に3つの欠陥を見つけ、Amendment 1〜3 として記録（フラグ未配線／手前0.3 mの視点Nで失敗→Nを外す `--adaptive-near 0`／完了監査が追加視点3つ固定→近距離0なら2）。腕 `adapt` ＝ v3.6 ＋ `--adaptive-views 0.8 --adaptive-near 0`（L2・R2のみ）。主張・世界・解析は不変。`bash scripts/jk_run.sh` が走行中（約7時間、`JK_DONE` を待つ）。**終わるまで論文・説明資料・動画のビルドと全テストは禁止**。
+* **JK が終わったら**：`jk_summary.json` を読む→ `cp docs/paper/jk_section.draft.tex docs/paper/jk_section.tex` と Reading（Nを外したこと・Amendment 1〜3 に触れる）、FINDINGS #56、TRIAL_AND_ERROR、IMPROVEMENT_LOG の Result、HANDOFF の件数、YouTube 概要欄に JK 行（`make_youtube_description.py`）、動画の証拠カード、`rebuild_docs.sh`、動画 v13、`final_check.sh` 全実行、`update_submission_facts.py`。論文の要旨（199語）に JK/GM を入れるなら既存の語を削る。
+* **未完の最終確認**：説明資料（PDF）の件数表記（再生成で解消）。GitHub Actions は課金設定で赤（ユーザー作業）。
+
 ## ★ 最新（2026-10-24 03:00）：JI の審判採点中（Idefics3 → Qwen3-VL → SmolVLM2、終わりは朝）。IH・JK が待機（I-107〜I-109）
 
 * **GPU の順番**：`ji_run.sh`（審判採点中）→ `ih_run.sh`（約3分）と `jk_run.sh`（パイロット3回→登録コミット＋OTS→132試行、約7時間。`flock` で順不同）。`bg_watch.sh` を1つ動かし続ける（`idle_check.sh` のパターンに ji/ig/ih/jk を追加済み）。
