@@ -938,6 +938,16 @@ def failed_claims():
                 ('GM3_false_stops_at_most_3', 'GM3', 'GM3 (GL transfer: false stops)', 'GM3 (at most three false stops of 32 fire-free variant worlds)', 'GM3（変種の火のない32世界で誤停止は3件まで）')):
             if not c[key]:
                 out.append(dict(key=name, tex=tex, en=en, ja=ja))
+    ji = _load('ji_summary.json')      # registered claims JI1-JI4 (PREREGISTRATION_JI): six look-around views against three, image-level replication on fresh worlds
+    if ji is not None:
+        c = ji['claims']
+        for key, name, tex, en, ja in (
+                ('JI1_gate_six_views_miss_at_most_8', 'JI1', 'JI1 (six views: misses)', 'JI1 (gate on six views misses at most 8 of 120 fresh fires)', 'JI1（6視点のゲートの見逃しは新しい120世界で8件以下）'),
+                ('JI2_six_views_fewer_misses_than_three', 'JI2', 'JI2 (six views against three)', 'JI2 (six views miss fewer fires than three, exact one-sided McNemar p<0.05)', 'JI2（6視点は3視点より見逃しが少ない：McNemar片側p<0.05）'),
+                ('JI3_gate_six_views_false_stops_at_most_5', 'JI3', 'JI3 (six views: false stops)', 'JI3 (at most 5 false stops of 120 fire-free twins on six views)', 'JI3（6視点で火のない120世界の誤停止5件以下）'),
+                ('JI4_internvl3_veto_joint_miss_at_most_3_and_false_stops_at_most_6', 'JI4', 'JI4 (six views plus the InternVL3 veto)', 'JI4 (gate plus InternVL3 veto on six views: at most 3 misses and 6 false stops)', 'JI4（6視点＋InternVL3の拒否権：見逃し3件以下かつ誤停止6件以下）')):
+            if key in c and not c[key]:
+                out.append(dict(key=name, tex=tex, en=en, ja=ja))
     qj = _load('qj_summary.json')      # registered claims QJ1-QJ3 (PREREGISTRATION_QJ): text-to-image scenes scored by the frozen gate; a claim is listed only once it has been evaluated (a stopped claim counts as failed)
     if qj is not None:
         c = qj.get('claims') or {}

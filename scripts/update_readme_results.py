@@ -659,6 +659,14 @@ def section_key(e, t):
         rows.append(f"| 左のみ0.8 mの見回しは、現実感の要素を1つ外した倉庫（照明・散らかり・周囲・台）でも効くか（評価GM、新しい{gm_['n_fire_worlds']}世界、再較正なし） | 火へ配達：v3.6 **{gmv_['k']}/{gmv_['n']}**（95%上限 {pct(gmv_['upper95_exact'])}）、左のみ **{gmk_['k']}/{gmk_['n']}**（上限 {pct(gmk_['upper95_exact'])}、登録した線15%）。対の比較は v3.6 のみ {gm_['paired']['discordant_v36_only']}・左のみ {gm_['paired']['discordant_left_only']}（片側 McNemar p={gm_['paired']['mcnemar_one_sided_p']:.5f}）、火のない世界の誤停止 {gm_['arms']['left']['fire_free']['k']}/{gm_['arms']['left']['fire_free']['n']}。変種ごとの内訳は補足 | **{'支持' if gmok_ else '不成立'}**（GM1〜GM3） |")
     except (TypeError, KeyError):
         pass
+    ji_ = jl('ji_summary.json')
+    try:      # six look-around views against three on fresh image-level worlds (registered JI1-JI4; outcome-neutral wording: every figure comes from the summary)
+        jv6_, jv3_ = ji_['viewsets']['all_six']['scorers'], ji_['viewsets']['v36_FLR']['scorers']
+        jg6_, jg3_, jj4_ = jv6_['qwen35'], jv3_['qwen35'], jv6_['qwen35+internvl3']
+        jc_ = ji_['claims']
+        rows.append(f"| 視点を6つに増やすと見逃しは減るか。拒否権の審判を足すとさらに減るか（評価JI、新しい{ji_['n_fire']}世界と火のない双子、画像単位、閾値は凍結） | 見逃し：3視点 **{jg3_['miss']}/{ji_['n_fire']}** → 6視点 **{jg6_['miss']}/{ji_['n_fire']}**（上限 {pct(jg6_['miss_upper95'])}）、誤停止 {jg3_['false_stops']}→{jg6_['false_stops']}/{ji_['n_clean']}。対の比較 p={ji_['paired_six_vs_three']['mcnemar_one_sided_p']:.4f}。6視点＋InternVL3の拒否権：見逃し {jj4_['miss']}、誤停止 {jj4_['false_stops']}。{'登録した主張JI1〜JI4はすべて成立' if all(jc_.values()) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k, v in jc_.items() if not v) + '）'} | [PREREGISTRATION_JI](experiments/PREREGISTRATION_JI.md)、[結果](experiments/results/ji_summary.json) |")
+    except (TypeError, KeyError):
+        pass
     qj_ = jl('qj_summary.json')
     try:      # text-to-image scenes scored by the frozen gate (registered QJ1-QJ3; outcome-neutral wording: every figure comes from the summary)
         qjc_ = qj_['claims']
