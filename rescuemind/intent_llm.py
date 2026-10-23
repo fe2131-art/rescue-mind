@@ -82,11 +82,35 @@ def supply_conflict(text: str, probs: dict | None = None, item: str | None = Non
     return None
 
 
-def decide_intent_hybrid(text: str, conflict_check: bool = False, **kw) -> dict:
+# I-102 (study IG: 4 of 136 fresh texts named a destination the mission does not know and were read as requests for shelter B, because the shelter rule
+# only refuses the names it lists).  The mission has ONE destination, shelter B: a text that names another place is a request the robot cannot serve,
+# so it is sent back to the operator.  A text that names shelter B itself is not touched (the shelter may be a gymnasium), and one that names no place at all stays valid.
+# Default off (v3.6); the rule was written from the principle "a named place other than B", before the fresh set of study IH exists.
+PLACE_JA = r'(?:公民館|市役所|区役所|役場|消防署|警察署|小学校|中学校|高校|学校|大学|体育館|病院|診療所|クリニック|医院|救護所|駅|公園|空港|自宅|お宅|実家|会館|ホール|センター|ホテル|旅館|寺|神社|教会|保育園|幼稚園|テント|仮設|倉庫|工場|校庭|広場|港|避難場所|集会所|町内会|本部|コンビニ|スーパー|ショッピング|老人ホーム|福祉|施設)'
+ORIENT_JA = r'(?:[東西南北]側?|第[一二三四五六七八九十0-9０-９]+|[0-9０-９]+番(?:目)?|[一二三四五六七八九十]つ目|別の|他の|ほかの|もう一つの|もう1つの|隣の|となりの|新しい|大きい|奥の|向こうの|反対側の)\s*の?\s*(?:避難所|シェルター|避難場所)'
+NUMBERED_JA = r'(?:避難所|シェルター|避難場所)\s*(?:第?[0-9０-９一二三四五六七八九十]+)'
+PLACE_EN = r'\b(?:city hall|town hall|community (?:center|centre|hall)|school|gym(?:nasium)?|hospital|clinic|station|airport|park|church|temple|hotel|warehouse|home|house|library|stadium|office|(?:north|south|east|west)(?:ern)? shelter|(?:the )?(?:other|another|second|third|new) shelter|shelter (?:[0-9]+|one|two|three))\b'
+_DEST_OTHER = _re.compile('|'.join([PLACE_JA, ORIENT_JA, NUMBERED_JA, PLACE_EN]), _re.I)
+_SHELTER_B = _re.compile(r"(?:避難所|シェルター|shelter)\s*[BＢ]|\b[BＢ]\s*(?:の)?\s*(?:避難所|shelter)", _re.I)
+
+
+def names_other_destination(text: str) -> str | None:
+    """The first place or shelter named other than B, or None.  A text that names shelter B is exempt from the place-noun list (not from numbered / oriented other shelters)."""
+    t = text or ''
+    if _SHELTER_B.search(t):
+        m = _re.search('|'.join([ORIENT_JA, NUMBERED_JA]), t, _re.I)
+        return m.group(0) if m else None
+    m = _DEST_OTHER.search(t)
+    return m.group(0) if m else None
+
+
+def decide_intent_hybrid(text: str, conflict_check: bool = False, destination_check: bool = False, **kw) -> dict:
     from .mission_policy import UNSUPPORTED
     from .intent import parse_shelter
     if UNSUPPORTED.search(text) or parse_shelter(text) != 'B':
         return {'accept': False, 'item': None, 'reason': 'unsupported_shelter', 'rule': 'explicit_shelter_name'}
+    if destination_check and (why := names_other_destination(text)):
+        return {'accept': False, 'item': None, 'reason': 'unsupported_shelter', 'rule': 'named_other_destination', 'named': why}
     out = parse_instruction_llm(text, **kw)
     if conflict_check and out.get('accept'):
         why = supply_conflict(text, out.get('probs'), out.get('item'))
