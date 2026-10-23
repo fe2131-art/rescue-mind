@@ -1559,6 +1559,9 @@ def main():
         for t_ in ('G2', 'K1', 'K2'):
             if qi_.get(t_, {}).get('n'):
                 m['QI' + t_.translate(DIGITW) + 'N'], m['QI' + t_.translate(DIGITW) + 'K'] = qi_[t_]['n'], qi_[t_].get('k_miss', qi_[t_].get('flagged'))
+                m['QI' + t_.translate(DIGITW) + 'Rate'], m['QI' + t_.translate(DIGITW) + 'Upper'] = pct(qi_[t_]['rate'], 0), pct(qi_[t_]['upper95'], 1)
+        if qi_.get('C', {}).get('n'):
+            m['QICRate'] = pct(qi_['C']['rate'], 0)
         for t_, v_ in (qi_.get('coverage') or {}).items():
             if v_.get('worlds_with_all_three_views_strict') is not None:
                 m['QI' + t_.translate(DIGITW) + 'Strict'] = v_['worlds_with_all_three_views_strict']
