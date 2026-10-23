@@ -243,7 +243,7 @@
 | Q（Wikimedia Commons 405 枚） | 実写の物資確認 | 登録済み・**未実行**（GPU 約 40 分。W の後の連鎖が .gitignore の衝突で止まり、一度も走っていない） |
 
 * 登録済み 7 本（A・B・IF・Q・S・X・XD）は統合マージ 09:08 で main に載り、A の予備走行が 09:14 に始まった時点で、IF・S・B・XD・X・Q は試行も推論もしていない。これらの登録ファイルには「DRAFT」の行が残るが、拘束力のある版は `docs/REGISTRATIONS.md` の表の版（ファイルは変えない。変更は日付とコミットつきの Amendment で追記する）。
-* テスト関数は 1612 件（`python3 scripts/count_tests.py` の静的な数え方）。FINDINGS は 48 件。
+* テスト関数は 1617 件（`python3 scripts/count_tests.py` の静的な数え方）。FINDINGS は 49 件。
 
 ### D. GPU の順番と、その動かし方
 
