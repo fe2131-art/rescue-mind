@@ -674,6 +674,13 @@ def section_key(e, t):
         rows.append(f"| 高速な別系統のAI（JEV）を「追加の視点を取りに行くか」だけ決める見張り役にすると、視点を減らして見逃しを保てるか（評価JC、評価JIのスコアを再解析） | 見逃し：常に3視点 {jcp_['always3']['miss']}、常に6視点 {jcp_['always6']['miss']}、見張り役（{jc_['primary_sentinel']}）{jcp_[jcs_]['miss']}／{jc_['n_fire']}。火のない世界の視点数 平均 {jcp_[jcs_]['mean_views_clean']:.2f}（3〜6）、誤停止 {jcp_[jcs_]['false_stops']}。見張り役の中央値 {jc_['sentinel_latency_median_s'][jc_['primary_sentinel']]} 秒/画像。画像単位で走行時間は概算 | {'JC1〜JC3：**支持**' if all(jcc_[k] for k in ('JC1_primary_sentinel_misses_within_3_of_always_six', 'JC2_primary_sentinel_mean_views_clean_at_most_4', 'JC3_primary_sentinel_false_stops_at_most_5')) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k in ('JC1_primary_sentinel_misses_within_3_of_always_six', 'JC2_primary_sentinel_mean_views_clean_at_most_4', 'JC3_primary_sentinel_false_stops_at_most_5') if not jcc_[k]) + '）'} |")
     except (TypeError, KeyError):
         pass
+    jk_ = jl('jk_summary.json')
+    try:      # suspicion-triggered extra views in the closed loop at the depot (registered JK1-JK3; outcome-neutral wording: every figure comes from the summary)
+        jka_, jkv_, jkc_ = jk_['arms']['adapt'], jk_['arms']['v36'], jk_['criteria']
+        jkkeys_ = ('JK1_paired_one_sided_p_below_005_and_fewer', 'JK2_adapt_upper_at_most_10pct', 'JK3_false_stops_at_most_3')
+        rows.append(f"| 疑わしいときだけ左右0.8 mと手前から撮り直す方式（追加視点、I-20）は、既定の閾値のまま倉庫で火への配達を減らすか（評価JK、評価GMと同じ{jk_['n_fire_worlds']}世界、比較相手のGMは別時刻の記録） | 火へ配達：v3.6 **{jkv_['fire']['k']}/{jkv_['fire']['n']}** → 追加視点 **{jka_['fire']['k']}/{jka_['fire']['n']}**（95%上限 {pct(jka_['fire']['upper95_exact'])}、登録した線10%）、火なし世界の誤停止 {jka_['fire_free']['k']}/{jka_['fire_free']['n']}（線3件）。追加視点は構造上、拒否を増やすだけ | {'JK1〜JK3：**支持**' if all(jkc_[k] for k in jkkeys_) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k in jkkeys_ if not jkc_[k]) + '）'} |")
+    except (TypeError, KeyError):
+        pass
     ih_ = jl('ih_summary.json')
     try:      # the destination rule for the request parser on a second fresh set (registered IH1-IH3; outcome-neutral wording: every figure comes from the summary)
         ihs_, ihv_, ihc_ = ih_['strict'], ih_['v36'], ih_['criteria']
