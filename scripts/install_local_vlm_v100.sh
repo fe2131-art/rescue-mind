@@ -4,7 +4,7 @@ set -Eeuo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 [[ -r "$ROOT/.venv/bin/activate" ]] || { echo 'First run bash scripts/setup_ubuntu_jazzy.sh' >&2; exit 2; }
 source "$ROOT/.venv/bin/activate"
-python -m pip install -U 'pip<26'
+python -m pip install -U 'pip>=26.2.2'
 # CUDA 12.1 wheel: ensure nvidia-smi driver supports this runtime first.
 python -m pip install 'torch==2.5.1' --index-url https://download.pytorch.org/whl/cu121
 python -m pip install -e '.[local-v100]'
