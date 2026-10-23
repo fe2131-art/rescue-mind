@@ -641,6 +641,17 @@ def section_key(e, t):
         rows.append(f"| 画像生成モデルで写実化した画像でも、凍結したゲートは火を見つけるか（評価QI） | 写実化したフレームの見逃し {qr_['miss']['k']}/{qr_['miss']['n']}（上限 {pct(qr_['miss']['upper95'])}、元のシミュレータ画像 {qb_['k']}/{qb_['n']}、登録した線 20）、火なし世界の誤停止 {qr_['false_stops']['k']}/{qr_['false_stops']['n']}。描き足した火は {qg_['n_excluded']}/{qg_['n_generated']} 枚が炎の色を持たず登録した停止規則で止まり、中立の対照編集は {qi_['C']['flips']}/{qi_['C']['n']} の双子を危険と判定させた（生成器が煙を描いたため）。シミュレータの灰色の煙の円盤が写実的な背景に残ると見逃す | 誤停止のみ **{'支持' if qc_.get('QI3_realised_false_stops_small') else '不成立'}**、見逃し（QI1）**{'支持' if qc_.get('QI1_realised_miss_not_much_worse') else '不成立'}**、生成した火（QI2）**{'支持' if qc_.get('QI2_generated_fire_miss_rate') else '不成立（停止規則）'}**、対照編集（QI3c）**{'支持' if qc_.get('QI3c_control_edits_do_not_create_hazards') else '不成立'}** |")
     except (TypeError, KeyError):
         pass
+    jh_ = jl('jh_summary.json')
+    jf_ = jl('jh_factor.json')
+    try:      # a second judge of another model family with a veto (registered JH1) and its post hoc factor analysis; outcome-neutral wording: every figure comes from the summaries
+        jx_ = jh_['xd']
+        jc_ = jx_['candidates'][jx_['selected']]
+        cl_ = jf_['clusters']
+        jv_ = (jl('jh_views.json') or {}).get('viewsets', {})
+        six_ = jv_.get('all_six', {}).get('scorers', {})
+        rows.append(f"| 別系統のAIを「拒否権だけの第2の審判」にすると、見逃しは減るか（評価JH、事後の要因分析つき） | 見逃し {jc_['miss_Q']}→{jc_['miss_joint']}（登録した目標 {(2 * jc_['miss_Q']) // 3} 以下）、誤停止 {jc_['false_stops_union']}/{jx_['n']['test_clean']}。**元世界で数えると {cl_['gate_missed_bases']}→{cl_['gate_missed_bases'] - cl_['rescued_bases_by_judge'][jx_['selected']]}**（減少は1つの世界の複製）。残りは全審判が見逃す知覚の限界。見え方を増やす方が効く（ゲート単独：提出版3視点 {six_.get('qwen35', {}).get('miss', '?') if False else jv_['v36_FLR_0.4m']['scorers']['qwen35']['miss']} → 6視点 {six_['qwen35']['miss']}、事後）。研究JIで新しい世界で再現を検証する | **{'支持' if jx_['JH1']['holds'] else '不成立'}**（JH1） |")
+    except (TypeError, KeyError):
+        pass
     gm_ = jl('gm_summary.json')
     try:      # GL transferred to depot worlds with one realism feature off (registered GM1-GM3; outcome-neutral wording: every figure comes from the summary)
         gmv_, gmk_, gmc_ = gm_['arms']['v36']['fire'], gm_['arms']['left']['fire'], gm_['criteria']
