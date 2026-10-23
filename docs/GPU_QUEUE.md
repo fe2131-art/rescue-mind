@@ -16,5 +16,7 @@ A job is crossed out only when its result is integrated. Add a job here whenever
 
 7. **QJ ready (2026-10-23 08:10):** code and draft registration are committed (`experiments/PREREGISTRATION_QJ.md`, `scripts/qj_{generate,build_devset,analysis}.py`, `scripts/qj_run.sh`, `tests/test_qj.py`). Steps after `QI2_DONE`: (1) mechanics pilot, 6 images per fire mode with `--seed-offset 1000000 --tag _pilot` (inside rm-next, see qj_run.sh for the command); look by eye, read `flame_share`, never score; (2) Amendment 1 (FLAME_MIN and precision) -> commit -> OTS stamp (`ots stamp`, hashes only); (3) `bash scripts/qj_run.sh` via run_in_background (about 1.4 h generation + 0.5 h scoring).
 
+8. **State of 2026-10-23 afternoon:** QI, QJ done and integrated; GM running (started 11:40, about 9-10 h). **Next: JI** (fresh hard-class worlds, six views, frozen thresholds, gate + judge veto; `experiments/PREREGISTRATION_JI.md`, registered and OTS-stamped): `bash scripts/ji_run.sh` waits for `gm_run.sh`, renders a smoke test and exits 2; look at `experiments/vlm_testset_ji/smoke/smoke_sheet.jpg`, `touch experiments/results/ji_smoke_ok`, rerun (about 8-9 h). After JI: closed-loop Jev / near-view peek only if JI1-JI3 hold (needs mission code for the 0.3 m peek; register first).
+
 ## Rule (I-79): always keep one visible background task
 Whenever a job runs, `bash scripts/bg_watch.sh` must run via Bash `run_in_background` (it ends when the whole queue ends). The Stop hook blocks the end of a turn without it.
