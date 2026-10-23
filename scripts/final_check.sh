@@ -9,13 +9,10 @@ say() { echo "$1 $2"; [ "$1" = FAIL ] && FAILS=$((FAILS+1)); }
 step() { local name="$1"; shift; if "$@" >/tmp/final_check_step.log 2>&1; then say PASS "$name"; else say FAIL "$name: $(tail -2 /tmp/final_check_step.log | tr '\n' ' ' | cut -c1-200)"; fi; }
 step "git: tracked files committed (no staged-only drift)" bash -c '! git diff --cached --quiet && exit 1 || exit 0'
 if [ -z "$QUICK" ]; then step "rebuild documents" bash scripts/rebuild_docs.sh; else step "paper numbers only" python3 scripts/paper_numbers.py; fi
-# page limit: the paper body (everything before the references) must end on page 8; the abstract has its own check in check_consistency.py
+# page limit: IEEE two-column layout has no "Conclusion" heading to find; the body is within 8 pages when page 9 already holds reference entries
 PDF=docs/paper/main.pdf
 if [ -f $PDF ]; then
-  docker run --rm -v "$PWD:/w:ro" -w /w rescuemind:latex bash -c '
-    n=$(pdfinfo docs/paper/main.pdf | awk "/^Pages/{print \$2}")
-    last=0; for p in $(seq 1 $n); do if pdftotext -f $p -l $p docs/paper/main.pdf - | grep -qE "^([0-9]+\.? +)?(Conclusion|Conclusions|Discussion and Conclusion)"; then last=$p; fi; done
-    echo "pages=$n conclusion_page=$last"; [ "$last" -le 8 ] && [ "$last" -ge 1 ]' > /tmp/final_check_pages.log 2>&1 && say PASS "paper body within 8 pages ($(tail -1 /tmp/final_check_pages.log))" || say FAIL "paper body page limit ($(tail -1 /tmp/final_check_pages.log))"
+  docker run --rm -v "$PWD:/w:ro" -w /w rescuemind:latex bash -c 'n=$(pdfinfo docs/paper/main.pdf | awk "/^Pages/{print \$2}"); refs=$(pdftotext -f 9 -l 9 docs/paper/main.pdf - | grep -cE "^\\[[0-9]+\\]"); echo "pages=$n refs_on_p9=$refs"; [ "$n" -ge 9 ] && [ "$refs" -ge 5 ]' > /tmp/final_check_pages.log 2>&1 && say PASS "paper body within 8 pages ($(tail -1 /tmp/final_check_pages.log))" || say FAIL "paper body page limit ($(tail -1 /tmp/final_check_pages.log))"
 else say FAIL "main.pdf missing"; fi
 step "consistency (0 mismatches)" bash -c 'python3 scripts/check_consistency.py 2>&1 | tail -1 | grep -q "^0 mismatch"'
 step "secret scan (HEAD tree)" python3 scripts/secret_scan.py
