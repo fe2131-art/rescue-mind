@@ -924,7 +924,7 @@ def failed_claims():
         c = qi.get('claims') or {}
         for key, name, tex, en, ja in (
                 ('QI1_realised_miss_not_much_worse', 'QI1', 'QI1 (photo-realised frames)', 'QI1 (the miss on photo-realised hard fires stays within 20 of 126)', 'QI1（写実化した画像でも見逃し20件以内）'),
-                ('QI2_generated_fire_miss_rate', 'QI2', 'QI2 (generated fire)', 'QI2 (generator-drawn fire missed in at most 20% of worlds)', 'QI2（生成した火の見逃しが2割以下）'),
+                ('QI2_generated_fire_miss_rate', 'QI2', 'QI2 (generated fire; stopped by its rule)', 'QI2 (generator-drawn fire missed in at most 20% of worlds; stopped by its registered rule: 68% of the drawn-fire images had no flame colour)', 'QI2（生成した火の見逃しが2割以下。登録した停止規則で停止：炎の色のない画像が68%）'),
                 ('QI3_realised_false_stops_small', 'QI3', 'QI3 (false stops on realised clean frames)', 'QI3 (at most 5 false stops of 104 realised clean worlds)', 'QI3（写実化した火のない画像の誤停止5件以下）'),
                 ('QI3c_control_edits_do_not_create_hazards', 'QI3c', 'QI3c (control edits)', 'QI3c (control edits create hazards in at most 5% of twins)', 'QI3c（対照の編集で危険と誤る割合5%以下）')):
             if key in c and not c[key]:
