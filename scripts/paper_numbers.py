@@ -1540,12 +1540,16 @@ def main():
             m['QIRErased'] = ka_['n_erased']
             bw_, rw_ = set(qi_['xd_baseline']['miss']['worlds']), set(qi_['R']['miss']['worlds'])
             m['QIRBoth'], m['QIRNew'], m['QIRRecovered'] = len(bw_ & rw_), len(rw_ - bw_), len(bw_ - rw_)
+        gfs_ = None
         for j_, nm_ in (('internvl3', 'Intern'), ('idefics3', 'Idefics'), ('smolvlm2', 'Smol')):
             c_ = (qi_.get('P3_judges') or {}).get(j_, {}).get('C')
             if c_ and c_.get('n'):
                 m['QIPJudge' + nm_ + 'C'] = f"{c_['flagged']}/{c_['n']}"
                 if 'judge_flags_also_gate_flips' in c_:
-                    m['QIPJudge' + nm_ + 'Both'], m['QIGateFlipsStrict'] = c_['judge_flags_also_gate_flips'], c_['gate_flips_strict']
+                    m['QIPJudge' + nm_ + 'Both'] = c_['judge_flags_also_gate_flips']
+                    gfs_ = c_['gate_flips_strict']
+        if gfs_ is not None:
+            m['QIGateFlipsStrict'] = gfs_
         if qi_.get('G', {}).get('excluded'):
             ex_ = qi_['G']['excluded']
             m['QIGExcl'], m['QIGGen'], m['QIGExclShare'] = ex_['n_excluded'], ex_['n_generated'], pct(ex_['share'], 0)

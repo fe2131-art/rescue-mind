@@ -14,7 +14,7 @@ PDF=docs/paper/main.pdf
 if [ -f $PDF ]; then
   docker run --rm -v "$PWD:/w:ro" -w /w rescuemind:latex bash -c '
     n=$(pdfinfo docs/paper/main.pdf | awk "/^Pages/{print \$2}")
-    last=0; for p in $(seq 1 $n); do if pdftotext -f $p -l $p docs/paper/main.pdf - | grep -qE "^(Conclusion|Conclusions|Discussion and Conclusion)"; then last=$p; fi; done
+    last=0; for p in $(seq 1 $n); do if pdftotext -f $p -l $p docs/paper/main.pdf - | grep -qE "^([0-9]+\.? +)?(Conclusion|Conclusions|Discussion and Conclusion)"; then last=$p; fi; done
     echo "pages=$n conclusion_page=$last"; [ "$last" -le 8 ] && [ "$last" -ge 1 ]' > /tmp/final_check_pages.log 2>&1 && say PASS "paper body within 8 pages ($(tail -1 /tmp/final_check_pages.log))" || say FAIL "paper body page limit ($(tail -1 /tmp/final_check_pages.log))"
 else say FAIL "main.pdf missing"; fi
 step "consistency (0 mismatches)" bash -c 'python3 scripts/check_consistency.py 2>&1 | tail -1 | grep -q "^0 mismatch"'
