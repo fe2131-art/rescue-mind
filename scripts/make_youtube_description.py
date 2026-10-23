@@ -322,6 +322,25 @@ def line_gl(res):
         return ''
 
 
+def line_qi(res):
+    """Studies JH (a second judge from another model family) and QI (images made or realised by an image-generation model, scored by the frozen gate): numbers from the result files; outcome-neutral; empty until they exist."""
+    out = []
+    j = jload(Path(res) / 'jh_summary.json')
+    try:
+        x = j['xd']
+        sel = x['candidates'][x['selected']]
+        out.append(f"・別系統のAIを「拒否権だけの第2の審判」にする評価JH：見逃し {sel['miss_Q']}→{sel['miss_joint']}（登録した目標は{(2 * sel['miss_Q']) // 3}以下）で{'成立' if x['JH1']['holds'] else '不成立'}")
+    except (TypeError, KeyError):
+        pass
+    q = jload(Path(res) / 'qi_summary.json')
+    try:
+        r, b, g = q['R']['miss'], q['xd_baseline']['miss'], q['G']['excluded']
+        out.append(f"・画像生成AI（Qwen-Image）で作った画像を凍結したゲートで採点（評価QI）：シミュレータ画像を写実化すると見逃しが {b['k']}/{b['n']}→{r['k']}/{r['n']}（登録した線は20）で不成立、誤停止は {q['R']['false_stops']['k']}/{q['R']['false_stops']['n']} で成立。描き足した火は {g['n_excluded']}/{g['n_generated']} 枚が炎の色を持たず停止規則で止まった。弱点として報告")
+    except (TypeError, KeyError):
+        pass
+    return '\n'.join(out)
+
+
 def line_gv(res):
     """Study GV (wide 0.8 m look-around views with a threshold calibrated on the same views, depot, closed loop): numbers from the result file; outcome-neutral; empty until it exists."""
     g = jload(Path(res) / 'gv_summary.json')
@@ -416,7 +435,7 @@ def line_pending(res):
 
 
 def number_lines(res):
-    fns = (line_t1, line_t2, line_z, line_r, line_p, line_l, line_h, line_v, line_w, line_xd, line_a, line_y, line_gr, line_gc, line_gd, line_gv, line_gl, line_if, line_j, line_pending)
+    fns = (line_t1, line_t2, line_z, line_r, line_p, line_l, line_h, line_v, line_w, line_xd, line_a, line_y, line_gr, line_gc, line_gd, line_gv, line_gl, line_qi, line_if, line_j, line_pending)
     return [x for x in (f(res) for f in fns) if x]
 
 
