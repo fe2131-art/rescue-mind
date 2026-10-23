@@ -230,7 +230,7 @@ def evidence_card(seconds):
     if gl:      # study GL (v12): the depot's fresh worlds, left-only 0.8 m look-around with a calibrated threshold; site-specific
         glv, glk, glp = gl['arms']['v36']['fire'], gl['arms']['left']['fire'], gl['paired']
         gl_ok = gl['criteria']['GL1_paired_one_sided_p_below_005_and_fewer']
-        rows.append([f"閉ループ GL（倉庫の新{glv['n']}世界）", [f"火へ配達 {glv['k']}→{glk['k']}/{glv['n']}（p={glp['mcnemar_one_sided_p']:.4f}・倉庫限定）", G if gl_ok else W]])
+        rows.append([f"閉ループ GL（倉庫・新{glv['n']}）", [f"火へ配達 {glv['k']}→{glk['k']}/{glv['n']}（p={glp['mcnemar_one_sided_p']:.4f}・倉庫限定）", G if gl_ok else W]])
         say.append(f"倉庫の新{glv['n']}世界で、火への配達は{glk['k']}件に（{glv['k']}件から）。")
     h = jload(RES / 'h_summary.json')
     v = jload(RES / 'v_summary.json')
@@ -285,7 +285,7 @@ def evidence_card(seconds):
     if jh:      # study JH (the heterogeneous second judge, 'Jev'): registered, not supported
         jx = jh['xd']
         sel = jx['candidates'][jx['selected']]
-        rows.append(['別系統のAI審判 JH（拒否権のみ）', [f"見逃し {sel['miss_Q']}→{sel['miss_joint']}（目標{(2 * sel['miss_Q']) // 3}）・" + ('成立' if jx['JH1']['holds'] else '不成立'), R if not jx['JH1']['holds'] else G]])
+        rows.append(['別系統AI審判 JH（拒否権）', [f"見逃し {sel['miss_Q']}→{sel['miss_joint']}（目標{(2 * sel['miss_Q']) // 3}）・" + ('成立' if jx['JH1']['holds'] else '不成立'), R if not jx['JH1']['holds'] else G]])
         say.append('別系統のAI審判は不成立。')
     qi = jload(RES / 'qi_summary.json')
     if qi and qi.get('R', {}).get('miss'):      # study QI (v12): generated images through the frozen gate
