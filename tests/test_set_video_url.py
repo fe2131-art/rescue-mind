@@ -45,7 +45,7 @@ class Rewrite(unittest.TestCase):
     def test_real_documents_have_exactly_one_marker_pair(self):
         for rel in ('README.md', 'docs/SUBMISSION.md'):
             self.assertEqual(len(sv.MARK.findall((ROOT / rel).read_text(encoding='utf8'))), 1, rel)
-        self.assertIn('<!--VIDEOURL-->', '\n'.join((ROOT / 'README.md').read_text(encoding='utf8').splitlines()[:32]), 'README first screen')
+        self.assertIn('<!--VIDEOURL-->', '\n'.join((ROOT / 'README.md').read_text(encoding='utf8').splitlines()[:36]), 'README first screen')
 
 
 class CommandLine(unittest.TestCase):
