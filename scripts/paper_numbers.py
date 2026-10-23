@@ -1598,6 +1598,28 @@ def main():
             m['JH' + nm_ + 'FS'], m['JH' + nm_ + 'Exp'] = c_['false_stops_union'], f"{c_['expected_joint_if_independent']:.1f}"
         m['JHSelJoint'] = jc_[jx_['selected']]['miss_joint']
         m['JHClaim'] = 'holds' if jx_['JH1']['holds'] else 'fails'
+    jff_ = RES / 'jh_factor.json'      # JH factor analysis (post hoc, I-93)
+    if jff_.is_file():
+        jf_ = json.loads(jff_.read_text())
+        cl_ = jf_['clusters']
+        m['JHFBases'], m['JHFMissBases'], m['JHFRescuedBases'] = cl_['test_fire_bases'], cl_['gate_missed_bases'], cl_['rescued_bases_any_judge']
+        m['JHFInternBases'], m['JHFAllMiss'], m['JHFAllFS'] = cl_['rescued_bases_by_judge']['internvl3'], jf_['unions_at_registered_taus']['+'.join(['internvl3', 'idefics3', 'qwen3vl', 'smolvlm2'])]['miss'], jf_['unions_at_registered_taus']['+'.join(['internvl3', 'idefics3', 'qwen3vl', 'smolvlm2'])]['false_stops']
+        m['JHFAfterBases'] = cl_['gate_missed_bases'] - cl_['rescued_bases_by_judge']['internvl3']
+        if 'qi_realised_miss_bases' in cl_:
+            m['QIRBasesXD'], m['QIRBasesReal'], m['QIRBasesTest'] = cl_['qi_baseline_miss_bases'], cl_['qi_realised_miss_bases'], cl_['test_fire_bases']
+        m['JHFNever'], m['JHFNeverBases'] = len(jf_['missed_by_gate_and_all_four_judges']), cl_['unrescued_bases']
+        m['JHFMedianRatio'] = f"{jf_['selected_judge_ratio_of_remaining_misses']['median']:.2f}"
+        m['JHFBelowHalf'], m['JHFRemaining'] = jf_['selected_judge_ratio_of_remaining_misses']['n_below_half_tau'], len(jf_['selected_judge_ratio_of_remaining_misses']['ratios'])
+    jvf_ = RES / 'jh_views.json'      # JH factor analysis part 2 (post hoc, I-93): the same scorers on other view sets of the XD images
+    if jvf_.is_file():
+        jv_ = json.loads(jvf_.read_text())['viewsets']
+        for vs_, nm_ in (('v36_FLR_0.4m', 'Base'), ('GL_F+L2_0.8m', 'GLv'), ('wide_F+L2+R2', 'Wide'), ('all_six', 'Six')):
+            g_ = jv_[vs_]['scorers']['qwen35']
+            m['JV' + nm_ + 'Miss'], m['JV' + nm_ + 'Bases'], m['JV' + nm_ + 'FS'] = g_['miss'], g_['miss_bases'], g_['false_stops']
+        i_ = jv_['all_six']['scorers']['qwen35+internvl3']
+        m['JVSixInternMiss'], m['JVSixInternBases'], m['JVSixInternFS'] = i_['miss'], i_['miss_bases'], i_['false_stops']
+        a_ = jv_['all_six']['scorers']['qwen35+internvl3+idefics3+qwen3vl+smolvlm2']
+        m['JVSixAllMiss'], m['JVSixAllBases'], m['JVSixAllFS'] = a_['miss'], a_['miss_bases'], a_['false_stops']
     # ---- study GL (registered left-only 0.8 m look-around with the front + left threshold, closed loop at the depot, fresh worlds; I-84)
     glf_ = RES / 'gl_summary.json'
     if glf_.is_file():
