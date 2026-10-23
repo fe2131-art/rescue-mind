@@ -322,6 +322,25 @@ def line_gl(res):
         return ''
 
 
+def line_gm_ig(res):
+    """Studies GM (the GL arm under changed rendering) and IG (the request parser on fresh operator texts): numbers from the result files; outcome-neutral; empty until they exist."""
+    out = []
+    g = jload(Path(res) / 'gm_summary.json')
+    try:
+        c, v, k = g['arms']['left']['fire'], g['arms']['v36']['fire'], g['criteria']
+        ok = k['GM1_paired_one_sided_p_below_005_and_fewer'] and k['GM2_left_upper_at_most_15pct'] and k['GM3_false_stops_at_most_3']
+        out.append(f"・描画条件を変えた倉庫{g['n_fire_worlds']}世界でも左のみ見回しを検証（評価GM）：火へ配達 {v['k']}→{c['k']}/{c['n']}（上限 {c['upper95_exact'] * 100:.1f}%）で{'成立' if ok else '一部不成立'}")
+    except (TypeError, KeyError):
+        pass
+    i = jload(Path(res) / 'ig_summary.json')
+    try:
+        u, a_, k = i['IG1_unsafe'], i['IG2_accepted_right_supply'], i['criteria']
+        out.append(f"・新しい依頼文{i['n']}件での依頼解析（評価IG）：正当な依頼の受理 {a_['k']}/{a_['n']}、危険な結果 {u['k']}件で{'成立' if k['IG1_unsafe_at_most_2'] else 'IG1不成立（未知の行き先を受理）'}")
+    except (TypeError, KeyError):
+        pass
+    return '\n'.join(out)
+
+
 def line_qi(res):
     """Studies JH (a second judge from another model family) and QI (images made or realised by an image-generation model, scored by the frozen gate): numbers from the result files; outcome-neutral; empty until they exist."""
     out = []
@@ -435,7 +454,7 @@ def line_pending(res):
 
 
 def number_lines(res):
-    fns = (line_t1, line_t2, line_z, line_r, line_p, line_l, line_h, line_v, line_w, line_xd, line_a, line_y, line_gr, line_gc, line_gd, line_gv, line_gl, line_qi, line_if, line_j, line_pending)
+    fns = (line_t1, line_t2, line_z, line_r, line_p, line_l, line_h, line_v, line_w, line_xd, line_a, line_y, line_gr, line_gc, line_gd, line_gv, line_gl, line_gm_ig, line_qi, line_if, line_j, line_pending)
     return [x for x in (f(res) for f in fns) if x]
 
 
