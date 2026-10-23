@@ -546,6 +546,8 @@ def run_ros(route, args, record):
         if p_max < tau and not scr:
             return None
         pts=extra_points(la['waypoint'],la['center'],off,float(getattr(args,'adaptive_near',0.3)))
+        if float(getattr(args,'adaptive_near',0.3))<=0:
+            pts=[q for q in pts if q[0]!='N']       # study JK Amendment 2: --adaptive-near 0 drops the near pose N (default 0.3 unchanged)
         la['points']+= [{'side':sd,'xy':list(xy)} for sd,xy in pts]
         record['events'].append({'stage':'adaptive_views_scheduled','station':station,'p_max':p_max,'points':[sd for sd,_ in pts],
                                  't_wall_s':round(time.monotonic()-start,3)})

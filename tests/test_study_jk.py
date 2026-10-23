@@ -20,17 +20,17 @@ class Protocol(unittest.TestCase):
         self.assertEqual(p['planned_n'], 132)
         self.assertEqual({t['condition'] for t in p['trials']}, {'fire_hidden', 'plain'})
         self.assertEqual(sum(t['condition'] == 'fire_hidden' for t in p['trials']), 100)
-        self.assertTrue(all(t['stack_args'] == ['--adaptive-views', '0.8'] and t['config'] == 'adapt' for t in p['trials']))
+        self.assertTrue(all(t['stack_args'] == ['--adaptive-views', '0.8', '--adaptive-near', '0'] and t['config'] == 'adapt' for t in p['trials']))       # Amendment 2: no near pose
         gm = {t['world']: t['world_spec'] for t in gm_proto()['trials']}
         self.assertTrue(all(t['world_spec'] == gm[t['world']] for t in p['trials']))          # the worlds are GM's, byte for byte
         self.assertEqual(len({t['world'] for t in p['trials']}), 132)
 
     def test_pilot_forces_the_extras_only_in_the_fire_free_runs(self):
         ts = mjk.pilot_protocol()['trials']
-        self.assertEqual([t['config'] for t in ts], ['adapt', 'adapt_forced', 'adapt_forced'])
-        self.assertEqual(ts[0]['stack_args'], ['--adaptive-views', '0.8'])
+        self.assertEqual([t['config'] for t in ts], ['adapt', 'adapt_forced', 'adapt_forced', 'adapt_forced'])
+        self.assertEqual(ts[0]['stack_args'], ['--adaptive-views', '0.8', '--adaptive-near', '0'])
         self.assertIn('--adaptive-tau-sus', ts[1]['stack_args'])
-        self.assertEqual([t['condition'] for t in ts], ['fire_hidden', 'plain', 'plain'])
+        self.assertEqual([t['condition'] for t in ts], ['fire_hidden', 'plain', 'plain', 'plain'])
 
     def test_committed_protocols_match_the_generator(self):
         self.assertEqual(json.loads(mjk.OUT.read_text()), json.loads(json.dumps(mjk.build(json.loads(mjk.SELECTION.read_text())))))
@@ -79,6 +79,9 @@ class Wiring(unittest.TestCase):
         self.assertNotIn('--adaptive-tau-sus', argv)                                   # the registered arm keeps the mission's default 0.005
         argv = ' '.join(orch.build_plan('live', '避難所Bに飲料水を届けて', adaptive_tau_sus=0.0, **kw)['mission'].argv)
         self.assertIn('--adaptive-tau-sus 0.0', argv)                                  # the pilot forces the extra views
+        argv = ' '.join(orch.build_plan('live', '避難所Bに飲料水を届けて', adaptive_near=0.0, **kw)['mission'].argv)
+        self.assertIn('--adaptive-near 0.0', argv)                                     # Amendment 2: the near pose is dropped
+        self.assertNotIn('--adaptive-near', ' '.join(orch.build_plan('live', 'x', **kw)['mission'].argv))
 
 
 class Guards(unittest.TestCase):
@@ -87,6 +90,17 @@ class Guards(unittest.TestCase):
         self.assertIn('flock 9', s)
         for f in ('PREREGISTRATION_JK.md', 'campaign_GM_ledger.jsonl', 'gm_summary.json', 'campaign_gm_selection.json', 'gazebo_waypoint_mission.py', 'adaptive_views.py', 'jk_pilot_ok'):
             self.assertIn(f, s)
+
+
+class MissionNear(unittest.TestCase):
+    def test_near_zero_drops_the_near_pose(self):
+        from rescuemind.adaptive_views import extra_points
+        pts = extra_points((0.0, 0.0), (2.0, 0.0), 0.8, 0.0)
+        self.assertEqual([q[0] for q in pts], ['L2', 'R2', 'N'])
+        self.assertEqual(pts[2][1], (0.0, 0.0))                                        # N would sit on the waypoint itself
+        src = (ROOT / 'ros/gazebo_waypoint_mission.py').read_text(encoding='utf8')
+        self.assertIn("if float(getattr(args,'adaptive_near',0.3))<=0:", src)
+        self.assertIn("pts=[q for q in pts if q[0]!='N']", src)
 
 
 if __name__ == '__main__':
