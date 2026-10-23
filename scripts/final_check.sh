@@ -5,7 +5,7 @@
 # CPU heavy: run it next to GPU-only jobs (image generation, scoring), not next to closed-loop (Gazebo) campaigns.
 cd "$(dirname "$0")/.."
 FAILS=0
-say() { echo "$1 $2"; [ "$1" = FAIL ] && FAILS=$((FAILS+1)); }
+say() { echo "$1 $2"; if [ "$1" = FAIL ]; then FAILS=$((FAILS+1)); fi; return 0; }
 step() { local name="$1"; shift; if "$@" >/tmp/final_check_step.log 2>&1; then say PASS "$name"; else say FAIL "$name: $(tail -2 /tmp/final_check_step.log | tr '\n' ' ' | cut -c1-200)"; fi; }
 step "git: tracked files committed (no staged-only drift)" bash -c '! git diff --cached --quiet && exit 1 || exit 0'
 if [ -z "$QUICK" ]; then step "rebuild documents" bash scripts/rebuild_docs.sh; else step "paper numbers only" python3 scripts/paper_numbers.py; fi
