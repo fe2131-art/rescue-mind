@@ -1618,6 +1618,28 @@ def main():
                             ('PredOne', 'P1_left_false_stops_not_more_than_v36_plus_2'), ('PredTwo', 'P2_time_cost_at_most_20s')):
             m['GL' + name_ + 'Holds'] = 'holds' if gcr_[key_] else 'fails'
         m['StatGL'] = f"left-only 0.8 m look-around at the depot, closed loop: GL1, GL2, GL3 {'hold' if all(gcr_[k] for k in ('GL1_paired_one_sided_p_below_005_and_fewer', 'GL2_left_upper_at_most_10pct', 'GL3_false_stops_at_most_2')) else 'do not all hold'}"
+    # ---- study GM (registered transfer of GL to depot worlds with one realism feature off, closed loop; I-92); macros exist only once gm_summary.json exists
+    gmf_ = RES / 'gm_summary.json'
+    if gmf_.is_file():
+        gm_ = json.loads(gmf_.read_text())
+        ga_, gp_, gcr_ = gm_['arms'], gm_['paired'], gm_['criteria']
+        kv_, kl_ = ga_['v36']['fire'], ga_['left']['fire']
+        m['GMTrials'], m['GMWorlds'], m['GMPlain'] = gm_['n_with_result'], gm_['n_fire_worlds'], ga_['left']['fire_free']['n']
+        m['GMV'], m['GMVRate'], m['GMVUpper'] = f"{kv_['k']}/{kv_['n']}", pct(kv_['rate'], 1), pct(kv_['upper95_exact'], 1)
+        m['GMLeft'], m['GMLeftRate'], m['GMLeftUpper'] = f"{kl_['k']}/{kl_['n']}", pct(kl_['rate'], 1), pct(kl_['upper95_exact'], 1)
+        m['GMOnlyV'], m['GMOnlyLeft'], m['GMP'] = gp_['discordant_v36_only'], gp_['discordant_left_only'], f"{gp_['mcnemar_one_sided_p']:.5f}".rstrip('0')
+        m['GMFalseStops'], m['GMFalseStopsV'] = f"{ga_['left']['fire_free']['k']}/{ga_['left']['fire_free']['n']}", f"{ga_['v36']['fire_free']['k']}/{ga_['v36']['fire_free']['n']}"
+        m['GMTimeV'], m['GMTimeLeft'] = f"{kv_['median_time_s']:.1f}", f"{kl_['median_time_s']:.1f}"
+        m['GMFailed'], m['GMAudit'] = gm_['n_failed'], gm_['audit_failures']
+        for var_, nm_ in (('default_light', 'Light'), ('no_clutter', 'Clutter'), ('no_surroundings', 'Surr'), ('plain_platforms', 'Plat')):
+            bv_ = gm_['by_variant'][var_]
+            m['GM' + nm_ + 'V'] = f"{bv_['v36']['unsafe']}/{bv_['v36']['fire_n']}"
+            m['GM' + nm_ + 'Left'] = f"{bv_['left']['unsafe']}/{bv_['left']['fire_n']}"
+            m['GM' + nm_ + 'FS'] = f"{bv_['left']['false_stops']}/{bv_['left']['fire_free_n']}"
+        for name_, key_ in (('One', 'GM1_paired_one_sided_p_below_005_and_fewer'), ('Two', 'GM2_left_upper_at_most_15pct'), ('Three', 'GM3_false_stops_at_most_3'),
+                            ('PredOne', 'P1_left_false_stops_not_more_than_v36_plus_2'), ('PredTwo', 'P2_time_cost_at_most_20s')):
+            m['GM' + name_ + 'Holds'] = 'holds' if gcr_[key_] else 'fails'
+        m['StatGM'] = f"GL transferred to depot worlds with one realism feature off, closed loop: GM1, GM2, GM3 {'hold' if all(gcr_[k] for k in ('GM1_paired_one_sided_p_below_005_and_fewer', 'GM2_left_upper_at_most_15pct', 'GM3_false_stops_at_most_3')) else 'do not all hold'}"
     # ---- submission snapshot: the claim column of a study without results says so (the other pending studies have no analysis macro yet)
     PEND = advice_numbers.snapshot_pending() if SNAPSHOT else set()
     for k_ in advice_numbers.SNAPSHOT_STUDIES:
