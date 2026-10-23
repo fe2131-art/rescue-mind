@@ -1,0 +1,17 @@
+# Security layer (2026-10-23): applied on top of an existing image so that a full rebuild (torch download) is not needed.
+#   bash scripts/security_rebuild_images.sh
+# eMudhra emSign roots with weak keys are distrusted, ca-certificates is the newest, pip is >= 26.2.2 where the image has pip (and pip uses the system CA bundle, not its vendored one).
+ARG BASE
+FROM ${BASE}
+ARG ORIG_USER=root
+USER root
+RUN set -e; export DEBIAN_FRONTEND=noninteractive; \
+    apt-get update -qq && apt-get install -y -qq --no-install-recommends --only-upgrade ca-certificates; \
+    sed -i 's#^mozilla/emSign#!mozilla/emSign#' /etc/ca-certificates.conf; update-ca-certificates --fresh; \
+    if command -v pip >/dev/null 2>&1 || command -v pip3 >/dev/null 2>&1; then \
+      printf '[global]\ncert = /etc/ssl/certs/ca-certificates.crt\n' > /etc/pip.conf; \
+      (python3 -m pip install -q --break-system-packages --ignore-installed 'pip>=26.2.2' || python3 -m pip install -q --ignore-installed 'pip>=26.2.2'); \
+    fi; \
+    if [ -x /opt/rescuemind-venv/bin/pip ]; then /opt/rescuemind-venv/bin/pip install -q 'pip>=26.2.2'; fi; \
+    rm -rf /var/lib/apt/lists/*
+USER ${ORIG_USER}
