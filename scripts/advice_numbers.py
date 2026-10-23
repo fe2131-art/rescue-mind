@@ -947,6 +947,15 @@ def failed_claims():
                 ('JC3_primary_sentinel_false_stops_at_most_5', 'JC3', 'JC3 (sentinel: false stops)', 'JC3 (at most 5 false stops of 120 clean worlds)', 'JC3（火のない120世界の誤停止5件以下）')):
             if key in c and not c[key]:
                 out.append(dict(key=name, tex=tex, en=en, ja=ja))
+    ih = _load('ih_summary.json')      # registered claims IH1-IH3 (PREREGISTRATION_IH): the destination rule for the request parser on a second fresh set
+    if ih is not None:
+        c = ih['criteria']
+        for key, name, tex, en, ja in (
+                ('IH1_strict_unsafe_at_most_5', 'IH1', 'IH1 (destination rule: unsafe outcomes)', 'IH1 (with the destination rule, at most 5 of 133 fresh texts parsed to a wrong supply or accepted although a refusal was expected)', 'IH1（行き先の規則つきで、新しい依頼文133件のうち取り違えや受理すべきでない依頼の受理は5件以下）'),
+                ('IH2_strict_accepted_at_least_80pct', 'IH2', 'IH2 (destination rule: usability)', 'IH2 (at least 80% of the 61 legitimate texts accepted with the right supply under the rule)', 'IH2（規則つきで正当な依頼61件の8割以上を正しい物資で受理）'),
+                ('IH3_strict_fewer_unsafe_than_v36', 'IH3', 'IH3 (destination rule against the submitted parser)', 'IH3 (the rule has fewer unsafe outcomes than the submitted parser)', 'IH3（規則つきの危険な結果が提出版より少ない）')):
+            if not c[key]:
+                out.append(dict(key=name, tex=tex, en=en, ja=ja))
     ig = _load('ig_summary.json')      # registered claims IG1-IG2 (PREREGISTRATION_IG): the frozen request parser on fresh operator texts
     if ig is not None:
         c = ig['criteria']

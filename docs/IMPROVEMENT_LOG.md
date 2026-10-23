@@ -1164,3 +1164,8 @@
 - **Hypothesis:** stating what failed (JH: one world; IG1) next to what is being tested (JC, IH) in outcome-neutral wording keeps the README honest whatever those studies find.
 - **Change:** two bullets in `README.md` ("採用しなかったもの" extended; new "依頼文の解析" bullet: unknown destinations read as shelter B, operator read-back stays mandatory, IH tests a rule). No new numbers (counts live in the results table).
 - **Before / After:** before, the limits did not mention the parser failure; after, they do, and point to the result rows.
+
+## I-106 (2026-10-23) Documents rebuilt after GM, IG and the literature additions; IH integration hooks prepared
+- **Motivation:** the PDFs (paper, supplement, report) predated GM, IG, FINDINGS #51-52, the new citations and the test count; JI scoring is GPU-bound and CPU-light, so the build could run without touching any result.
+- **Change:** `bash scripts/rebuild_docs.sh` (main 10 pages with 35 reference entries on page 9, i.e. body within 8 pages; supplement 35 pages, no unresolved reference; report main part 10 pages); consistency check 0 mismatches. IH hooks (failed-claim IH1-IH3, `IH*` macros, README row) written and exercised on a synthetic summary.
+- **Before / After:** before, 1 mismatch (report text), PDFs stale; after, 0 mismatches and PDFs contain GM, IG and both new citations.

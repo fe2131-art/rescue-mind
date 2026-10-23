@@ -674,6 +674,13 @@ def section_key(e, t):
         rows.append(f"| 高速な別系統のAI（JEV）を「追加の視点を取りに行くか」だけ決める見張り役にすると、視点を減らして見逃しを保てるか（評価JC、評価JIのスコアを再解析） | 見逃し：常に3視点 {jcp_['always3']['miss']}、常に6視点 {jcp_['always6']['miss']}、見張り役（{jc_['primary_sentinel']}）{jcp_[jcs_]['miss']}／{jc_['n_fire']}。火のない世界の視点数 平均 {jcp_[jcs_]['mean_views_clean']:.2f}（3〜6）、誤停止 {jcp_[jcs_]['false_stops']}。見張り役の中央値 {jc_['sentinel_latency_median_s'][jc_['primary_sentinel']]} 秒/画像。画像単位で走行時間は概算 | {'JC1〜JC3：**支持**' if all(jcc_[k] for k in ('JC1_primary_sentinel_misses_within_3_of_always_six', 'JC2_primary_sentinel_mean_views_clean_at_most_4', 'JC3_primary_sentinel_false_stops_at_most_5')) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k in ('JC1_primary_sentinel_misses_within_3_of_always_six', 'JC2_primary_sentinel_mean_views_clean_at_most_4', 'JC3_primary_sentinel_false_stops_at_most_5') if not jcc_[k]) + '）'} |")
     except (TypeError, KeyError):
         pass
+    ih_ = jl('ih_summary.json')
+    try:      # the destination rule for the request parser on a second fresh set (registered IH1-IH3; outcome-neutral wording: every figure comes from the summary)
+        ihs_, ihv_, ihc_ = ih_['strict'], ih_['v36'], ih_['criteria']
+        ihkeys_ = ('IH1_strict_unsafe_at_most_5', 'IH2_strict_accepted_at_least_80pct', 'IH3_strict_fewer_unsafe_than_v36')
+        rows.append(f"| 知らない行き先を断る規則で、依頼文の誤受理は減るか（評価IH、新しい依頼文{ih_['n']}件、規則は提出版では既定で無効） | 危険な結果：提出版 **{ihv_['unsafe']['k']}/{ih_['n']}** → 規則つき **{ihs_['unsafe']['k']}/{ih_['n']}**（登録した線5件以下）、正当な依頼の受理 {ihs_['accepted_right_supply']['k']}/{ihs_['accepted_right_supply']['n']}（線80%）。別の行き先の依頼の誤受理 {ihv_['wrong_destination_accepted']['k']}→{ihs_['wrong_destination_accepted']['k']}/{ihs_['wrong_destination_accepted']['n']}（リストにない場所を含む） | {'IH1〜IH3：**支持**' if all(ihc_[k] for k in ihkeys_) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k in ihkeys_ if not ihc_[k]) + '）'} |")
+    except (TypeError, KeyError):
+        pass
     ig_ = jl('ig_summary.json')
     try:      # the frozen request parser on fresh operator texts (registered IG1-IG2; outcome-neutral wording: every figure comes from the summary)
         igc_ = ig_['criteria']
