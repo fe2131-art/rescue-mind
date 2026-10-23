@@ -1,0 +1,7 @@
+# Abstract candidate (2026-10-24; not applied; apply after JK with the final numbers; the current abstract has 199 words)
+
+Macros in {braces} come from `numbers.tex`; JK numbers are placeholders until `jk_summary.json` exists.
+
+> A robot's delivery is only as safe as its vision-language model (VLM) check. {\sys} is a fail-closed gate with a velocity guard: every check can only refuse, and untrusted inputs (memory, peer reports, request text) are *advice* that may only reorder visits or tighten thresholds, so unsafe delivery stays within the check's own error budget. The budget sits at the camera: hidden fires. Looking again from the side cut deliveries into perceivable fires from {GWrongB} to {GWrongC} of {GPairs} worlds; at a depot, a site-calibrated left-only look-around cut them from {GLV} to {GLLeft}, and again from {GMV} to {GMLeft} when the rendering changed (GM). On fresh worlds, six views missed {JISix} fires against {JIThree} with three, whereas a second judge from another model family added almost nothing (JI, JC); suspicion-triggered extra views in the closed loop: {JKAdapt} against {JKV} (JK). We pre-registered {NStudies} studies with external timestamps and report the {Nfailed} claims that failed, among them an unsafe request parser (IG, IH) and photo-realised frames (QI).
+
+Word count of the text above (macros counted as one word each): 166 whitespace-separated tokens (the build counts words after macro expansion; the limit is 200). If JK fails, replace the JK clause with its number and keep the failure in the last sentence.

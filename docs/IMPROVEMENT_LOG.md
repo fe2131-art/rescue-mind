@@ -1206,3 +1206,8 @@
 
 ## I-107 Amendment 3 (2026-10-24): the independent audit learned that the arm has two extra views
 - The third pilot attempt: JKPILOT2/3 failed the completion audit (it required three extra views; the arm takes two). The audit's expected count now follows the recorded near distance (3 if > 0, else 2), strict both ways; the saved pilot records re-audit as pass. This is why the pilot exists: three independent defects (flag not plumbed, near pose unsafe at the depot, audit constant) were found before the first JK trial.
+
+## I-111 (2026-10-24) Abstract candidate with the replicated headline (not applied)
+- **Motivation:** the abstract (199 words) still frames GL as "site-specific" and does not carry the three results that make the paper stronger since it was written: the GM replication under changed rendering, JI (six views against three, a registered replication; the second judge adds almost nothing) and JK (pending). Deciding the wording after the last campaign leaves no time.
+- **Change:** `docs/paper/ABSTRACT_CANDIDATE.md` (macros only, 166 tokens before expansion; JK clause is a placeholder). Not applied: the abstract is changed together with the final numbers and the page check.
+- **Before / After:** before, no prepared text; after, a candidate that ends with the failed claims (IG/IH parser, QI) so that the honesty frame stays in the last sentence.
