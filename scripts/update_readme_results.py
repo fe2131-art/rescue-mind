@@ -641,6 +641,12 @@ def section_key(e, t):
         rows.append(f"| 画像生成モデルで写実化した画像でも、凍結したゲートは火を見つけるか（評価QI） | 写実化したフレームの見逃し {qr_['miss']['k']}/{qr_['miss']['n']}（上限 {pct(qr_['miss']['upper95'])}、元のシミュレータ画像 {qb_['k']}/{qb_['n']}、登録した線 20）、火なし世界の誤停止 {qr_['false_stops']['k']}/{qr_['false_stops']['n']}。描き足した火は {qg_['n_excluded']}/{qg_['n_generated']} 枚が炎の色を持たず登録した停止規則で止まり、中立の対照編集は {qi_['C']['flips']}/{qi_['C']['n']} の双子を危険と判定させた（生成器が煙を描いたため）。シミュレータの灰色の煙の円盤が写実的な背景に残ると見逃す | 誤停止のみ **{'支持' if qc_.get('QI3_realised_false_stops_small') else '不成立'}**、見逃し（QI1）**{'支持' if qc_.get('QI1_realised_miss_not_much_worse') else '不成立'}**、生成した火（QI2）**{'支持' if qc_.get('QI2_generated_fire_miss_rate') else '不成立（停止規則）'}**、対照編集（QI3c）**{'支持' if qc_.get('QI3c_control_edits_do_not_create_hazards') else '不成立'}** |")
     except (TypeError, KeyError):
         pass
+    qj_ = jl('qj_summary.json')
+    try:      # text-to-image scenes scored by the frozen gate (registered QJ1-QJ3; outcome-neutral wording: every figure comes from the summary)
+        qjc_ = qj_['claims']
+        rows.append(f"| テキストだけで生成した新しい場面でも、凍結したゲートは火を見つけるか（評価QJ） | 火なしの誤停止 {qj_['N0']['false_stops']['k']}/{qj_['N0']['false_stops']['n']}、大きな火の見逃し {qj_['NB']['all']['k']}/{qj_['NB']['all']['n']}、小さな火の見逃し {qj_['NF']['all']['k']}/{qj_['NF']['all']['n']}（各上限 {pct(qj_['NF']['all']['upper95'])}）。生成した「隠れた火」の多くは見える位置にあり、ハードクラスの再現ではない。生成画像で実写ではない | QJ1 **{'支持' if qjc_.get('QJ1_clean_false_stops_at_most_5pct') else '不成立'}**、QJ2 **{'支持' if qjc_.get('QJ2_large_fire_miss_at_most_10pct') else '不成立'}**、QJ3 **{'支持' if qjc_.get('QJ3_hard_fire_miss_at_most_20pct') else '不成立'}** |")
+    except (TypeError, KeyError):
+        pass
     gl_ = jl('gl_summary.json')
     try:      # left-only 0.8 m look-around at the depot, fresh worlds (registered GL1-GL3; outcome-neutral wording: every figure comes from the summary)
         glk_, glv_, glf_, glp_, glc_ = gl_['arms']['left']['fire'], gl_['arms']['v36']['fire'], gl_['arms']['left']['fire_free'], gl_['paired'], gl_['criteria']
