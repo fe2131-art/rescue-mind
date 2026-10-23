@@ -35,15 +35,17 @@ def test_flame_share_counts_orange_pixels_only():
 def test_analysis_stop_rule_blocks_the_claim(tmp_path, monkeypatch):
     import qj_analysis as a
     monkeypatch.setattr(a, 'RES', tmp_path)
-    audit = {'NF': {'flame_min': 0.002}, 'NB': {'flame_min': 0.002}}
-    (tmp_path / 'qj_audit.json').write_text(json.dumps(audit))
+    (tmp_path / 'qj_byeye.json').write_text(json.dumps({'NF': {'n': 40, 'present': 30}, 'NB': {'n': 40, 'present': 40}}))
 
-    def rec(share, score):
-        return {'flame_share': share, 'qj_item': 'water', 'qj_light': 0, 'passes': {'1': {'scores': {'p_hazard': score}}, '2': {'scores': {'p_hazard': score}}}}
-    monkeypatch.setattr(a, 'hazard_score', lambda r: r['passes']['1']['scores']['p_hazard'])
-    recs = {'N0': [rec(0, 0.01)] * 120, 'NF': [rec(0.0, 0.01)] * 100 + [rec(0.01, 0.9)] * 20, 'NB': [rec(0.01, 0.9)] * 120}
+    def rec(score):
+        return {'qj_item': 'water', 'qj_light': 0, 'flame_share': 0.0, 'p': score}
+    monkeypatch.setattr(a, 'hazard_score', lambda r: r['p'])
+    recs = {'N0': [rec(0.01)] * 120, 'NF': [rec(0.9)] * 120, 'NB': [rec(0.9)] * 120}
     monkeypatch.setattr(a, 'load', lambda m: recs[m])
     a.main()
     out = json.loads((tmp_path / 'qj_summary.json').read_text())
-    assert out['NF']['claim_stopped'] and not out['claims']['QJ3_hard_fire_miss_at_most_20pct']
+    assert out['NF']['claim_stopped'] and not out['claims']['QJ3_hard_fire_miss_at_most_20pct']       # 30/40 = 75% present < 85%
     assert out['claims']['QJ1_clean_false_stops_at_most_5pct'] and out['claims']['QJ2_large_fire_miss_at_most_10pct']
+    (tmp_path / 'qj_byeye.json').unlink()
+    a.main()
+    assert 'QJ2_large_fire_miss_at_most_10pct' not in json.loads((tmp_path / 'qj_summary.json').read_text())['claims']        # not evaluated without the by-eye file

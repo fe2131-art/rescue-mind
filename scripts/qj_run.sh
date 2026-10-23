@@ -13,7 +13,10 @@ for m in N0 NF NB; do
   "${IN_NEXT[@]}" bash -c "cd $PWD && HF_HUB_OFFLINE=1 PYTHONPATH=/hf/qi_pylib python3 scripts/qj_generate.py --fast --mode $m --dtype float16" >> $RES/qj_generate.log 2>&1 || abort "generation $m failed (rerun resumes)"
 done
 python3 scripts/qj_build_devset.py || abort "devset build"
+python3 scripts/qj_sample.py || abort "by-eye sample sheets"
 echo "QJ_GENERATED"
+# Amendment 1: the stop rule needs a by-eye classification of 40 images per fire mode BEFORE any gate score; write experiments/results/qj_byeye.json (see scripts/qj_sample.py) and rerun this script
+[ -f "$RES/qj_byeye.json" ] || { echo "QJ_AWAIT_BYEYE: classify outputs/qj/byeye_NF.jpg and byeye_NB.jpg, write $RES/qj_byeye.json, rerun"; exit 0; }
 "${IN_NEXT[@]}" pkill -f local_vlm_server.py >/dev/null 2>&1 || true
 sleep 10
 docker exec -d rm-next rescuemind-entrypoint bash -c "cd $PWD && HF_HUB_OFFLINE=1 python3 scripts/local_vlm_server.py --model Qwen/Qwen3.5-9B --prompt-set v35 --port 8765 --hazard-prompt h36 --hazard-views tiles > $PWD/$RES/qj_server.log 2>&1"

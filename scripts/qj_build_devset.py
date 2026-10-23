@@ -14,7 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'outputs/qj'
 RES = ROOT / 'experiments/results'
-FLAME_MIN = 0.002          # share of flame-coloured pixels of the whole frame (placeholder until the pilot fixes it; see PREREGISTRATION_QJ.md)
+FLAME_MIN = 0.002          # descriptive only (Amendment 1: the colour audit does not separate clean from fire images, so it is reported, not used as a gate)
 
 
 def label(mode: str, m: dict) -> dict:
