@@ -1152,3 +1152,9 @@
 - **Hypothesis:** three plain sentences in the overview prevent the two likeliest misreadings (a voice-controlled VLA; a robot whose VLM drives the wheels) at no cost to the claims.
 - **Change:** one paragraph under "概要" in `README.md` (text input, no microphone, speech-like texts are typed imitations, VLM only interprets / confirms / refuses, wheels only by the independent guard, narration = VOICEVOX). Test count 1635.
 - **Before / After:** before, the overview did not say what the input is or contrast with VLAs; after, it does, with the same facts as `docs/ARCHITECTURE.md` and the IG registration.
+
+## I-104 (2026-10-23) Video evidence card: GM joins GL on one row
+- **Motivation:** GM (14/100 → 5/100 under changed rendering) is the replication that makes the paper's only closed-loop miss reduction (GL) more than one generator's result; the video's evidence card showed GL alone, and the card has a fixed budget (9 rows, 20 s).
+- **Hypothesis:** merging GM into the GL row ("火へ配達 20→6/120、描画を変えても 14→5/100（倉庫限定）") shows both within the same row and slot without dropping another study.
+- **Change:** `scripts/make_video_plan.py` (row and one narration sentence; rows only when `gm_summary.json` exists; the row turns amber if any of GL1-3, GM1-3 fails); the 11 tests of `tests/test_video_depot.py` pass (cell width ≤ 1130 px, narration + pad ≤ 20 s). Video v13 is rebuilt after the JI render (with the new opening sentence, I-98).
+- **Before / After:** before, GL only (v12); after, GL and GM on one row, narration 19.9 s of the 20 s slot.

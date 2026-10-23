@@ -230,8 +230,15 @@ def evidence_card(seconds):
     if gl:      # study GL (v12): the depot's fresh worlds, left-only 0.8 m look-around with a calibrated threshold; site-specific
         glv, glk, glp = gl['arms']['v36']['fire'], gl['arms']['left']['fire'], gl['paired']
         gl_ok = gl['criteria']['GL1_paired_one_sided_p_below_005_and_fewer']
-        rows.append([f"閉ループ GL（倉庫・新{glv['n']}）", [f"火へ配達 {glv['k']}→{glk['k']}/{glv['n']}（p={glp['mcnemar_one_sided_p']:.4f}・倉庫限定）", G if gl_ok else W]])
-        say.append(f"倉庫の新{glv['n']}世界で、火への配達は{glk['k']}件に（{glv['k']}件から）。")
+        gm = jload(RES / 'gm_summary.json')       # study GM: the same arm on depot worlds with one realism feature off (no recalibration)
+        if gm:
+            gmv, gmk = gm['arms']['v36']['fire'], gm['arms']['left']['fire']
+            gm_ok = all(gm['criteria'][k] for k in ('GM1_paired_one_sided_p_below_005_and_fewer', 'GM2_left_upper_at_most_15pct', 'GM3_false_stops_at_most_3'))
+            rows.append(['閉ループ GL・GM（倉庫）', [f"火へ配達 {glv['k']}→{glk['k']}/{glv['n']}、描画を変えても {gmv['k']}→{gmk['k']}/{gmv['n']}（倉庫限定）", G if (gl_ok and gm_ok) else W]])
+            say.append(f"倉庫の火への配達は{glv['k']}件が{glk['k']}件、描画を変えても{gmv['k']}件が{gmk['k']}件。")
+        else:
+            rows.append([f"閉ループ GL（倉庫・新{glv['n']}）", [f"火へ配達 {glv['k']}→{glk['k']}/{glv['n']}（p={glp['mcnemar_one_sided_p']:.4f}・倉庫限定）", G if gl_ok else W]])
+            say.append(f"倉庫の新{glv['n']}世界で、火への配達は{glk['k']}件に（{glv['k']}件から）。")
     h = jload(RES / 'h_summary.json')
     v = jload(RES / 'v_summary.json')
     if h:
@@ -291,7 +298,7 @@ def evidence_card(seconds):
     if qi and qi.get('R', {}).get('miss'):      # study QI (v12): generated images through the frozen gate
         qr = qi['R']['miss']
         rows.append(['画像生成AIで写実化（QI）', [f"見逃し {qi['xd_baseline']['miss']['k']}→{qr['k']}/{qr['n']}・誤停止 {qi['R']['false_stops']['k']}/{qi['R']['false_stops']['n']}", R if not qi['claims'].get('QI1_realised_miss_not_much_worse') else G]])
-        say.append('写実化で見逃しが増える弱点も発見。')
+        say.append('写実化で見逃しが増える弱点も。')
     smt = jload(RES / 'smt_advice_proof.json')
     if smt and len(rows) < EVIDENCE_ROWS_MAX - 1:
         mut = smt.get('code_mutants') or []
