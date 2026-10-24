@@ -1484,3 +1484,8 @@
 ## I-159 (2026-10-25) HANDOFF current for the last stretch
 * **Change.** HANDOFF top: JL and IJ integrated with their verdicts, 22 failed claims all placed, JM progress and ETA, the exact order of the remaining FINAL_PLAN steps with their commands.
 * **Before → After.** A session resumed after JM can start the final steps without reading the conversation.
+
+## I-160 (2026-10-25) README English summary carries the strongest closed-loop result (JK, JL)
+* **Motivation.** International readers of the English summary saw no row for the extra views, the paper's best replicated result; JK and JL were only named in the "studies without an English row" pointer.
+* **Change.** `update_readme_results.py`: English rows JK and JL generated from their summaries (deliveries into fire v3.6 → extra views, upper bound, false stops, whether the registered claims hold), placed at chain step 3.
+* **Before → After.** English rows: no extra-views result → JK 14/100 → 3/100 and JL 13/98 → 3/100, both "hold".

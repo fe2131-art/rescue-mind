@@ -1140,8 +1140,19 @@ def section_en(e, v):
     gvt_ = gv_text_en() or gv_stop_en()
     if gvt_:
         L.append('| GV: wide look-around views with a calibrated threshold at the depot (I-58) | ' + gvt_ + ' |')
+    for key_, file_, label_ in (('JK', 'jk_summary.json', 'suspicion-triggered extra views at 0.8 m, depot, default thresholds (I-20)'),
+                                ('JL', 'jl_summary.json', 'the same on fresh worlds with a concurrent, interleaved control')):      # I-160: the strongest closed-loop result in English
+        try:
+            d_ = jl(file_)
+            a_, v_ = d_['arms']['adapt'], d_['arms']['v36']
+            ks_ = [k for k in d_['criteria'] if k.startswith(key_) and k[len(key_)].isdigit() and '_' in k and isinstance(d_['criteria'][k], bool)]
+            ok_ = all(d_['criteria'][k] for k in ks_)
+            L.append(f"| {key_}: {label_} | deliveries into fire v3.6 {v_['fire']['k']}/{v_['fire']['n']} -> extra views {a_['fire']['k']}/{a_['fire']['n']} "
+                     f"(upper {100 * a_['fire']['upper95_exact']:.1f}%), false stops {a_['fire_free']['k']}/{a_['fire_free']['n']}; registered claims {'hold' if ok_ else 'do not all hold'} |")
+        except (TypeError, KeyError, IndexError):
+            pass
     # study-subset: the chain position of the English rows that exist; studies without an English row are named after the table (I-136)
-    stage = {'E': 1, 'L': 1, 'Z': 1, 'T1': 2, 'K': 2, 'G': 3, 'W': 3, 'H': 4, 'V': 4, 'A': 4, 'S': 5, 'P': 5, 'R': 5, 'Q': 5, 'X, XD': 5, 'Y, YE, YF': 5, 'GR': 3, 'GC': 3, 'GD': 3, 'GV': 3, 'J': 6, 'I-23': 4, 'I-24': 4, 'B': 4, 'IF': 4, 'IF2': 4}
+    stage = {'E': 1, 'L': 1, 'Z': 1, 'T1': 2, 'K': 2, 'G': 3, 'W': 3, 'H': 4, 'V': 4, 'A': 4, 'S': 5, 'P': 5, 'R': 5, 'Q': 5, 'X, XD': 5, 'Y, YE, YF': 5, 'GR': 3, 'GC': 3, 'GD': 3, 'GV': 3, 'JK': 3, 'JL': 3, 'J': 6, 'I-23': 4, 'I-24': 4, 'B': 4, 'IF': 4, 'IF2': 4}
     i0 = L.index('|---|---|') + 1
     rows = L[i0:]
     key = lambda r_: r_[2:].split(':')[0]
