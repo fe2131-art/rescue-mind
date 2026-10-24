@@ -4,7 +4,7 @@
   python3 scripts/multiplicity.py      # -> experiments/results/multiplicity.json
 
 A statistics-minded reviewer asks what ~40 studies at p < 0.05 are worth.  The family declared here is ONE primary paired test per closed-loop study that registered one (the exact McNemar p-value of its own
-summary file; one-sided where the study registered a direction): A (A1), F, G, GR, GC, GD, GL, GM, H (P2), V (V4), J (P3), JK, and JL once it exists.  Holm-Bonferroni (family-wise error 5%) and
+summary file; one-sided where the study registered a direction): A (A1), F, G, GR, GC, GD, GL, GM, H (P2), V (V4), J (P3), JK, and JL and JM (JM1) once they exist.  Holm-Bonferroni (family-wise error 5%) and
 Benjamini-Hochberg (false discovery rate 5%) are applied over the family.  Tests that were not significant before the correction are listed with their raw p-value and stay failed claims where they were claims.
 Dependence: GM, JK and JL share worlds (JK and GM) or design (JL); JL is the fresh-world, interleaved confirmation of JK.  The correction treats the tests as exchangeable p-values; it is a stress test, not a model of that dependence.
 """
@@ -27,6 +27,7 @@ SPECS = [  # (study, file, path of the p-value inside the summary, what it compa
     ('J', 'j_summary.json', ('P3_correct_paired', 'mcnemar_p'), 'two-model check against one model'),
     ('JK', 'jk_summary.json', ('paired_v36_vs_adapt', 'mcnemar_one_sided_p_a_worse'), 'suspicion-triggered extra views against v3.6, depot'),
     ('JL', 'jl_summary.json', ('paired', 'mcnemar_one_sided_p'), 'the same on fresh worlds, interleaved'),
+    ('JM', 'jm_summary.json', ('smoke_effect_v36', 'mcnemar_one_sided_p_first_worse'), 'v3.6 with the smoke plume against its plume-free twin (JM1, the first registered claim)'),
 ]
 ALPHA = 0.05
 
