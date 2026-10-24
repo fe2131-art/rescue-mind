@@ -1497,3 +1497,8 @@
 ## I-162 (2026-10-25) README English row for JM prepared before its result
 * **Change.** English row JM (plume vs no plume for v3.6, extra views with plume, each registered claim holds/FAILS), inert until `jm_summary.json` exists; checked on the synthetic summary of `tests/test_result_hooks_ij_jm.py`.
 * **Before → After.** JM reaches the English summary by rule, worded for either outcome.
+
+## I-163 (2026-10-25) The trial-and-error story has a place for JM before its result
+* **Motivation.** If a JM claim fails, `trial_chain.py` would report it as unplaced and the final check would fail at the last step; writing the step after seeing the result would also invite a favourable wording.
+* **Change.** A step for JM1-JM3 worded for any failure ("part of the registered predictions about the smoke plume did not hold → reported as a limit with its numbers; no further experiment"). It appears only if a JM claim fails.
+* **Before → After.** JM failures: unplaced at the final check → placed by a rule fixed before the result.
