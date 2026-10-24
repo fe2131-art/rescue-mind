@@ -357,7 +357,8 @@ def overlay_labels(mission, spec):
     return labels
 
 
-SIDE_JA = {'L': '左', 'R': '右'}
+SIDE_JA = {'L': '左', 'R': '右', 'L2': '左', 'R2': '右', 'N': '手前'}      # I-134: L2/R2 = the 0.8 m extra views of JK
+SIDE_DIST = {'L2': '0.8 m', 'R2': '0.8 m', 'N': ''}
 
 
 def mission_segment(run_dir: Path, spec: dict, cam: FilmCamera, emit, narr=None, now=None):
@@ -463,7 +464,7 @@ def mission_segment(run_dir: Path, spec: dict, cam: FilmCamera, emit, narr=None,
             if active is None:
                 text(d, (1362, y), '物資拠点へ移動中 …', 22, INK)
             else:
-                where = f"横から見直し（{SIDE_JA[active['peek']]} 0.4 m）" if active.get('peek') else f"現地確認：{station_ja(active['station'])}"
+                where = f"横から見直し（{SIDE_JA[active['peek']]} {SIDE_DIST.get(active['peek'], '0.4 m')}）" if active.get('peek') else f"現地確認：{station_ja(active['station'])}"
                 text(d, (1362, y), f"{where}  {mission.get('model_label') or spec.get('model_label', '')}", 21, INK)
                 y += 32
                 if t >= active['decision_t']:
