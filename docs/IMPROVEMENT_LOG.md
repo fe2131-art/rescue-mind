@@ -1445,3 +1445,4 @@
 * **Motivation.** FINAL_PLAN §2's weaknesses were now in the paper (I-150) but not in the README's 限界, which judges read first.
 * **Change.** One bullet「評価の幅」: one VLM in the closed loop (others on development images only; a second AI did not help), stylised fire and RGB only (thermal untested), read-back mandatory but untested, Proposition 2 elementary with the novelty in the constraint and its machine check. Survives `update_readme_results.py` (static section).
 * **Before → After.** README limits vs paper limits: 3 of 5 weaknesses → 5 of 5.
+* **Follow-up (report).** `make_report.story_limits` carries the same「評価の幅」item, so paper, README and report state the same five weaknesses.

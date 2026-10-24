@@ -1574,6 +1574,8 @@ def story_limits(D, E, V, SP):
                    + ('、<b>実行中</b> ' + '・'.join(running) if running else '') + '、<b>未実行（実行待ち）</b> ' + ('・'.join(queued) or 'なし')
                    + '。', 'small'))
     items = []
+    items.append('<b>評価の幅</b>（I-150）：ロボットを動かす評価で使ったVLMは1種類（Qwen3.5-9B）で、他のモデルは開発用の画像で比べただけ。火は様式化した模型と粒子の煙、カメラはRGBだけ（熱カメラは未検証）。'
+                 '出発前の読み返しは必須の手順にしたが、効果を人で試していない。命題2の数学は単純な和の上界で、新しいのは「締めるだけ」という設計上の制約と、その実装に対する機械検証。')
     if t1:
         m = t1['models']['Qwen3.5-9B']['rules']['full']
         items.append(f"T1の基準（誤許可の95%区間の上限が2%未満）は{'成立' if wilson(m['false_approvals'], m['n_deny'])[1] < 0.02 else '不成立'}（{m['false_approvals']}/{m['n_deny']}、上限 {wilson(m['false_approvals'], m['n_deny'])[1] * 100:.1f} %）。評価Fの問い方の改良も有意でなく（{pexact(fp['mcnemar_p'])}）、この2つが「横から見直す」に進むきっかけになった。" if fp else
