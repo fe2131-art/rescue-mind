@@ -1451,3 +1451,8 @@
 * **Motivation.** `docs/TRIAL_AND_ERROR.md` (the trial-and-error record) was hand-written and stopped at JK; the generated chain of I-149 lived only in README and report.
 * **Change.** `trial_chain.py --write` replaces a marked block in `docs/TRIAL_AND_ERROR.md`; `final_check.sh` runs it (fails if any failed claim is unplaced), so the three places (README, report, record) show the same table at submission.
 * **Before → After.** Trial-and-error record: hand list to JK → + generated table of all 21 failed claims, refreshed by the final check.
+
+## I-155 (2026-10-24) A check that a finished study reached every document (FINAL_PLAN step 1)
+* **Motivation.** Ingesting a result touches eight places (section and Reading, macros, README, YouTube, FINDINGS, IMPROVEMENT_LOG Result, TRIAL_AND_ERROR, trial chain); forgetting one is the same failure class as the audit incident (I-136).
+* **Change.** `scripts/ingest_check.py <studies>`: for each study with a summary file, checks every place (the section is not the draft placeholder; `\<S>*` macros exist; README, YouTube, FINDINGS, TRIAL_AND_ERROR name it; a Result heading in IMPROVEMENT_LOG; no unplaced failed claim); a study without a summary is "not finished". Validated on JK, GM, JI, IH, IG (all complete).
+* **Before → After.** Ingestion completeness: by memory → checked; FINAL_PLAN step 1 ends with `python3 scripts/ingest_check.py JL IJ JM` printing 0.

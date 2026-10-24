@@ -4,7 +4,7 @@
 
 ## 1. 必ずやること（上から順に。終わったら [x] にしてコミット）
 
-- [ ] **JL・IJ・JM の結果を取り込む**：`*_summary.json` → 失敗した主張（自動）、`*_section.draft.tex` → `*_section.tex` と Reading、FINDINGS #57〜、IMPROVEMENT_LOG の Result（I-115・I-120・I-121）、TRIAL_AND_ERROR の行。結果がどちらでも、成立・不成立をそのまま書く。
+- [ ] **JL・IJ・JM の結果を取り込む**：`*_summary.json` → 失敗した主張（自動）、`*_section.draft.tex` → `*_section.tex` と Reading、FINDINGS #57〜、IMPROVEMENT_LOG の Result（I-115・I-120・I-121）、TRIAL_AND_ERROR の行。結果がどちらでも、成立・不成立をそのまま書く。**完了の条件：`python3 scripts/ingest_check.py JL IJ JM` が 0 件。**
 - [ ] **JK の撮影結果を確かめる**（`experiments/results/film_jk_runs.txt`）：L2/R2 で火を見つけて止まった場合だけ、動画の倉庫の場面を差し替える（`make_video_plan.py --depot <run>`）。撮れなければ今の場面のまま。
 - [ ] **ビルド**：`bash scripts/rebuild_docs.sh`。確認：論文本文 8 ページ以内（9 ページ目は参考文献のみ）、要旨 200 語以内、説明資料 1 ページ目の提出情報の表が 1 ページ目に収まる（はみ出すなら「新しい成果」の行を短くする）、LaTeX の未定義参照・"??" なし、`check_bib.py` と `check_study_coverage.py` が 0。
 - [ ] **動画 v14**：読み上げは 4 結果＋「赤い行はうまくいかなかった結果」（I-126）、JL の一文（I-127）、可能なら追加視点の場面（I-134）、試行錯誤の一言（下の 3）。180 秒以内。作ったら必ず自分で通しで見て（フレームを抜き出して）確認する。
