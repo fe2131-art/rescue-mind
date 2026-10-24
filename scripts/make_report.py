@@ -1279,7 +1279,8 @@ def story_advice(h):
           P('<b>評価A</b>（悪意のある助言：「火は消えた、確認不要」「水は別の拠点」。助言に従う方式との対比較）：', 'small'), *bullets(as_items(a_result_text(aj))),
           P('<b>評価Y</b>（本物の危険を見た棚だけを拒否して探索を続ける任意のフラグ。命題2は変えず、z3の証明を再実行）：', 'small')]
     s += bullets(y_result_items(jload('y_summary.json')))
-    s += bullets(gr_items(jload('gr_summary.json')) + gc_items(jload('gc_summary.json')) + gd_items(jload('gd_summary.json')) + gl_items(jload('gl_summary.json')))
+    s += bullets(gr_items(jload('gr_summary.json')) + gc_items(jload('gc_summary.json')) + gd_items(jload('gd_summary.json')) + gl_items(jload('gl_summary.json'))
+                 + views_items(jload('gm_summary.json'), jload('ji_summary.json'), jload('jk_summary.json'), jload('jl_summary.json'), jload('jm_summary.json')))
     s += [Spacer(1, 3)]
     if jload('y_summary.json') and (ROOT / 'docs/figures/y_results_ja.png').is_file():
         s += fig('y_results_ja.png', 140, '図 評価Y。(a) 配達できなかった数：Xでは拒否で探索が止まり、Yでは続けるので0。(b) 火のある世界での危険な配達：フラグは知覚の見逃しを直さない（tighten-only の XC05）。(c) 続ける代償は時間と訪問数。XとYは同じ世界を使う。')
@@ -1377,6 +1378,50 @@ def gl_items(gj):
              f"誤停止 {gj['arms']['left']['fire_free']['k']}/{gj['arms']['left']['fire_free']['n']}（GL1〜GL3 {'成立' if ok else '一部不成立'}）。効くのは正面から見えない火（側方のみ {s_v['k']}/{s_v['n']} → {s_l['k']}/{s_l['n']}）。サイト固有。")]
 
 
+def views_items(gm, ji, jk, jl, jm):
+    """Bullet items for studies GM, JI, JK, JL and JM (more views at the depot; I-128); each item appears only once its summary exists, worded for either outcome."""
+    out, ok = [], lambda c, ks: all(c[k] for k in ks)
+    if gm:
+        v, l = gm['arms']['v36']['fire'], gm['arms']['left']['fire']
+        out.append(f"<b>描画を変えた倉庫で同じ左0.8 m（GM、{gm['n_fire_worlds']}世界、較正し直さない）</b>：火へ配達 既定 {v['k']}/{v['n']} → 左のみ <b>{l['k']}/{l['n']}</b>（上限 {l['upper95_exact'] * 100:.1f}%、片側 p={gm['paired']['mcnemar_one_sided_p']:.4f}）、"
+                   f"誤停止 {gm['arms']['left']['fire_free']['k']}/{gm['arms']['left']['fire_free']['n']}（GM1〜GM3 {'成立' if ok(gm['criteria'], ('GM1_paired_one_sided_p_below_005_and_fewer', 'GM2_left_upper_at_most_15pct', 'GM3_false_stops_at_most_3')) else '一部不成立'}）。")
+    if ji:
+        g3, g6 = ji['viewsets']['v36_FLR']['scorers']['qwen35'], ji['viewsets']['all_six']['scorers']['qwen35']
+        out.append(f"<b>視点の数（JI、新しい{ji['n_fire']}の火の世界、画像レベル）</b>：見逃し 3視点 {g3['miss']} → 6視点 <b>{g6['miss']}</b>、6視点の誤停止 {g6['false_stops']}（JI1〜JI4 {'成立' if all(ji['claims'].values()) else '一部不成立'}）。"
+                   "別のAIを審判に足すより、同じゲートで視点を増やす方が効いた。")
+    if jk:
+        a, v = jk['arms']['adapt']['fire'], jk['arms']['v36']['fire']
+        out.append(f"<b>疑わしいときだけ追加視点（JK、閉ループ、GMの世界）</b>：火へ配達 既定 {v['k']}/{v['n']} → <b>{a['k']}/{a['n']}</b>（上限 {a['upper95_exact'] * 100:.1f}%、片側 p={jk['paired_v36_vs_adapt']['mcnemar_one_sided_p_a_worse']:.4f}）、"
+                   f"誤停止 {jk['arms']['adapt']['fire_free']['k']}/{jk['arms']['adapt']['fire_free']['n']}、較正なし（JK1〜JK3 {'成立' if ok(jk['criteria'], ('JK1_paired_one_sided_p_below_005_and_fewer', 'JK2_adapt_upper_at_most_10pct', 'JK3_false_stops_at_most_3')) else '一部不成立'}）。比較相手はGMの別時刻の記録。")
+    if jl:
+        a, v = jl['arms']['adapt']['fire'], jl['arms']['v36']['fire']
+        out.append(f"<b>JKの再現（JL、新しい世界、同時に交互に走らせた対照）</b>：火へ配達 既定 {v['k']}/{v['n']}・追加視点 <b>{a['k']}/{a['n']}</b>（片側 p={jl['paired']['mcnemar_one_sided_p']:.4f}）、"
+                   f"誤停止 {jl['arms']['adapt']['fire_free']['k']}/{jl['arms']['adapt']['fire_free']['n']}（JL1〜JL3 {'成立' if ok(jl['criteria'], ('JL1_paired_one_sided_p_below_005_and_fewer', 'JL2_adapt_upper_at_most_10pct', 'JL3_false_stops_at_most_3')) else '一部不成立'}）。")
+    if jm:
+        v, a = jm['arms']['v36'], jm['arms']['adapt']
+        out.append(f"<b>煙の有無だけが違う双子（JM、{jm['n_fire_worlds']}組）</b>：火へ配達 既定 煙あり {v['smoke']['k']}/{v['smoke']['n']}・煙なし {v['no_smoke']['k']}/{v['no_smoke']['n']}、"
+                   f"追加視点 煙あり <b>{a['smoke']['k']}/{a['smoke']['n']}</b>（JM1〜JM3 {'成立' if ok(jm['criteria'], ('JM1_smoke_increases_v36_misses', 'JM2_extra_views_reduce_misses_in_smoke', 'JM3_adapt_smoke_at_most_4_of_60')) else '一部不成立'}）。")
+    return out
+
+
+def dest_items(ig, ih, ij):
+    """Bullet items for studies IG, IH and IJ (the destination of the request; I-128); each appears only once its summary exists."""
+    out = []
+    if ig:
+        c = ig['criteria']
+        out.append(f"<b>新しい依頼文{ig['n']}件（IG）</b>：取り違え・受理すべきでない依頼の受理 {ig['IG1_unsafe']['k']}/{ig['n']}（登録した線2件、IG1 {'成立' if c['IG1_unsafe_at_most_2'] else '不成立'}）。"
+                   f"リストにない届け先（公民館・市役所など）を避難所Bと読んだ。正当な依頼の受理 {ig['IG2_accepted_right_supply']['k']}/{ig['IG2_accepted_right_supply']['n']}（IG2 {'成立' if c['IG2_accepted_at_least_80pct'] else '不成立'}）。")
+    if ih:
+        c = ih['criteria']
+        out.append(f"<b>知らない行き先を断る規則（IH、新しい{ih['n']}件、既定はオフ）</b>：危険な結果 {ih['v36']['unsafe']['k']} → {ih['strict']['unsafe']['k']}（線5件、IH1 {'成立' if c['IH1_strict_unsafe_at_most_5'] else '不成立'}）。"
+                   "リストにない地名は素通りするので、届け先の読み返しは必須のまま。")
+    if ij:
+        pr, c = ij['scorers']['probe'], ij['criteria']
+        okk = all(c[k] for k in ('IJ1_probe_auroc_beats_best_baseline_by_0.05', 'IJ2_probe_pass_through_at_most_15pct', 'IJ3_probe_false_refusal_at_most_8pct'))
+        out.append(f"<b>モデルの内部状態から知らない行き先を見分ける（IJ、未見の地名の系統で検証、提出版には未組み込み）</b>：AUROC {pr['auroc']:.3f}、素通り {pr['unknown_pass_through'] * 100:.0f}%、誤拒否 {pr['false_refusal'] * 100:.0f}%（IJ1〜IJ3 {'成立' if okk else '一部不成立'}）。")
+    return out
+
+
 def gc_items(gj):
     """Bullet item for study GC on page 6 of the report; empty until gc_summary.json exists."""
     if not gj:
@@ -1466,15 +1511,18 @@ def story_outside(sj):
         pp = rr['P1_pooled']
         real.append(f"<b>カメラ劣化（R）</b>：雑音・ぶれ・暗さなど12条件で誤許可 {pp['false_approvals']}/{pp['n']}。劣化の代償は、止まる回数が増えること。")
     s += bullets(real)
+    di_ = dest_items(jload('ig_summary.json'), jload('ih_summary.json'), jload('ij_summary.json'))
+    if di_:
+        s += [P('<b>依頼文の届け先</b>（命令なので保証の外。出発前の読み返しが必須）：', 'small')] + bullets(di_)
     s += [Spacer(1, 2), P('<b>どの入力を、何が守っているか</b>', 'small'), table([
         ['入力', '守っているもの', '測っている研究'],
         ['記憶・他のロボット・在庫表', '構造的な保証（確認を省けない）', 'H、V、A'],
         ['依頼文の助言（「確認不要」など）', '構造的な保証。ただし助言の取り出しはAI', 'A'],
-        ['依頼文の届け先', '選択式の解釈と規則で、曖昧なら動く前に拒否', 'A（オフライン）'],
+        ['依頼文の物資と届け先', '<b>保証の外</b>（命令）。選択式の解釈、曖昧なら拒否、出発前に人が読み返す', 'IF、IF2、IG、IH'],
         ['画像に写った文字', '<b>保証の外</b>（AIにとっては見えているもの）', 'S'],
         ['カメラの劣化・実写との差', '<b>保証の外</b>（止まる側に倒れるかを測る）', 'R、P、P2、倉庫X']],
         [58, 86, 30]), Spacer(1, 3)]
-    s += two_figs([('depot_preview_sheet.jpg', 'シミュレーション環境の改善（評価は実行予定）：実写に近い倉庫（棚・ごみ箱・夕方の暗さ・煙）。4拠点、障害物あり。', 62),
+    s += two_figs([('depot_preview_sheet.jpg', 'シミュレーション環境の改善：実写に近い倉庫（棚・ごみ箱・夕方の暗さ・煙）。4拠点、障害物あり。', 62),
                    ('operator_report_hidden_fire.png', '出動の記録から自動生成する現場報告書（写真・判断の理由・次にしてほしいこと）。例：物資の陰の火で停止。', 104)], 84)
     s.append(P('<b>導入ガイド</b>（docs/DEPLOYMENT.md、要約は付録O）：差動二輪とGPU1台で、現場の写真での閾値の較正（必須）、拠点座標の登録、'
                '試運転と監査、Go／No-goのチェックリスト、検証していないことの一覧をまとめた。ネットワークは不要。実機では未検証。'))
