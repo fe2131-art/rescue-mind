@@ -1721,6 +1721,20 @@ def main():
             m['SH' + ds_ + 'Max'] = small_['pixels_max']
             mh_ = r_['mantel_haenszel_visible_vs_hidden']
             m['SH' + ds_ + 'OR'], m['SH' + ds_ + 'ORLow'], m['SH' + ds_ + 'ORHigh'] = mh_['or'], mh_['ci95'][0], mh_['ci95'][1]
+    smf_ = RES / 'smoke_strata.json'
+    if smf_.is_file():
+        sm_ = json.loads(smf_.read_text())['arms']
+        m['SMV'], m['SMNoV'] = sm_['v36']['smoke']['n'], sm_['v36']['no_smoke']['n']
+        for arm_, nm_ in (('v36', 'V'), ('left', 'Left'), ('adapt', 'Adapt')):
+            m['SM' + nm_ + 'Smoke'] = f"{sm_[arm_]['smoke']['unsafe']}/{sm_[arm_]['smoke']['n']}"
+            m['SM' + nm_ + 'NoSmoke'] = f"{sm_[arm_]['no_smoke']['unsafe']}/{sm_[arm_]['no_smoke']['n']}"
+            m['SM' + nm_ + 'P'] = f"{sm_[arm_]['fisher_two_sided_p']:.2f}"
+    paf_ = RES / 'permutation_agreement.json'
+    if paf_.is_file():
+        pa_ = json.loads(paf_.read_text())
+        for ds_ in ('XD', 'JI'):
+            m['PA' + ds_ + 'N'], m['PA' + ds_ + 'Disagree'] = pa_[ds_]['n_images'], pa_[ds_]['argmax_disagree']
+            m['PA' + ds_ + 'One'], m['PA' + ds_ + 'Two'] = pct(pa_[ds_]['accuracy_pass1'], 1), pct(pa_[ds_]['accuracy_pass2'], 1)
     # ---- multiplicity over the registered primary paired closed-loop tests (scripts/multiplicity.py; post hoc reporting, I-118)
     mulf_ = RES / 'multiplicity.json'
     if mulf_.is_file():
