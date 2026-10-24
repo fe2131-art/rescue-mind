@@ -1440,3 +1440,8 @@
 * **Motivation.** A dry run while waiting showed the description at 4869 of 5000 characters; the JL, JM and IJ lines (about 300 characters) would push it over at the final step, when there is least time to fix it. The depot line alone (XD) took 508 characters.
 * **Change.** `advice_numbers.xd_short_ja` (one line: front-only vs look-around misses, the hard-class result and the failed 15% bound) used by `make_youtube_description.line_xd`; README and report keep the full form. Description regenerated.
 * **Before → After.** 4869 → 4463 characters (room 537 for the three pending lines).
+
+## I-153 (2026-10-24) README limits state the same weaknesses as the paper
+* **Motivation.** FINAL_PLAN §2's weaknesses were now in the paper (I-150) but not in the README's 限界, which judges read first.
+* **Change.** One bullet「評価の幅」: one VLM in the closed loop (others on development images only; a second AI did not help), stylised fire and RGB only (thermal untested), read-back mandatory but untested, Proposition 2 elementary with the novelty in the constraint and its machine check. Survives `update_readme_results.py` (static section).
+* **Before → After.** README limits vs paper limits: 3 of 5 weaknesses → 5 of 5.
