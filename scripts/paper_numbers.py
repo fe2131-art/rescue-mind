@@ -1902,6 +1902,11 @@ def main():
                ('Q', 'PREREGISTRATION_Q.md', 'q_summary.json'),
                ('B', 'PREREGISTRATION_B.md', 'b_summary.json'), ('IF', 'PREREGISTRATION_IF.md', 'if_summary.json'),
                ('IF2', 'PREREGISTRATION_IF2.md', 'if2_summary.json'), ('Y', 'PREREGISTRATION_Y.md', 'y_summary.json')]
+    # I-130: the studies registered after Y (YE ... JM) were missing from Table S9; take them from the registration ledger's list so the two cannot drift apart
+    sys.path.insert(0, str(ROOT / 'scripts'))
+    import make_registrations as _mr
+    _seen = {x[0] for x in studies}
+    studies += [(lab, f'PREREGISTRATION_{key}.md', res) for lab, key, res in _mr.STUDIES if lab not in _seen]
     main_ref = 'main' if git('rev-parse', '--verify', '-q', 'main')[1] == 0 else 'HEAD'
 
     def first_commit(path):          # first commit that added the file (hash date)
