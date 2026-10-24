@@ -200,6 +200,7 @@ def evidence_card(seconds):
     v5 (EVAL 9): ~12 s, rows E, G, W, H, A, (X), J (not adopted), z3, P2.  Rows L and V are not on the card (they stay in the
     paper); the memory row's narration and the note say that V did not support the memory safety claim."""
     rows, say, notes = [], [], ['すべてシミュレーション（実機なし）。数値は結果ファイルから自動生成。']
+    head = {}      # the spoken headline (I-126): four results a listener can follow; every row, failures included, stays on the card
     led = RES / 'campaign_E_ledger.jsonl'
     if led.is_file():
         rs = [json.loads(x) for x in led.read_text(encoding='utf8').splitlines() if x.strip()]
@@ -208,6 +209,7 @@ def evidence_card(seconds):
         wrong = sum(r['observed_action'] in DELIVERED and r['expected_action'] not in ('ALLOW', 'DELIVER_AFTER_SEARCH') for r in rs)
         rows.append(['閉ループ E（ランダムな世界）', [f'期待どおり {ok}/{len(rs)}・誤配達 {wrong}', G if wrong == 0 else R]])
         say.append(f'ランダム{len(rs)}世界で誤配達{wrong}件。')
+        head['E'] = say[-1]
     g = jload(RES / 'g_summary.json')
     if g:
         pr = g['primary']
@@ -222,6 +224,7 @@ def evidence_card(seconds):
             rows.append(['閉ループ G・GR・GC・GD' if (gcs and gds) else '閉ループ G・GR・GC' if gcs else '閉ループ G・GR（見直し）', [f"火へ配達 {pr['wrong_deliveries_B']}→{pr['wrong_deliveries_C']}/{pr['n_world_pairs_fire_perceivable']}、"
                                                   f"新世界 {fa['k']}→{fv['k']}/{fa['n']}{gc_txt}", G]])
             say.append(f"見直しで火への配達は{pr['wrong_deliveries_B']}件から{pr['wrong_deliveries_C']}件。")
+            head['G'] = f"横から見直すと、火への配達は{pr['wrong_deliveries_B']}件から{pr['wrong_deliveries_C']}件。"
         else:
             rows.append(['閉ループ G（横から見直す）', [f"火が見えるのに配達 {pr['wrong_deliveries_B']}/{pr['n_world_pairs_fire_perceivable']} → "
                                                     f"{pr['wrong_deliveries_C']}/{pr['n_world_pairs_fire_perceivable']}（p={pr['mcnemar_p']:.3f}）", G]])
@@ -263,6 +266,7 @@ def evidence_card(seconds):
             rows.append(['閉ループ A（助言の注入）', [f"危険な世界 素朴{w['naive'][0]}/{w['naive'][1]}・ガードレール{w['filtered'][0]}/{w['filtered'][1]}・本方式{w['monotone'][0]}/{w['monotone'][1]}",
                                                   G if aj.get('headline_supported') else W]])
             say.append(f"嘘の助言で危険な世界は本方式{w['monotone'][0]}、素朴{w['naive'][0]}。")
+            head['A'] = f"嘘の助言を入れても、危険な世界は{w['monotone'][0]}件。素直に従う方式では{w['naive'][0]}件。"
             st = af['steer']
             notes[0] = f"助言の誘導では配達できない世界が{st['ours']['lost']}/{st['n']}（保証は相対的）。" + notes[0]       # the steering cost stays on the card (one note, two lines at most)
         else:
@@ -304,6 +308,7 @@ def evidence_card(seconds):
             jk_ok = all(jk['criteria'][k] for k in ('JK1_paired_one_sided_p_below_005_and_fewer', 'JK2_adapt_upper_at_most_10pct', 'JK3_false_stops_at_most_3'))
             rows.append(['視点を増やす JI・JK', [f"画像 見逃し {g3['miss']}→{g6['miss']}/{ji['n_fire']}・閉ループ 火へ配達 {jv['k']}→{ja['k']}/{ja['n']}", G if (ji_ok and jk_ok) else W]])
             say.append(f"視点を増やすと、見逃しは画像で{g3['miss']}件から{g6['miss']}件、閉ループでも火への配達は{jv['k']}件から{ja['k']}件。")
+            head['views'] = f"倉庫では、疑わしいときに視点を増やすと、火への配達は{jv['k']}件から{ja['k']}件。"
         else:
             rows.append(['視点を増やす JI（新世界）', [f"見逃し 3視点{g3['miss']}→6視点{g6['miss']}/{ji['n_fire']}・誤停止 {g6['false_stops']}", G if ji_ok else W]])
             say.append(f"視点を6つに増やすと見逃しは{g3['miss']}件から{g6['miss']}件。")
@@ -321,7 +326,16 @@ def evidence_card(seconds):
     rows = rows[:EVIDENCE_ROWS_MAX]
     return {'kind': 'table', 'seconds': seconds, 'title': '事前登録した評価のまとめ（全試行を公開）',
             'sub': '結果を見る前に条件と判定方法を固定。うまくいかなかった結果もそのまま報告',
-            'narration': ''.join(say), 'header': ['評価', '結果'], 'rows': rows, 'notes': notes}
+            'narration': headline_narration(head, rows, say), 'narration_full': ''.join(say), 'header': ['評価', '結果'], 'rows': rows, 'notes': notes}
+
+
+def headline_narration(head, rows, say):
+    """Spoken text of the evidence card (I-126).  Ten results in 25 s could not be followed by ear, so the narration names four (E, G, A, the extra views) and
+    points at the red rows; the card itself still shows every row, failures included.  Falls back to the full list if a headline result is missing."""
+    if not all(k in head for k in ('E', 'G', 'A', 'views')):
+        return ''.join(say)
+    red = any(r[1][1] == R for r in rows)
+    return ''.join(head[k] for k in ('E', 'G', 'views', 'A')) + ('赤い行は、うまくいかなかった結果です。' if red else '')
 
 
 def mission_seconds(spec):

@@ -1623,8 +1623,9 @@ def build(account: str, video_url: str | None, repo_url: str):
     s += gloss[:1] + judge_box(D, E, V, compact=True) + info
     # pages 2-7: one story (the paper's chain), figures first; everything else is in the appendix
     s += [PageBreak(), P('ひとつの話：確認は「迷ったら止まる」、助言は「締めるだけ」', 'h1')] + story_chain(D, E, V, T) + [Spacer(1, 4)]
-    s += story_storyline()
+    # I-126: the criteria table fills page 2 under the chain (the storyline figure is kept together and did not fit there, which left half of page 2 empty)
     s += story_criteria(E, V)
+    s += story_storyline()
     s += [P('1. 課題と狙い', 'h1'),
           P('災害時の物資配送では、在庫表では水のはずの棚に救急箱が置かれていた・空だった、という<b>情報と現物の食い違い</b>や、<b>現場の火災</b>が起こる。'
             '指示どおり運ぶだけのロボットは、誤った物資や危険な場所へ届けてしまう。'
