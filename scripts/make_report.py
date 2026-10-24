@@ -1539,11 +1539,9 @@ def story_outside(sj):
     return s + [Spacer(1, 3)]
 
 
-STUDY_FILES = [('D', 'campaign_D_ledger.jsonl'), ('E', 'campaign_E_ledger.jsonl'), ('T1', 't1_summary.json'), ('T2', 't2_summary.json'), ('F', 'f_summary.json'), ('G', 'g_summary.json'), ('H', 'h_summary.json'),
-               ('J', 'j_summary.json'), ('K', 'k_summary.json'), ('P', 'p_summary.json'), ('P2', 'p2_summary.json'), ('R', 'r_summary.json'),
-               ('Z', 'z_summary.json'), ('L', 'l_summary.json'), ('V', 'v_summary.json'), ('W', 'w_summary.json'), ('A', 'a_summary.json'),
-               ('S', 's_summary.json'), ('X', 'x_summary.json'), ('XD', 'xd_summary.json'), ('Q', 'q_summary.json'),
-               ('IF', 'if_summary.json'), ('IF2', 'if2_summary.json'), ('B', 'b_summary.json'), ('Y', 'y_summary.json')]
+# I-131: every registered study, from the registration ledger's list (was a hand list ending at Y, so 19 later studies were missing from the status line)
+import make_registrations as _mreg  # noqa: E402
+STUDY_FILES = [(lab.split()[0], res) for lab, key, res in _mreg.STUDIES if not lab.startswith('C ')]
 
 
 def story_limits(D, E, V, SP):
@@ -1553,7 +1551,7 @@ def story_limits(D, E, V, SP):
     s = [P('6. うまくいかなかったこと・限界', 'h1')]
     done = [k for k, f in STUDY_FILES if (RES / f).is_file()]
     todo = [k for k, f in STUDY_FILES if not (RES / f).is_file()]
-    running = [k for k in todo if k == 'V']
+    running = [k for k in todo if (RES / f'campaign_{k}_ledger.jsonl').is_file()]      # a campaign ledger without a summary: the study is running
     queued = [k for k in todo if k not in running]
     if SNAP:      # nothing is "running" or "waiting" in the submission snapshot: a study has results or it is registered and was not run
         s.append(P('<b>研究の状況</b>（事前登録した研究。結果ファイルがあるものだけ数値を載せている）：<b>結果あり</b> ' + '・'.join(done)
