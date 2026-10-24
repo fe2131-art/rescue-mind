@@ -1395,3 +1395,8 @@
 * **Motivation.** Rounds 6-10 were recorded as dense addenda; the user asked for the findings to be summarised properly.
 * **Change.** `docs/paper/LITERATURE_SUMMARY.md` (Japanese): 18 themes as "what prior work shows → where RescueMind stands → where it went in the paper"; six gaps the scouts could not fill (worded "not found"); five short answers to the reviewer questions the survey anticipates.
 * **Before → After.** Survey results: scattered over addenda (g)-(k) → one page, linked from the scan.
+
+## I-144 (2026-10-24) Round 11: the novelty claims were attacked, three were narrowed
+* **Motivation.** Claims of the form "no prior work does X" are what reviewers attack first; the summary of I-143 listed six such gaps found only by not finding papers.
+* **Change.** Five Haiku scouts were asked to find papers that would falsify each claim; the main agent opened every near miss. Narrowed in the paper: wrong-item delivery (picking robots already identify items; VLM error detectors exist) and false-stop cost (safety filters report task-success cost, SAGE) in the supplement; read-back in the IH section (ATC read-back monitoring exists; no robot study found, and ours is a mandatory procedure, not a tested one). Kept: time-stamped registration audit (closest is TOPO, outside robotics) and viewpoint × hidden small hazard × view aggregation (now stated as "not found" in the size-versus-hidden section). `LITERATURE_SUMMARY.md` section 2 rewritten as a claim/verdict/closest-work/wording table.
+* **Before → After.** Novelty claims: 6 unqualified → 2 kept, 1 narrowed, 3 narrowed with the closest work cited; references 333 → 343; one scout error caught (2510.14063 shows no confirmation step).
