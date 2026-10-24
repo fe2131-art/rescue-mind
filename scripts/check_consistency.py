@@ -544,6 +544,10 @@ def main():
         if sc_:
             extra.append(('snapshot Table S9: studies without results = registered, not run', 'ok' if sc_['pending'] == len(pend) else 'MISMATCH', f"table says {sc_['pending']}, result files say {len(pend)}"))
 
+    # I-136: every registered study in every audit artifact (Table S9, S10, the ledger, the README count), and no hand-written study list
+    import check_study_coverage as _cov
+    _cp = _cov.problems()
+    extra.append(('study coverage: every registered study in Tables S9/S10, REGISTRATIONS.md and README; no hand-written study list', 'MISMATCH' if _cp else 'ok', '; '.join(_cp[:3])))
     # ------------------------------------------------------------------ print
     w0 = max(len(r[0]) for r in rows) + 2 if rows else 10
     print(f"{'fact':<{w0}}{'expected':<28}{'README':<10}{'YouTube':<10}{'macro':<10}{'report':<10}")

@@ -171,6 +171,8 @@ Rows are ordered by that chain: [1] check, [2] where the error lives and the thr
 | [5] Y, YE, YF: continue after a hazard refusal (I-42 / I-43; opt-in `--hazard-continue`) | Y (51 runs, registered before the first trial, OpenTimestamps-attested): the opt-in flag keeps the delivery that a truthful tip to a burning bay lost in X; claims Y1-Y4 hold (all 15 advice runs that refused the steered station delivered from another one); scrutiny + flag lost 0/15 deliveries against the control; tighten-only still delivered into a fire in 3/9 fire-world runs (a perception miss). YE (24 runs, two fires: a visible one at the first bay, a small hidden one at the second): the price is exposure, with the flag 2/12 unsafe deliveries (upper bound 43.8%) against 0/12 without it; claim YE2 failed as registered (wording: the search goes on through the remaining bays; failed claim 13). YF (27 runs on fresh worlds): availability and the tighten-only miss replicate, but scrutiny + flag lost 1/9 deliveries; claim YF4 (at most two stations) failed: a fire-free twin sent scrutiny through four stations with no delivery (failed claim 14) |
 | [6] J: two-model check | expected 23/24 (single model 24/24); unsafe deliveries 1 (single model 0); failed runs 0 |
 
+Studies registered later or without an English row (T2, F, P2, JH, GL, QI, QJ, GM, JI, IG, JC, IH, JK, JL, IJ, JM): results and status in the Japanese table at the top of this page and in the paper's supplement.
+
 ![Study Y: deliveries lost, unsafe deliveries and the price of continuing, X (the search stops at the refusal) against Y (`--hazard-continue`)](docs/figures/y_results_en.png)
 
 **Limitations.** Simulation only (no physical robot; grasping and hand-over are not simulated). On real photos the hazard question raises false alarms on 64/100 fire-free images, so a per-site calibration is needed (false alarms only stop the robot; they never cause a delivery). The guarantee is relative (it caps what advice can add to the check's own error eps_any; it does not remove that error, and a really burning station can still be approached), and it ends at the camera: scene text and the sim-to-real gap are measured, not claimed. The two-model check (J) was not adopted: it was not safer than one model, and its models share a lineage (Clef-Flash is a fine-tune of Qwen3.5-9B), so their failures can be correlated. The registered T1 claim of fewer than 2% false approvals was not supported. 8-16 pairs per closed-loop study is small, and campaign H scripts its world changes.
@@ -234,6 +236,10 @@ Rows are ordered by that chain: [1] check, [2] where the error lives and the thr
 | 評価（事前登録） | 内容 | 結果 |
 |---|---|---|
 | 評価J（2つのAI）：**採用せず** | Jev役 Clef-Flash＋Qwen の2モデル確認を閉ループで、v3.6単独と対比較 | 2つのAI構成 23/24 期待どおり（v3.6単独 24/24）、危険な配達は 2つのAI構成 1件・v3.6単独 0件、2つのAI構成の実行失敗 0件 |
+
+#### 7. この節に行の無い研究
+
+T2・P2・XD・B・IF2・Y・YE・YF・GR・GC・GD・GV・JH・GL・QI・QJ・GM・JI・IG・JC・IH・JK・JL・IJ・JM（計25本）の結果と状態は、このページ先頭の表（「残りの事前登録した評価」を含む）と論文の補足資料にある。
 
 * T1：登録した主張「誤許可2%未満」は**支持されなかった**（Wilson上限 2.8% > 2%）。主な原因は下の「残る弱点」（物資の陰に隠れた火）
 * 評価Z：SigLIP は正しい許可は満点でも誤許可が1割超。CLIP は誤許可0でも**ほぼ何も許可しない**（配達できない）。本方式だけが両立する

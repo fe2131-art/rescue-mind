@@ -125,6 +125,7 @@ def times():
 
 def collect():
     F = {'vram': vram(), 'sensors': sensors(), 'defaults': defaults(), 'phases': phases(), 'times': times()}
+    # study-subset: the facts the deployment guide quotes (not a list of all studies)
     for k, f in (('V', 'v_summary.json'), ('J', 'j_summary.json'), ('P', 'p_summary.json'), ('P2', 'p2_summary.json'), ('K', 'k_summary.json'), ('L', 'l_summary.json'),
                  ('R', 'r_summary.json'), ('W', 'w_summary.json'), ('G', 'g_summary.json'), ('H', 'h_summary.json'), ('I22', 'i22_gazebo_check_summary.json')):
         F[k] = jload(f)

@@ -1129,6 +1129,7 @@ def section_en(e, v):
     gvt_ = gv_text_en() or gv_stop_en()
     if gvt_:
         L.append('| GV: wide look-around views with a calibrated threshold at the depot (I-58) | ' + gvt_ + ' |')
+    # study-subset: the chain position of the English rows that exist; studies without an English row are named after the table (I-136)
     stage = {'E': 1, 'L': 1, 'Z': 1, 'T1': 2, 'K': 2, 'G': 3, 'W': 3, 'H': 4, 'V': 4, 'A': 4, 'S': 5, 'P': 5, 'R': 5, 'Q': 5, 'X, XD': 5, 'Y, YE, YF': 5, 'GR': 3, 'GC': 3, 'GD': 3, 'GV': 3, 'J': 6, 'I-23': 4, 'I-24': 4, 'B': 4, 'IF': 4, 'IF2': 4}
     i0 = L.index('|---|---|') + 1
     rows = L[i0:]
@@ -1136,6 +1137,11 @@ def section_en(e, v):
     rows = sorted(rows, key=lambda r_: (stage.get(key(r_), 9)))
     rows = [f"| [{stage[key(r_)]}] " + r_[2:] if key(r_) in stage else r_ for r_ in rows]
     L = L[:i0] + rows
+    import make_registrations as _mreg
+    _have = {k.strip() for r_ in rows for k in key(r_).split(']')[-1].split(',')}
+    _rest = [lab.split()[0] for lab, _k, _r in _mreg.STUDIES if lab.split()[0] not in _have and not lab.startswith(('C ', 'D '))]
+    if _rest:
+        L += ['', f"Studies registered later or without an English row ({', '.join(_rest)}): results and status in the Japanese table at the top of this page and in the paper's supplement."]
     if (ROOT / 'docs/figures/y_results_en.png').is_file() and (RES / 'y_summary.json').is_file():
         L += ['', '![Study Y: deliveries lost, unsafe deliveries and the price of continuing, X (the search stops at the refusal) against Y (`--hazard-continue`)](docs/figures/y_results_en.png)']
     if not (h_ok and j_ok):
@@ -1208,19 +1214,24 @@ def main():
     R['W'] = f"| 評価W（小さく隠れた火の見逃しと先行手法、I-20の副次解析を含む） | 画像レベル：正面のみ対見回し（150火世界＋75双子）、VAP-TAMP風の投票・KnowNo風の共形集合との誤許可の比較 | {w_text()} |"
     R['X'] = f"| 評価XD・X（倉庫の世界、4拠点） | XD：倉庫の保留画像で ε と閾値の再較正（画像レベル）。X：記憶なし対検証つき記憶と、助言による方向づけを閉ループ59試行で。描画の確認は I-21（`docs/figures/depot_preview_sheet.jpg`） | {x_text()} |"
     head = ['| 評価（事前登録） | 内容 | 結果 |', '|---|---|---|']
-    stages = [
+    stages = [      # study-subset: the chain's detailed rows; the later studies are named in group 7 (I-136)
         ('1. 届ける前に確かめる（確認は閉集合の確率、迷えば止まる）', ['E', 'L', 'D', 'Z']),
         ('2. 誤りはどこにあるか（隠れた火が大半）・閾値', ['T1', 'T1b', 'K']),
         ('3. 横から見直す（誤りを小さくする）', ['F', 'G', 'W']),
         ('4. 見ていないものは「厳しくする」だけ（記憶・他のロボット・依頼文・在庫表）', ['H', 'V', 'A', 'IF']),
         ('5. 保証の外：画像内の文字と現実との差（測るだけで、保証とは言わない）', ['S', 'P', 'R', 'Q', 'X']),
         ('6. 試したが採用しなかったもの', ['J']),
-    ]
+    ]      # study-subset: the chain's detailed rows; every other study is named below (I-136)
     tables = []
+    import make_registrations as _mreg
+    _chain = {k for _t, ks in stages for k in ks}
+    _later = [lab.split()[0] for lab, _k, _r in _mreg.STUDIES if lab.split()[0] not in _chain and not lab.startswith(('C ', 'D '))]
     for title, keys in stages:
         rows = [R[k] for k in keys if k in R]
         if rows:
             tables += [f'#### {title}', '', '\n'.join(head + rows), '']
+    if _later:
+        tables += ['#### 7. この節に行の無い研究', '', f"{'・'.join(_later)}（計{len(_later)}本）の結果と状態は、このページ先頭の表（「残りの事前登録した評価」を含む）と論文の補足資料にある。", '']
     parts = ['<!-- RESULTS:START -->', '## 結果', '',
              '事前登録した評価（' + str(len(list((RES.parent).glob('PREREGISTRATION_*.md')))) + '本の登録文書' + (('、' + ('登録済み・提出時点で未実施の' if SNAP else '結果待ちの') + '・'.join(waiting_studies())) if waiting_studies() else '') + '）を、論文と同じ**一本の筋**の順に並べる：①確かめる ②誤りの大半は隠れた火 ③横から見直す ④見ていないものは締めるだけ ⑤保証の外 ⑥採用しなかったもの。Qwen3.5-9B（ローカル・V100）。条件・閾値・解析は結果を見る前に `experiments/PREREGISTRATION_*.md` に固定し、台帳は全試行を記録。' + ('登録済み・提出時点で未実施の研究は、数値を載せていない（結果ファイルができれば自動で入る）。' if SNAP else '結果待ちの研究は、結果ファイルができると数値が自動で入る。'), '',
              '用語：**誤許可**＝届けてはいけない場面で「届けてよい」と判断してしまうこと（ロボットを実際に動かす評価では**誤配達**。火のある拠点から届けてしまうことは**危険な配達**）。**正しい許可**＝届けてよい場面で正しく「よい」と判断できること。**閉ループ**＝AIの判断でロボットが実際に動くところまで含めた評価。**ε**＝確認そのものが、届けてはいけない拠点を許可してしまう確率（助言の危険は、この内側に収まる）。', '',

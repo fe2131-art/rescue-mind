@@ -15,6 +15,7 @@ if [ -f $PDF ]; then
   docker run --rm -v "$PWD:/w:ro" -w /w rescuemind:latex bash -c 'n=$(pdfinfo docs/paper/main.pdf | awk "/^Pages/{print \$2}"); refs=$(pdftotext -f 9 -l 9 docs/paper/main.pdf - | grep -cE "^\\[[0-9]+\\]"); echo "pages=$n refs_on_p9=$refs"; [ "$n" -ge 9 ] && [ "$refs" -ge 5 ]' > /tmp/final_check_pages.log 2>&1 && say PASS "paper body within 8 pages ($(tail -1 /tmp/final_check_pages.log))" || say FAIL "paper body page limit ($(tail -1 /tmp/final_check_pages.log))"
 else say FAIL "main.pdf missing"; fi
 step "consistency (0 mismatches)" bash -c 'python3 scripts/check_consistency.py 2>&1 | tail -1 | grep -q "^0 mismatch"'
+step "study coverage (every registered study in every audit table)" python3 scripts/check_study_coverage.py
 step "secret scan (HEAD tree)" python3 scripts/secret_scan.py
 step "readme links" python3 scripts/check_readme_links.py
 if [ -z "$QUICK" ]; then
