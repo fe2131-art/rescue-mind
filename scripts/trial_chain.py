@@ -38,6 +38,9 @@ STEPS = [
      [('H', 'h_summary.json'), ('A', 'a_summary.json')], '記憶も他の入力も「助言」に限り、判断は必ずその場の目で'),
     (('YE2', 'YF4', 'W-b', 'S-perm'), '登録した文言や予測そのものが外れた（主張の書き方の誤り）',
      [], '登録の文言を厳密にし、外れた予測もそのまま残す'),
+    # I-163: placed before JM's result, worded for any failure of JM (the step appears only if a JM claim fails)
+    (('JM1', 'JM2', 'JM3'), '煙の有無だけを変えた双子の世界で、登録した予測（煙が見逃しを増やす・追加視点が煙の中でも効く）の一部が外れた',
+     [], '煙の影響は数値のまま限界として報告し、実験は増やさない（実験は締めた）'),
 ]
 
 
