@@ -12,7 +12,7 @@ RescueMind を実機と実際の現場で使うために、**何を用意し、�
 
 RescueMind checks a supply station with a local vision-language model (Qwen3.5-9B, FP16, about 18.3 GB of GPU memory, no network) before it drives a ROS 2 differential-drive robot to a shelter, and refuses whenever the check is unsure or sees fire or smoke.
 Everything here is measured in simulation (Gazebo) except the fire/smoke photo studies P and P2; there has been **no run on a real robot**.
-The requested supply, parsed from the operator's text, is outside the guarantee: the frozen parser accepted an injected supply in 12 of 36 switching texts (study IF), so the operator **must read the parsed supply and shelter back before departure**; the ask-back option `--intent-conflict-check` (default off) is registered as study IF2 and has no result yet.
+The requested supply, parsed from the operator's text, is outside the guarantee: the frozen parser accepted an injected supply in 12 of 36 switching texts (study IF), so the operator **must read the parsed supply and shelter back before departure**; the ask-back option `--intent-conflict-check` (default off) caught 0 of 36 new switching texts accepted (study IF2, supported; a lexical rule that needs both supply names). The destination is not safe either: on 136 fresh texts the parser read 4 unlisted places as shelter B (study IG, claim IG1 failed), and a destination rule (IH, default off) still left 10 of 133 unsafe (IH1 failed), so the read-back stays mandatory.
 The guide covers: (1) hardware and the ROS 2 interface a real base must provide (`/odom`, `/scan`, `/camera`, `/clock`, `/cmd_vel` only through the velocity guard); (2) the mandatory **site calibration** of the hazard threshold (the frozen tau_h = 0.05 gave 64/100 false alarms on real photographs; a calibrated tau = 0.30 gave 282/300 recall and 18/100 false alarms on held-out photographs; `scripts/site_calibration.py` repeats the rule on your own photographs); (3) the operator workflow, the one-page report and what each refusal means (a refusal cannot be overridden by the robot, by design); (4) which advice channels to trust (memory, other robots, inventory: they can only tighten; text inside an instruction is unreliable to extract); (5) the delivery interlock and shelter geofence; (6) failure modes, a go/no-go checklist, and an explicit list of what is **not** validated (real robot, real smoke, supply recognition on real photographs, text in images, closed-loop advice study A).
 
 ---
@@ -201,9 +201,10 @@ QoS で実機が最初につまずく点（シミュレーションで見つけ�
 
 ### 3.4 物資の見た目と依頼文
 
-* 実物の物資（水の箱、救急箱）と置かれやすい紛らわしい物（段ボール、赤い箱、空の台）を、拠点の停止位置から撮って、確認の正答率を見る。**実写の物資確認は評価Qとして登録済みだが、結果がまだ無い**。それまでは、物資の確認が現場で通る保証は無い。
+* 実物の物資（水の箱、救急箱）と置かれやすい紛らわしい物（段ボール、赤い箱、空の台）を、拠点の停止位置から撮って、確認の正答率を見る。**実写の物資確認（評価Q、Wikimedia Commons の写真405枚）は、安全側は成り立ったが使い勝手は不成立**：断るべき277枚の誤許可は 0（Wilson 上限 1.4%）、正しい物資の許可は 52/128（41%、登録した線70%）。現場では「正しい物資なのに断る」が多いと見込み、自分の拠点の写真で確認の通り方を測ってから運用する（第3.2節）。
 * 依頼文は意図の解釈を通る。許されるのは避難所Bと物資（水・医療物資）を含む依頼で、曖昧な依頼は**動く前に**拒否される（保留した60文で正しく扱えたのは 55/60 で、危険な誤受理は 0。評価の保留集合）。現場の避難所名を増やすには、意図の解釈の語彙の拡張が要り、再評価が必要。
-* **解析した依頼物資は、出発前に運用者が読み返す（必須）。** 依頼文で頼まれた物資を書き換える文（偽の「システム通知」、転送メモ、「上は無視して」）を、凍結した v3.6 の解析は、書き換えた36文のうち12文で、注入された物資のまま受理した（評価IF、FINDINGS #32。偽の通知 8/12）。曖昧として断ると予測した件は0で、登録した主張は不成立だった。依頼物資は助言ではなく命令なので、「締めるだけ」の保証（命題2）の外にある。対策の聞き返し（I-27、`--intent-conflict-check`、既定はオフ）は研究IF2として事前登録したが**結果がまだ無い**。IF2 が支持されるまでは、聞き返しを入れても読み返しをやめない。
+* **解析した依頼物資は、出発前に運用者が読み返す（必須）。** 依頼文で頼まれた物資を書き換える文（偽の「システム通知」、転送メモ、「上は無視して」）を、凍結した v3.6 の解析は、書き換えた36文のうち12文で、注入された物資のまま受理した（評価IF、FINDINGS #32。偽の通知 8/12）。曖昧として断ると予測した件は0で、登録した主張は不成立だった。依頼物資は助言ではなく命令なので、「締めるだけ」の保証（命題2）の外にある。対策の聞き返し（I-27、`--intent-conflict-check`、既定はオフ）は研究IF2（新しい72文）で支持された：すり替えの受理 0/36（Wilson 上限 9.6%）、通常の依頼 12/12。ただし語彙の規則なので、両方の物資名を含むすり替えしか捕まえない。訂正・否定の24文はすべて聞き返しになる。**聞き返しを入れても読み返しはやめない。**
+* **届け先も読み返す（必須）。** 新しい依頼文136件（評価IG）では、リストにない届け先（公民館、市役所、「北側の避難所」など）4件を、凍結した解析は避難所B行きとして受理した。登録した主張 IG1 は不成立。行き先の規則（評価IH、`destination_check`、既定はオフ）を入れても、新しい133件中10件が危険な結果のまま（線5件、IH1 不成立）。リストにある地名は断れるが、リストにない地名は素通りする。**解析された届け先が依頼文の場所と同じかを、人が確かめる**以外の対策は、まだ登録した試験に通っていない。
 
 ---
 
@@ -212,7 +213,7 @@ QoS で実機が最初につまずく点（シミュレーションで見つけ�
 ### 4.1 流れ
 
 1. 運用者が依頼を出す（例：「避難所Bに飲料水を届けて」）。
-2. ロボットは動く前に依頼を解釈する。解釈できなければ、その場で拒否する。**運用者は、解析された物資と届け先を元の依頼と照らして読み返し、一致を確かめてから出発を許可する**（必須。ソフトウェアでは強制していない運用手順。理由は第3.4節）。
+2. ロボットは動く前に依頼を解釈する。解釈できなければ、その場で拒否する。**運用者は、解析された物資と届け先を元の依頼と照らして読み返し（届け先の誤りは評価IG・IHで実測、第3.4節）、一致を確かめてから出発を許可する**（必須。ソフトウェアでは強制していない運用手順。理由は第3.4節）。
 3. 拠点へ走り、止まって、新しい画像を取り、物資と火・煙を確かめる。火が見えなくても、左右 0.4 m から見直す。
 4. 確認できたら避難所Bの手前まで走る。確認できなければ、別の拠点を確かめるか、止まって報告する。
 5. 出動のたびに1枚の報告が残る（`scripts/make_operator_report.py`。`scripts/v32_orchestrate.py` は自動で作る）。
