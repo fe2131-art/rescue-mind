@@ -7,6 +7,12 @@
 
 ---
 
+## ★★ 最優先：`docs/FINAL_PLAN.md`（2026-10-24 ユーザーと合意）
+
+* **実験は JL・IJ・JM と JK の撮影で完了。新しい研究は登録しない。** 残りは FINAL_PLAN の「必ずやること」を上から（取り込み → ビルドと 8 頁・200 語・1 頁目の確認 → 動画 v14 → final_check → 提出情報）。
+* 論文の弱点（VLM 1 種類、様式化した火と RGB、読み返し未検証、命題 2 の新しさの言い方、研究の多さ）は FINAL_PLAN の表のとおり本文・補足に明記する。
+* **失敗した主張は試行錯誤として物語に含める**（課題では試行錯誤も評価される）：`scripts/trial_chain.py` の表を説明資料・README に出し、動画の結びで 1 文触れる（I-149）。
+
 ## ★ 最新（2026-10-24 19:45）：JL 197/264 走行中 → 撮影（film_jk.sh）→ IJ → JM。文献調査 第6〜14回、事故対応 2 件
 
 * **事故（I-136）と再発防止**：登録順の監査（表 S9）が 25/44 研究で止まっていた。`scripts/check_study_coverage.py`（全研究が S9・S10・REGISTRATIONS・README にあるか、手書きの研究一覧が無いか）をテスト・check_consistency・final_check・Stop フックに組み込み済み。研究一覧は `make_registrations.STUDIES` からだけ作る（`study-subset` 印は意図した部分集合）。

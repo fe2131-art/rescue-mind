@@ -532,6 +532,11 @@ def storyline_lines():
     return [f'**攻撃 → 発見 → 対策 → 再測定**（実際に起きた{len(rows)}つの記録。数値はすべて結果ファイルから' + ('' if SNAP else '。図：[`docs/figures/storyline_ja.png`](docs/figures/storyline_ja.png)、説明資料の本文にも載せている') + '）', ''] + [f"* {r['bullet']}" for r in rows]
 
 
+def trial_chain_md():
+    import trial_chain
+    return trial_chain.markdown()
+
+
 def section_key(e, t):
     """First screen: the headline results (6 rows) with an honest status, the other registered studies in a collapsed list; every number from the result files, nothing hand-typed."""
     head = ['| 主張（事前登録した評価） | 結果（すべてシミュレーション） | 状態 |', '|---|---|---|']
@@ -770,6 +775,12 @@ def section_novelty():
     return f"""## 工夫した点
 
 一本の筋で読む：確かめる → 誤りの大半（隠れた火）は横から見直す → 見ていないものは「厳しくする」だけ → 保証の外は測るだけ。
+
+**試行錯誤：失敗が次の研究を生んだ**（事前登録して成立しなかった主張を消さずに、次の一手とつないだもの。結果は結果ファイルから自動で入る。I-149）
+
+{trial_chain_md()}
+
+**先行研究との位置づけ**：[文献調査のまとめ](docs/paper/LITERATURE_SUMMARY.md)（テーマ別に「先行研究が示すこと → 本研究の位置」、新しさの主張を反証できる論文を探した結果、査読で聞かれそうな問いへの答え）。引用した論文はすべて arXiv の要旨ページ（または出版社のページ）で確かめ、`python3 scripts/check_bib.py` で重複・未定義の引用が無いことを確かめている（I-147）。
 
 ![信頼できない入力は「締める」だけ：助言は順序と厳しさを変えるだけで、確認は省けない（I-19）](docs/figures/advice_principle_ja.png)
 
