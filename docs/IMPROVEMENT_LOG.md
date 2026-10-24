@@ -1290,3 +1290,9 @@
 * **Hypothesis.** A unit test on synthetic summaries catches both before the build: failed claims listed exactly, macro names alphabetic, every `\IJ*`/`\JM*` used by the drafts defined.
 * **Change.** `tests/test_result_hooks_ij_jm.py` (5 tests): failed-claim list (IJ2, JM3 only), macros letters-only and covering the drafts, README rows name the failed claim, YouTube lines present, JM1 in the multiplicity family.
 * **Before → After.** Hook checks: one manual run → 5 automated tests (pass); tests 1665 → 1670 (counts synced at the next build).
+
+## I-125 (2026-10-24) Deployment guide: Q, IF2, IG and IH results replace "no result yet"
+* **Motivation.** `docs/DEPLOYMENT.md` §3.4 and the English summary still said that the real-photo supply check (Q) and the ask-back rule (IF2) had no result, and said nothing about wrong destinations, although Q (safe but conservative, failed), IF2 (supported), IG (IG1 failed: 4 unlisted places read as shelter B) and IH (IH1 failed) are all measured. An operator following the guide would not know the destination read-back is the only tested defence.
+* **Hypothesis.** Writing the measured numbers where the operator reads the procedure makes the practicality claim (実用性) honest and actionable: the guide then says what to check by hand and why.
+* **Change.** §3.4: Q numbers (0 false approvals of 277, upper 1.4%; 52/128 correct approvals against the registered 70%) with the advice to measure on one's own photographs; IF2 result and its lexical limit; new mandatory bullet "届け先も読み返す" with IG and IH numbers; §4.1 step 2 points to it; English summary updated the same way.
+* **Before → After.** Stale "結果がまだ無い" statements 3 → 0; destination errors in the guide: absent → measured (IG 5/136 unsafe, IH 10/133 with the rule) with the read-back as the operative defence.
