@@ -1390,3 +1390,8 @@
 ## I-142 (2026-10-24) Literature round 10 (Haiku scouts): 16 verified papers on planning agents, explanations, scene text, local inference and rare-event statistics
 * **Change.** Safety architectures: action-level jailbreaks, AGENTSAFE, ASIMOV, LLM-driven robots accepting harmful commands, and the contrast "our VLM never plans; it answers closed questions at fixed checkpoints". Failure-detection paragraph: VLM explanations and their unfaithfulness, hence "the one-sentence report is shown and never decides". Scene text: SCAM, physical prompt injection. External validity: local inference as field deployments require, edge latency trade. Multiplicity section: what 100 worlds can certify (road-testing argument, conservative Bayes, bootstrapped confidence, scenario statistics, rare-event sampling), with JK's rate and bound from macros.
 * **Before → After.** References 317 → 333; check_bib 0, coverage 0.
+
+## I-143 (2026-10-24) One readable summary of the literature survey (user's request)
+* **Motivation.** Rounds 6-10 were recorded as dense addenda; the user asked for the findings to be summarised properly.
+* **Change.** `docs/paper/LITERATURE_SUMMARY.md` (Japanese): 18 themes as "what prior work shows → where RescueMind stands → where it went in the paper"; six gaps the scouts could not fill (worded "not found"); five short answers to the reviewer questions the survey anticipates.
+* **Before → After.** Survey results: scattered over addenda (g)-(k) → one page, linked from the scan.
