@@ -1698,6 +1698,38 @@ def main():
             if key_ in (jc_.get('claims') or {}):
                 m['JC' + name_ + 'Holds'] = 'holds' if jc_['claims'][key_] else 'fails'
         m['StatJC'] = f"a fast sentinel decides where to look, on fresh worlds: JC1, JC2, JC3 {'hold' if all(jc_.get('claims', {}).get(k) for k in ('JC1_primary_sentinel_misses_within_3_of_always_six', 'JC2_primary_sentinel_mean_views_clean_at_most_4', 'JC3_primary_sentinel_false_stops_at_most_5')) else 'do not all hold'}"
+    # ---- diversity of the gate's and a second judge's misses (scripts/diversity_measures.py) and size against hiding (scripts/size_vs_hidden.py); post hoc reporting, I-118
+    dvf_ = RES / 'diversity_measures.json'
+    if dvf_.is_file():
+        dv_ = json.loads(dvf_.read_text())
+        for ds_, tag_ in (('JI', 'JI'), ('XD_by_base_world', 'XD')):
+            for vs_, vt_ in (('v36_FLR', 'Three'), ('all_six', 'Six')):
+                pr_ = dv_[ds_][vs_]['pairs']['internvl3']
+                m['Div' + tag_ + vt_ + 'DF'], m['Div' + tag_ + vt_ + 'Ind'] = f"{pr_['double_fault']:.3f}", f"{pr_['independence']:.3f}"
+                m['Div' + tag_ + vt_ + 'Q'] = f"{pr_['Q']:.2f}" if pr_['Q'] is not None else 'n/a'
+                m['Div' + tag_ + vt_ + 'Clusters'] = dv_[ds_][vs_]['n_clusters']
+        m['DivJIThreeAll'] = ', '.join(f"{j_} {dv_['JI']['v36_FLR']['pairs'][j_]['double_fault']:.3f}" for j_ in ('internvl3', 'idefics3', 'qwen3vl', 'smolvlm2'))
+    shf_ = RES / 'size_vs_hidden.json'
+    if shf_.is_file():
+        sh_ = json.loads(shf_.read_text())
+        for ds_ in ('JI', 'XD'):
+            r_ = sh_[ds_]
+            small_ = next(b_ for b_ in r_['bins'] if b_['hidden_or_ambiguous']['n'])
+            m['SH' + ds_ + 'N'] = r_['n_fire_images']
+            m['SH' + ds_ + 'Vis'], m['SH' + ds_ + 'Hid'] = f"{small_['visible']['rate'] * 100:.0f}\\%", f"{small_['hidden_or_ambiguous']['rate'] * 100:.0f}\\%"
+            m['SH' + ds_ + 'VisN'], m['SH' + ds_ + 'HidN'] = small_['visible']['n'], small_['hidden_or_ambiguous']['n']
+            m['SH' + ds_ + 'Max'] = small_['pixels_max']
+            mh_ = r_['mantel_haenszel_visible_vs_hidden']
+            m['SH' + ds_ + 'OR'], m['SH' + ds_ + 'ORLow'], m['SH' + ds_ + 'ORHigh'] = mh_['or'], mh_['ci95'][0], mh_['ci95'][1]
+    # ---- multiplicity over the registered primary paired closed-loop tests (scripts/multiplicity.py; post hoc reporting, I-118)
+    mulf_ = RES / 'multiplicity.json'
+    if mulf_.is_file():
+        mul_ = json.loads(mulf_.read_text())
+        m['MultM'], m['MultRaw'], m['MultHolm'], m['MultBH'] = mul_['m'], mul_['raw_significant'], mul_['holm_significant'], mul_['bh_significant']
+        m['MultLost'] = ', '.join(mul_['lost_by_holm']) if mul_['lost_by_holm'] else 'none'
+        for t_ in mul_['tests']:
+            key_ = 'Mult' + ''.join(ch for ch in t_['study'] if ch.isalpha())
+            m[key_ + 'P'], m[key_ + 'Holm'] = f"{t_['p_raw']:.4g}", f"{t_['p_holm']:.4g}"
     # ---- study JL (registered: the closed-loop replication of JK on fresh worlds with a concurrent control; I-115); macros exist only once jl_summary.json exists
     jlf_ = RES / 'jl_summary.json'
     if jlf_.is_file():
