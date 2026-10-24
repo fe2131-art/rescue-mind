@@ -1415,3 +1415,8 @@
 * **Motivation.** The literature summary (I-143) and the novelty verdicts (I-144) were invisible from the README a judge reads; a resumed session could also miss the two new mandatory checks (coverage, bibliography).
 * **Change.** README「工夫した点」: one paragraph linking `docs/paper/LITERATURE_SUMMARY.md` and stating how citations are verified (`check_bib.py`). HANDOFF top block: incidents I-136/I-139 with their checks, literature status (rounds 6-13 recorded, round 14 running), the queued JK film.
 * **Before → After.** Literature positioning reachable from the README: no → yes; HANDOFF current to 19:45.
+
+## I-148 (2026-10-24) Literature round 14 (Haiku scouts, last of the three extra rounds): 12 verified papers, one more novelty claim tested
+* **Change.** IH section: read-back evidence from other domains (surgical checklist, cognitive forcing, intermediate confirmation), stated without effect sizes that were not read from the papers. Safety-architecture paragraph: risk-aware routing and risky delivery scheduling, and the tested gap "no study measures continuing after a hazard found at a station on arrival" (holds). Advice paragraph: cross-robot trust inference. External validity: LLM agents in ROS, trace checking, hallucinated task success, hence the audit against the simulator's truth. Related work: relief-logistics models assume a correct stock record.
+* **Record.** Scan addendum (o); summary: five theme rows, one novelty row, header counts (rounds 6-14, 132 verified papers, 384 references).
+* **Before → After.** References 372 → 384; check_bib 0, coverage 0.
