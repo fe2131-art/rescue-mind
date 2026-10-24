@@ -1245,6 +1245,6 @@
 
 ## I-117 (2026-10-24) Literature: five Haiku scouts, nine papers re-verified and cited
 - **Motivation:** the user asked for continuous literature work by Haiku subagents; the novelty scan was abstract-level and had no coverage of judge-error correlation beyond Hidden Clones, edited-image safety test data, ASR risk for voice-controlled robots, and active perception for hazard misses.
-- **Method:** five parallel Haiku agents (read-only web search; instructed to report only papers whose abstract page they fetched; output untrusted), then the main agent re-fetched every paper it cites. 56 verified-by-agent rows; 9 chosen, all re-verified; 6 more left out as not re-verified or weak fits.
+- **Method:** five parallel Haiku agents (read-only web search; instructed to report only papers whose abstract page they fetched; output untrusted), then the main agent re-fetched every paper it cites. 58 rows the agents reported as verified; 9 chosen, all re-verified; 6 more left out as not re-verified or weak fits.
 - **Change:** `references.bib` +9; citations in the JH reading (supplement), fire/smoke paragraph, QI, IG, JK and JC sections; `LITERATURE_SCAN_2026-10.md` addendum (what was added, what was not, the gaps). Built after JL (no builds during a campaign).
 - **Before / After:** before, the closest prior art for QI (edited safety test data) and IG (ASR risk) was not in the paper, and correlated-error evidence rested on one paper; after, each has a sourced neighbour and a stated difference. Still abstract level for all of them.
