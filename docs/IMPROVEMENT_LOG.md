@@ -1352,3 +1352,8 @@
 * **Change.** `scripts/film_jk.sh` (waits for the campaign lock, JK trial JKT011's world, instruction and flags + `--film --capture-rosbag`, depot camera; records the run and whether the extra views triggered; no ledger touched), queued in the background. `make_video_plan.depot_texts`: an extra-view wording when an L2/R2 view found the hazard (caption numbers from `jk_summary.json`); `make_demo_video`: L2/R2 side names and "0.8 m" label (it would have raised KeyError on L2). Video tests 24 pass.
 * **Before → After.** Footage of the extra views: none → one filmed run after the campaigns (to replace the front-fire depot demo in v14 if the run shows the intended event; otherwise the old demo stays).
 * **Follow-up (I-133).** The introduction's chain, link (3), named "adaptive views: W, I-20" (an image-level design note); it now names the closed-loop studies that carry the link at the depot, "extra 0.8 m views taken only when the gate is suspicious: JK (, JL when it exists)".
+
+## I-135 (2026-10-24) Literature round 5 by the main agent: risk-aware next-best-view work placed next to JK
+* **Motivation.** JK's related work cited occlusion-aware NBV and conformal active perception, but not the risk-aware view-acquisition line (safety-critical regions first), the closest framing of "look again where it is dangerous".
+* **Change.** Three papers verified on their arXiv abstract pages (2403.11396, 2510.06481, 2609.23100) added to `references.bib` and to the JK subsection; scan addendum (f) records the search, including two correction-dialogue papers judged not relevant to read-back.
+* **Before → After.** JK related work: 2 active-perception references → 5; verified references +3.
