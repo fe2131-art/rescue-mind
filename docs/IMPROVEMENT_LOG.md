@@ -1489,3 +1489,7 @@
 * **Motivation.** International readers of the English summary saw no row for the extra views, the paper's best replicated result; JK and JL were only named in the "studies without an English row" pointer.
 * **Change.** `update_readme_results.py`: English rows JK and JL generated from their summaries (deliveries into fire v3.6 → extra views, upper bound, false stops, whether the registered claims hold), placed at chain step 3.
 * **Before → After.** English rows: no extra-views result → JK 14/100 → 3/100 and JL 13/98 → 3/100, both "hold".
+
+## I-161 (2026-10-25) README English summary: IJ with its failed claim visible
+* **Change.** English row IJ generated from `ij_summary.json` (AUROC vs the model's own probabilities, pass-through and false refusals, each registered claim marked holds/FAILS), chain step 4.
+* **Before → After.** English summary shows the newest failed claim (IJ2) instead of only pointing to it.

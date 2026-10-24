@@ -1151,8 +1151,18 @@ def section_en(e, v):
                      f"(upper {100 * a_['fire']['upper95_exact']:.1f}%), false stops {a_['fire_free']['k']}/{a_['fire_free']['n']}; registered claims {'hold' if ok_ else 'do not all hold'} |")
         except (TypeError, KeyError, IndexError):
             pass
+    try:      # I-161: IJ in English, failed claim visible
+        ij_ = jl('ij_summary.json')
+        pr_ = ij_['scorers']['probe']
+        best_ = max(ij_['scorers']['zero_shot_yes']['auroc'], ij_['scorers']['closed_set_p_other']['auroc'])
+        ks_ = ('IJ1_probe_auroc_beats_best_baseline_by_0.05', 'IJ2_probe_pass_through_at_most_15pct', 'IJ3_probe_false_refusal_at_most_8pct')
+        L.append(f"| IJ: a probe on the parser's hidden states for unlisted destinations (held-out name families; not integrated) | AUROC {pr_['auroc']:.3f} vs the model's own probabilities {best_:.3f}; "
+                 f"unknown destinations passing {100 * pr_['unknown_pass_through']:.0f}%, listed ones refused {100 * pr_['false_refusal']:.0f}%; "
+                 f"{', '.join(k.split('_')[0] + (' holds' if ij_['criteria'][k] else ' FAILS') for k in ks_)} |")
+    except (TypeError, KeyError):
+        pass
     # study-subset: the chain position of the English rows that exist; studies without an English row are named after the table (I-136)
-    stage = {'E': 1, 'L': 1, 'Z': 1, 'T1': 2, 'K': 2, 'G': 3, 'W': 3, 'H': 4, 'V': 4, 'A': 4, 'S': 5, 'P': 5, 'R': 5, 'Q': 5, 'X, XD': 5, 'Y, YE, YF': 5, 'GR': 3, 'GC': 3, 'GD': 3, 'GV': 3, 'JK': 3, 'JL': 3, 'J': 6, 'I-23': 4, 'I-24': 4, 'B': 4, 'IF': 4, 'IF2': 4}
+    stage = {'E': 1, 'L': 1, 'Z': 1, 'T1': 2, 'K': 2, 'G': 3, 'W': 3, 'H': 4, 'V': 4, 'A': 4, 'S': 5, 'P': 5, 'R': 5, 'Q': 5, 'X, XD': 5, 'Y, YE, YF': 5, 'GR': 3, 'GC': 3, 'GD': 3, 'GV': 3, 'JK': 3, 'JL': 3, 'IJ': 4, 'J': 6, 'I-23': 4, 'I-24': 4, 'B': 4, 'IF': 4, 'IF2': 4}
     i0 = L.index('|---|---|') + 1
     rows = L[i0:]
     key = lambda r_: r_[2:].split(':')[0]
