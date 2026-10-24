@@ -1314,3 +1314,9 @@
 * **Hypothesis.** One bullet per study, generated from the summaries and worded for either outcome, makes the report match the paper and the video without a manual pass after each result.
 * **Change.** `make_report.py`: `views_items` (GM, JI, JK, JL, JM; each only once its summary exists) after GL in section 4; `dest_items` (IG, IH, IJ) with a heading "依頼文の届け先（命令なので保証の外。出発前の読み返しが必須）" in section 5; inputs table row → "依頼文の物資と届け先 | 保証の外（命令）… 人が読み返す | IF、IF2、IG、IH"; stale caption fixed. Previewed in `rm-dev` (5 items render with the committed numbers).
 * **Before → After.** Report coverage of studies after GL: 0 → GM, JI, JK, IG, IH now (+ JL, JM, IJ when they end); stale statements 2 → 0. Page count to be checked at the next build (main part was 10 pages).
+
+## I-129 (2026-10-24) Page 1 of the report names the extra-views result (JK; JL by rule)
+* **Motivation.** Page 1 is what a judge with five minutes reads. Its three lines ended at the 0.4 m look-around; the best closed-loop reduction of fire deliveries (14/100 → 3/100 in the cluttered depot, no calibration, 0/32 false stops) appeared only from page 6 on.
+* **Hypothesis.** One line under "解き方" carries the strongest technical result to the first page; with JL's sentence fixed now for either outcome, the page stays honest after the replication.
+* **Change.** `make_report.judge_box(compact=True)`: line "さらに：…14/100 → 3/100（評価JK…）" plus, once `jl_summary.json` exists, "再試験（JL）でも a → b" or "…差は確かめられなかった". Previewed in `rm-dev`.
+* **Before → After.** Page-1 results: look-around and the advice principle → + extra views (JK) and its replication (JL). Risk: the line may push the submission table to page 2; checked at the next build (shorten the "新しい成果" line if so).
