@@ -17,6 +17,7 @@ else say FAIL "main.pdf missing"; fi
 step "consistency (0 mismatches)" bash -c 'python3 scripts/check_consistency.py 2>&1 | tail -1 | grep -q "^0 mismatch"'
 step "study coverage (every registered study in every audit table)" python3 scripts/check_study_coverage.py
 step "references.bib (no duplicates, every citation defined)" python3 scripts/check_bib.py
+step "trial-and-error story places every failed claim" python3 scripts/trial_chain.py --write
 step "secret scan (HEAD tree)" python3 scripts/secret_scan.py
 step "readme links" python3 scripts/check_readme_links.py
 if [ -z "$QUICK" ]; then

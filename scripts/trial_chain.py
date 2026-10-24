@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Trial and error as a story (I-149): each failed registered claim -> what it taught -> the next study -> how that study came out.
 
-  python3 scripts/trial_chain.py        # prints the Markdown table (README) and checks that every failed claim is placed in a step
+  python3 scripts/trial_chain.py [--write]   # prints the Markdown table (README); --write also updates docs/TRIAL_AND_ERROR.md; exit 1 if a failed claim is not placed
 
 The steps are written by hand (they are the story); the status of every claim and every next study is read from the result files
 (advice_numbers.failed_claims and the summaries), so a later result changes the table without editing it.  A failed claim that no step
@@ -77,7 +77,20 @@ def unplaced() -> list:
     return [k for k in failed_keys() if k not in placed]
 
 
+def write_doc() -> bool:
+    """Replace the block between <!-- TRIALS:START --> and <!-- TRIALS:END --> in docs/TRIAL_AND_ERROR.md; True when the file changed."""
+    f = ROOT / 'docs/TRIAL_AND_ERROR.md'
+    t = f.read_text(encoding='utf8')
+    a_, b_ = t.index('<!-- TRIALS:START -->'), t.index('<!-- TRIALS:END -->') + len('<!-- TRIALS:END -->')
+    new = t[:a_] + '<!-- TRIALS:START -->\n' + markdown() + '\n<!-- TRIALS:END -->' + t[b_:]
+    if new != t:
+        f.write_text(new, encoding='utf8')
+    return new != t
+
+
 if __name__ == '__main__':
+    if '--write' in sys.argv:
+        print('docs/TRIAL_AND_ERROR.md', 'updated' if write_doc() else 'unchanged')
     print(markdown())
     u = unplaced()
     print(f'\n{len(failed_keys())} failed claims, {len(u)} not placed in a step' + (f': {u}' if u else ''))

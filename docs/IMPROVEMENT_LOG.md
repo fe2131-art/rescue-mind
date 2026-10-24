@@ -1446,3 +1446,8 @@
 * **Change.** One bullet「評価の幅」: one VLM in the closed loop (others on development images only; a second AI did not help), stylised fire and RGB only (thermal untested), read-back mandatory but untested, Proposition 2 elementary with the novelty in the constraint and its machine check. Survives `update_readme_results.py` (static section).
 * **Before → After.** README limits vs paper limits: 3 of 5 weaknesses → 5 of 5.
 * **Follow-up (report).** `make_report.story_limits` carries the same「評価の幅」item, so paper, README and report state the same five weaknesses.
+
+## I-154 (2026-10-24) The trial-and-error document carries the generated failure-to-next-step table, checked in the final check
+* **Motivation.** `docs/TRIAL_AND_ERROR.md` (the trial-and-error record) was hand-written and stopped at JK; the generated chain of I-149 lived only in README and report.
+* **Change.** `trial_chain.py --write` replaces a marked block in `docs/TRIAL_AND_ERROR.md`; `final_check.sh` runs it (fails if any failed claim is unplaced), so the three places (README, report, record) show the same table at submission.
+* **Before → After.** Trial-and-error record: hand list to JK → + generated table of all 21 failed claims, refreshed by the final check.
