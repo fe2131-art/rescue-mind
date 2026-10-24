@@ -7,6 +7,13 @@
 
 ---
 
+## ★ 最新（2026-10-24 11:00）：JK 反映済み・動画 v13 完成・最終確認 `fails=0`、JL（JK の再現、新しい世界、同時期の対照）が走行中（I-107〜I-116）
+
+* **完了（今日）**：JK（JK1〜JK3 成立、火へ配達 14→3/100、誤停止 0/32）、論文の要旨に GM と JK（197語）、FINDINGS 56件、動画 v13（2:52.7、証拠カードに JI・JK、冒頭に「災害現場へ物資を届けるロボット」）、`bash scripts/final_check.sh` 全項目 PASS。旧動画は `outputs/video/_v12_backup.mp4`。**ユーザーが v13 を確認してから YouTube へ**。失敗した主張は21件のまま。
+* **JL（I-115、`experiments/PREREGISTRATION_JL.md`）**：新しい世界（種 `JL-2026`）で `v36` と `adapt` を交互に（同時期の対照）、264試行、約12時間。`bash scripts/jl_run.sh` が走行中（候補マスク→選択と拘束コミット→OTS→本番→解析、`JL_DONE` を待つ）。**走行中は論文・説明資料・動画のビルドと全テスト禁止**。`bg_watch.sh` を1つ動かす。
+* **JL が終わったら**：`jl_summary.json` を読む→ `cp docs/paper/jl_section.draft.tex docs/paper/jl_section.tex` と Reading、FINDINGS #57、TRIAL_AND_ERROR、IMPROVEMENT_LOG の Result、HANDOFF の件数と失敗した主張の数、`rebuild_docs.sh`、`final_check.sh` 全実行、`update_submission_facts.py`。JL が JK と同じ向きなら要旨の JK 句に JL を足す（語数 ≤ 200）。動画は証拠カードの JK を JK・JL に更新するかを決める（動画の再生成は約10分、`docs/video_plan.json` の再生成コマンドは下の動画の節）。
+* **ユーザーの作業メモ**：動画 v13 の確認、GitHub Actions は課金設定が原因で赤。
+
 ## ★ 最新（2026-10-24 06:00）：JI・JC・IH を反映済み、JK 本番（132試行）が走行中（I-94/100/102/107）
 
 * **反映済み**：JI（JI1〜JI4 成立、6視点 3/120 対 3視点 13/120、p=0.00098）、JC（JC1 不成立＝20件目：SmolVLM2 の見張り役は見逃し7、ゲート自身のスコア0.01をきっかけにすると4で、無料）、IH（IH1 不成立＝21件目：危険 19→10、リストにない場所が漏れる）。FINDINGS #53〜#55、TRIAL_AND_ERROR、補足の JI・JC・IH 節（`ji_section.tex` `ih_section.tex`）、README の限界。失敗した主張は **21件**。
