@@ -306,9 +306,17 @@ def evidence_card(seconds):
         if jk:
             ja, jv = jk['arms']['adapt']['fire'], jk['arms']['v36']['fire']
             jk_ok = all(jk['criteria'][k] for k in ('JK1_paired_one_sided_p_below_005_and_fewer', 'JK2_adapt_upper_at_most_10pct', 'JK3_false_stops_at_most_3'))
-            rows.append(['視点を増やす JI・JK', [f"画像 見逃し {g3['miss']}→{g6['miss']}/{ji['n_fire']}・閉ループ 火へ配達 {jv['k']}→{ja['k']}/{ja['n']}", G if (ji_ok and jk_ok) else W]])
+            jlx = jload(RES / 'jl_summary.json')       # study JL (I-127): JK replicated on fresh worlds with a concurrent control; outcome-neutral wording
+            if jlx:
+                la, lv = jlx['arms']['adapt']['fire'], jlx['arms']['v36']['fire']
+                jl_ok = all(jlx['criteria'][k] for k in ('JL1_paired_one_sided_p_below_005_and_fewer', 'JL2_adapt_upper_at_most_10pct', 'JL3_false_stops_at_most_3'))
+                rows.append(['視点を増やす JI・JK・JL', [f"画像 {g3['miss']}→{g6['miss']}/{ji['n_fire']}・閉ループ {jv['k']}→{ja['k']}・新世界 {lv['k']}→{la['k']}/{la['n']}", G if (ji_ok and jk_ok and jl_ok) else W]])
+            else:
+                rows.append(['視点を増やす JI・JK', [f"画像 見逃し {g3['miss']}→{g6['miss']}/{ji['n_fire']}・閉ループ 火へ配達 {jv['k']}→{ja['k']}/{ja['n']}", G if (ji_ok and jk_ok) else W]])
             say.append(f"視点を増やすと、見逃しは画像で{g3['miss']}件から{g6['miss']}件、閉ループでも火への配達は{jv['k']}件から{ja['k']}件。")
             head['views'] = f"倉庫では、疑わしいときに視点を増やすと、火への配達は{jv['k']}件から{ja['k']}件。"
+            if jlx:
+                head['views'] += (f"新しい世界でも{lv['k']}件から{la['k']}件。" if jlx['criteria']['JL1_paired_one_sided_p_below_005_and_fewer'] else f"新しい世界の再試験では{lv['k']}件と{la['k']}件で、差は確かめられませんでした。")
         else:
             rows.append(['視点を増やす JI（新世界）', [f"見逃し 3視点{g3['miss']}→6視点{g6['miss']}/{ji['n_fire']}・誤停止 {g6['false_stops']}", G if ji_ok else W]])
             say.append(f"視点を6つに増やすと見逃しは{g3['miss']}件から{g6['miss']}件。")
