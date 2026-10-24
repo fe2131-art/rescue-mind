@@ -1493,3 +1493,7 @@
 ## I-161 (2026-10-25) README English summary: IJ with its failed claim visible
 * **Change.** English row IJ generated from `ij_summary.json` (AUROC vs the model's own probabilities, pass-through and false refusals, each registered claim marked holds/FAILS), chain step 4.
 * **Before → After.** English summary shows the newest failed claim (IJ2) instead of only pointing to it.
+
+## I-162 (2026-10-25) README English row for JM prepared before its result
+* **Change.** English row JM (plume vs no plume for v3.6, extra views with plume, each registered claim holds/FAILS), inert until `jm_summary.json` exists; checked on the synthetic summary of `tests/test_result_hooks_ij_jm.py`.
+* **Before → After.** JM reaches the English summary by rule, worded for either outcome.
