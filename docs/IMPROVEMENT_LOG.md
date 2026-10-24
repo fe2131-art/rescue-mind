@@ -1302,3 +1302,9 @@
 * **Hypothesis.** Speaking four headline results (random worlds, look-around, extra views, untrusted advice) and pointing at the red rows keeps the honesty (every row, failures included, stays on the card) while making the segment followable; moving the criteria table (審査基準との対応) under the chain fills page 2 and puts the mapping to the four criteria where a judge looks first.
 * **Change.** `make_video_plan.evidence_card`: `headline_narration` (four results + 「赤い行は、うまくいかなかった結果です」; full list kept as `narration_full`; falls back to the full list if a headline result is missing). `make_report.py`: `story_criteria` before `story_storyline`.
 * **Before → After.** Spoken evidence 165 chars / 25.8 s, 10 results → 122 chars / 19.1 s, 4 results + pointer to failures (card unchanged, 27 s). Report page 2: chain + half page blank → chain + criteria table (to be confirmed at the next build; builds wait for the JL/IJ/JM campaigns).
+
+## I-127 (2026-10-24) The video names JL's fresh-world result by rule, worded for either outcome
+* **Motivation.** The video's strongest closed-loop number (extra views 14 → 3, JK) rests on reused worlds and a non-concurrent control; JL is its confirmatory replication. Writing the video line after seeing JL would invite a favourable wording.
+* **Hypothesis.** A row and a spoken sentence fixed now, with one wording if JL1 holds ("新しい世界でも a から b") and another if it fails ("差は確かめられませんでした"), keep the video honest and still under the card's 27 s.
+* **Change.** `make_video_plan.evidence_card`: row "視点を増やす JI・JK・JL" (image, closed loop, fresh worlds; green only if JI, JK and JL all hold) when `jl_summary.json` exists; the spoken headline adds the matching sentence. Checked with a synthetic failing JL: 24.2 s spoken.
+* **Before → After.** JL in the video: absent → rule-based row and sentence (inert until JL ends); spoken evidence 19.1 s → at most 24.2 s.
