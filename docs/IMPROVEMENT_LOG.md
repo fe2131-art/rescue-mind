@@ -1480,3 +1480,7 @@
 ## I-158 (2026-10-25) Reviewer answers in the literature summary carry JL and IJ
 * **Change.** `LITERATURE_SUMMARY.md` §3: two answers added, "JK's effect is not an artefact of reused worlds (JL 13/98 → 3/100, 0/31)" and "the hidden state separates unlisted places (IJ AUROC 0.977) but the development threshold does not transfer (91% pass, IJ2 fails), the probing literature's transfer warning in a small registered test".
 * **Before → After.** Reviewer answers: 5 → 7, both backed by registered results.
+
+## I-159 (2026-10-25) HANDOFF current for the last stretch
+* **Change.** HANDOFF top: JL and IJ integrated with their verdicts, 22 failed claims all placed, JM progress and ETA, the exact order of the remaining FINAL_PLAN steps with their commands.
+* **Before → After.** A session resumed after JM can start the final steps without reading the conversation.
