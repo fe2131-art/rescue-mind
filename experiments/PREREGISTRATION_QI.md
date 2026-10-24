@@ -45,3 +45,7 @@ Looked at by eye (not scored): the simulator's hard fires are mostly **grey tran
 
 ## Amendment 5 (2026-10-23 05:55; before any gate score on QI-G was read) — the registered QI-G stop rule is now computed
 `scripts/qi_build_devset.py` excluded **140 of the 205 generated fire images (68%)** by the registered pixel check (flame-coloured share of the mask below 0.02). The registration says that more than 15% excluded images stops the QI-G claim ("the editor does not draw the fire reliably"). `scripts/qi_analysis.py` now computes this stop rule (`G.excluded`, `G.claim_stopped`) and `QI2` cannot hold when it is triggered; the miss rate on the 65 remaining images is reported as descriptive only. The registered QI2 therefore fails by the stop rule, whatever the gate scores. Thresholds, prompts and the other claims are unchanged. A by-eye look (no scores) at 24 random G images had already shown about a third without any drawn fire.
+
+## Erratum (times)
+
+Appended 2026-10-24; the registered text above is not edited. The time written in the heading of Amendment 5 ("2026-10-23 05:55") is later than the time of the commit that introduced it, `9cf2574` (2026-10-23 05:45 JST). The binding time is the commit time; it precedes the first QI results commit (`ddff91f`).
