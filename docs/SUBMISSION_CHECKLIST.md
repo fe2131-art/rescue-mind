@@ -4,7 +4,7 @@
 omnicampus アカウント名は `tetsutetsu`。コマンドはすべて `~/work/rescue-mind`（ブランチ `main`。ブランチは `main` だけ）で実行する。
 **公開設定の変更・YouTube への投稿・フォーム提出はご本人だけが行う**（アシスタントは行わない）。
 
-流れ：**①アシスタントの最終確認 → ②YouTube → ③URL を文書に入れる → ④リポジトリを public にする → ⑤フォーム提出**。
+流れ：**①アシスタントの最終確認 → (1b) 履歴の個人パスを消すか決める → ②YouTube → ③URL を文書に入れる → ④リポジトリを public にする → ⑤フォーム提出 → ⑥優秀生選出フォーム**。
 余裕を見て **10/30（金）までに提出**する。
 
 ---
@@ -43,6 +43,23 @@ for t in 20 55 95 130; do nice -n 19 ffmpeg -v error -y -ss $t -i "$V" -frames:v
 **チャプターについて**：`docs/video_chapters.json` に 10 秒未満の章がある場合、`make_youtube_description.py` が警告を出す。YouTube はチャプターを無視することがあるが、課題の要件ではないので提出に支障はない（気になる場合は概要欄の末尾の時刻つき章立てだけ消してよい）。
 
 **Actions について**：`.github/workflows/test.yml` は単体テストと `scripts/public_release_audit.py` を実行する。2026-10-18 時点で赤だった原因は 2 つ（浅い clone では履歴を使う `REGISTRATIONS.md` の検査が通らない → `fetch-depth: 0` に修正済み。`public_release_audit.py` が `noreply@anthropic.com` と第三者コード `worlds/assets/` のメールを誤検出 → 許可リストを追加済み）。修正後の push で緑になったことを #13 で確認する。
+
+---
+
+## 1b. git 履歴に残る個人パス（ご本人が判断。アシスタントは書き換えない）
+
+* **現状**（2026-10-24 確認）：最新のファイル（HEAD）にはホームディレクトリのパスは 0 件。過去の **10 コミット**の差分に残っている（`git log --all --format=%h -S"/home/<ユーザー名>" | wc -l`）。public にすると履歴から読める。
+* **消す方法**：新しい clone で `git filter-repo --replace-text` を使い、`/home/<ユーザー名>` を `~` に置き換えてから `git push --force`（全ブランチ・タグ）。
+* **重要な副作用**：履歴を書き換えると**全コミットのハッシュが変わる**。論文の登録順の監査（表 S9・S10、`docs/REGISTRATIONS.md`）と OpenTimestamps の証明（`docs/timestamps/`）はコミットのハッシュを指しているので、書き換え後は `python3 scripts/make_registrations.py`・`python3 scripts/paper_numbers.py`・`bash scripts/rebuild_docs.sh` で作り直す必要がある。OpenTimestamps の証明は**元のハッシュ**に対するもので、書き換え後のコミットとは一致しなくなる（論文には「証明は書き換え前のハッシュに対するもの」と一文足す）。
+* **選択肢**：(a) 書き換えない（パスはユーザー名を含むだけで、鍵や連絡先ではない）／(b) 書き換えて、上の作り直しをアシスタントに頼む。どちらにするかをアシスタントに伝える。
+
+---
+
+## 6. 優秀生選出フォーム（ご本人）
+
+* 課題の案内にある優秀生選出フォームに、上の 3 つ（説明資料 PDF、GitHub URL、YouTube URL）を提出する。
+* 加点条件：YouTube を**公開**（限定公開でなく）にしておく（2 の手順 5）。
+* 締切は課題の案内のとおり（提出物と同じ 2026-11-02 10:00 JST より前に出す）。
 
 ---
 
