@@ -685,7 +685,7 @@ def section_key(e, t):
     try:      # suspicion-triggered extra views in the closed loop at the depot (registered JK1-JK3; outcome-neutral wording: every figure comes from the summary)
         jka_, jkv_, jkc_ = jk_['arms']['adapt'], jk_['arms']['v36'], jk_['criteria']
         jkkeys_ = ('JK1_paired_one_sided_p_below_005_and_fewer', 'JK2_adapt_upper_at_most_10pct', 'JK3_false_stops_at_most_3')
-        rows.append(f"| 疑わしいときだけ左右0.8 mと手前から撮り直す方式（追加視点、I-20）は、既定の閾値のまま倉庫で火への配達を減らすか（評価JK、評価GMと同じ{jk_['n_fire_worlds']}世界、比較相手のGMは別時刻の記録） | 火へ配達：v3.6 **{jkv_['fire']['k']}/{jkv_['fire']['n']}** → 追加視点 **{jka_['fire']['k']}/{jka_['fire']['n']}**（95%上限 {pct(jka_['fire']['upper95_exact'])}、登録した線10%）、火なし世界の誤停止 {jka_['fire_free']['k']}/{jka_['fire_free']['n']}（線3件）。追加視点は構造上、拒否を増やすだけ | {'JK1〜JK3：**支持**' if all(jkc_[k] for k in jkkeys_) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k in jkkeys_ if not jkc_[k]) + '）'} |")
+        rows.append(f"| 疑わしいときだけ左右0.8 mから撮り直す方式（追加視点、I-20。手前の視点は予行で外した）は、既定の閾値のまま倉庫で火への配達を減らすか（評価JK、評価GMと同じ{jk_['n_fire_worlds']}世界、比較相手のGMは別時刻の記録） | 火へ配達：v3.6 **{jkv_['fire']['k']}/{jkv_['fire']['n']}** → 追加視点 **{jka_['fire']['k']}/{jka_['fire']['n']}**（95%上限 {pct(jka_['fire']['upper95_exact'])}、登録した線10%）、火なし世界の誤停止 {jka_['fire_free']['k']}/{jka_['fire_free']['n']}（線3件）。追加視点は構造上、拒否を増やすだけ | {'JK1〜JK3：**支持**' if all(jkc_[k] for k in jkkeys_) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k in jkkeys_ if not jkc_[k]) + '）'} |")
     except (TypeError, KeyError):
         pass
     jm_ = jl('jm_summary.json')
@@ -739,7 +739,7 @@ def section_key(e, t):
               + (f"支持されなかった主張{len(fc)}件（{'・'.join(c['key'] for c in fc)}。[結果](#結果)・[限界](#限界)）も、そのまま載せている。" if fc else '')
               + '命題2は z3 で機械検証。')
     # first screen: the claims that carry the paper stay visible (the best result, the safety claim, the attack test, the one fresh-world replication, and an honest failure); the rest is one click away
-    front = ('評価E：', '評価G）', '評価A、', '評価GR', '評価GL', '未使用の画像600枚')
+    front = ('評価E：', '評価G）', '評価A、', '評価GR', '評価JK', '評価JL', '未使用の画像600枚')      # I-132: JK (14 -> 3 of 100, no calibration) replaces GL on the first screen; JL joins when it exists
     vis = [r for r in rows if any(k in r for k in front)]
     rest = [r for r in rows if r not in vis]
     if rest:
