@@ -1698,6 +1698,26 @@ def main():
             if key_ in (jc_.get('claims') or {}):
                 m['JC' + name_ + 'Holds'] = 'holds' if jc_['claims'][key_] else 'fails'
         m['StatJC'] = f"a fast sentinel decides where to look, on fresh worlds: JC1, JC2, JC3 {'hold' if all(jc_.get('claims', {}).get(k) for k in ('JC1_primary_sentinel_misses_within_3_of_always_six', 'JC2_primary_sentinel_mean_views_clean_at_most_4', 'JC3_primary_sentinel_false_stops_at_most_5')) else 'do not all hold'}"
+    # ---- study JL (registered: the closed-loop replication of JK on fresh worlds with a concurrent control; I-115); macros exist only once jl_summary.json exists
+    jlf_ = RES / 'jl_summary.json'
+    if jlf_.is_file():
+        jl_ = json.loads(jlf_.read_text())
+        la_, lv_ = jl_['arms']['adapt'], jl_['arms']['v36']
+        m['JLTrials'], m['JLWorlds'], m['JLPlain'] = jl_['n_with_result'], jl_['n_fire_worlds'], la_['fire_free']['n']
+        m['JLAdapt'], m['JLAdaptRate'], m['JLAdaptUpper'] = f"{la_['fire']['k']}/{la_['fire']['n']}", pct(la_['fire']['rate'], 1), pct(la_['fire']['upper95_exact'], 1)
+        m['JLV'], m['JLVUpper'] = f"{lv_['fire']['k']}/{lv_['fire']['n']}", pct(lv_['fire']['upper95_exact'], 1)
+        pj_ = jl_['paired']
+        m['JLOnlyV'], m['JLOnlyAdapt'], m['JLP'] = pj_['discordant_v36_only'], pj_['discordant_adapt_only'], f"{pj_['mcnemar_one_sided_p']:.5f}".rstrip('0')
+        m['JLFalseStops'], m['JLFalseStopsV'] = f"{la_['fire_free']['k']}/{la_['fire_free']['n']}", f"{lv_['fire_free']['k']}/{lv_['fire_free']['n']}"
+        m['JLTimeAdapt'], m['JLTimeV'] = f"{la_['fire']['median_time_s']:.1f}", f"{lv_['fire']['median_time_s']:.1f}"
+        exj_ = jl_['extras']
+        m['JLReached'], m['JLTriggered'], m['JLAllExtras'], m['JLRefusedEarly'] = exj_['missions_reaching_the_extras_stage'], exj_['triggered'], exj_['triggered_with_all_extras_taken'], exj_['triggered_ended_in_hazard_refusal_before_all_extras']
+        m['JLTriggerShare'] = pct(exj_['trigger_share'], 0) if exj_['trigger_share'] is not None else 'n/a'
+        m['JLFailed'], m['JLAudit'] = jl_['n_failed'], jl_['audit_failures']
+        for name_, key_ in (('One', 'JL1_paired_one_sided_p_below_005_and_fewer'), ('Two', 'JL2_adapt_upper_at_most_10pct'), ('Three', 'JL3_false_stops_at_most_3'),
+                            ('PredOne', 'P1_time_cost_at_most_30s'), ('PredTwo', 'P2_trigger_share_at_least_70pct_and_both_poses_or_refusal'), ('PredThree', 'P3_false_stops_not_more_than_v36_plus_2')):
+            m['JL' + name_ + 'Holds'] = 'holds' if jl_['criteria'][key_] else 'fails'
+        m['StatJL'] = f"extra views replicated on fresh worlds with a concurrent control: JL1, JL2, JL3 {'hold' if all(jl_['criteria'][k] for k in ('JL1_paired_one_sided_p_below_005_and_fewer', 'JL2_adapt_upper_at_most_10pct', 'JL3_false_stops_at_most_3')) else 'do not all hold'}"
     # ---- study JK (registered: suspicion-triggered extra views in the closed loop at the depot, on GM's worlds; I-107); macros exist only once jk_summary.json exists
     jkf_ = RES / 'jk_summary.json'
     if jkf_.is_file():
