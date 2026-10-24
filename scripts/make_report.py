@@ -920,6 +920,16 @@ def judge_box(D, E, V, compact=False):
                  '残る誤りは物資の陰の小さな火なので、<b>横へ0.4 m動いて</b>見直す。',
                  '<b>新しさ</b>：記憶・他のロボット・依頼文・在庫表は<b>「助言」</b>とし、確認の順番と慎重さを変えるだけで、確認は決して省けない。'
                  'どんな助言でも、危険な配達は確認自身の誤り以下に収まる。']
+        jk_, jl_ = jload('jk_summary.json'), jload('jl_summary.json')
+        if jk_:     # I-129: the strongest closed-loop number of the look-around line belongs on page 1 (JL, its fresh-world replication, worded for either outcome)
+            ja_, jv_ = jk_['arms']['adapt']['fire'], jk_['arms']['v36']['fire']
+            t_ = (f"<b>さらに</b>：雑多な倉庫で、疑わしいときだけ左右0.8 mからも撮り直すと、火への配達は <b>{jv_['k']}/{jv_['n']} → {ja_['k']}/{ja_['n']}</b>（評価JK、較正なし、火のない世界の誤停止 "
+                  f"{jk_['arms']['adapt']['fire_free']['k']}/{jk_['arms']['adapt']['fire_free']['n']}）。")
+            if jl_:
+                la_, lv_ = jl_['arms']['adapt']['fire'], jl_['arms']['v36']['fire']
+                t_ += (f"新しい世界で同時に比べた再試験（JL）でも {lv_['k']}/{lv_['n']} → {la_['k']}/{la_['n']}。" if jl_['criteria']['JL1_paired_one_sided_p_below_005_and_fewer']
+                       else f"新しい世界で同時に比べた再試験（JL）では {lv_['k']}/{lv_['n']} と {la_['k']}/{la_['n']} で、差は確かめられなかった。")
+            lines.insert(2, t_)
         sf, cf = advice_numbers.smt_facts(), advice_numbers.credit_facts()
         if sf:      # I-23 / I-24: what is new since the first version of this principle (numbers from the result files)
             lines.append(f"<b>新しい成果</b>：この保証を、実装そのものに対して<b>機械検証</b>した（z3 {sf['unsat']}件、突き合わせ {sf['cases']:,}件で不一致 {sf['disagreements']}、"
