@@ -7,6 +7,11 @@
 
 ---
 
+## ★★★★ 2026-10-25 03:45：JL・IJ 取り込み済み（ingest_check 0）、JM 走行中（39/240、約 3 分/回、終了 14:00 ごろ）→ 撮影（film_jk.sh、ロック待ち）
+
+* **JL**：JL1〜JL3 成立（13/98 → 3/100、p=0.00049、誤停止 0/31）。**IJ**：IJ1・IJ3 成立、IJ2 不成立（AUROC 0.977、だが閾値が未見の地名に移らず 91% 素通り）。失敗した主張は 22 件、すべて trial_chain に配置済み。
+* **JM が終わったら**：`docs/FINAL_PLAN.md` 手順 1（JM の取り込み、`python3 scripts/ingest_check.py JL IJ JM` を 0）→ 撮影結果を `film_jk_runs.txt` で確認 → `bash scripts/rebuild_docs.sh` → 動画 v14 → `bash scripts/final_check.sh`。
+
 ## ★★★ 2026-10-25 00:xx：JL 完了（JL1〜JL3 成立：火へ配達 v3.6 13/98 → 追加視点 3/100、上限 7.6%、片側 p=0.00049、誤停止 0/31、時間 +1.9 s、失敗 5、監査 0）。撮影 → IJ → JM が自動で続く。次：FINAL_PLAN 手順 1 で JL を取り込み（`jl_section.draft.tex` → `jl_section.tex` と Reading、FINDINGS、I-115 Result、TRIAL_AND_ERROR）、`python3 scripts/ingest_check.py JL` を 0 に。
 
 ## ★★ 最優先：`docs/FINAL_PLAN.md`（2026-10-24 ユーザーと合意）
