@@ -1890,23 +1890,9 @@ def main():
         r = subprocess.run(['git', *a], cwd=ROOT, capture_output=True, text=True)
         return r.stdout.strip(), r.returncode
     AMEND_RX = re.compile(r'^(?:\*\*|## )Amendment (\d+)[^\n(]*\(', re.M)    # headings only; a cross-reference ('Amendment 2 of W') is not an amendment
-    studies = [('C (v3.3)', 'PREREGISTRATION_v33.md', 'campaign_ledger.jsonl'), ('D (v3.4)', 'PREREGISTRATION_v34.md', 'campaign_D_ledger.jsonl'),
-               ('T1', 'PREREGISTRATION_T1.md', 'devset_t1_qwen35_9b.json'), ('E', 'PREREGISTRATION_E.md', 'campaign_E_ledger.jsonl'),
-               ('T2', 'PREREGISTRATION_T2.md', 'devset_t2_i11_h36_tiles.json'), ('F', 'PREREGISTRATION_F.md', 'campaign_F_ledger.jsonl'),
-               ('G', 'PREREGISTRATION_G.md', 'campaign_G_ledger.jsonl'), ('R', 'PREREGISTRATION_R.md', 'devset_r_gaussian_noise_M.json'),
-               ('H', 'PREREGISTRATION_H.md', 'campaign_H_ledger.jsonl'), ('J', 'PREREGISTRATION_J.md', 'campaign_J_ledger.jsonl'), ('L', 'PREREGISTRATION_L.md', 'campaign_L_ledger.jsonl'),
-               ('V', 'PREREGISTRATION_V.md', 'v_summary.json'), ('W', 'PREREGISTRATION_W.md', 'w_summary.json'),
-               ('Z', 'PREREGISTRATION_Z.md', 'z_summary.json'), ('K', 'PREREGISTRATION_K.md', 'k_summary.json'), ('P', 'PREREGISTRATION_P.md', 'p_summary.json'), ('P2', 'PREREGISTRATION_P2.md', 'p2_summary.json'),
-               ('A', 'PREREGISTRATION_A.md', 'a_summary.json'), ('S', 'PREREGISTRATION_S.md', 's_summary.json'),
-               ('X', 'PREREGISTRATION_X.md', 'x_summary.json'), ('XD', 'PREREGISTRATION_XD.md', 'xd_summary.json'),
-               ('Q', 'PREREGISTRATION_Q.md', 'q_summary.json'),
-               ('B', 'PREREGISTRATION_B.md', 'b_summary.json'), ('IF', 'PREREGISTRATION_IF.md', 'if_summary.json'),
-               ('IF2', 'PREREGISTRATION_IF2.md', 'if2_summary.json'), ('Y', 'PREREGISTRATION_Y.md', 'y_summary.json')]
-    # I-130: the studies registered after Y (YE ... JM) were missing from Table S9; take them from the registration ledger's list so the two cannot drift apart
-    sys.path.insert(0, str(ROOT / 'scripts'))
+    # I-130/I-136: every registered study, from the registration ledger's list (a hand list here stopped at Y and left 19 studies unaudited)
     import make_registrations as _mr
-    _seen = {x[0] for x in studies}
-    studies += [(lab, f'PREREGISTRATION_{key}.md', res) for lab, key, res in _mr.STUDIES if lab not in _seen]
+    studies = [(lab, f'PREREGISTRATION_{key}.md', res) for lab, key, res in _mr.STUDIES]
     main_ref = 'main' if git('rev-parse', '--verify', '-q', 'main')[1] == 0 else 'HEAD'
 
     def first_commit(path):          # first commit that added the file (hash date)

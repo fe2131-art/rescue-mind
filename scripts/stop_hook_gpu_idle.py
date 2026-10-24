@@ -29,6 +29,15 @@ REASON_WATCH = ("STOP REFUSED: jobs are running but no visible background task w
                 "Start `bash scripts/bg_watch.sh` with Bash run_in_background now (it ends, and notifies, when the queue ends), then continue or end the turn. Blocks so far: {n}/{max}.")
 
 
+REASON_COVERAGE = ("STOP REFUSED (I-136): a registered study is missing from an audit artifact or a script keeps a hand-written study list: {p}. "
+                   "Fix it now (derive the list from scripts/make_registrations.STUDIES, regenerate with the command shown), re-run `python3 scripts/check_study_coverage.py` until it prints 0, commit, then continue.")
+
+
+def coverage_problems() -> list:
+    r = subprocess.run([sys.executable, str(ROOT / 'scripts/check_study_coverage.py')], capture_output=True, text=True, timeout=60)
+    return [x[len('COVERAGE: '):] for x in r.stdout.splitlines() if x.startswith('COVERAGE: ')]
+
+
 def watched() -> bool:
     return subprocess.run(['pgrep', '-f', r'^bash scripts/bg_watch\.sh$'], capture_output=True, timeout=30).returncode == 0
 
@@ -65,6 +74,13 @@ def main() -> int:
         pass
     try:
         state = json.loads(STATE.read_text()) if STATE.is_file() else {}
+        cov = coverage_problems()       # I-136: an audit table that silently misses registered studies blocks the end of the turn
+        if cov and int(state.get('cov_blocks', 0)) < MAX_BLOCKS:
+            STATE.write_text(json.dumps({**state, 'cov_blocks': int(state.get('cov_blocks', 0)) + 1}))
+            log(f'BLOCK coverage {cov[:2]}')
+            print(json.dumps({'decision': 'block', 'reason': REASON_COVERAGE.format(p='; '.join(cov[:5]))}, ensure_ascii=False))
+            return 0
+        state = {k: v for k, v in state.items() if k != 'cov_blocks'}
         i = idle()
         out, new = decide(i, state, is_watched=True if i else watched())
         STATE.write_text(json.dumps(new))
