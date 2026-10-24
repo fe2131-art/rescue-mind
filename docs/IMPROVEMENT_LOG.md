@@ -1339,3 +1339,9 @@
 * **Hypothesis.** A reader who sees only the first screen should see the best registered closed-loop result, described as it was run.
 * **Change.** `update_readme_results.section_key`: first-screen keys E, G, A, GR, JK, JL (when it exists), T1; GL moves into the collapsed list (unchanged). JK row: "左右0.8 mから撮り直す方式（…手前の視点は予行で外した）". README regenerated.
 * **Before → After.** First screen: GL → JK (+ JL when done); JK's description: wrong (near pose) → as run.
+
+## I-133 (2026-10-24) The paper body states JK (and JL by rule) and the destination failure, not only the abstract
+* **Motivation.** The abstract reports the extra views (JK, 14/100 → 3/100), but the body never mentioned JK: a reviewer would find an abstract claim with no sentence in the eight pages behind it. The body's limits paragraph also said only "the requested supply" is outside Prop. 2, although IG showed unlisted destinations read as shelter B.
+* **Hypothesis.** One clause each in the existing Limits paragraph (macros from the summaries, JL inert until its section exists) closes both gaps at a cost of about two lines.
+* **Change.** `main.tex` Limits: "...and extra views taken only when the gate is suspicious cut them from \JKV to \JKAdapt without calibration (JK, p, false stops; JL clause by `\IfFileExists`; Supp. Sec. S12)"; "the requested supply and destination ... (unlisted places were read as shelter B in fresh texts: IG, \IGUnsafe unsafe)".
+* **Before → After.** Body sentences on JK: 0 → 1; destination outside the guarantee: unstated → stated with IG's number. Page budget (8 pages, references on page 9) to be checked at the next build.
