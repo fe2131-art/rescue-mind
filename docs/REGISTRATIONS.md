@@ -48,9 +48,9 @@ Verify any row: `git log 587f033^1 --first-parent --format='%h %cI' --diff-filte
 | GV | `f6310cc` 2026-10-21T08:12 | `de478aabd72cd221` | `76f7920` 2026-10-21T13:00 | `de478aabd72cd221` | yes | `f6310cc` 2026-10-21T08:12 | `de478aabd72cd221` (= bound) |
 | JH | `7c7d6ce` 2026-10-21T22:50 | `2ee6d73e1791e9b9` | `a323a3f` 2026-10-22T12:20 | `2ee6d73e1791e9b9` | yes | `7c7d6ce` 2026-10-21T22:50 | `2ee6d73e1791e9b9` (= bound) |
 | GL | `e075bd5` 2026-10-22T00:14 | `bf31c565f9b21c84` | `318b848` 2026-10-22T23:39 | `bf31c565f9b21c84` | yes | `e075bd5` 2026-10-22T00:14 | `bf31c565f9b21c84` (= bound) |
-| QI | `b691593` 2026-10-22T20:58 | `909586248325770b` | `ddff91f` 2026-10-23T07:02 | `d320856ba854aee0` | yes | `9cf2574` 2026-10-23T05:45 | `d320856ba854aee0` |
+| QI | `b691593` 2026-10-22T20:58 | `909586248325770b` | `ddff91f` 2026-10-23T07:02 | `d320856ba854aee0` | yes | `9cf2574` 2026-10-23T05:45 | `a76fa270db9576fa` + erratum |
 | QJ | `2e63722` 2026-10-23T07:45 | `590f69618f9da1c8` | `f3e00a3` 2026-10-23T11:20 | `ed751cb4d84f677e` | yes | `4990c94` 2026-10-23T10:10 | `ed751cb4d84f677e` |
-| GM | `257ada2` 2026-10-23T09:26 | `b1900005f5156076` | `2e944c8` 2026-10-23T18:44 | `2a0654c857b25c1b` | yes | `e3fa4a1` 2026-10-23T12:21 | `2a0654c857b25c1b` |
+| GM | `257ada2` 2026-10-23T09:26 | `b1900005f5156076` | `2e944c8` 2026-10-23T18:44 | `2a0654c857b25c1b` | yes | `e3fa4a1` 2026-10-23T12:21 | `459436d3040e7635` + erratum |
 | JI | `94a2e2e` 2026-10-23T12:19 | `bc5d428440d9b11d` | `cd3e7b7` 2026-10-24T05:14 | `bc5d428440d9b11d` | yes | `94a2e2e` 2026-10-23T12:19 | `bc5d428440d9b11d` (= bound) |
 | IG | `e464ff1` 2026-10-23T15:53 | `48b208df5bead9ec` | `2e944c8` 2026-10-23T18:44 | `48b208df5bead9ec` | yes | `e464ff1` 2026-10-23T15:53 | `48b208df5bead9ec` (= bound) |
 | JC | `08099fc` 2026-10-23T16:08 | `962703082202c7d4` | `cd3e7b7` 2026-10-24T05:14 | `962703082202c7d4` | yes | `08099fc` 2026-10-23T16:08 | `962703082202c7d4` (= bound) |
@@ -62,7 +62,7 @@ Verify any row: `git log 587f033^1 --first-parent --format='%h %cI' --diff-filte
 
 ## Amendments
 
-One row per `Amendment` heading in a registration file (the rows of the amendments table of the paper supplement, `docs/paper/tab_amend.tex`, plus the unnumbered ones). "Commit" is the oldest commit that introduced the heading; its git time is the binding time. "Text date" is what the heading itself says. Where that is later than the commit time, the commit time is the binding one and the file ends with an appended `Erratum (times)` that says so (studies: T1, T2, W, A, B). The last column asks whether the amendment commit precedes the study's first results commit.
+One row per `Amendment` heading in a registration file (the rows of the amendments table of the paper supplement, `docs/paper/tab_amend.tex`, plus the unnumbered ones). "Commit" is the oldest commit that introduced the heading; its git time is the binding time. "Text date" is what the heading itself says. Where that is later than the commit time, the commit time is the binding one and the file ends with an appended `Erratum (times)` that says so (studies: T1, T2, W, A, B, QI, GM). The last column asks whether the amendment commit precedes the study's first results commit.
 
 | study | amendment | commit, time (JST) | text date | text vs commit | first results commit | amendment precedes first results |
 |---|---|---|---|---|---|---|
