@@ -1430,3 +1430,8 @@
 * **Motivation.** FINAL_PLAN §2 requires each weakness to be stated, not left for a reviewer to find. Two were not in the main text: only one VLM runs in the closed loop, and Proposition 2's mathematics is a plain union bound.
 * **Change.** `main.tex`: "The guarantee is relative, and its mathematics is elementary (a union bound over checks); what is new is the design constraint that makes it hold for any advice, and that we machine-check it with z3 ..."; Limits: "(one frozen VLM in the closed loop, other models compared on development images only, and a second judge model did not help: J, JH; ...)". FINAL_PLAN rows marked done.
 * **Before → After.** Weaknesses of FINAL_PLAN stated in the body: 3 of 5 (fire/RGB, read-back, many studies via the chain) → 5 of 5. About two lines; page budget checked at the next build.
+
+## I-151 (2026-10-24) Submission checklist covers the user's two missing steps, with the side effect of a history rewrite
+* **Motivation.** Two of the user's standing tasks (removing personal paths from git history, the excellent-student form) had no written procedure; and a history rewrite has a consequence nobody had written down: every commit hash changes, while the registration audit (Tables S9/S10, REGISTRATIONS.md) and the OpenTimestamps proofs refer to commit hashes.
+* **Change.** `docs/SUBMISSION_CHECKLIST.md`: section 1b (current state: 0 occurrences at HEAD, 10 commits in history; how to remove; the side effect and what must be regenerated; the two options for the user to choose) and section 6 (excellent-student form); the flow line lists both. FINAL_PLAN item updated.
+* **Before → After.** User steps documented: 4 of 6 → 6 of 6; the hash side effect of a rewrite: unstated → stated before the user decides.
