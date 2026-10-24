@@ -7,6 +7,16 @@
 
 ---
 
+## ★ 最新（2026-10-24 11:30、セッション圧縮時点）：GPU は JL → IJ → JM の順に待機・走行、文献調査は4ラウンド完了（I-94〜I-121）
+
+* **今日までに反映済み（コミット済み）**：GM（GM1〜GM3 成立）、IG（IG1 不成立）、IH（IH1 不成立）、JI（JI1〜JI4 成立、6視点 3/120 対 3視点 13/120）、JC（JC1 不成立）、JK（JK1〜JK3 成立、火へ配達 14→3/100、誤停止 0/32、Amendment 1〜4）。FINDINGS 56件、**失敗した主張は21件**（…QI3c・JC1・IH1・IG1）。論文要旨 197語（GM・JK入り）、本文は8頁以内、動画 v13（2:52.7）、`bash scripts/final_check.sh` 全項目 PASS（その後の JL 準備・文献追加の分はビルド未実施）。旧動画は `outputs/video/_v12_backup.mp4`。
+* **走行・待機中（すべてバックグラウンド、`flock /tmp/rescuemind_campaign.lock`、順不同）**：`bash scripts/jl_run.sh`（JK の再現：新しい世界・v36 と adapt を交互・264試行、約12時間。いま候補マスク作成 90/132 → 選択と拘束コミット（自動）→ OTS → 本番 → 解析、`JL_DONE` を待つ）、`bash scripts/ij_run.sh`（未知の行き先の隠れ層探針、約15分、`IJ_DONE`）、`bash scripts/jm_run.sh`（煙の有無の双子による対の煙アブレーション、240試行、約11時間、`JM_DONE`）、`bash scripts/bg_watch.sh`（常に1つ。`idle_check.sh` のパターンに jl/ij/jm を追加済み）。**走行中は論文・説明資料・動画のビルドと全テストを禁止**（CPU が重い処理は GPU 研究の合間でなくキャンペーンの空きにする）。登録済みファイルと `*_run.sh` は各研究の実行前は編集禁止。
+* **結果が出たら（各研究共通）**：`*_summary.json` を読む → 失敗した主張フック・論文マクロ・README 行・YouTube 行は準備済み（JL・IJ・JM は IJ/JM のフック・マクロ・README 行が**未準備**：JL は準備済み、IJ と JM は IH/JK と同様に作る）→ `docs/paper/*_section.draft.tex` をコピーして Reading を書く（JL は `jl_section.draft.tex` あり、IJ・JM は新規）→ FINDINGS #57〜、TRIAL_AND_ERROR、IMPROVEMENT_LOG の Result、HANDOFF の件数 → `bash scripts/rebuild_docs.sh` → 動画（証拠カードの JK を JK・JL にするか判断、再生成コマンドは下の「動画」）→ `bash scripts/final_check.sh`（全実行）→ `update_submission_facts.py`。論文の要旨（197語、上限200）に JL を足すなら既存の語を削る。
+* **今日の文献調査（Haiku サブエージェント、ユーザーの明示依頼。メモリに例外として記録済み）**：4ラウンド × 5分野、約100本を再確認して引用（補足資料に節を追加、`docs/paper/LITERATURE_SCAN_2026-10.md` の追補 (b)〜(e)）。**スカウトの出力は未検証の情報として扱い、引用前に必ず arXiv 要旨ページで再取得する**。ユーザーは「まだありそうならもっと調査」と言っている：Round 5 は未起動（候補：音声認識の誤りと読み返しのユーザー実験、煙の密度、保守的な知覚モデル、ROS 2 の安全層）。
+* **事後の解析（CPU のみ、補足資料に反映済み）**：`multiplicity.py`（12件中 補正前7・Holm後6・BH7、GM は Holm で落ちる）、`diversity_measures.py`、`size_vs_hidden.py`（隠れた火は小さな火と切り分けられない）、`permutation_agreement.py`、`smoke_strata.py`。
+* **ユーザーに伝えてあること**：動画 v13 の確認がまだ（確認してから YouTube へ）、GitHub Actions は課金設定で赤、読み返しのユーザー実験は未実施（被験者が要る）、実写は見送り。
+* **整合性**：`check_consistency.py` の不一致は説明資料（PDF）の件数表記だけのはず（テスト 1665 件）。JL 終了後に `rebuild_docs.sh` で解消。
+
 ## ★ 最新（2026-10-24 11:00）：JK 反映済み・動画 v13 完成・最終確認 `fails=0`、JL（JK の再現、新しい世界、同時期の対照）が走行中（I-107〜I-116）
 
 * **完了（今日）**：JK（JK1〜JK3 成立、火へ配達 14→3/100、誤停止 0/32）、論文の要旨に GM と JK（197語）、FINDINGS 56件、動画 v13（2:52.7、証拠カードに JI・JK、冒頭に「災害現場へ物資を届けるロボット」）、`bash scripts/final_check.sh` 全項目 PASS。旧動画は `outputs/video/_v12_backup.mp4`。**ユーザーが v13 を確認してから YouTube へ**。失敗した主張は21件のまま。
@@ -288,7 +298,7 @@
 | Q（Wikimedia Commons 405 枚） | 実写の物資確認 | 登録済み・**未実行**（GPU 約 40 分。W の後の連鎖が .gitignore の衝突で止まり、一度も走っていない） |
 
 * 登録済み 7 本（A・B・IF・Q・S・X・XD）は統合マージ 09:08 で main に載り、A の予備走行が 09:14 に始まった時点で、IF・S・B・XD・X・Q は試行も推論もしていない。これらの登録ファイルには「DRAFT」の行が残るが、拘束力のある版は `docs/REGISTRATIONS.md` の表の版（ファイルは変えない。変更は日付とコミットつきの Amendment で追記する）。
-* テスト関数は 1652 件（`python3 scripts/count_tests.py` の静的な数え方）。FINDINGS は 56 件。
+* テスト関数は 1665 件（`python3 scripts/count_tests.py` の静的な数え方）。FINDINGS は 56 件。
 
 ### D. GPU の順番と、その動かし方
 
