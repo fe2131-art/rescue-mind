@@ -548,6 +548,9 @@ def main():
     import check_study_coverage as _cov
     _cp = _cov.problems()
     extra.append(('study coverage: every registered study in Tables S9/S10, REGISTRATIONS.md and README; no hand-written study list', 'MISMATCH' if _cp else 'ok', '; '.join(_cp[:3])))
+    import check_bib as _bib      # I-139: no paper under two keys, no key twice, every cited key defined
+    _bp = _bib.problems()
+    extra.append(('references.bib: no duplicate entry, every cited key defined', 'MISMATCH' if _bp else 'ok', '; '.join(_bp[:3])))
     # ------------------------------------------------------------------ print
     w0 = max(len(r[0]) for r in rows) + 2 if rows else 10
     print(f"{'fact':<{w0}}{'expected':<28}{'README':<10}{'YouTube':<10}{'macro':<10}{'report':<10}")
