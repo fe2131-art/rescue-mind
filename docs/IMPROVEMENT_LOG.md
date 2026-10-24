@@ -1221,3 +1221,6 @@
 - **Motivation:** after I-110 the description still lacked the registered results of the last day, among them two failed claims (JC1, IH1) and the study that says what works instead (JI). Omitting the failures while listing the successes would break the honesty rule.
 - **Change:** `line_views` in `scripts/make_youtube_description.py` (numbers from `ji_summary.json`, `ji_cascade_summary.json`, `ih_summary.json`, and `jk_summary.json` once it exists; outcome-neutral wording).
 - **Before / After:** 4,633 -> 4,817 characters without JK (limit 5,000, measured as `final_check.sh` does); the JK line adds about 110 characters, so the final margin is about 70 characters: if JK pushes it over, shorten the GM/IG lines, not the failed-claim wording. `tests/test_youtube_description.py` passes (8).
+
+## I-107 Amendment 4 (2026-10-24): P3 of JK implemented as registered (clerical, disclosed)
+- The analysis counted a triggered mission as complete only when both extra poses were taken; the registered text also allows ending in a hazard refusal. The six missions that stopped after L2 all ended in DENY_HAZARD (those are catches). Only P3 changes (descriptive); all other fields are identical (compared). Disclosed in the registration (Amendment 4) and stamped.
