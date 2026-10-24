@@ -1333,3 +1333,9 @@
 * **Hypothesis.** Deriving both from `make_registrations.STUDIES` (which asserts that every registration file has an entry) and calling a study "running" when its campaign ledger exists without a summary makes both lines true now and after every new registration.
 * **Change.** `make_report.STUDY_FILES` and `update_readme_results.waiting_studies` from the ledger's list; report: running = ledger without summary. README regenerated.
 * **Before → After.** Report status: 25 studies, "running V" (false) → 44 studies, "結果あり 41・実行中 JL・実行待ち IJ・JM" (previewed in `rm-dev`). README intro: no waiting studies → "結果待ちのJL・IJ・JM".
+
+## I-132 (2026-10-24) README first screen: the extra views (JK) replace GL; JK's row describes the configuration actually run
+* **Motivation.** The README's first screen showed GL (left-only 0.8 m with a site-calibrated threshold, 20 → 6 of 120) but not JK (extra views triggered by suspicion, 14 → 3 of 100, no calibration, 0/32 false stops), the stronger and simpler result. JK's row also said the extra views came "from left and right 0.8 m and from near", although the near pose was dropped by JK's Amendment 2 before any trial (`--adaptive-near 0`).
+* **Hypothesis.** A reader who sees only the first screen should see the best registered closed-loop result, described as it was run.
+* **Change.** `update_readme_results.section_key`: first-screen keys E, G, A, GR, JK, JL (when it exists), T1; GL moves into the collapsed list (unchanged). JK row: "左右0.8 mから撮り直す方式（…手前の視点は予行で外した）". README regenerated.
+* **Before → After.** First screen: GL → JK (+ JL when done); JK's description: wrong (near pose) → as run.
