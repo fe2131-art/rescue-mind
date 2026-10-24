@@ -1502,3 +1502,7 @@
 * **Motivation.** If a JM claim fails, `trial_chain.py` would report it as unplaced and the final check would fail at the last step; writing the step after seeing the result would also invite a favourable wording.
 * **Change.** A step for JM1-JM3 worded for any failure ("part of the registered predictions about the smoke plume did not hold → reported as a limit with its numbers; no further experiment"). It appears only if a JM claim fails.
 * **Before → After.** JM failures: unplaced at the final check → placed by a rule fixed before the result.
+
+## I-164 (2026-10-25) JM's Reading fixed for both outcomes before the result
+* **Change.** `jm_section.draft.tex`: comment block with the Reading for JM1 holding or failing and for JM2 either way, written while JM runs (141/240), so the final text is chosen by the result, not written around it.
+* **Before → After.** JM interpretation: to be written after the numbers → pre-committed wordings in the repository history.
