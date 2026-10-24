@@ -722,6 +722,15 @@ def xd_ja(none=None):
             f"閾値の再較正は登録の基準（較正の再現率0.95）を満たす閾値が無く不成立（0.05 での再現率 {f['recall']:.0f}%）" + xdr_result_ja())
 
 
+def xd_short_ja(none=None):
+    """One-line form of xd_ja for the YouTube description (I-152: the full form was 508 characters of a 5000-character budget)."""
+    f = xd_facts()
+    if not f:
+        return none
+    return (f"倉庫（4拠点）の画像 {f['nworlds']} 世界：見逃し 正面のみ {f['front']} → 見回し {f['la']}。"
+            f"難しい火（小さく半分隠れた炎）は {f['hard_la']}（上限 {f['hard_upper']:.1f}%）で、登録した上限15%は不成立（評価XD）")
+
+
 def xdr_result_en():
     r = _load('xd_real_summary.json')
     try:

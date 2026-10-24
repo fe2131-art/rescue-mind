@@ -273,7 +273,7 @@ def line_w(res):
 
 def line_xd(res):
     """Studies XD (depot images) and Q (real photographs): failed registered claims stated with their numbers."""
-    xd, q = advice_numbers.xd_ja(), advice_numbers.q_ja()
+    xd, q = advice_numbers.xd_short_ja(), advice_numbers.q_ja()      # I-152: short form keeps room under the 5000-character limit
     return '\n'.join(('・' + t) for t in (xd, q) if t) or None
 
 

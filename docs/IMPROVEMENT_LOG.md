@@ -1435,3 +1435,8 @@
 * **Motivation.** Two of the user's standing tasks (removing personal paths from git history, the excellent-student form) had no written procedure; and a history rewrite has a consequence nobody had written down: every commit hash changes, while the registration audit (Tables S9/S10, REGISTRATIONS.md) and the OpenTimestamps proofs refer to commit hashes.
 * **Change.** `docs/SUBMISSION_CHECKLIST.md`: section 1b (current state: 0 occurrences at HEAD, 10 commits in history; how to remove; the side effect and what must be regenerated; the two options for the user to choose) and section 6 (excellent-student form); the flow line lists both. FINAL_PLAN item updated.
 * **Before → After.** User steps documented: 4 of 6 → 6 of 6; the hash side effect of a rewrite: unstated → stated before the user decides.
+
+## I-152 (2026-10-24) YouTube description: room for the last three studies under the 5000-character limit
+* **Motivation.** A dry run while waiting showed the description at 4869 of 5000 characters; the JL, JM and IJ lines (about 300 characters) would push it over at the final step, when there is least time to fix it. The depot line alone (XD) took 508 characters.
+* **Change.** `advice_numbers.xd_short_ja` (one line: front-only vs look-around misses, the hard-class result and the failed 15% bound) used by `make_youtube_description.line_xd`; README and report keep the full form. Description regenerated.
+* **Before → After.** 4869 → 4463 characters (room 537 for the three pending lines).
