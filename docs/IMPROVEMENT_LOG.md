@@ -1476,3 +1476,7 @@
 * **Motivation.** The body's limits sentence said only that unlisted places were read as shelter B (IG); IJ, the registered attempt to fix it, now has a result that a reviewer should see where the problem is stated.
 * **Change.** `main.tex` Limits: "a probe on the parser's hidden states separates them, AUROC \IJProbeAuroc, but its threshold did not transfer to unseen place names: IJ, \IJProbePass passed" (macros from `ij_summary.json`).
 * **Before → After.** IJ in the body: absent → one clause with its failed claim visible.
+
+## I-158 (2026-10-25) Reviewer answers in the literature summary carry JL and IJ
+* **Change.** `LITERATURE_SUMMARY.md` §3: two answers added, "JK's effect is not an artefact of reused worlds (JL 13/98 → 3/100, 0/31)" and "the hidden state separates unlisted places (IJ AUROC 0.977) but the development threshold does not transfer (91% pass, IJ2 fails), the probing literature's transfer warning in a small registered test".
+* **Before → After.** Reviewer answers: 5 → 7, both backed by registered results.
