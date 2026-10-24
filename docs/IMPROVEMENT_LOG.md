@@ -1506,3 +1506,8 @@
 ## I-164 (2026-10-25) JM's Reading fixed for both outcomes before the result
 * **Change.** `jm_section.draft.tex`: comment block with the Reading for JM1 holding or failing and for JM2 either way, written while JM runs (141/240), so the final text is chosen by the result, not written around it.
 * **Before → After.** JM interpretation: to be written after the numbers → pre-committed wordings in the repository history.
+
+## I-165 (2026-10-25) Omission audit before the final build: QJ was missing from the YouTube description
+* **Motivation.** The user asked whether anything of the last weeks is left out. `ingest_check.py` run over every finished study (not only JL, IJ, JM) found one real gap: QJ (text-to-image scenes, QJ1-QJ3 hold) appeared in README and paper but not in the YouTube description. The other hits were false positives of older studies integrated inline in `supplement.tex` (no separate section file) and logged under other headings.
+* **Change.** `make_youtube_description.line_qi`: a QJ line from `qj_summary.json` (false stops, large and small fire misses, the caveat that generated fires were mostly visible and the images are not real photographs). An uncommitted stray edit of `docs/design/qj_plan.md` reverted.
+* **Before → After.** Studies with results named in the YouTube description: QJ missing → present; description 4,569 → about 4,670 characters.

@@ -409,6 +409,13 @@ def line_qi(res):
         out.append(f"・画像生成AI（Qwen-Image）で作った画像を凍結したゲートで採点（評価QI）：シミュレータ画像を写実化すると見逃しが {b['k']}/{b['n']}→{r['k']}/{r['n']}（登録した線は20）で不成立、誤停止は {q['R']['false_stops']['k']}/{q['R']['false_stops']['n']} で成立。描き足した火は {g['n_excluded']}/{g['n_generated']} 枚が炎の色を持たず停止規則で止まった。弱点として報告")
     except (TypeError, KeyError):
         pass
+    qj = jload(Path(res) / 'qj_summary.json')      # I-165: QJ was missing from the description
+    try:
+        ok = all(qj['claims'].values())
+        out.append(f"・テキストだけで生成した新しい倉庫の場面（評価QJ）：火なしの誤停止 {qj['N0']['false_stops']['k']}/{qj['N0']['false_stops']['n']}、大きな火の見逃し {qj['NB']['all']['k']}/{qj['NB']['all']['n']}、"
+                   f"小さな火の見逃し {qj['NF']['all']['k']}/{qj['NF']['all']['n']}で{'成立' if ok else '一部不成立'}（生成画像で実写ではなく、生成した火の多くは見える位置）")
+    except (TypeError, KeyError):
+        pass
     return '\n'.join(out)
 
 
