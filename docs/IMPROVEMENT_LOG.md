@@ -1410,3 +1410,8 @@
 * **Change.** GM section: single-factor robustness analyses (LIBERO-Plus, LANCE, CounterAnimal). Safety-architecture paragraph: responsible refusal and meaningful human control (refusals carry their reason; the robot never overrides itself, a person can), recovery after a failed precondition and graceful degradation as the background of our opt-in continuation Y. Threats (internal): non-determinism of LLM inference and drift of hosted models, answered by one frozen open checkpoint and recorded calls. Advice paragraph: consensus with own perception in collaborative perception.
 * **Record.** Scan addendum (n); summary: five new rows, header counts (rounds 6-13, 120 verified papers, 372 references).
 * **Before → After.** References 359 → 372; check_bib 0, coverage 0.
+
+## I-147 (2026-10-24) README points to the literature positioning; HANDOFF records the two incidents and their checks
+* **Motivation.** The literature summary (I-143) and the novelty verdicts (I-144) were invisible from the README a judge reads; a resumed session could also miss the two new mandatory checks (coverage, bibliography).
+* **Change.** README「工夫した点」: one paragraph linking `docs/paper/LITERATURE_SUMMARY.md` and stating how citations are verified (`check_bib.py`). HANDOFF top block: incidents I-136/I-139 with their checks, literature status (rounds 6-13 recorded, round 14 running), the queued JK film.
+* **Before → After.** Literature positioning reachable from the README: no → yes; HANDOFF current to 19:45.
