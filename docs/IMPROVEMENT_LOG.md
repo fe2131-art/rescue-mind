@@ -1308,3 +1308,9 @@
 * **Hypothesis.** A row and a spoken sentence fixed now, with one wording if JL1 holds ("新しい世界でも a から b") and another if it fails ("差は確かめられませんでした"), keep the video honest and still under the card's 27 s.
 * **Change.** `make_video_plan.evidence_card`: row "視点を増やす JI・JK・JL" (image, closed loop, fresh worlds; green only if JI, JK and JL all hold) when `jl_summary.json` exists; the spoken headline adds the matching sentence. Checked with a synthetic failing JL: 24.2 s spoken.
 * **Before → After.** JL in the video: absent → rule-based row and sentence (inert until JL ends); spoken evidence 19.1 s → at most 24.2 s.
+
+## I-128 (2026-10-24) The report (説明資料) carries the recent studies: GM, JI, JK (and JL, JM, IG, IH, IJ by rule)
+* **Motivation.** Read as a judge: the report's look-around section stopped at GL, and its inputs table still said the destination was covered by "A (offline)". The strongest recent result (suspicion-triggered extra views, 14 → 3 of 100, JK), its image-level basis (JI) and the destination failures (IG1, IH1) were in the paper and README but not in the document the judges read; the depot figure caption still said "評価は実行予定".
+* **Hypothesis.** One bullet per study, generated from the summaries and worded for either outcome, makes the report match the paper and the video without a manual pass after each result.
+* **Change.** `make_report.py`: `views_items` (GM, JI, JK, JL, JM; each only once its summary exists) after GL in section 4; `dest_items` (IG, IH, IJ) with a heading "依頼文の届け先（命令なので保証の外。出発前の読み返しが必須）" in section 5; inputs table row → "依頼文の物資と届け先 | 保証の外（命令）… 人が読み返す | IF、IF2、IG、IH"; stale caption fixed. Previewed in `rm-dev` (5 items render with the committed numbers).
+* **Before → After.** Report coverage of studies after GL: 0 → GM, JI, JK, IG, IH now (+ JL, JM, IJ when they end); stale statements 2 → 0. Page count to be checked at the next build (main part was 10 pages).
