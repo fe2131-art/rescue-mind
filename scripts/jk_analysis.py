@@ -102,12 +102,13 @@ def analyse(jk_protocol: dict, jk_rows: dict, gm_protocol: dict, gm_rows: dict, 
     if ta is not None and t36 is not None:
         dt = round(ta - t36, 1)
     # mechanics: how often the extra views were reached, triggered and taken (missions that passed the standard views)
-    recs = [adaptive_record(jk_rows.get(t['id'])) for t in jk_protocol['trials']]
+    recs = [dict(adaptive_record(jk_rows.get(t['id'])) or {}, refused=str((jk_rows.get(t['id']) or {}).get('observed_action') or '').startswith('DENY_HAZARD')) if adaptive_record(jk_rows.get(t['id'])) else None for t in jk_protocol['trials']]
     reached = [r for r in recs if r and r['reached_extras_stage']]
     trig = [r for r in reached if r['triggered']]
     full = [r for r in trig if r['extras_taken'] == ['L2', 'R2']]
+    refused_early = [r for r in trig if r['extras_taken'] != ['L2', 'R2'] and r['refused']]      # Amendment 4: P3 as registered: both poses taken OR the mission ended in a hazard refusal
     out['extras'] = {'missions_reaching_the_extras_stage': len(reached), 'triggered': len(trig), 'trigger_share': round(len(trig) / len(reached), 3) if reached else None,
-                     'triggered_with_all_extras_taken': len(full), 'triggered_with_fewer_extras': sorted(len(r['extras_taken']) for r in trig if r['extras_taken'] != ['L2', 'R2'])}
+                     'triggered_with_all_extras_taken': len(full), 'triggered_ended_in_hazard_refusal_before_all_extras': len(refused_early), 'triggered_with_fewer_extras_and_no_refusal': sorted(len(r['extras_taken']) for r in trig if r['extras_taken'] != ['L2', 'R2'] and not r['refused'])}
     P = ok('adapt', False)
     fsa = sum(p['false_hazard_stop'] for p in P)
     out['criteria'] = {
@@ -115,7 +116,7 @@ def analyse(jk_protocol: dict, jk_rows: dict, gm_protocol: dict, gm_rows: dict, 
         'JK2_adapt_upper_at_most_10pct': bool(na) and cp_upper(ka, na) <= JK2_MAX_UPPER, 'JK2_k': ka, 'JK2_n': na, 'JK2_upper95_exact': cp_upper(ka, na),
         'JK3_false_stops_at_most_3': bool(P) and fsa <= JK3_MAX_FALSE_STOPS, 'JK3_false_stops': rate(fsa, len(P)),
         'P1_adapt_not_more_than_left': ka <= kl, 'P2_time_cost_at_most_30s': dt is not None and dt <= P2_MAX_EXTRA_TIME_S, 'time_cost_s': dt,
-        'P3_trigger_share_at_least_70pct_and_all_extras_taken': bool(reached) and len(trig) / len(reached) >= P3_MIN_TRIGGER and len(full) == len(trig)}
+        'P3_trigger_share_at_least_70pct_and_all_extras_taken': bool(reached) and len(trig) / len(reached) >= P3_MIN_TRIGGER and len(full) + len(refused_early) == len(trig)}
     out['audit_failures'] = sum(bool(p.get('audit_failed')) for p in per['adapt'])
     out['trials'] = per['adapt']
     return out
