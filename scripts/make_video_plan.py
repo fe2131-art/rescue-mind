@@ -407,9 +407,35 @@ def depot_kind(run_id):
         return 'other'
 
 
+def jk_line():
+    """The JK result for the extra-views caption, from jk_summary.json (numbers are never typed by hand)."""
+    jk = jload(RES / 'jk_summary.json')
+    try:
+        return f"評価JK：火への配達 {jk['arms']['v36']['fire']['k']}/{jk['arms']['v36']['fire']['n']} → {jk['arms']['adapt']['fire']['k']}/{jk['arms']['adapt']['fire']['n']}。"
+    except (TypeError, KeyError):
+        return ''
+
+
+def extra_view_sides(run_id):
+    """Sides of the 0.8 m extra views (L2, R2) that saw a hazard in a filmed run (I-134: scripts/film_jk.sh); [] when none or unreadable."""
+    try:
+        m = json.loads((ROOT / 'outputs/runs' / run_id / 'mission.json').read_text(encoding='utf8'))
+        return sorted(p['side'] for p in (m.get('look_around') or {}).get('peeks') or [] if p.get('hazard') and p.get('side') in ('L2', 'R2'))
+    except (OSError, ValueError, KeyError, TypeError):
+        return []
+
+
 def depot_texts(run_id):
     """(title, narration, captions) of the depot segment, worded for what the run shows (the video must not claim an event that did not happen)."""
     kind = depot_kind(run_id)
+    if kind == 'side_fire' and extra_view_sides(run_id):      # I-134: JK's extra views found the fire (filmed in a JK world where v3.6 had delivered)
+        return ('倉庫で：疑わしいときは、さらに視点を増やす',
+                {'go': '雑多な倉庫です。この世界では、提出版は火に気づかず配達しました。', 'check': '拠点で現物を確かめます。',
+                 'peek': '正面でも、少し横からでも、火は見えません。ただ、少し疑わしいので、もっと横から撮り直します。',
+                 'after': '遠い横からの写真で、物資の陰の火を見つけました。配達せず、止まって報告します。'},
+                {'go': '現実的な倉庫（評価JKの世界の1つ。提出版はここで火へ配達した）。「{instr}」', 'check': '背景が雑多でも、現物と火・煙を確かめる。',
+                 'peek': '正面と左右0.4 mは「許可」。でも確率が少し高い → 左右0.8 mから撮り直す。',
+                 'after': '0.8 mの横から火を発見 → 停止・報告。' + jk_line()})
     if kind == 'side_fire':
         return ('倉庫でも：横から小さな火を見つけて停止',
                 {'go': '棚や荷物のある、現実的な倉庫です。拠点は4つ。', 'check': '雑多な背景の中でも、拠点で現物を確かめます。',
