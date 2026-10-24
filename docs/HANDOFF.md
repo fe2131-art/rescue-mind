@@ -7,6 +7,13 @@
 
 ---
 
+## ★ 最新（2026-10-24 19:45）：JL 197/264 走行中 → 撮影（film_jk.sh）→ IJ → JM。文献調査 第6〜14回、事故対応 2 件
+
+* **事故（I-136）と再発防止**：登録順の監査（表 S9）が 25/44 研究で止まっていた。`scripts/check_study_coverage.py`（全研究が S9・S10・REGISTRATIONS・README にあるか、手書きの研究一覧が無いか）をテスト・check_consistency・final_check・Stop フックに組み込み済み。研究一覧は `make_registrations.STUDIES` からだけ作る（`study-subset` 印は意図した部分集合）。
+* **参考文献の重複（I-139）**：`scripts/check_bib.py`（同じ鍵・同じ題名・同じ arXiv id、未定義の引用）を同じ 3 か所に。論文を編集したら commit 前に両方を 0 にする。複数手順の commit は `set -e`。
+* **文献調査**：第6〜13回で 120 本を検証して引用（参考文献 372）。まとめは `docs/paper/LITERATURE_SUMMARY.md`（テーマ表・新しさの判定表・査読への答え）、各回の記録は `LITERATURE_SCAN_2026-10.md` の追補 (g)〜(n)。第14回（古い報告、読み返しの他分野の証拠、ROS 閉ループの VLM、続行か停止か、人道物流）は走行中 → 取り込んで追補 (o) とまとめを更新する。
+* **動画の新場面（I-134）**：`scripts/film_jk.sh` がロック待ち（JK の世界 GM041、提出版が火へ配達した世界で追加視点が止める場面）。撮れたら `make_video_plan.py --depot <run>` で倉庫の場面を差し替え、v14 を作る。
+
 ## ★ 最新（2026-10-24 19:00）：JL 走行中（約170/264）→ IJ → JM。待ち時間に審査員目線の整備（I-122〜I-132）
 
 * **結果の取り込みは準備済み（結果を見る前に固定）**：IJ・JM のフック（失敗した主張・論文マクロ・README 行・YouTube 行・補足の下書き `ij_section.draft.tex`／`jm_section.draft.tex`、テスト `tests/test_result_hooks_ij_jm.py`）、JM1 を多重比較の族に追加、要旨・動画・説明資料1頁目・README 先頭に JL の一文（成立／不成立の両方の言い方を固定）。
