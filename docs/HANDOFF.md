@@ -7,6 +7,13 @@
 
 ---
 
+## ★ 最新（2026-10-24 19:00）：JL 走行中（約170/264）→ IJ → JM。待ち時間に審査員目線の整備（I-122〜I-132）
+
+* **結果の取り込みは準備済み（結果を見る前に固定）**：IJ・JM のフック（失敗した主張・論文マクロ・README 行・YouTube 行・補足の下書き `ij_section.draft.tex`／`jm_section.draft.tex`、テスト `tests/test_result_hooks_ij_jm.py`）、JM1 を多重比較の族に追加、要旨・動画・説明資料1頁目・README 先頭に JL の一文（成立／不成立の両方の言い方を固定）。
+* **説明資料**：2頁目の空白を審査基準表で埋めた、GM・JI・JK・IG・IH（JL・JM・IJ は自動）の箇条、研究の状況行は登録台帳から自動。**動画**：まとめの読み上げを4結果に短縮（19 s、JL の一文つき）。**論文**：登録順の監査（表S9・S10）を全44研究へ（41 ✓、NO 0、走行中3）。GM・QI に時刻の正誤表。
+* **導入ガイド**：Q・IF2・IG・IH・A の実測で「結果がまだ無い」を置換、届け先の読み返しを必須に明記。
+* **全部終わったら**：各 `*_section.draft.tex` → `*_section.tex` と Reading、FINDINGS #57〜、`bash scripts/rebuild_docs.sh`（説明資料1頁目の表が2頁目へ押し出されないか・要旨≤200語・本文8頁を確認）→ 動画 v14 → `bash scripts/final_check.sh` → `update_submission_facts.py`。ユーザーには v14 を投稿してもらう。
+
 ## ★ 最新（2026-10-24 11:30、セッション圧縮時点）：GPU は JL → IJ → JM の順に待機・走行、文献調査は4ラウンド完了（I-94〜I-121）
 
 * **今日までに反映済み（コミット済み）**：GM（GM1〜GM3 成立）、IG（IG1 不成立）、IH（IH1 不成立）、JI（JI1〜JI4 成立、6視点 3/120 対 3視点 13/120）、JC（JC1 不成立）、JK（JK1〜JK3 成立、火へ配達 14→3/100、誤停止 0/32、Amendment 1〜4）。FINDINGS 56件、**失敗した主張は21件**（…QI3c・JC1・IH1・IG1）。論文要旨 197語（GM・JK入り）、本文は8頁以内、動画 v13（2:52.7）、`bash scripts/final_check.sh` 全項目 PASS（その後の JL 準備・文献追加の分はビルド未実施）。旧動画は `outputs/video/_v12_backup.mp4`。
