@@ -1544,6 +1544,19 @@ import make_registrations as _mreg  # noqa: E402
 STUDY_FILES = [(lab.split()[0], res) for lab, key, res in _mreg.STUDIES if not lab.startswith('C ')]
 
 
+def story_trials():
+    """I-149: trial and error as a story; every failed claim placed in a step, the outcome of each next study read from the result files (scripts/trial_chain.py)."""
+    import trial_chain
+    rows_ = trial_chain.rows()
+    if not rows_:
+        return []
+    t = [['成立しなかった主張', 'わかったこと', '次の一手', '次の一手の結果']] + [list(r) for r in rows_]
+    return [P('試行錯誤：失敗が次の研究を生んだ', 'h1'),
+            P(f'事前登録した主張のうち{len(trial_chain.failed_keys())}件は成立しなかった。消さずに残し、それぞれ「何がわかったか → 次に何を試したか → どうなったか」でつないだ。'
+              '本方式の中心（見回し、視点の追加、助言は締めるだけ）は、どれも失敗から生まれた。結果は結果ファイルから自動で入る。', 'small'),
+            table(t, [26, 58, 52, 38]), Spacer(1, 3)]
+
+
 def story_limits(D, E, V, SP):
     j, t1 = jload('j_summary.json'), jload('t1_summary.json')
     gp = V['g'] if V else None
@@ -1691,6 +1704,7 @@ def build(account: str, video_url: str | None, repo_url: str):
     s += story_look(V, T, ws)
     s += story_advice(h)
     s += story_outside(sj)
+    s += story_trials()
     s += story_limits(D, E, V, SP)
     M = s
     s = [PageBreak(), _PageMark(), P('付録（詳細・証明・過去の評価・失敗の一覧）', 'h1'),

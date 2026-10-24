@@ -51,7 +51,8 @@ def hand_lists(keys: set) -> list:
         while i < len(lines):              # a window of 8 lines, so a list written over several lines is caught too
             win = '\n'.join(lines[i:i + 8])
             q = set(re.findall(r"'([A-Z][A-Z0-9]{0,3})'", win))
-            if len(q & keys) >= HAND_LIST_MIN and 'study-subset' not in win and 'make_registrations' not in win:
+            ctx = '\n'.join(lines[max(0, i - 8):i + 8])      # a marker just above a long list covers it
+            if len(q & keys) >= HAND_LIST_MIN and 'study-subset' not in ctx and 'make_registrations' not in ctx:
                 bad.append(f'{f.relative_to(ROOT)}:{i + 1}')
                 i += 8
             else:
