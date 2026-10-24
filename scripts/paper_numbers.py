@@ -1713,6 +1713,7 @@ def main():
         m['JKTimeAdapt'], m['JKTimeV'] = f"{ja_['fire']['median_time_s']:.1f}", f"{jv_['fire']['median_time_s']:.1f}"
         ex_ = jk_['extras']
         m['JKReached'], m['JKTriggered'], m['JKAllExtras'] = ex_['missions_reaching_the_extras_stage'], ex_['triggered'], ex_['triggered_with_all_extras_taken']
+        m['JKRefusedEarly'] = ex_['triggered_ended_in_hazard_refusal_before_all_extras']
         m['JKTriggerShare'] = pct(ex_['trigger_share'], 0) if ex_['trigger_share'] is not None else 'n/a'
         m['JKFailed'], m['JKAudit'] = jk_['n_failed'], jk_['audit_failures']
         for name_, key_ in (('One', 'JK1_paired_one_sided_p_below_005_and_fewer'), ('Two', 'JK2_adapt_upper_at_most_10pct'), ('Three', 'JK3_false_stops_at_most_3'),

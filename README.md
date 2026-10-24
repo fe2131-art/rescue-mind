@@ -22,7 +22,7 @@ Physical AI 応用1講座 最終課題 ｜ ROS 2 Jazzy × Gazebo Harmonic × ロ
 | 見回しは閉ループでも火を見つける（評価GR、新しい40世界） | 火へ配達：v3.6 **3/40**（95%上限 18.3%）、見回しなし 21/40（McNemar p=0.00001）、火のない世界の誤停止 0/12。評価Gと合わせて 4/56（上限 15.6%）。画像評価Wの 3/150 より閉ループは高く、横からしか見えない火の見逃しは登録した25%以下の予測を超えた（2/6） | GR1〜GR3：**支持** |
 | 倉庫で左だけ0.8 mの見回しにすると、見逃しは減るか（評価GL、新しい120世界、サイト固有の選択肢） | 火へ配達：v3.6 **20/120**（95%上限 23.3%）、左0.8 m＋較正閾値0.028 **6/120**（上限 9.6%、登録した線10%）。対の比較は v3.6 のみ 16・左のみ 2（片側 McNemar p=0.00066）、火のない世界の誤停止 2/40。効くのは正面から見えない火（側方のみ 16/24 → 3/24）。幾何と閾値を同時に変えた比較で、左のみは箱の向きに依存する。既定は v3.6 のまま | **支持**（GL1〜GL3） |
 
-<details><summary>残りの事前登録した評価 15 件（成立しなかったものも省略せず掲載）</summary>
+<details><summary>残りの事前登録した評価 16 件（成立しなかったものも省略せず掲載）</summary>
 
 | 主張（事前登録した評価） | 結果（すべてシミュレーション） | 状態 |
 |---|---|---|
@@ -37,6 +37,7 @@ Physical AI 応用1講座 最終課題 ｜ ROS 2 Jazzy × Gazebo Harmonic × ロ
 | 左のみ0.8 mの見回しは、現実感の要素を1つ外した倉庫（照明・散らかり・周囲・台）でも効くか（評価GM、新しい100世界、再較正なし） | 火へ配達：v3.6 **14/100**（95%上限 21.0%）、左のみ **5/100**（上限 10.2%、登録した線15%）。対の比較は v3.6 のみ 12・左のみ 3（片側 McNemar p=0.01758）、火のない世界の誤停止 0/32。変種ごとの内訳は補足 | **支持**（GM1〜GM3） |
 | 視点を6つに増やすと見逃しは減るか。拒否権の審判を足すとさらに減るか（評価JI、新しい120世界と火のない双子、画像単位、閾値は凍結） | 見逃し：3視点 **13/120** → 6視点 **3/120**（上限 6.3%）、誤停止 0→0/120。対の比較 p=0.0010。6視点＋InternVL3の拒否権：見逃し 2、誤停止 0。登録した主張JI1〜JI4はすべて成立 | [PREREGISTRATION_JI](experiments/PREREGISTRATION_JI.md)、[結果](experiments/results/ji_summary.json) |
 | 高速な別系統のAI（JEV）を「追加の視点を取りに行くか」だけ決める見張り役にすると、視点を減らして見逃しを保てるか（評価JC、評価JIのスコアを再解析） | 見逃し：常に3視点 13、常に6視点 3、見張り役（smolvlm2）7／120。火のない世界の視点数 平均 3.85（3〜6）、誤停止 0。見張り役の中央値 1.953 秒/画像。画像単位で走行時間は概算 | 成立しなかった主張あり（JC1） |
+| 疑わしいときだけ左右0.8 mと手前から撮り直す方式（追加視点、I-20）は、既定の閾値のまま倉庫で火への配達を減らすか（評価JK、評価GMと同じ100世界、比較相手のGMは別時刻の記録） | 火へ配達：v3.6 **14/100** → 追加視点 **3/100**（95%上限 7.6%、登録した線10%）、火なし世界の誤停止 0/32（線3件）。追加視点は構造上、拒否を増やすだけ | JK1〜JK3：**支持** |
 | 知らない行き先を断る規則で、依頼文の誤受理は減るか（評価IH、新しい依頼文133件、規則は提出版では既定で無効） | 危険な結果：提出版 **19/133** → 規則つき **10/133**（登録した線5件以下）、正当な依頼の受理 53/61（線80%）。別の行き先の依頼の誤受理 19→10/40（リストにない場所を含む） | 成立しなかった主張あり（IH1） |
 | 日本語・英語・音声認識風の新しい依頼文136件を、凍結した依頼解析は正しく読むか（評価IG） | 取り違え・受理すべきでない依頼の受理 **5/136**（登録した線2件以下）、正当な依頼の受理 **80/83**（線80%）。音声認識風 14/15、英語 10/10。聞き返し（拒否）は安全側の誤り | 成立しなかった主張あり（IG1） |
 | テキストだけで生成した新しい場面でも、凍結したゲートは火を見つけるか（評価QJ） | 火なしの誤停止 0/120、大きな火の見逃し 0/120、小さな火の見逃し 0/120（各上限 2.5%）。生成した「隠れた火」の多くは見える位置にあり、ハードクラスの再現ではない。生成画像で実写ではない | QJ1 **支持**、QJ2 **支持**、QJ3 **支持** |
@@ -329,7 +330,7 @@ Qwen3.5-9B（ローカル・V100）、回復探索・状況報告・LLM指示理
 | **「拒否」と「故障」を区別** | 拒否は「拒否イベント＋2.5秒の停止保持＋真値で拠点から動いていない＋bag確定」が揃って初めて成功扱い。VLMがエラーで止まっただけでは成功にしない。 |
 | **sudo不要で再現** | Ubuntu 22.04 ホストでも Docker（ROS 2 Jazzy + Gazebo Harmonic + CUDA PyTorch）で動作。Gazebo は EGL ヘッドレス描画。 |
 
-参考資料：改善の経緯（Before/After）[`IMPROVEMENT_LOG.md`](docs/IMPROVEMENT_LOG.md) ／ 実際に動かして初めて分かった55件の問題と対策 [`FINDINGS.md`](docs/FINDINGS.md) ／ 設計判断 [`DESIGN_DECISIONS.md`](docs/DESIGN_DECISIONS.md) ／ 作業の引継ぎ・現状 [`HANDOFF.md`](docs/HANDOFF.md)。
+参考資料：改善の経緯（Before/After）[`IMPROVEMENT_LOG.md`](docs/IMPROVEMENT_LOG.md) ／ 実際に動かして初めて分かった56件の問題と対策 [`FINDINGS.md`](docs/FINDINGS.md) ／ 設計判断 [`DESIGN_DECISIONS.md`](docs/DESIGN_DECISIONS.md) ／ 作業の引継ぎ・現状 [`HANDOFF.md`](docs/HANDOFF.md)。
 
 ![devset](docs/figures/devset_ablation.png)
 
@@ -364,7 +365,7 @@ bash docker/build.sh                                   # ROS 2 Jazzy + Gazebo Ha
 #    旧環境（v3.3: torch 2.5.1 / transformers 4.53。図・PDF・テスト用の rm-dev）: docker build --build-arg STACK=v33 -t rescuemind:jazzy docker
 # 1) モデル重みを一度だけ取得（以降の実行は HF_HUB_OFFLINE=1）
 HF_HUB_OFFLINE=0 bash docker/run.sh python3 -c "from huggingface_hub import snapshot_download as s; s('Qwen/Qwen3.5-9B')"
-# 2) テスト（テスト関数 1643 件。数え方は静的で `python3 scripts/count_tests.py`。ROS/Gazebo不要の部分はDockerなしでも実行可）
+# 2) テスト（テスト関数 1646 件。数え方は静的で `python3 scripts/count_tests.py`。ROS/Gazebo不要の部分はDockerなしでも実行可）
 bash docker/run.sh python3 -m unittest discover -s tests -q
 # 3) 1回のAIミッション（Gazebo・ブリッジ・ガード・VLMを自動起動、証拠は outputs/runs/<run_id>/）
 V34="--model Qwen/Qwen3.5-9B --prompt-set v35 --intent-backend llm --intent-prompt i35 --recovery --explain"
