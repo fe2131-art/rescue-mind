@@ -7,6 +7,8 @@
 
 ---
 
+## ★★★ 2026-10-25 00:xx：JL 完了（JL1〜JL3 成立：火へ配達 v3.6 13/98 → 追加視点 3/100、上限 7.6%、片側 p=0.00049、誤停止 0/31、時間 +1.9 s、失敗 5、監査 0）。撮影 → IJ → JM が自動で続く。次：FINAL_PLAN 手順 1 で JL を取り込み（`jl_section.draft.tex` → `jl_section.tex` と Reading、FINDINGS、I-115 Result、TRIAL_AND_ERROR）、`python3 scripts/ingest_check.py JL` を 0 に。
+
 ## ★★ 最優先：`docs/FINAL_PLAN.md`（2026-10-24 ユーザーと合意）
 
 * **実験は JL・IJ・JM と JK の撮影で完了。新しい研究は登録しない。** 残りは FINAL_PLAN の「必ずやること」を上から（取り込み → ビルドと 8 頁・200 語・1 頁目の確認 → 動画 v14 → final_check → 提出情報）。
