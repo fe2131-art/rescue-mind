@@ -956,6 +956,24 @@ def failed_claims():
                 ('JL3_false_stops_at_most_3', 'JL3', 'JL3 (extra views on fresh worlds: false stops)', 'JL3 (at most 3 false stops of 32 fire-free fresh worlds)', 'JL3（新しい火のない32世界の誤停止は3件まで）')):
             if not c[key]:
                 out.append(dict(key=name, tex=tex, en=en, ja=ja))
+    ij = _load('ij_summary.json')      # registered claims IJ1-IJ3 (PREREGISTRATION_IJ): an answerability probe for unknown destinations, name families held out
+    if ij is not None:
+        c = ij['criteria']
+        for key, name, tex, en, ja in (
+                ('IJ1_probe_auroc_beats_best_baseline_by_0.05', 'IJ1', 'IJ1 (destination probe: separation)', 'IJ1 (a probe on the parser model\'s hidden states separates unknown from listed destinations by at least 0.05 AUROC more than the model\'s own scores, unseen name families)', 'IJ1（言語モデルの内部状態を読む探針は、知らない行き先と登録済みの行き先を、モデル自身の確率より AUROC で0.05以上よく分ける：未見の地名の系統で）'),
+                ('IJ2_probe_pass_through_at_most_15pct', 'IJ2', 'IJ2 (destination probe: pass-through)', 'IJ2 (at most 15% of requests to unknown destinations pass the probe)', 'IJ2（知らない行き先の依頼が探針を素通りするのは15%以下）'),
+                ('IJ3_probe_false_refusal_at_most_8pct', 'IJ3', 'IJ3 (destination probe: false refusals)', 'IJ3 (at most 8% of requests to listed destinations refused by the probe)', 'IJ3（登録済みの行き先の依頼を探針が断るのは8%以下）')):
+            if not c[key]:
+                out.append(dict(key=name, tex=tex, en=en, ja=ja))
+    jm = _load('jm_summary.json')      # registered claims JM1-JM3 (PREREGISTRATION_JM): a paired smoke-plume ablation of v3.6 and the extra views
+    if jm is not None:
+        c = jm['criteria']
+        for key, name, tex, en, ja in (
+                ('JM1_smoke_increases_v36_misses', 'JM1', 'JM1 (smoke plume raises misses)', 'JM1 (in twin worlds that differ only in the smoke plume, the submitted look-around delivers into more fires with the plume, paired one-sided p < 0.05)', 'JM1（煙の有無だけが違う双子の世界で、提出版は煙ありの方が火へ多く配達する：対の片側p<0.05）'),
+                ('JM2_extra_views_reduce_misses_in_smoke', 'JM2', 'JM2 (extra views under smoke)', 'JM2 (in the smoke twins, the extra views deliver into fewer fires than the submitted look-around, paired one-sided p < 0.05)', 'JM2（煙ありの世界で、追加視点の方式は提出版より火への配達が少ない：対の片側p<0.05）'),
+                ('JM3_adapt_smoke_at_most_4_of_60', 'JM3', 'JM3 (extra views under smoke: budget)', 'JM3 (the extra views deliver into at most 4 of 60 smoke-twin fires)', 'JM3（煙ありの60世界で、追加視点の方式の火への配達は4件以下）')):
+            if not c[key]:
+                out.append(dict(key=name, tex=tex, en=en, ja=ja))
     jk = _load('jk_summary.json')      # registered claims JK1-JK3 (PREREGISTRATION_JK): suspicion-triggered extra views in the closed loop at the depot
     if jk is not None:
         c = jk['criteria']
