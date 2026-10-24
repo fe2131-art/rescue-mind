@@ -1224,3 +1224,7 @@
 
 ## I-107 Amendment 4 (2026-10-24): P3 of JK implemented as registered (clerical, disclosed)
 - The analysis counted a triggered mission as complete only when both extra poses were taken; the registered text also allows ending in a hazard refusal. The six missions that stopped after L2 all ended in DENY_HAZARD (those are catches). Only P3 changes (descriptive); all other fields are identical (compared). Disclosed in the registration (Amendment 4) and stamped.
+
+## I-107 Result (2026-10-24): JK1-JK3 hold
+- `adapt` (v3.6 + `--adaptive-views 0.8 --adaptive-near 0`, defaults otherwise): deliveries into fire 3/100 (upper 7.6%, line 10%, prediction 4-6) against v3.6's 14/100 (paired 12 against 1, one-sided exact p = 0.0017); false stops 0/32 (line 3, forecast about 1); left-only arm of GM 5/100 (3 against 1, p = 0.31: a draw, but no calibration is needed). Extra views reached by 43 missions, triggered in 32 (74%); 26 took both poses, 6 were refused after L2. Missed: GM013, GM031, GM055. Median time of the fire worlds 36.8 s against v3.6's 37.9 s (non-concurrent).
+- The pilot found three defects before the first JK trial (Amendments 1-3); Amendment 4 corrected P3's implementation to its registered wording (only P3 changed). Failed claims stay 21 (no JK claim failed).
