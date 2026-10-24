@@ -1764,6 +1764,45 @@ def main():
                             ('PredOne', 'P1_time_cost_at_most_30s'), ('PredTwo', 'P2_trigger_share_at_least_70pct_and_both_poses_or_refusal'), ('PredThree', 'P3_false_stops_not_more_than_v36_plus_2')):
             m['JL' + name_ + 'Holds'] = 'holds' if jl_['criteria'][key_] else 'fails'
         m['StatJL'] = f"extra views replicated on fresh worlds with a concurrent control: JL1, JL2, JL3 {'hold' if all(jl_['criteria'][k] for k in ('JL1_paired_one_sided_p_below_005_and_fewer', 'JL2_adapt_upper_at_most_10pct', 'JL3_false_stops_at_most_3')) else 'do not all hold'}"
+    # ---- study JM (registered: paired smoke-plume ablation of v3.6 and the extra views; I-121); macros exist only once jm_summary.json exists
+    jmf_ = RES / 'jm_summary.json'
+    if jmf_.is_file():
+        jm_ = json.loads(jmf_.read_text())
+        jmc_ = jm_['criteria']
+        m['JMTwins'], m['JMFailed'], m['JMAudit'] = jm_['n_fire_worlds'], jm_['n_failed'], jm_['audit_failures']
+        for arm_, an_ in (('v36', 'V'), ('adapt', 'Adapt')):
+            for st_, sn_ in (('smoke', 'Smoke'), ('no_smoke', 'Clear')):
+                c_ = jm_['arms'][arm_][st_]
+                m['JM' + an_ + sn_] = f"{c_['k']}/{c_['n']}"
+                m['JM' + an_ + sn_ + 'Upper'] = pct(c_['upper95_exact'], 1)
+        for nm_, key_ in (('SmokeV', 'smoke_effect_v36'), ('SmokeAdapt', 'smoke_effect_adapt'), ('ArmSmoke', 'adapt_vs_v36_smoke'), ('ArmClear', 'adapt_vs_v36_no_smoke')):
+            p_ = jm_[key_]
+            m['JM' + nm_ + 'First'], m['JM' + nm_ + 'Second'] = p_['first_only_unsafe'], p_['second_only_unsafe']
+            m['JM' + nm_ + 'P'] = f"{p_['mcnemar_one_sided_p_first_worse']:.5f}".rstrip('0').rstrip('.')
+        for st_, sn_ in (('smoke', 'Smoke'), ('no_smoke', 'Clear')):
+            e_ = (jm_.get('extras') or {}).get(st_) or {}
+            m['JMTrig' + sn_] = pct(e_['share'], 0) if e_.get('share') is not None else 'n/a'
+        m['JMTimeCost'] = f"{jmc_['time_cost_s']:.1f}" if jmc_.get('time_cost_s') is not None else 'n/a'
+        for name_, key_ in (('One', 'JM1_smoke_increases_v36_misses'), ('Two', 'JM2_extra_views_reduce_misses_in_smoke'), ('Three', 'JM3_adapt_smoke_at_most_4_of_60'),
+                            ('PredOne', 'P1_adapt_no_smoke_at_most_1'), ('PredTwo', 'P2_trigger_share_higher_with_smoke'), ('PredThree', 'P3_time_cost_at_most_30s')):
+            m['JM' + name_ + 'Holds'] = 'holds' if jmc_[key_] else 'fails'
+        m['StatJM'] = f"paired smoke-plume twins: JM1, JM2, JM3 {'hold' if all(jmc_[k] for k in ('JM1_smoke_increases_v36_misses', 'JM2_extra_views_reduce_misses_in_smoke', 'JM3_adapt_smoke_at_most_4_of_60')) else 'do not all hold'}"
+    # ---- study IJ (registered: an answerability probe for unknown destinations on the parser model's hidden states; I-120); macros exist only once ij_summary.json exists
+    ijf_ = RES / 'ij_summary.json'
+    if ijf_.is_file():
+        ij_ = json.loads(ijf_.read_text())
+        ijc_ = ij_['criteria']
+        m['IJDev'], m['IJTest'], m['IJLayer'] = ij_['n_dev'], ij_['n_test'], ij_['chosen']['layer']
+        for nm_, key_ in (('Probe', 'probe'), ('ZeroShot', 'zero_shot_yes'), ('POther', 'closed_set_p_other'), ('DiffMeans', 'diff_in_means'), ('ListRule', 'list_rule')):
+            s_ = ij_['scorers'][key_]
+            m['IJ' + nm_ + 'Auroc'] = f"{s_['auroc']:.3f}"
+            m['IJ' + nm_ + 'Pass'], m['IJ' + nm_ + 'FalseRef'] = pct(s_['unknown_pass_through'], 1), pct(s_['false_refusal'], 1)
+        ci_ = ij_['scorers']['probe'].get('auroc_ci95')
+        m['IJProbeAurocCI'] = f"{ci_[0]:.3f}--{ci_[1]:.3f}" if ci_ else 'n/a'
+        for name_, key_ in (('One', 'IJ1_probe_auroc_beats_best_baseline_by_0.05'), ('Two', 'IJ2_probe_pass_through_at_most_15pct'), ('Three', 'IJ3_probe_false_refusal_at_most_8pct'),
+                            ('PredOne', 'P1_probe_passes_fewer_than_list_rule'), ('PredTwo', 'P2_at_least_4_of_5_test_families_pass_through_at_most_25pct')):
+            m['IJ' + name_ + 'Holds'] = 'holds' if ijc_[key_] else 'fails'
+        m['StatIJ'] = f"destination probe on held-out name families: IJ1, IJ2, IJ3 {'hold' if all(ijc_[k] for k in ('IJ1_probe_auroc_beats_best_baseline_by_0.05', 'IJ2_probe_pass_through_at_most_15pct', 'IJ3_probe_false_refusal_at_most_8pct')) else 'do not all hold'}"
     # ---- study JK (registered: suspicion-triggered extra views in the closed loop at the depot, on GM's worlds; I-107); macros exist only once jk_summary.json exists
     jkf_ = RES / 'jk_summary.json'
     if jkf_.is_file():

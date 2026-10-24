@@ -376,6 +376,20 @@ def line_views(res):
         out.append(f"・同じ検証を新しい世界・同時期の対照で再現（評価JL）：火へ配達 {v_['k']}→{a_['k']}/{a_['n']}で{'成立' if ok else '一部不成立'}")
     except (TypeError, KeyError):
         pass
+    m_ = jload(Path(res) / 'jm_summary.json')
+    try:
+        v_, a_ = m_['arms']['v36'], m_['arms']['adapt']
+        ok = all(m_['criteria'][x] for x in ('JM1_smoke_increases_v36_misses', 'JM2_extra_views_reduce_misses_in_smoke', 'JM3_adapt_smoke_at_most_4_of_60'))
+        out.append(f"・煙の有無だけが違う双子の世界（評価JM）：提出版の火への配達 煙あり{v_['smoke']['k']}・煙なし{v_['no_smoke']['k']}/{v_['smoke']['n']}、追加視点は煙あり{a_['smoke']['k']}/{a_['smoke']['n']}で{'成立' if ok else '一部不成立'}")
+    except (TypeError, KeyError):
+        pass
+    i_ = jload(Path(res) / 'ij_summary.json')
+    try:
+        p_ = i_['scorers']['probe']
+        ok = all(i_['criteria'][x] for x in ('IJ1_probe_auroc_beats_best_baseline_by_0.05', 'IJ2_probe_pass_through_at_most_15pct', 'IJ3_probe_false_refusal_at_most_8pct'))
+        out.append(f"・依頼解析モデルの内部状態から知らない行き先を見分ける探針（評価IJ、未組み込み）：素通り{p_['unknown_pass_through'] * 100:.0f}%・誤拒否{p_['false_refusal'] * 100:.0f}%で{'成立' if ok else '一部不成立'}")
+    except (TypeError, KeyError):
+        pass
     return '\n'.join(out)
 
 

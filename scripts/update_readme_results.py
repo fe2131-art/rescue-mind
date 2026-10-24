@@ -688,6 +688,21 @@ def section_key(e, t):
         rows.append(f"| 疑わしいときだけ左右0.8 mと手前から撮り直す方式（追加視点、I-20）は、既定の閾値のまま倉庫で火への配達を減らすか（評価JK、評価GMと同じ{jk_['n_fire_worlds']}世界、比較相手のGMは別時刻の記録） | 火へ配達：v3.6 **{jkv_['fire']['k']}/{jkv_['fire']['n']}** → 追加視点 **{jka_['fire']['k']}/{jka_['fire']['n']}**（95%上限 {pct(jka_['fire']['upper95_exact'])}、登録した線10%）、火なし世界の誤停止 {jka_['fire_free']['k']}/{jka_['fire_free']['n']}（線3件）。追加視点は構造上、拒否を増やすだけ | {'JK1〜JK3：**支持**' if all(jkc_[k] for k in jkkeys_) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k in jkkeys_ if not jkc_[k]) + '）'} |")
     except (TypeError, KeyError):
         pass
+    jm_ = jl('jm_summary.json')
+    try:      # the paired smoke-plume ablation (registered JM1-JM3; outcome-neutral wording: every figure comes from the summary)
+        jmv_, jma_, jmc_ = jm_['arms']['v36'], jm_['arms']['adapt'], jm_['criteria']
+        jmkeys_ = ('JM1_smoke_increases_v36_misses', 'JM2_extra_views_reduce_misses_in_smoke', 'JM3_adapt_smoke_at_most_4_of_60')
+        rows.append(f"| 煙の有無だけが違う双子の世界で、見逃しは煙のせいか・追加視点は煙の中でも効くか（評価JM、新しい{jm_['n_fire_worlds']}組） | 提出版の火への配達：煙あり **{jmv_['smoke']['k']}/{jmv_['smoke']['n']}**・煙なし **{jmv_['no_smoke']['k']}/{jmv_['no_smoke']['n']}**。追加視点：煙あり **{jma_['smoke']['k']}/{jma_['smoke']['n']}**（95%上限 {pct(jma_['smoke']['upper95_exact'])}、登録した線4件）・煙なし {jma_['no_smoke']['k']}/{jma_['no_smoke']['n']} | {'JM1〜JM3：**支持**' if all(jmc_[k] for k in jmkeys_) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k in jmkeys_ if not jmc_[k]) + '）'} |")
+    except (TypeError, KeyError):
+        pass
+    ij_ = jl('ij_summary.json')
+    try:      # the answerability probe for unknown destinations (registered IJ1-IJ3; outcome-neutral wording: every figure comes from the summary)
+        ijp_, ijc_ = ij_['scorers']['probe'], ij_['criteria']
+        ijb_ = max(ij_['scorers']['zero_shot_yes']['auroc'], ij_['scorers']['closed_set_p_other']['auroc'])
+        ijkeys_ = ('IJ1_probe_auroc_beats_best_baseline_by_0.05', 'IJ2_probe_pass_through_at_most_15pct', 'IJ3_probe_false_refusal_at_most_8pct')
+        rows.append(f"| 依頼解析モデルの内部状態から「知らない行き先」を見分けられるか（評価IJ、依頼文{ij_['n_dev'] + ij_['n_test']}件、地名の系統ごとに検証用を分離、提出版には未組み込み） | AUROC：探針 **{ijp_['auroc']:.3f}**、モデル自身の確率の最良 {ijb_:.3f}（登録した差0.05）。知らない行き先の素通り **{pct(ijp_['unknown_pass_through'])}**（線15%）、登録済みの行き先の拒否 {pct(ijp_['false_refusal'])}（線8%）、リストの規則の素通り {pct(ij_['scorers']['list_rule']['unknown_pass_through'])} | {'IJ1〜IJ3：**支持**' if all(ijc_[k] for k in ijkeys_) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k in ijkeys_ if not ijc_[k]) + '）'} |")
+    except (TypeError, KeyError):
+        pass
     ih_ = jl('ih_summary.json')
     try:      # the destination rule for the request parser on a second fresh set (registered IH1-IH3; outcome-neutral wording: every figure comes from the summary)
         ihs_, ihv_, ihc_ = ih_['strict'], ih_['v36'], ih_['criteria']
