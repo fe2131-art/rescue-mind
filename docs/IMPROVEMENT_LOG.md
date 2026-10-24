@@ -1471,3 +1471,8 @@
 * **Numbers** (`experiments/results/ij_summary.json`; 368 development and 416 test texts, five test name families): probe (layer 32) AUROC 0.977 [0.942, 0.999] against zero-shot yes-probability 0.409 and closed-set P(other) 0.617 (IJ1 holds); false refusals 0% (IJ3 holds); unknown destinations passing the probe 91% (registered line 15%; IJ2 fails; P1, P2 fail). Difference of means: AUROC 0.814, pass-through 36%; list rule: pass-through 36%.
 * **Reading.** The signal exists (the model's own output probabilities are near chance), but the rank-rule threshold fitted on development negatives sits above most test scores: the development families were separated less well (leave-one-family-out AUROC about 0.70). A deployable threshold would need the site's own place names. Not integrated; the read-back stays mandatory; no further study (experiments are closed, FINAL_PLAN).
 * **Integrated.** `ij_section.tex` (Reading), FINDINGS #58, TRIAL_AND_ERROR row, a new step in `trial_chain.py` for IJ2; the failed-claim list, macros, README and YouTube lines update by the hooks of I-122.
+
+## I-157 (2026-10-25) The paper body states IJ next to IG
+* **Motivation.** The body's limits sentence said only that unlisted places were read as shelter B (IG); IJ, the registered attempt to fix it, now has a result that a reviewer should see where the problem is stated.
+* **Change.** `main.tex` Limits: "a probe on the parser's hidden states separates them, AUROC \IJProbeAuroc, but its threshold did not transfer to unseen place names: IJ, \IJProbePass passed" (macros from `ij_summary.json`).
+* **Before → After.** IJ in the body: absent → one clause with its failed claim visible.
