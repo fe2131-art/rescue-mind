@@ -187,7 +187,7 @@ def fix_card(seconds):
 _WARNED = set()
 EVIDENCE_ROWS_MAX = 9        # the table card holds 9 rows of 66 px (8 rows: 74 px) plus one note line (make_demo_video.table_card)
 EVIDENCE_CELL_PX = 1130      # width left for the result column at 38 px (1806 - 114 - 560)
-EVIDENCE_S = 24              # v5: 12 s (EVAL 9), 20 s with the study X row; the narration (<= 120 characters at 6.4 characters/s) keeps it there
+EVIDENCE_S = 27              # v5: 12 s (EVAL 9), 20 s with the study X row; the narration (<= 120 characters at 6.4 characters/s) keeps it there
 
 
 def cell_px(text, size=38):
@@ -298,8 +298,15 @@ def evidence_card(seconds):
     if ji:      # study JI (v13): the registered replication that more views beat a second judge (image level, fresh worlds)
         g3, g6 = ji['viewsets']['v36_FLR']['scorers']['qwen35'], ji['viewsets']['all_six']['scorers']['qwen35']
         ji_ok = all(ji['claims'].values())
-        rows.append(['視点を増やす JI（新世界）', [f"見逃し 3視点{g3['miss']}→6視点{g6['miss']}/{ji['n_fire']}・誤停止 {g6['false_stops']}", G if ji_ok else W]])
-        say.append(f"視点を6つに増やすと見逃しは{g3['miss']}件から{g6['miss']}件。")
+        jk = jload(RES / 'jk_summary.json')       # study JK: the same idea (suspicion-triggered extra views) in the closed loop at the depot
+        if jk:
+            ja, jv = jk['arms']['adapt']['fire'], jk['arms']['v36']['fire']
+            jk_ok = all(jk['criteria'][k] for k in ('JK1_paired_one_sided_p_below_005_and_fewer', 'JK2_adapt_upper_at_most_10pct', 'JK3_false_stops_at_most_3'))
+            rows.append(['視点を増やす JI・JK', [f"画像 見逃し {g3['miss']}→{g6['miss']}/{ji['n_fire']}・閉ループ 火へ配達 {jv['k']}→{ja['k']}/{ja['n']}", G if (ji_ok and jk_ok) else W]])
+            say.append(f"視点を増やすと、見逃しは画像で{g3['miss']}件から{g6['miss']}件、閉ループでも火への配達は{jv['k']}件から{ja['k']}件。")
+        else:
+            rows.append(['視点を増やす JI（新世界）', [f"見逃し 3視点{g3['miss']}→6視点{g6['miss']}/{ji['n_fire']}・誤停止 {g6['false_stops']}", G if ji_ok else W]])
+            say.append(f"視点を6つに増やすと見逃しは{g3['miss']}件から{g6['miss']}件。")
     qi = jload(RES / 'qi_summary.json')
     if qi and qi.get('R', {}).get('miss'):      # study QI (v12): generated images through the frozen gate
         qr = qi['R']['miss']
@@ -421,7 +428,7 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False, drop_empty=False):
         {'kind': 'card', 'seconds': 6, 'title': 'RescueMind', 'image': 'docs/figures/hero_gazebo.png',
          'sub': '助言は「厳しくする」ことしかできない。だから、嘘の助言でも危険にならない',
          'narration': open_say,
-         'body': ['課題：在庫表と現場は違う。火や煙は物資の陰に隠れる。誤配達は命に関わる。',
+         'body': ['課題：災害現場へ物資を届けるロボット。在庫表と現場は違い、火や煙は物資の陰に隠れる。誤配達は命に関わる。',
                   '新しさ：見ていない情報（記憶・報告・在庫表・依頼文）は「助言」。助言は順番を変えるか、判断を厳しくするだけ。',
                   '確認：ローカルVLM（Qwen3.5-9B）が拠点でその場で確かめ、正面で許可でも横から見直す。迷えば止まって報告。',
                   f'※ 走行{FAST:g}倍速・確認動作{CHECK:g}倍速・AI判断の瞬間は等速（左上に常時表示）。']}]
