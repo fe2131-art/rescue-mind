@@ -12,10 +12,10 @@ stale() { # $1 = process pattern, $2 = progress file glob; stalled if the proces
   [ $(( $(date +%s) - $(stat -c %Y "$newest") )) -gt 2700 ]
 }
 declare -A BASE
-for f in $RES/gl_run.log $RES/gm_run.log $RES/ji_run.log $RES/jk_run.log $RES/ih_run.log $RES/qi_run.log $RES/qj_run.log $RES/jh_stdout.log; do BASE[$f]=$(grep -c "_ABORT\|_FAIL" "$f" 2>/dev/null || true); BASE[$f]=${BASE[$f]:-0}; done     # markers already in a log at start are old news
+for f in $RES/gl_run.log $RES/gm_run.log $RES/ji_run.log $RES/jk_run.log $RES/jl_run.log $RES/ih_run.log $RES/qi_run.log $RES/qj_run.log $RES/jh_stdout.log; do BASE[$f]=$(grep -c "_ABORT\|_FAIL" "$f" 2>/dev/null || true); BASE[$f]=${BASE[$f]:-0}; done     # markers already in a log at start are old news
 while bash scripts/idle_check.sh >/dev/null 2>&1; do
   sleep 120
-  for f in $RES/gl_run.log $RES/gm_run.log $RES/ji_run.log $RES/jk_run.log $RES/ih_run.log $RES/qi_run.log $RES/qj_run.log $RES/jh_stdout.log; do
+  for f in $RES/gl_run.log $RES/gm_run.log $RES/ji_run.log $RES/jk_run.log $RES/jl_run.log $RES/ih_run.log $RES/qi_run.log $RES/qj_run.log $RES/jh_stdout.log; do
     n=$(grep -c "_ABORT\|_FAIL" "$f" 2>/dev/null || true); n=${n:-0}
     if [ "$n" -gt "${BASE[$f]}" ]; then echo "FAILURE MARKER in $f: $(grep -h '_ABORT\|_FAIL' "$f" | tail -1)"; exit 0; fi
   done
