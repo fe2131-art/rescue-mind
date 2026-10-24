@@ -1284,3 +1284,9 @@
 * **Hypothesis.** An outcome-neutral clause ("fresh, concurrent: v3.6 k against extra views k, JL"), present only once `jl_section.tex` exists, keeps the abstract honest whatever JL shows and within the limit.
 * **Change.** `main.tex` abstract: JK clause shortened ("suspicion-triggered extra views ... without calibration"), JL clause added under `\IfFileExists{jl_section.tex}`, "(VLM)" dropped (the acronym is defined in the introduction). Word count by the source tokens: +2 net.
 * **Before → After.** Abstract 197 words without JL → predicted 199 with JL (197 until JL is integrated); checked by `check_consistency.py` at the next build.
+
+## I-124 (2026-10-24) Tests guard the IJ and JM result hooks before the results exist
+* **Motivation.** The hooks of I-122 were checked once by hand; a later edit of a summary key or a macro could silently drop a failed claim or leave an undefined macro in a supplement draft (a LaTeX error or a missing failed claim at the deadline build).
+* **Hypothesis.** A unit test on synthetic summaries catches both before the build: failed claims listed exactly, macro names alphabetic, every `\IJ*`/`\JM*` used by the drafts defined.
+* **Change.** `tests/test_result_hooks_ij_jm.py` (5 tests): failed-claim list (IJ2, JM3 only), macros letters-only and covering the drafts, README rows name the failed claim, YouTube lines present, JM1 in the multiplicity family.
+* **Before → After.** Hook checks: one manual run → 5 automated tests (pass); tests 1665 → 1670 (counts synced at the next build).
