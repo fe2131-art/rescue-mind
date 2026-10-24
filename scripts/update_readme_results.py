@@ -674,6 +674,13 @@ def section_key(e, t):
         rows.append(f"| 高速な別系統のAI（JEV）を「追加の視点を取りに行くか」だけ決める見張り役にすると、視点を減らして見逃しを保てるか（評価JC、評価JIのスコアを再解析） | 見逃し：常に3視点 {jcp_['always3']['miss']}、常に6視点 {jcp_['always6']['miss']}、見張り役（{jc_['primary_sentinel']}）{jcp_[jcs_]['miss']}／{jc_['n_fire']}。火のない世界の視点数 平均 {jcp_[jcs_]['mean_views_clean']:.2f}（3〜6）、誤停止 {jcp_[jcs_]['false_stops']}。見張り役の中央値 {jc_['sentinel_latency_median_s'][jc_['primary_sentinel']]} 秒/画像。画像単位で走行時間は概算 | {'JC1〜JC3：**支持**' if all(jcc_[k] for k in ('JC1_primary_sentinel_misses_within_3_of_always_six', 'JC2_primary_sentinel_mean_views_clean_at_most_4', 'JC3_primary_sentinel_false_stops_at_most_5')) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k in ('JC1_primary_sentinel_misses_within_3_of_always_six', 'JC2_primary_sentinel_mean_views_clean_at_most_4', 'JC3_primary_sentinel_false_stops_at_most_5') if not jcc_[k]) + '）'} |")
     except (TypeError, KeyError):
         pass
+    jlr_ = jl('jl_summary.json')
+    try:      # JK replicated on fresh worlds with a concurrent control (registered JL1-JL3; outcome-neutral wording: every figure comes from the summary)
+        jla_, jlv_, jlc_ = jlr_['arms']['adapt'], jlr_['arms']['v36'], jlr_['criteria']
+        jlkeys_ = ('JL1_paired_one_sided_p_below_005_and_fewer', 'JL2_adapt_upper_at_most_10pct', 'JL3_false_stops_at_most_3')
+        rows.append(f"| 追加視点の結果は、新しい世界で、v3.6と交互に同時期に走らせても再現するか（評価JL、新しい{jlr_['n_fire_worlds']}世界） | 火へ配達：v3.6 **{jlv_['fire']['k']}/{jlv_['fire']['n']}** → 追加視点 **{jla_['fire']['k']}/{jla_['fire']['n']}**（95%上限 {pct(jla_['fire']['upper95_exact'])}、登録した線10%）、対の比較 v3.6のみ {jlr_['paired']['discordant_v36_only']}・追加視点のみ {jlr_['paired']['discordant_adapt_only']}（片側 p={jlr_['paired']['mcnemar_one_sided_p']:.4f}）、火なし世界の誤停止 {jla_['fire_free']['k']}/{jla_['fire_free']['n']}（線3件） | {'JL1〜JL3：**支持**' if all(jlc_[k] for k in jlkeys_) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k in jlkeys_ if not jlc_[k]) + '）'} |")
+    except (TypeError, KeyError):
+        pass
     jk_ = jl('jk_summary.json')
     try:      # suspicion-triggered extra views in the closed loop at the depot (registered JK1-JK3; outcome-neutral wording: every figure comes from the summary)
         jka_, jkv_, jkc_ = jk_['arms']['adapt'], jk_['arms']['v36'], jk_['criteria']

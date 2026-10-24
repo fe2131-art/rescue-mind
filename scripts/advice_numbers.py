@@ -947,6 +947,15 @@ def failed_claims():
                 ('JC3_primary_sentinel_false_stops_at_most_5', 'JC3', 'JC3 (sentinel: false stops)', 'JC3 (at most 5 false stops of 120 clean worlds)', 'JC3（火のない120世界の誤停止5件以下）')):
             if key in c and not c[key]:
                 out.append(dict(key=name, tex=tex, en=en, ja=ja))
+    jl = _load('jl_summary.json')      # registered claims JL1-JL3 (PREREGISTRATION_JL): the closed-loop replication of JK on fresh worlds with a concurrent control
+    if jl is not None:
+        c = jl['criteria']
+        for key, name, tex, en, ja in (
+                ('JL1_paired_one_sided_p_below_005_and_fewer', 'JL1', 'JL1 (extra views on fresh worlds: paired reduction)', 'JL1 (suspicion-triggered extra views deliver into fewer fires than the submitted look-around on fresh worlds, interleaved, paired one-sided p < 0.05)', 'JL1（新しい世界で、交互に走らせた比較でも、追加視点の方式は火への配達が少ない：対の片側p<0.05）'),
+                ('JL2_adapt_upper_at_most_10pct', 'JL2', 'JL2 (extra views on fresh worlds: budget)', 'JL2 (closed-loop delivery into a perceivable fire with an upper bound of at most 10% on fresh worlds)', 'JL2（新しい世界で火への配達の95%上限が10%以下）'),
+                ('JL3_false_stops_at_most_3', 'JL3', 'JL3 (extra views on fresh worlds: false stops)', 'JL3 (at most 3 false stops of 32 fire-free fresh worlds)', 'JL3（新しい火のない32世界の誤停止は3件まで）')):
+            if not c[key]:
+                out.append(dict(key=name, tex=tex, en=en, ja=ja))
     jk = _load('jk_summary.json')      # registered claims JK1-JK3 (PREREGISTRATION_JK): suspicion-triggered extra views in the closed loop at the depot
     if jk is not None:
         c = jk['criteria']

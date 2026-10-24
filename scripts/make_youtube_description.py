@@ -369,6 +369,13 @@ def line_views(res):
         out.append(f"・疑わしいとき追加の視点を取る方式を倉庫の閉ループで検証（評価JK）：火へ配達 {v_['k']}→{a_['k']}/{a_['n']}（上限 {a_['upper95_exact'] * 100:.1f}%）で{'成立' if ok else '一部不成立'}")
     except (TypeError, KeyError):
         pass
+    l_ = jload(Path(res) / 'jl_summary.json')
+    try:
+        a_, v_ = l_['arms']['adapt']['fire'], l_['arms']['v36']['fire']
+        ok = all(l_['criteria'][x] for x in ('JL1_paired_one_sided_p_below_005_and_fewer', 'JL2_adapt_upper_at_most_10pct', 'JL3_false_stops_at_most_3'))
+        out.append(f"・同じ検証を新しい世界・同時期の対照で再現（評価JL）：火へ配達 {v_['k']}→{a_['k']}/{a_['n']}で{'成立' if ok else '一部不成立'}")
+    except (TypeError, KeyError):
+        pass
     return '\n'.join(out)
 
 
