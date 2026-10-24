@@ -1151,6 +1151,14 @@ def section_en(e, v):
                      f"(upper {100 * a_['fire']['upper95_exact']:.1f}%), false stops {a_['fire_free']['k']}/{a_['fire_free']['n']}; registered claims {'hold' if ok_ else 'do not all hold'} |")
         except (TypeError, KeyError, IndexError):
             pass
+    try:      # I-162: JM in English (smoke-plume twins), inert until jm_summary.json exists
+        jm_ = jl('jm_summary.json')
+        v_, a_ = jm_['arms']['v36'], jm_['arms']['adapt']
+        ks_ = ('JM1_smoke_increases_v36_misses', 'JM2_extra_views_reduce_misses_in_smoke', 'JM3_adapt_smoke_at_most_4_of_60')
+        L.append(f"| JM: twin depot worlds that differ only in the smoke plume | v3.6 deliveries into fire with plume {v_['smoke']['k']}/{v_['smoke']['n']}, without {v_['no_smoke']['k']}/{v_['no_smoke']['n']}; "
+                 f"extra views with plume {a_['smoke']['k']}/{a_['smoke']['n']}; {', '.join(k.split('_')[0] + (' holds' if jm_['criteria'][k] else ' FAILS') for k in ks_)} |")
+    except (TypeError, KeyError):
+        pass
     try:      # I-161: IJ in English, failed claim visible
         ij_ = jl('ij_summary.json')
         pr_ = ij_['scorers']['probe']
@@ -1162,7 +1170,7 @@ def section_en(e, v):
     except (TypeError, KeyError):
         pass
     # study-subset: the chain position of the English rows that exist; studies without an English row are named after the table (I-136)
-    stage = {'E': 1, 'L': 1, 'Z': 1, 'T1': 2, 'K': 2, 'G': 3, 'W': 3, 'H': 4, 'V': 4, 'A': 4, 'S': 5, 'P': 5, 'R': 5, 'Q': 5, 'X, XD': 5, 'Y, YE, YF': 5, 'GR': 3, 'GC': 3, 'GD': 3, 'GV': 3, 'JK': 3, 'JL': 3, 'IJ': 4, 'J': 6, 'I-23': 4, 'I-24': 4, 'B': 4, 'IF': 4, 'IF2': 4}
+    stage = {'E': 1, 'L': 1, 'Z': 1, 'T1': 2, 'K': 2, 'G': 3, 'W': 3, 'H': 4, 'V': 4, 'A': 4, 'S': 5, 'P': 5, 'R': 5, 'Q': 5, 'X, XD': 5, 'Y, YE, YF': 5, 'GR': 3, 'GC': 3, 'GD': 3, 'GV': 3, 'JK': 3, 'JL': 3, 'JM': 3, 'IJ': 4, 'J': 6, 'I-23': 4, 'I-24': 4, 'B': 4, 'IF': 4, 'IF2': 4}
     i0 = L.index('|---|---|') + 1
     rows = L[i0:]
     key = lambda r_: r_[2:].split(':')[0]
