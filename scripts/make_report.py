@@ -937,8 +937,8 @@ def judge_box(D, E, V, compact=False):
         if sf:      # I-23 / I-24: what is new since the first version of this principle (numbers from the result files)
             lines.append(f"<b>新しい成果</b>：この保証を、実装そのものに対して<b>機械検証</b>した（z3 {sf['unsat']}件、突き合わせ {sf['cases']:,}件で不一致 {sf['disagreements']}、"
                          f"バグ{sf['mutants']}個を{sf['caught']}個とも検出）。「慎重にする方向にしか使えない」ことは安全の<b>必要十分条件</b>でもあり、"
-                         + (f"<b>信用枠</b>で、毎回嘘をつく情報源の代償にも上限がつく（記述モデル：+{cf['liar_no']:.0f}秒 → +{cf['liar_yes']:.0f}秒）。" if cf else '')
-                         + '閉ループの確認（研究B）は' + ((advice_numbers.b_ja() + '。') if advice_numbers.pending_studies()['B'] else (WAIT_JA if SNAP else '結果待ち') + '。')
+                         + (f"<b>信用枠</b>で、毎回嘘をつく情報源の代償にも上限がつく（計算上のモデル：+{cf['liar_no']:.0f}秒 → +{cf['liar_yes']:.0f}秒）。" if cf else '')
+                         + '実際にロボットを動かした確認（研究B）では、' + ((advice_numbers.b_ja() + '。') if advice_numbers.pending_studies()['B'] else (WAIT_JA if SNAP else '結果待ち') + '。')
                          + ('依頼文の書き換え（研究IF）は、書き換えた' + f"{advice_numbers.if_facts()['n']}文のうち{advice_numbers.if_facts()['k']}文で受理され、登録した主張は不成立。対策（研究IF2）は" + ((advice_numbers.if2_short_ja() + '。') if advice_numbers.if2_done() else (WAIT_JA if SNAP else '結果待ち') + '。') if advice_numbers.if_facts() else ''))
         return [P(x, 'small') for x in lines] + [Spacer(1, 3)]
     h = jload('h_summary.json')
@@ -1592,7 +1592,7 @@ def story_limits(D, E, V, SP):
                         f"依頼物資は助言ではなく命令なので、保証の対象外にある。現場では出発前に運用者が解析結果を読み返すことを必須とし、聞き返しの対策（I-27）は研究IF2で測る（{'結果あり' if advice_numbers.if2_done() else advice_numbers.pending_word()}）。")
     items += ['保証は<b>相対的</b>：助言は確認自身の誤りを超えて危険を増やさないが、その誤りは0ではない。助言で先に向かわされた拠点が本当に燃えているときの接近は、保証の範囲外。',
               '<b>すべてシミュレーション</b>（実機なし）。物資の把持・運搬は未実装。実写で検証したのは火災判定（P）だけで、閾値は現場ごとに較正が要る。',
-              '信用枠（I-24）の数値は<b>合成した結果の記述モデル</b>で、閉ループの確認（研究B）：' + ((advice_numbers.b_ja() + '。') if advice_numbers.pending_studies()['B'] else WAIT_JA + '。')
+              '信用枠（I-24）の数値は<b>合成した結果の記述モデル</b>である。実際にロボットを動かした確認（研究B）では、' + ((advice_numbers.b_ja() + '。') if advice_numbers.pending_studies()['B'] else WAIT_JA + '。')
               + '機械検証（I-23）は転記したモデルとコードが対象で、同じ筆者による転記と z3・CPython を信頼している。第三者による再現はまだ無い。',
               '閉ループの評価は8〜16組と少なく、記憶の評価Hは世界の変化が台本どおり（ランダムな変化は評価Vで確かめた）。']
     _vf = advice_numbers.v_facts()
