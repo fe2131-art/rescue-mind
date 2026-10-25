@@ -1687,7 +1687,7 @@ def build(account: str, video_url: str | None, repo_url: str):
     info = [table([['項目', '内容'],
                  ['提出者', f'omnicampus アカウント名：{account}（アカウントID：{VIDEO_ID}）'],
                  ['コード', repo_url],
-                 ['動画', video_url or f'YouTube（タイトル：PAI最終課題_{VIDEO_ID}、アカウントID）。{SP}（倍速は動画内に常時表示）。日本語ナレーション（VOICEVOX:四国めたん）'],
+                 ['動画', (f'{video_url}（YouTube、タイトル：PAI最終課題_{VIDEO_ID}）' if video_url else f'YouTube（タイトル：PAI最終課題_{VIDEO_ID}、アカウントID）') + f'。{SP}（倍速は動画内に常時表示）。日本語ナレーション（VOICEVOX:四国めたん）'],
                  ['使用ツール', 'ROS 2 Jazzy / Gazebo Harmonic（Docker・EGLヘッドレス描画）/ PyTorch 2.8 + Transformers 5.20 / Tesla V100 32GB（sudo不要）'],
                  ['AIの活用', '① 自然言語指示の理解（ローカルLLM）② 搭載カメラ画像による現物・危険の確認（ローカルVLM、選択肢の確率で判断）③ 現場の人への日本語状況報告']],
                 [28, 146]), Spacer(1, 4)]
@@ -1941,4 +1941,7 @@ if __name__ == '__main__':
     ap.add_argument('--repo-url', default='https://github.com/fe2131-art/rescue-mind')
     ap.add_argument('--snapshot', action='store_true', help='submission snapshot: studies without results read "registered, not yet run at submission"; PDF in docs/snapshot/report/')
     a = ap.parse_args()
+    if a.video_url is None:      # the URL written into README by scripts/set_video_url.py, so every rebuild keeps it (I-182)
+        m = re.search(r'<!--VIDEOURL-->\[YouTube\]\((https://[^)]+)\)<!--/VIDEOURL-->', (ROOT / 'README.md').read_text(encoding='utf8'))
+        a.video_url = m.group(1) if m else None
     build(a.account, a.video_url, a.repo_url)
