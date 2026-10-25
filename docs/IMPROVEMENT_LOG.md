@@ -1532,3 +1532,7 @@
 * **Finding.** All recent Actions runs end in 2-3 s with "The job was not started because recent account payments have failed or your spending limit needs to be increased": a billing block, not a test failure.
 * **Change.** SUBMISSION_CHECKLIST #13: the cause, and the step after making the repository public (public repositories run Actions in the free tier: re-run the latest run and check it is green); private + green needs the billing fix.
 * **Before → After.** Red CI: unexplained in the checklist → cause and remedy stated.
+
+## I-170 (2026-10-25) One command for the regeneration after a result, so the last ingestion is fast and complete
+* **Change.** `scripts/post_results.sh <studies>`: multiplicity, paper macros, registration ledger, trial-chain document, README, YouTube description, then `check_bib`, `check_study_coverage` and `ingest_check` (exit 1 on any problem). FINAL_PLAN step 1 uses it for JM.
+* **Before → After.** Nine commands remembered by hand → one, with the checks last.
