@@ -394,7 +394,7 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False, drop_empty=False):
     open_say = ('災害現場は、計画どおりにはいきません。予定の場所に物資が無かったり、火災が起きていたりします。'
                 'RescueMindは、届ける前に自分の目で確かめ、迷ったら止まるロボットです。')
     parts = [
-        {'kind': 'card', 'seconds': 6, 'title': 'RescueMind（レスキューマインド）', 'image': 'docs/figures/hero_gazebo.png',
+        {'kind': 'card', 'seconds': 6, 'title': 'RescueMind（レスキューマインド）', 'image': 'docs/figures/hero_depot.png' if (ROOT / 'docs/figures/hero_depot.png').is_file() else 'docs/figures/hero_gazebo.png',
          'sub': '災害現場で、物資を自分の目で確かめてから届けるロボット',
          'narration': open_say,
          'body': ['背景：災害現場は計画どおりにいかない。予定の場所に物資が無い、別の物資が置かれている、火災が起きている。',
@@ -417,7 +417,20 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False, drop_empty=False):
              'check': '着いたらまず停止。新しい画像で現物を確かめる。',
              'peek': '正面で許可でも、出発前に左右0.4 mから見直す。物資の陰の火・煙を探す。',
              'after': '現物も横の様子も問題なし → 避難所Bへ（橙線＝実際の軌跡）。'}))
-    if a.recover:
+    if getattr(a, 'depot_swap', None):
+        # I-185: the swapped-supplies demo filmed in the realistic depot (scripts/film_depot.sh, 'search' world) replaces the plain-arena one
+        demos.append(mission_part(
+            a.depot_swap, 'nominal', '倉庫で物資の取り違え → 別の拠点を探す',
+            {'go': '現実に近い倉庫です。予定の棚に、物資があるはずです。', 'check': '着いたら、現物を確かめます。',
+             'search': '違う物資です。別の拠点を探します。',
+             'peek': '正しい物資です。横からも見直します。', 'after': '安全なので、避難所へ届けます。'},
+            {'go': '現実に近い倉庫（棚・段ボール・4つの拠点）。予定の棚の物資が入れ替わっている。「{instr}」',
+             'check': '拠点で止まり、現物をカメラで確かめる。',
+             'search': '頼まれた物資ではない → 届けずに、別の拠点を探す。',
+             'peek': '正しい物資でも、出発前に横から見直す（物資の陰の火・煙を探す）。',
+             'after': '別の拠点で正しい物資を確認 → 避難所Bへ。判断の経緯はすべて記録。'},
+            film_camera=depot_camera(a.depot_swap)))
+    elif a.recover:
         demos.append(mission_part(
             a.recover, 'swapped', '物資の取り違え → 別の拠点を探す',
             {'go': '予定していた場所に、別の物資が置かれています。', 'search': '依頼の物資ではありません。もう一方を見に行きます。',
@@ -483,7 +496,7 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False, drop_empty=False):
         title, narration, captions = depot_texts(a.depot)
         demos.append(mission_part(a.depot, 'nominal', title, narration, captions,
                                   film_camera=depot_camera(a.depot, getattr(a, 'depot_camera', None))))
-        if (ROOT / 'docs/figures/qi_strip.png').is_file() and (RES / 'qi_summary.json').is_file():      # v12: study QI (generated images through the frozen gate), a failed claim shown on purpose
+        if not getattr(a, 'depot_swap', None) and (ROOT / 'docs/figures/qi_strip.png').is_file() and (RES / 'qi_summary.json').is_file():      # I-185: with the depot swap demo the QI result stays as a red row of the table only; v12: study QI (generated images through the frozen gate), a failed claim shown on purpose
             demos.append({'kind': 'card', 'seconds': 6, 'title': '今後の課題：写真に近い画像では見逃しが増える', 'layout': 'image',
                           'image': 'docs/figures/qi_strip.png', 'sub': 'シミュレーションの画像を画像生成AIで写真に近づけて試験（どちらも実写ではない）',
                           'narration': '写真に近い画像では、火の見逃しが増えました。ここは今後の課題です。', 'body': []})
@@ -499,7 +512,7 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False, drop_empty=False):
     report = 'docs/figures/operator_report_hidden_fire.png'      # I-18: what the robot leaves for the people on site
     parts.append({'kind': 'card', 'seconds': 5, 'title': 'RescueMind', 'sub': a.repo_url,
                   'image': report if (ROOT / report).is_file() else 'docs/figures/hero_gazebo.png',
-                  'narration': '確かめて、横からも見直して、迷ったら止まる。うまくいかなかった結果も公開し、改善につなげています。',
+                  'narration': '確かめて、見直して、迷ったら止まる。うまくいかなかった結果も公開しています。',
                   'body': ['確かめる・横から見直す・迷ったら止まる', '間違えて届けるより、止まる方がいい。',
                            '毎回、写真と理由と「次にすること」を1枚の現場報告に残す（右）。',
                            'コード・事前登録・全試行の証拠・再現用Dockerを公開しています。',
@@ -525,6 +538,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--deliver', help='run id: paraphrased instruction -> delivery (v5: omitted, EVAL 9; the point is made in segment 1\'s caption)')
     ap.add_argument('--recover', required=True, help='run id: swapped supplies -> search other station -> delivery')
+    ap.add_argument('--depot-swap', dest='depot_swap', help='run id (I-185): swapped supplies filmed in the realistic depot; replaces the arena --recover demo')
     ap.add_argument('--empty', help='run id: both stations empty -> check both, stop')
     ap.add_argument('--fire', help='run id: large fire -> stop without searching')
     ap.add_argument('--hidden-fire', dest='hidden_fire', help='run id: small partly hidden fire -> v3.6 check stops')

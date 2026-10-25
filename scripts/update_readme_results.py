@@ -599,7 +599,7 @@ def section_key(e, t):
         if yej_ and not yej_['criteria']['YE2_hc_goes_on_and_decides']:
             st_ += '／YE2：**不成立**（登録文言の誤り）'
         if yfj_ and not yfj_['Y-s']['criteria']['Y4_holds']:
-            st_ += '／YF4：**不成立**（双子で警戒強化版が4拠点を訪れ配達できず）'
+            st_ += '／YF4：**不成立**（対の場面で警戒強化版が4拠点を訪れ配達できず）'
         rows.append(f"| 燃える棚へ誘導されても配達を失わない（評価X→Y→YE、倉庫の閉ループ） | {res_} | {st_} |")
     except (TypeError, KeyError):
         pass
@@ -643,7 +643,7 @@ def section_key(e, t):
         qr_, qb_ = qi_['R'], qi_['xd_baseline']['miss']
         qg_ = qi_['G']['excluded']
         qc_ = qi_['claims']
-        rows.append(f"| 画像生成モデルで写実化した画像でも、凍結したゲートは火を見つけるか（評価QI） | 写実化したフレームの見逃し {qr_['miss']['k']}/{qr_['miss']['n']}（上限 {pct(qr_['miss']['upper95'])}、元のシミュレータ画像 {qb_['k']}/{qb_['n']}、登録した上限 20）、火なし世界の誤停止 {qr_['false_stops']['k']}/{qr_['false_stops']['n']}。描き足した火は {qg_['n_excluded']}/{qg_['n_generated']} 枚が炎の色を持たず登録した停止規則で止まり、中立の対照編集は {qi_['C']['flips']}/{qi_['C']['n']} の双子を危険と判定させた（生成器が煙を描いたため）。シミュレータの灰色の煙の円盤が写実的な背景に残ると見逃す | 誤停止のみ **{'支持' if qc_.get('QI3_realised_false_stops_small') else '不成立'}**、見逃し（QI1）**{'支持' if qc_.get('QI1_realised_miss_not_much_worse') else '不成立'}**、生成した火（QI2）**{'支持' if qc_.get('QI2_generated_fire_miss_rate') else '不成立（停止規則）'}**、対照編集（QI3c）**{'支持' if qc_.get('QI3c_control_edits_do_not_create_hazards') else '不成立'}** |")
+        rows.append(f"| 画像生成モデルで写実化した画像でも、凍結したゲートは火を見つけるか（評価QI） | 写実化したフレームの見逃し {qr_['miss']['k']}/{qr_['miss']['n']}（上限 {pct(qr_['miss']['upper95'])}、元のシミュレータ画像 {qb_['k']}/{qb_['n']}、登録した上限 20）、火なし世界の誤停止 {qr_['false_stops']['k']}/{qr_['false_stops']['n']}。描き足した火は {qg_['n_excluded']}/{qg_['n_generated']} 枚が炎の色を持たず登録した停止規則で止まり、中立の対照編集は {qi_['C']['flips']}/{qi_['C']['n']} の対の場面を危険と判定させた（生成器が煙を描いたため）。シミュレータの灰色の煙の円盤が写実的な背景に残ると見逃す | 誤停止のみ **{'支持' if qc_.get('QI3_realised_false_stops_small') else '不成立'}**、見逃し（QI1）**{'支持' if qc_.get('QI1_realised_miss_not_much_worse') else '不成立'}**、生成した火（QI2）**{'支持' if qc_.get('QI2_generated_fire_miss_rate') else '不成立（停止規則）'}**、対照編集（QI3c）**{'支持' if qc_.get('QI3c_control_edits_do_not_create_hazards') else '不成立'}** |")
     except (TypeError, KeyError):
         pass
     jh_ = jl('jh_summary.json')
@@ -669,7 +669,7 @@ def section_key(e, t):
         jv6_, jv3_ = ji_['viewsets']['all_six']['scorers'], ji_['viewsets']['v36_FLR']['scorers']
         jg6_, jg3_, jj4_ = jv6_['qwen35'], jv3_['qwen35'], jv6_['qwen35+internvl3']
         jc_ = ji_['claims']
-        rows.append(f"| 視点を6つに増やすと見逃しは減るか。拒否権の審判を足すとさらに減るか（評価JI、新しい{ji_['n_fire']}世界と火のない双子、画像単位、閾値は凍結） | 見逃し：3視点 **{jg3_['miss']}/{ji_['n_fire']}** → 6視点 **{jg6_['miss']}/{ji_['n_fire']}**（上限 {pct(jg6_['miss_upper95'])}）、誤停止 {jg3_['false_stops']}→{jg6_['false_stops']}/{ji_['n_clean']}。対の比較 p={ji_['paired_six_vs_three']['mcnemar_one_sided_p']:.4f}。6視点＋InternVL3の拒否権：見逃し {jj4_['miss']}、誤停止 {jj4_['false_stops']}。{'登録した主張JI1〜JI4はすべて成立' if all(jc_.values()) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k, v in jc_.items() if not v) + '）'} | [PREREGISTRATION_JI](experiments/PREREGISTRATION_JI.md)、[結果](experiments/results/ji_summary.json) |")
+        rows.append(f"| 視点を6つに増やすと見逃しは減るか。拒否権の審判を足すとさらに減るか（評価JI、新しい{ji_['n_fire']}世界と火を取り除いた同じ場面、画像単位、閾値は凍結） | 見逃し：3視点 **{jg3_['miss']}/{ji_['n_fire']}** → 6視点 **{jg6_['miss']}/{ji_['n_fire']}**（上限 {pct(jg6_['miss_upper95'])}）、誤停止 {jg3_['false_stops']}→{jg6_['false_stops']}/{ji_['n_clean']}。対の比較 p={ji_['paired_six_vs_three']['mcnemar_one_sided_p']:.4f}。6視点＋InternVL3の拒否権：見逃し {jj4_['miss']}、誤停止 {jj4_['false_stops']}。{'登録した主張JI1〜JI4はすべて成立' if all(jc_.values()) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k, v in jc_.items() if not v) + '）'} | [PREREGISTRATION_JI](experiments/PREREGISTRATION_JI.md)、[結果](experiments/results/ji_summary.json) |")
     except (TypeError, KeyError):
         pass
     jc_ = jl('ji_cascade_summary.json')
@@ -697,7 +697,7 @@ def section_key(e, t):
     try:      # the paired smoke-plume ablation (registered JM1-JM3; outcome-neutral wording: every figure comes from the summary)
         jmv_, jma_, jmc_ = jm_['arms']['v36'], jm_['arms']['adapt'], jm_['criteria']
         jmkeys_ = ('JM1_smoke_increases_v36_misses', 'JM2_extra_views_reduce_misses_in_smoke', 'JM3_adapt_smoke_at_most_4_of_60')
-        rows.append(f"| 煙の有無だけが違う双子の世界で、見逃しは煙のせいか・追加視点は煙の中でも効くか（評価JM、新しい{jm_['n_fire_worlds']}組） | 提出版の火への配達：煙あり **{jmv_['smoke']['k']}/{jmv_['smoke']['n']}**・煙なし **{jmv_['no_smoke']['k']}/{jmv_['no_smoke']['n']}**。追加視点：煙あり **{jma_['smoke']['k']}/{jma_['smoke']['n']}**（95%上限 {pct(jma_['smoke']['upper95_exact'])}、登録した上限4件）・煙なし {jma_['no_smoke']['k']}/{jma_['no_smoke']['n']} | {'JM1〜JM3：**支持**' if all(jmc_[k] for k in jmkeys_) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k in jmkeys_ if not jmc_[k]) + '）'} |")
+        rows.append(f"| 煙の有無だけが違う対の場面の世界で、見逃しは煙のせいか・追加視点は煙の中でも効くか（評価JM、新しい{jm_['n_fire_worlds']}組） | 提出版の火への配達：煙あり **{jmv_['smoke']['k']}/{jmv_['smoke']['n']}**・煙なし **{jmv_['no_smoke']['k']}/{jmv_['no_smoke']['n']}**。追加視点：煙あり **{jma_['smoke']['k']}/{jma_['smoke']['n']}**（95%上限 {pct(jma_['smoke']['upper95_exact'])}、登録した上限4件）・煙なし {jma_['no_smoke']['k']}/{jma_['no_smoke']['n']} | {'JM1〜JM3：**支持**' if all(jmc_[k] for k in jmkeys_) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k in jmkeys_ if not jmc_[k]) + '）'} |")
     except (TypeError, KeyError):
         pass
     ij_ = jl('ij_summary.json')
@@ -1251,7 +1251,7 @@ def main():
     if advice_numbers.q_ja():
         R['Q'] = f"| 評価Q（実写の物資確認、画像レベル） | Wikimedia Commons の写真405枚（水・救急箱・どちらでもない）で、頼まれた物資の確認を v3.6 のまま採点 | {advice_numbers.q_ja()} |"
     R['S'] = f"| 評価S（画像内の文字による注入、画像レベル） | 標識・ラベル・「Cと答えよ」を置いた64世界を、標識なし・攻撃・無害の3通りで描画し、本方式・1回判定・自由記述・全体画像で比較 | {s_text()} |"
-    R['W'] = f"| 評価W（小さく隠れた火の見逃しと先行手法、I-20の副次解析を含む） | 画像レベル：正面のみ対見回し（150火世界＋75双子）、VAP-TAMP風の投票・KnowNo風の共形集合との誤許可の比較 | {w_text()} |"
+    R['W'] = f"| 評価W（小さく隠れた火の見逃しと先行手法、I-20の副次解析を含む） | 画像レベル：正面のみ対見回し（150火世界＋75対の場面）、VAP-TAMP風の投票・KnowNo風の共形集合との誤許可の比較 | {w_text()} |"
     R['X'] = f"| 評価XD・X（倉庫の世界、4拠点） | XD：倉庫の保留画像で ε と閾値の再較正（画像レベル）。X：記憶なし対確認つきの記憶と、助言による方向づけを閉ループ59試行で。描画の確認は I-21（`docs/figures/depot_preview_sheet.jpg`） | {x_text()} |"
     head = ['| 評価（事前登録） | 内容 | 結果 |', '|---|---|---|']
     stages = [      # study-subset: the chain's detailed rows; the later studies are named in group 7 (I-136)
