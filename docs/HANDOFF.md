@@ -14,6 +14,12 @@
 
 ## ★★★ 2026-10-25 00:xx：JL 完了（JL1〜JL3 成立：火へ配達 v3.6 13/98 → 追加視点 3/100、上限 7.6%、片側 p=0.00049、誤停止 0/31、時間 +1.9 s、失敗 5、監査 0）。撮影 → IJ → JM が自動で続く。次：FINAL_PLAN 手順 1 で JL を取り込み（`jl_section.draft.tex` → `jl_section.tex` と Reading、FINDINGS、I-115 Result、TRIAL_AND_ERROR）、`python3 scripts/ingest_check.py JL` を 0 に。
 
+## ★★★★★ 2026-10-25：**完成**（`final_check.sh` fails=0）。残りはユーザーの作業だけ（`docs/SUBMISSION_CHECKLIST.md`）
+
+* 動画 v14：`outputs/video/PAI最終課題_tetsutetsu.mp4`（176.1 s、追加視点の新しい倉庫の場面、確認動作 4 倍速）。v13 は `_v13_backup.mp4`。
+* 研究：JL（成立）、IJ（IJ2 不成立）、JM（JM1 不成立）まで取り込み済み。失敗した主張 23 件、すべて試行錯誤の表に配置。実験は凍結（EXPERIMENT_FREEZE）。
+* ユーザーの作業：履歴の個人パス (a)/(b) の判断（1b）、YouTube 投稿、`set_video_url.py --apply`、public 化と CI の再実行、omnicampus、優秀生フォーム。
+
 ## ★★ 最優先：`docs/FINAL_PLAN.md`（2026-10-24 ユーザーと合意）
 
 * **実験は JL・IJ・JM と JK の撮影で完了。新しい研究は登録しない。** 残りは FINAL_PLAN の「必ずやること」を上から（取り込み → ビルドと 8 頁・200 語・1 頁目の確認 → 動画 v14 → final_check → 提出情報）。
@@ -275,7 +281,7 @@
 * **メインの自分も改善作業をする**（サブエージェント任せにしない）。結果を分析し、最大の弱点に絞って、事前登録した評価で確かめる。だらだら改善を続けない。ユーザーが「ストップ」と言うまで自律的に改善を続ける。
 * リポジトリの**公開設定（private → public）は絶対に変更しない**。公開と YouTube 投稿は**ユーザーが行う**。push は可。
 * ユーザーへの質問・説明は**日本語・簡潔**に。omnicampus のアカウント名は `tetsutetsu`。
-* **事前登録してから走らせる。失敗した主張も消さずに載せる**（論文で不成立の主張は21件：T1・F・T2・J・V4・W-b・IF1・S-perm・XD-eps・XD-rel・XD-cal・Q・YE2・YF4・JH1・QI1・QI2・QI3c・JC1・IH1・IG1。件数と一覧は `scripts/check_consistency.py` が `advice_numbers.failed_claims()` と突き合わせる）。改善は `docs/IMPROVEMENT_LOG.md` に「動機→仮説→変更→計測(Before/After)→判断」で書き、**コミットの先頭は `I-xx`**。コミットは必ず push する。
+* **事前登録してから走らせる。失敗した主張も消さずに載せる**（論文で不成立の主張は23件：T1・F・T2・J・V4・W-b・IF1・S-perm・XD-eps・XD-rel・XD-cal・Q・YE2・YF4・JH1・QI1・QI2・QI3c・JC1・IJ2・JM1・IH1・IG1。件数と一覧は `scripts/check_consistency.py` が `advice_numbers.failed_claims()` と突き合わせる）。改善は `docs/IMPROVEMENT_LOG.md` に「動機→仮説→変更→計測(Before/After)→判断」で書き、**コミットの先頭は `I-xx`**。コミットは必ず push する。
 * **sudo は使わない**（docker グループ権限だけで全て動く）。必要になったらユーザーに依頼する。
 * **`rm` は使わない**（2026-10-18 ユーザー指示。`rm -rf`・`git clean`・`unlink`・`find -delete` も同じ）。消したいものは `~/rescue-mind-trash/<日時>/` に相対パスのまま移し、移したものをユーザーに伝える。削除はユーザーが確認してから行う。サブエージェントへの指示にも必ず書く。
 * **個人情報を入れない**（ホームのパス、スクラッチパッドのパスは `tests/test_no_personal_paths.py` が落とす。文書では `<scratchpad>`、`<user>` と書く）。
@@ -325,7 +331,7 @@
 | Q（Wikimedia Commons 405 枚） | 実写の物資確認 | 登録済み・**未実行**（GPU 約 40 分。W の後の連鎖が .gitignore の衝突で止まり、一度も走っていない） |
 
 * 登録済み 7 本（A・B・IF・Q・S・X・XD）は統合マージ 09:08 で main に載り、A の予備走行が 09:14 に始まった時点で、IF・S・B・XD・X・Q は試行も推論もしていない。これらの登録ファイルには「DRAFT」の行が残るが、拘束力のある版は `docs/REGISTRATIONS.md` の表の版（ファイルは変えない。変更は日付とコミットつきの Amendment で追記する）。
-* テスト関数は 1665 件（`python3 scripts/count_tests.py` の静的な数え方）。FINDINGS は 59 件。
+* テスト関数は 1675 件（`python3 scripts/count_tests.py` の静的な数え方）。FINDINGS は 59 件。
 
 ### D. GPU の順番と、その動かし方
 

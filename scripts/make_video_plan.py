@@ -266,7 +266,7 @@ def evidence_card(seconds):
             rows.append(['閉ループ A（助言の注入）', [f"危険な世界 素朴{w['naive'][0]}/{w['naive'][1]}・ガードレール{w['filtered'][0]}/{w['filtered'][1]}・本方式{w['monotone'][0]}/{w['monotone'][1]}",
                                                   G if aj.get('headline_supported') else W]])
             say.append(f"嘘の助言で危険な世界は本方式{w['monotone'][0]}、素朴{w['naive'][0]}。")
-            head['A'] = f"嘘の助言を入れても、危険な世界は{w['monotone'][0]}件。素直に従う方式では{w['naive'][0]}件。"
+            head['A'] = f"嘘の助言でも、危険な世界は{w['monotone'][0]}件。"
             st = af['steer']
             notes[0] = f"助言の誘導では配達できない世界が{st['ours']['lost']}/{st['n']}（保証は相対的）。" + notes[0]       # the steering cost stays on the card (one note, two lines at most)
         else:
@@ -578,7 +578,7 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False, drop_empty=False):
     report = 'docs/figures/operator_report_hidden_fire.png'      # I-18: what the robot leaves for the people on site
     parts.append({'kind': 'card', 'seconds': 5, 'title': 'RescueMind', 'sub': a.repo_url,
                   'image': report if (ROOT / report).is_file() else 'docs/figures/hero_gazebo.png',
-                  'narration': '確かめて、見直して、迷ったら止まる。うまくいかなかった試みも残し、次の工夫につなげました。全試行の証拠を公開しています。',
+                  'narration': '確かめて、見直して、迷ったら止まる。失敗も残し、次の工夫につなげました。全試行を公開しています。',
                   'body': ['確かめて、見直して、迷ったら止まる。間違った配達より、止まる方がいい。',
                            '毎回、写真と理由と「次にすること」を1枚の現場報告に残す（右）。',
                            'コード・事前登録・全試行の証拠・再現用Dockerを公開しています。',
