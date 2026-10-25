@@ -1566,3 +1566,7 @@
 * **Motivation.** The registrations of GM, IG, IH, IJ, JC, JH, JI, JK (amendments), JL, JM and others were stamped but their proofs still held only calendar commitments (pending); a reader checking them independently needs the Bitcoin block-header attestation.
 * **Change.** `ots upgrade` on every `docs/timestamps/*.ots` without an attestation (hashes only leave the machine); 18 proofs upgraded; the `.bak` copies moved to `~/rescue-mind-trash/<stamp>/`.
 * **Before → After.** Proofs with a Bitcoin attestation: 8 of 26 → 26 of 26. No document text changes (no sentence claimed a pending state).
+
+## I-176 (2026-10-25) HANDOFF reduced to one current block for the post-compaction review
+* **Change.** The 20 stacked "最新" blocks and the old "現在地" section (lines about 10-395) moved verbatim to the end of `docs/HANDOFF_ARCHIVE.md`; HANDOFF now opens with one block: state (complete, final check passes, experiments frozen), artifacts with locations and numbers, studies and the 23 failed claims, a five-step re-check procedure with commands, the user's remaining tasks, and the working rules. Consistency checks on HANDOFF (failed-claim list, FINDINGS count, latest evaluation, test count) still pass.
+* **Before → After.** HANDOFF 481 → 122 lines; the first screen is enough to verify and resume.
