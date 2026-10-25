@@ -234,6 +234,9 @@ def forbidden():
 
 
 # --------------------------------------------------------------------------------------------- checks
+YT_SHORT = '【ほかの主な結果】'      # marker of the short YouTube description (I-186)
+
+
 def check_docs(F, docs, mac):
     rows, bad = [], 0
     for f in F:
@@ -248,6 +251,9 @@ def check_docs(F, docs, mac):
                 cells[doc] = 'skip'
                 continue
             miss = [n for n in needles if norm(n) not in norm(text)]
+            if doc == 'yt' and miss and len(miss) == len(needles) and YT_SHORT in text:
+                cells[doc] = 'dropped'      # I-186: the short description prints only a few results (README and the report carry the rest)
+                continue
             if doc == 'yt' and miss and f.get('yt_key') and f['yt_key'] not in text and 'ほかの結果' in text:
                 cells[doc] = 'dropped'      # the whole detail line was dropped by design (5000-byte limit; README and report carry it)
                 continue
@@ -370,7 +376,7 @@ def main():
                 extra.append((f'{doc}: study W is not called pending', 'MISMATCH' if re.search(rx, t) else 'ok', ''))
         for doc, needle_ja, needle_en in (('readme', '不成立', 'not supported'), ('yt', '不成立', 'not supported'), ('report', '不成立', 'not supported')):
             t = docs.get(doc)
-            if t is None:
+            if t is None or (doc == 'yt' and YT_SHORT in t):      # I-186: the short description names the failures in one line; W's detail is in README/report
                 continue
             seg = [m.start() for m in re.finditer('評価W|W: small hidden fires|画像評価W', t)]
             ok_ = (wf_['n_dist'] > 0) or any(needle_ja in t[i:i + 1200] or needle_en in t[i:i + 1200] for i in seg)
@@ -395,7 +401,7 @@ def main():
         concl_ = main_tex.split(r'\section{Conclusion}')[-1]
         extra.append(('main.tex: conclusion reports V next to H', 'ok' if (r'\StatV' in concl_ and r'\MemPooltwo' in concl_) else 'MISMATCH', ''))
         yt_, rd_ = docs['yt'], docs['readme']
-        for doc, t in (('readme', rd_), ('yt', yt_)):
+        for doc, t in (('readme', rd_),) + ((('yt', yt_),) if YT_SHORT not in yt_ else ()):      # I-186: pooled H+V is README/report detail
             extra.append((f'{doc}: pooled memory safety (H and V) is stated', 'ok' if (advice_numbers.pooled_memory_ja() in t or advice_numbers.pooled_memory_en() in t or advice_numbers.pooled_memory_short_ja() in t) else 'MISMATCH', ''))
     stale_ = {'README.md': ['independent reference implementation', 'Gazebo check is pending', 'Gazebo での確認は未了', '独立に書き直した参照実装', 'are pending. (3)'],
               'docs/paper/main.tex': ['Gazebo check is pending', 'machine-checked on the implementation', 'Moving beats thinking harder', r'(\PreregDrafts', 'dominated by fires hidden from the front view'],
