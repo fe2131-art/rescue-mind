@@ -26,7 +26,7 @@ if [ -z "$QUICK" ]; then
 fi
 step "submission facts (video, report pages)" python3 scripts/update_submission_facts.py
 [ -f docs/YOUTUBE_DESCRIPTION.md ] && step "YouTube description <= 5000 chars" bash -c 'n=$(sed -n "/^## 概要欄/,/^## 公開設定チェック/p" docs/YOUTUBE_DESCRIPTION.md | sed "1d;\$d" | wc -m); [ "$n" -le 5000 ]'
-VID=outputs/video/PAI最終課題_tetsutetsu.mp4
+VID=outputs/video/PAI最終課題_141628.mp4
 if [ -f "$VID" ]; then step "video 60-180 s" bash -c 'd=$(ffprobe -v error -show_entries format=duration -of csv=p=0 '"$VID"'); python3 -c "import sys;d=float(\"$d\");sys.exit(0 if 60<=d<=180 else 1)"'; fi
 echo "FINAL_CHECK_DONE fails=$FAILS"
 [ "$FAILS" -eq 0 ]

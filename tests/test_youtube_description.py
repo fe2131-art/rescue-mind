@@ -57,7 +57,7 @@ class YoutubeDescription(unittest.TestCase):
 
     def test_fixed_parts_kept(self):
         text, _ = mk.build_description(CHAPTERS, self.res)
-        for s in ('## タイトル\nPAI最終課題_tetsutetsu', '## 公開設定チェック（課題の指定）', 'VOICEVOX:四国めたん',
+        for s in ('## タイトル\nPAI最終課題_141628', '## 公開設定チェック（課題の指定）', 'VOICEVOX:四国めたん',
                   'https://github.com/fe2131-art/rescue-mind'):
             self.assertIn(s, text)
 

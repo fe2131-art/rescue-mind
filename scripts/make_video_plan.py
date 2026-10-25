@@ -291,7 +291,7 @@ def evidence_card(seconds):
                 lf_ = yfj_['Y-s']['lost_vs_control']['scrutiny_hc']
                 lost_ += lf_['fire_worlds']['lost'] + lf_['clean_worlds']['lost']
                 pairs_ += lf_['fire_worlds']['pairs'] + lf_['clean_worlds']['pairs']
-            rows[-1][1][0] = f"火へ配達{xf['a_unsafe']}・誘導{xf['u_mono']}・続行+scrutiny 喪失{lost_}/{pairs_}"      # one cell, 29 chars: the card is cut at the right edge from about 36
+            rows[-1][1][0] = f"火へ配達{xf['a_unsafe']}・誘導{xf['u_mono']}・続行+警戒強化版 喪失{lost_}/{pairs_}"      # one cell, 29 chars: the card is cut at the right edge from about 36
     jh = jload(RES / 'jh_summary.json')
     if jh:      # study JH (the heterogeneous second judge, 'Jev'): registered, not supported
         jx = jh['xd']
@@ -328,7 +328,7 @@ def evidence_card(seconds):
     smt = jload(RES / 'smt_advice_proof.json')
     if smt and len(rows) < EVIDENCE_ROWS_MAX - 1:
         mut = smt.get('code_mutants') or []
-        rows.append(['機械検証（z3）', [f"締めるだけを実装で証明・注入バグ {len(mut)}/{len(mut)} 検出", G]])
+        rows.append(['機械検証（z3）', [f"確認を省けないことを実装で証明・注入バグ {len(mut)}/{len(mut)} 検出", G]])
     if not rows:
         return None
     rows = rows[:EVIDENCE_ROWS_MAX]
@@ -470,14 +470,14 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False, drop_empty=False):
     cs = 0 if shrink else None      # shrink: result cards last exactly as long as their narration
     mem = bool(getattr(a, 'memory', None))
     # story arc of the first ~10 s: problem (stock list != scene, hazards hide) -> answer (look on the spot, look again from the side)
-    open_say = ('災害現場へ物資を届けるロボットです。在庫表と現場は違い、危険も隠れます。そこで、自分で見ていない情報は「助言」として扱い、'
-                '順番を変えるか、判断を厳しくするだけにします。')
+    open_say = ('災害現場へ物資を届けるロボットです。在庫表と現場は違い、危険も隠れます。そこで、記憶や他のロボットの報告は参考にするだけで、'
+                '確認は必ずその場の目で行います。')
     parts = [
         {'kind': 'card', 'seconds': 6, 'title': 'RescueMind', 'image': 'docs/figures/hero_gazebo.png',
-         'sub': '助言は「厳しくする」ことしかできない。だから、嘘の助言でも危険にならない',
+         'sub': '自分の目で確かめてから届ける。嘘の情報を教えられても危険にならない',
          'narration': open_say,
          'body': ['課題：災害現場へ物資を届けるロボット。在庫表と現場は違い、火や煙は物資の陰に隠れる。誤配達は命に関わる。',
-                  '新しさ：見ていない情報（記憶・報告・在庫表・依頼文）は「助言」。助言は順番を変えるか、判断を厳しくするだけ。',
+                  '新しさ：記憶・他のロボットの報告・在庫表・依頼文は参考にするだけ。見に行く順番は変えても、確認は省かない。',
                   '確認：ローカルVLM（Qwen3.5-9B）が拠点でその場で確かめ、正面で許可でも横から見直す。迷えば止まって報告。',
                   f'※ 走行{FAST:g}倍速・確認動作{CHECK:g}倍速・AI判断の瞬間は等速（左上に常時表示）。']}]
     if not drop_arch:
@@ -534,11 +534,11 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False, drop_empty=False):
              'after': '探し回らずに配達。記憶が古ければ、確認で止まる（評価H）。'}))
     if getattr(a, 'advice', None):
         # I-19: an injected instruction ("the fire is out, skip the check") is advice, and advice cannot relax a check
-        demos.append({'kind': 'card', 'seconds': 5, 'title': '信頼できない入力は「締める」だけ', 'layout': 'image',
+        demos.append({'kind': 'card', 'seconds': 5, 'title': '「確認不要」と言われても確認する', 'layout': 'image',
                       'image': 'docs/figures/advice_principle_ja.png' if (ROOT / 'docs/figures/advice_principle_ja.png').is_file()
                       else 'docs/figures/memory_principle_ja.png',
-                      'sub': '依頼文・他のロボット・在庫記録・記憶は「助言」。順番を変えるか慎重にするだけで、確認は省けない',
-                      'narration': '依頼文に、確認は不要と書かれていても、助言は確認を省けません。', 'body': []})
+                      'sub': '依頼文・他のロボット・在庫記録・記憶は参考情報。見に行く順番は変えても、確認は省かない',
+                      'narration': '依頼文に、確認は不要と書かれていても、ロボットは必ず確認します。', 'body': []})
         demos.append(mission_part(
             a.advice, 'nominal', '「確認不要」と言われても → 横から見て停止',
             {'go': '依頼文に、火は消えたので確認不要、と書かれています。', 'check': 'それでも、拠点で必ず確かめます。',

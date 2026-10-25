@@ -6,7 +6,7 @@
 |---|---|---|
 | 説明資料PDF | `docs/report/説明資料_PAI最終課題_tetsutetsu.pdf`（`scripts/make_report.py --account tetsutetsu` で再生成） | 作成済み |
 | GitHub リポジトリ（public） | https://github.com/fe2131-art/rescue-mind | **公開設定はご本人が変更** |
-| 動画（MP4、1〜3分） | `outputs/video/PAI最終課題_tetsutetsu.mp4`（長さ・デモ・章立ては下の「提出する版」を自動生成。Git管理外、`scripts/make_demo_video.py` で再生成。章立ては `docs/video_chapters.json`） | 作成済み |
+| 動画（MP4、1〜3分） | `outputs/video/PAI最終課題_141628.mp4`（長さ・デモ・章立ては下の「提出する版」を自動生成。Git管理外、`scripts/make_demo_video.py` で再生成。章立ては `docs/video_chapters.json`） | 作成済み |
 | YouTube の動画URL | `scripts/set_video_url.py` が書く（README の動画の項と PDF にも入る） | <!--VIDEOURL-->未設定<!--/VIDEOURL--> |
 | YouTube 投稿用テキスト | [`docs/YOUTUBE_DESCRIPTION.md`](YOUTUBE_DESCRIPTION.md)（タイトル・概要・倍速表記・チャプター・クレジット） | 作成済み |
 
@@ -16,7 +16,7 @@
 <!-- VIDEO:START -->
 * **動画の4デモ**：①物資の取り違え → 別の拠点を探索して配達 ②出動をまたぐ記憶 → 直行 ③「確認不要」と言われても → 横から見て停止 ④倉庫で：疑わしいときは、さらに視点を増やす。
 * **倍速の明記**：走行8倍速・確認動作4倍速・AI判断の瞬間は等速（画面左上に常時表示。YouTube概要欄にも記載）。
-* **動画の長さと章立て**：約2分56秒（1〜3分の枠内）、章6個、評価の表1枚。章立ては `docs/video_chapters.json`（`scripts/make_demo_video.py` が出力）、概要欄は `scripts/make_youtube_description.py` が再生成。
+* **動画の長さと章立て**：約2分55秒（1〜3分の枠内）、章6個、評価の表1枚。章立ては `docs/video_chapters.json`（`scripts/make_demo_video.py` が出力）、概要欄は `scripts/make_youtube_description.py` が再生成。
 <!-- VIDEO:END -->
 * **主な数値**（事前登録した評価。提出版 v3.6 の開発時点の数値で、V・W・I-20（v3.7）など後の結果は README と論文。`experiments/results/` の結果ファイルから生成）：
   * 評価E（ランダムな世界の閉ループ60試行）：期待どおり 60/60、誤配達 0件
@@ -32,16 +32,16 @@
 
 | 要件（課題の出典） | 対応する成果物・場所 | 状態 |
 |---|---|---|
-| 動画：ロボットがタスクを実行する様子（§1・§2） | 実レンダリングの Gazebo 映像、実走デモ4本（`outputs/video/PAI最終課題_tetsutetsu.mp4`） | 済 |
-| 動画の長さ 1〜3分 | <!--FACT:video-->176.1秒（2分56秒、`ffprobe` による実測）。1920×1080、H264/AAC。`docs/video_chapters.json` の終端は 176.1秒（実測と一致）<!--/FACT:video--> | 済 |
+| 動画：ロボットがタスクを実行する様子（§1・§2） | 実レンダリングの Gazebo 映像、実走デモ4本（`outputs/video/PAI最終課題_141628.mp4`） | 済 |
+| 動画の長さ 1〜3分 | <!--FACT:video-->175.0秒（2分55秒、`ffprobe` による実測）。1920×1080、H264/AAC。`docs/video_chapters.json` の終端は 175.0秒（実測と一致）<!--/FACT:video--> | 済 |
 | 倍速は明記（動画内または概要欄） | 動画内の左上に常時表示（走行8倍速・確認動作3倍速・AI判断は等速）＋ `docs/YOUTUBE_DESCRIPTION.md` の概要欄文面 | 済（概要欄への貼付は下の YouTube 投稿時） |
 | 動画形式 MP4 | 上記 mp4 | 済 |
-| 動画タイトル `PAI最終課題_omnicampusアカウント名` | `PAI最終課題_tetsutetsu`（`YOUTUBE_DESCRIPTION.md`） | 済（YouTube 投稿時に入力） |
+| 動画タイトル `PAI最終課題_omnicampusアカウント名 or アカウントID` | `PAI最終課題_141628`（アカウント ID。`YOUTUBE_DESCRIPTION.md`） | 済（YouTube 投稿時に入力） |
 | YouTube へアップロード、URL をフォームへ提出 | 動画ファイルと投稿用テキストは用意済み。**URL は未取得** | **要対応（ユーザー）** |
 | 公開設定：限定公開は必須（最低条件）、公開は推奨（加点） | 公開（推奨）で投稿。`YOUTUBE_DESCRIPTION.md` に手順 | **要対応（ユーザー）** |
 | 「子ども向け」いいえ／年齢制限 いいえ／インスタントプレミアム公開はチェックしない | 同上のチェックリスト | **要対応（ユーザー）** |
 | 予約公開を使う場合は締切までの日時を設定／採点完了まで削除・非公開にしない | 即時公開を推奨（予約公開は使わない） | **要対応（ユーザー）** |
-| レポート（PDF）：概要・目的・工夫した点 | `docs/report/説明資料_PAI最終課題_tetsutetsu.pdf`（<!--FACT:report-->本文11ページ＋付録16ページ（全27ページ。付録は12ページから、`pdfinfo` と本文抽出による実測）<!--/FACT:report-->。1章 課題の概要と目的、2〜4章 AIの活用と工夫、審査基準との対応表、限界。PDF の著者欄は `tetsutetsu` のみ） | 済 |
+| レポート（PDF）：概要・目的・工夫した点 | `docs/report/説明資料_PAI最終課題_tetsutetsu.pdf`（<!--FACT:report-->本文10ページ＋付録16ページ（全26ページ。付録は11ページから、`pdfinfo` と本文抽出による実測）<!--/FACT:report-->。1章 課題の概要と目的、2〜4章 AIの活用と工夫、審査基準との対応表、限界。PDF の著者欄は `tetsutetsu` のみ） | 済 |
 | PDF ファイル名 `説明資料_PAI最終課題_omnicampusアカウント名.pdf` | 上記ファイル名のとおり | 済 |
 | PDF を最新の結果で再生成 | 登録した研究の結果はすべて反映済み（最後の X は 2026-10-19 08:51）。結果が変わるたびに `scripts/make_report.py --account tetsutetsu`（rm-dev）で再生成し、`make check` で README・YouTube・論文・説明資料の数値が結果ファイルと一致することを確認する | 済（結果が出るたびに再生成） |
 | 使用したコード一式 | 本リポジトリ（`rescuemind/`, `ros/`, `scripts/`, `tests/`, `docker/`, `worlds/`, `configs/`、動かし方は README） | 済 |
@@ -64,7 +64,7 @@
 ## 提出前チェック
 
 1. GitHub：Settings → General → Danger Zone → Change visibility → **Public**。Actions（offline tests）が緑であること。
-2. YouTube：タイトル `PAI最終課題_tetsutetsu`、概要欄は `docs/YOUTUBE_DESCRIPTION.md` を貼付（倍速の明記・VOICEVOX のクレジットを含む）。
+2. YouTube：タイトル `PAI最終課題_141628`（アカウント ID）、概要欄は `docs/YOUTUBE_DESCRIPTION.md` を貼付（倍速の明記・VOICEVOX のクレジットを含む）。
    公開（推奨）または限定公開、子ども向け「いいえ」、年齢制限「いいえ」、インスタントプレミアム公開はチェックしない。
 3. omnicampus：PDF、GitHub URL、YouTube URL を提出。採点完了まで動画を削除・非公開にしない。
 

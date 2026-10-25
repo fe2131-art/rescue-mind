@@ -1570,3 +1570,9 @@
 ## I-176 (2026-10-25) HANDOFF reduced to one current block for the post-compaction review
 * **Change.** The 20 stacked "最新" blocks and the old "現在地" section (lines about 10-395) moved verbatim to the end of `docs/HANDOFF_ARCHIVE.md`; HANDOFF now opens with one block: state (complete, final check passes, experiments frozen), artifacts with locations and numbers, studies and the 23 failed claims, a five-step re-check procedure with commands, the user's remaining tasks, and the working rules. Consistency checks on HANDOFF (failed-claim list, FINDINGS count, latest evaluation, test count) still pass.
 * **Before → After.** HANDOFF 481 → 122 lines; the first screen is enough to verify and resume.
+
+## I-177 平易な言葉への総点検と、動画タイトルをアカウントIDに（2026-10-25）
+
+* **動機**：ユーザーの指摘。README の題「助言は『厳しくする』ことしかできない」など、意味の通りにくい造語（「締めるだけ」「窓口」「千里眼の助言者」「被ばく」「代償は露出に変わった」など）が README・説明資料・YouTube 説明文・動画に残っていた。改訂版の課題要項で、動画タイトルはアカウント名またはアカウントIDでよいと分かった。
+* **変更**：中心の考えを「見ていない情報では確認を省けない（助言で変えてよいのは、見に行く順番と判定の慎重さだけ）」と言い直し、生成スクリプト（make_report・advice_numbers・update_readme_results・make_youtube_description・make_video_plan・図）を直して再生成した。説明資料の古い記述（研究B・IF2 を「実行中」と表示、Markdown の `**` が残る、S-perm を「23件目」と書く、倉庫の評価を「実行予定」）と DEPLOYMENT の古い「結果が無い」も直した。動画は v15（175.0 s）に作り直し、ファイル名と YouTube タイトルを `PAI最終課題_141628`（アカウントID）にした。説明資料のファイル名は課題の指定どおりアカウント名のまま。
+* **Before/After**：説明資料 本文11頁・全27頁 → 本文10頁・全26頁。動画 176.1 s → 175.0 s。`final_check.sh` は fails=0。数値・結果は変えていない（check_consistency 0 件）。

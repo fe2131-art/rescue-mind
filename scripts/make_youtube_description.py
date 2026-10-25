@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SAFE = ('ALLOW', 'DELIVER_AFTER_SEARCH')        # expected actions for which a delivery is correct
 DELIVERED = ('ALLOW', 'ALLOW_AFTER_SEARCH', 'ALLOW_MEMORY')
 V_START, V_END = '<!-- VIDEO:START -->', '<!-- VIDEO:END -->'
-VIDEO_FILE = 'outputs/video/PAI最終課題_tetsutetsu.mp4'
+VIDEO_FILE = 'outputs/video/PAI最終課題_141628.mp4'
 
 # Longer wording for a demo, used only when the chapter title (without "デモN：") matches exactly.
 GLOSS = {
@@ -169,7 +169,7 @@ def line_z(res):
     try:
         t = z['models']['siglip']['t2']
         o = t['ours']
-        parts = [f"本方式 誤許可 {o['FA']}/{o['n_deny']}・正しい許可 {o['CA']}/{o['n_allow']}"]
+        parts = [f"本方式誤許可 {o['FA']}/{o['n_deny']}・正しい許可 {o['CA']}/{o['n_allow']}"]
         for key, name in (('siglip', 'SigLIP'), ('clip', 'CLIP')):
             b = z['models'][key]['t2']['baseline']
             parts.append(f"{name} {b['FA']}/{b['n_deny']}・{b['CA']}/{b['n_allow']}")
@@ -255,7 +255,7 @@ def line_a(res):
 def line_if(res):
     """Study IF (request text switching the supply): a failed registered claim, stated with its countermeasure status."""
     t = advice_numbers.if_short_ja()
-    return f"・{t}。依頼物資は保証の外なので、出発前に運用者が解析結果を読み返す運用を必須としている" if t else None
+    return f"・{t}。依頼物資は保証の対象外なので、出発前に運用者が解析結果を読み返す運用を必須としている" if t else None
 
 
 def line_w(res):
@@ -444,14 +444,14 @@ def line_y(res):
     yj, yej, yfj = (jload(Path(res) / f) for f in ('y_summary.json', 'ye_summary.json', 'yf_summary.json'))
     try:
         lv = yj['Y-s']['lost_vs_control']['scrutiny_hc']
-        t = (f"・拒否のあとも探索を続ける任意のフラグ（評価Y、{yj['n_planned']}試行）：助言が火の拠点を指しても、scrutiny＋フラグの失う配達は "
-             f"{lv['fire_worlds']['lost'] + lv['clean_worlds']['lost']}/{lv['fire_worlds']['pairs'] + lv['clean_worlds']['pairs']}（Xでは配達を失った）。tighten-onlyは火へ配達する世界が残る（知覚の見逃し）")
+        t = (f"・拒否のあとも探索を続ける任意のフラグ（評価Y、{yj['n_planned']}試行）：助言が火の拠点を指しても、警戒強化版＋フラグの失う配達は "
+             f"{lv['fire_worlds']['lost'] + lv['clean_worlds']['lost']}/{lv['fire_worlds']['pairs'] + lv['clean_worlds']['pairs']}（Xでは配達を失った）。本方式（フラグなし）は火へ配達する世界が残る（知覚の見逃し）")
         if yej:
             h = yej['arms']['hc']
-            t += f"。代償は露出（評価YE）：2つ目の火が隠れていると、フラグ付きで火へ配達 {h['unsafe_deliveries']['k']}/{h['unsafe_deliveries']['n']}（フラグなし 0/{yej['arms']['v36']['n']}）"
+            t += f"。代わりに火へ近づく危険が増える（評価YE）：2つ目の火が隠れていると、フラグ付きで火へ配達 {h['unsafe_deliveries']['k']}/{h['unsafe_deliveries']['n']}（フラグなし 0/{yej['arms']['v36']['n']}）"
         if yfj:
             yl = yfj['Y-s']['lost_vs_control']['scrutiny_hc']
-            t += (f"。新しい世界での再現（評価YF、{yfj['n_planned']}試行）：可用性は再現したが、scrutiny は火のない現場で配達を失った {yl['fire_worlds']['lost'] + yl['clean_worlds']['lost']}/{yl['fire_worlds']['pairs'] + yl['clean_worlds']['pairs']}（主張YF4は不成立）")
+            t += (f"。新しい世界での再現（評価YF、{yfj['n_planned']}試行）：可用性は再現したが、警戒強化版は火のない現場で配達を失った {yl['fire_worlds']['lost'] + yl['clean_worlds']['lost']}/{yl['fire_worlds']['pairs'] + yl['clean_worlds']['pairs']}（主張YF4は不成立）")
         return t
     except (TypeError, KeyError):
         return None
@@ -471,7 +471,7 @@ def headline_block(res):
     """First-screen summary for a busy judge: problem, what is new, three numbers in plain words, what to watch."""
     res = Path(res)
     out = ['【問題】災害時の物資配達ロボットは、在庫表と現物の食い違い（水のはずが救急箱・空）や火災に出会う。指示どおり運ぶだけでは、誤った物資や危険な場所へ届けてしまう。',
-           '【新しさ】自分で見ていない情報（記憶・他のロボット・依頼文・在庫表）は「助言」とし、順序を変えるか判断を厳しくするだけにする。どんな助言でも危険な配達は確認自身の誤差の予算内（命題2、z3 で機械検証）。嘘を毎回つく情報源の代償は信用枠で上限（合成モデルの記述、閉ループ未確認）。']
+           '【新しさ】記憶・他のロボットの報告・依頼文・在庫表など、自分で見ていない情報は「助言」として扱い、見に行く順番を変えるか、判定を慎重にすることにだけ使う。確認は省けないので、どんな助言でも危険な配達は確認自身の誤りの範囲に収まる（命題2、z3 で機械検証）。毎回嘘をつく情報源の代償には、信用枠で上限を設けた（研究Bで閉ループでも確認）。']
     nums = []
     f = res / 'campaign_E_ledger.jsonl'
     if f.is_file():
@@ -546,7 +546,7 @@ def build_description(chapters, res, _nums=None):
             f"（`docs/video_chapters.json` の終端 {facts['total_s']:g} 秒）、日本語ナレーション付き）")
     paras = [
         '# YouTube 投稿用テキスト（コピーして使用）', head,
-        '## タイトル\nPAI最終課題_tetsutetsu',
+        '## タイトル\nPAI最終課題_141628',
         '## 概要欄\n'
         'RescueMind：現地で「目で確かめてから」届ける災害物資ロボット（Physical AI 応用1講座 最終課題）\n\n'
         '自然な言い回しの依頼をローカルLLMが解釈し、ロボットが拠点へ自律移動。その場でカメラ画像をローカルVLM（Qwen3.5-9B / V100）で確認し、'
