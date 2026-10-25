@@ -79,6 +79,15 @@ class YoutubeChapters(unittest.TestCase):
         with self.assertRaises(ValueError):
             yc.merge_short([])
 
+    def test_repeated_wording_is_not_named_twice(self):
+        # I-178: a card that repeats the demo's words, and the closing title card, are not chapter names of their own
+        ch = yc.merge_short([seg(0, 12, 'RescueMind'), seg(12, 40, 'デモ1：A', 'mission'),
+                             seg(40, 45, '「確認不要」と言われても確認する'), seg(45, 70, 'デモ2：「確認不要」と言われても → 停止', 'mission'),
+                             seg(70, 90, '表', 'table'), seg(90, 96, 'RescueMind')])
+        self.assertEqual([c['title'] for c in ch], ['RescueMind', 'デモ1：A', 'デモ2：「確認不要」と言われても → 停止', '表'])
+        self.assertEqual(yc.validate(ch), [])
+        self.assertEqual(yc._join(['RescueMind'], drop={'RescueMind'}), 'RescueMind')      # never an empty title
+
     def test_repo_chapter_file_is_valid(self):
         ch = json.loads((ROOT / 'docs/video_chapters.json').read_text(encoding='utf8'))
         self.assertEqual(yc.validate(ch), [])

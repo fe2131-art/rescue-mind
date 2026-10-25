@@ -52,14 +52,33 @@ def demo_title(c):
     return c.get('demo_title') or c['title']
 
 
-def _join(parts):
-    """Combined title; a part already contained in another part ('出動をまたぐ記憶' in 'デモ3：出動をまたぐ記憶 → 直行') is dropped."""
+OVERLAP = 8      # a shorter part that shares this many consecutive characters with a longer part says the same thing twice
+
+
+def _common(a, b):
+    """Length of the longest common substring of a and b."""
+    best, prev = 0, [0] * (len(b) + 1)
+    for x in a:
+        cur = [0] * (len(b) + 1)
+        for k, y in enumerate(b):
+            if x == y:
+                cur[k + 1] = prev[k] + 1
+                best = max(best, cur[k + 1])
+        prev = cur
+    return best
+
+
+def _join(parts, drop=()):
+    """Combined title.  A part contained in another part ('出動をまたぐ記憶' in 'デモ3：出動をまたぐ記憶 → 直行'), or a shorter part that
+    repeats OVERLAP characters of a longer one (the card 「確認不要」と言われても確認する before the demo 「確認不要」と言われても → ...), is
+    dropped, and so is a part named in `drop` (the closing title card repeats the opening one) unless nothing else is left."""
     keep = []
     for i, p in enumerate(parts):
-        if any(i != j and p != q and p in q for j, q in enumerate(parts)) or p in keep:
+        if any(i != j and p != q and (p in q or (len(p) <= len(q) and _common(p, q) >= OVERLAP)) for j, q in enumerate(parts)) or p in keep:
             continue
         keep.append(p)
-    return SEP.join(keep)
+    rest = [p for p in keep if p not in drop]
+    return SEP.join(rest or keep)
 
 
 def _merge_two(a, b):
@@ -87,7 +106,8 @@ def merge_short(chapters, min_s=MIN_S, min_n=MIN_N):
         ln = lengths(ch)
         short = [i for i, x in enumerate(ln) if x < min_s]
         if not short:
-            return ch
+            first = ch[0]['title']        # a closing title card repeats the opening one: not a chapter name of its own
+            return [ch[0]] + [dict(c, title=_join([s['title'] for s in c['segments']], drop={first})) if c.get('segments') else c for c in ch[1:]]
         if len(ch) - 1 < min_n:
             raise ValueError(f'cannot keep {min_n} chapters of >= {min_s} s ({len(ch)} chapters, video {ch[-1]["end_s"]:.1f} s)')
         i = short[0]

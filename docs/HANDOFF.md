@@ -19,7 +19,7 @@
 | 論文 | `docs/paper/main.pdf`、`supplement.pdf` | 本文8頁（9頁目は参考文献のみ）、要旨199語、補足46頁、参考文献384件（重複0） |
 | README・YouTube 説明文 | `README.md`、`docs/YOUTUBE_DESCRIPTION.md` | 説明文 4,752 字（上限5000） |
 
-**研究**：44本を事前登録（時刻証明26本すべてビットコインで確定、I-175）。最後の3本：JL（JL1〜JL3 成立：13/98 → 3/100）、IJ（IJ1・IJ3 成立、IJ2 不成立）、JM（JM1 不成立、JM2・JM3 成立）。論文で不成立の主張は23件：T1・F・T2・J・V4・W-b・IF1・S-perm・XD-eps・XD-rel・XD-cal・Q・YE2・YF4・JH1・QI1・QI2・QI3c・JC1・IJ2・JM1・IH1・IG1。すべて `scripts/trial_chain.py` の試行錯誤の表に置いてある。FINDINGS は 59 件。テスト関数は 1675 件。第三者採点の最新は第11回 **36.0/40**（`docs/evaluations/`）。
+**研究**：44本を事前登録（時刻証明26本すべてビットコインで確定、I-175）。最後の3本：JL（JL1〜JL3 成立：13/98 → 3/100）、IJ（IJ1・IJ3 成立、IJ2 不成立）、JM（JM1 不成立、JM2・JM3 成立）。論文で不成立の主張は23件：T1・F・T2・J・V4・W-b・IF1・S-perm・XD-eps・XD-rel・XD-cal・Q・YE2・YF4・JH1・QI1・QI2・QI3c・JC1・IJ2・JM1・IH1・IG1。すべて `scripts/trial_chain.py` の試行錯誤の表に置いてある。FINDINGS は 59 件。テスト関数は 1676 件。第三者採点の最新は第11回 **36.0/40**（`docs/evaluations/`）。
 
 **圧縮後の確認手順（この順で。どれも数分）**
 1. `git fetch origin && git status -sb`（`main` と `origin/main` が一致、未コミット0）
