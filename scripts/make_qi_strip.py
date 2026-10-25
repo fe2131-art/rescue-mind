@@ -45,9 +45,9 @@ def main(argv=None):
     canvas.paste(img_r, (810, 70))
     d.text((10, 8), 'シミュレータの画像', font=fb, fill=(255, 255, 255))
     d.text((810, 8), '画像生成AIで写実化した画像', font=fb, fill=(255, 255, 255))
-    d.text((10, 665), f'ゲートの火の確率 {sx:.2f}  → 火を検知', font=fb, fill=(120, 220, 140))
-    d.text((810, 665), f'ゲートの火の確率 {sr:.2f}  → 見逃し', font=fb, fill=(255, 120, 110))
-    d.text((10, 722), '灰色の煙の円盤が写実的な背景に残ると、ゲートは火と判断しない。どちらも実写ではない。', font=fr, fill=(210, 210, 210))
+    d.text((10, 665), f'AIが判断した火の確率 {sx:.2f} → 火を検知', font=fb, fill=(120, 220, 140))
+    d.text((810, 665), f'AIが判断した火の確率 {sr:.2f} → 見逃し', font=fb, fill=(255, 120, 110))
+    d.text((10, 722), '写真に近い背景では煙だけが目立ち、AIは火と判断しなかった（どちらも生成画像）。', font=fr, fill=(210, 210, 210))
     out = ROOT / 'docs/figures/qi_strip.png'
     canvas.save(out)
     print(key, round(sx, 3), round(sr, 3), out)

@@ -106,8 +106,9 @@ def merge_short(chapters, min_s=MIN_S, min_n=MIN_N):
         ln = lengths(ch)
         short = [i for i, x in enumerate(ln) if x < min_s]
         if not short:
-            first = ch[0]['title']        # a closing title card repeats the opening one: not a chapter name of its own
-            return [ch[0]] + [dict(c, title=_join([s['title'] for s in c['segments']], drop={first})) if c.get('segments') else c for c in ch[1:]]
+            first = ch[0]['title']        # a closing title card repeats the opening one ('RescueMind' in 'RescueMind（レスキューマインド）'): not a chapter name
+            drop = {s['title'] for c in ch[1:] for s in (c.get('segments') or []) if s['title'] and s['title'] in first}
+            return [ch[0]] + [dict(c, title=_join([s['title'] for s in c['segments']], drop=drop)) if c.get('segments') else c for c in ch[1:]]
         if len(ch) - 1 < min_n:
             raise ValueError(f'cannot keep {min_n} chapters of >= {min_s} s ({len(ch)} chapters, video {ch[-1]["end_s"]:.1f} s)')
         i = short[0]

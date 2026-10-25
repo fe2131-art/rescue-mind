@@ -113,10 +113,10 @@ def facts():
     if h:
         p1, p2, p3 = h['P1_efficiency_relocation_persist'], h['P2_safety_naive_vs_verified'], h['P3_no_extra_risk_vs_v36']
         t0, t2 = round(p1['time_M0_median_s']), round(p1['time_M2_median_s'])
-        add('H median time M0 -> M2', f'{t0} -> {t2} s', [f'{t0}秒 → {t2}秒'], [f'記憶なし {t0}秒・検証つき記憶 {t2}秒'], [f'{t0}→{t2}秒'],
+        add('H median time M0 -> M2', f'{t0} -> {t2} s', [f'{t0}秒 → {t2}秒'], [f'記憶なし {t0}秒・確認つきの記憶 {t2}秒'], [f'{t0}→{t2}秒'],
             {'HTimeMzero': str(t0), 'HTimeMtwo': str(t2)})
         add('H unsafe M0 / M1 / M2', f"{p3['unsafe_M0']} / {p2['unsafe_M1']} / {p2['unsafe_M2']} of {p2['n_pairs']}",
-            [f"記憶なし {p3['unsafe_M0']}/{p3['n_pairs']}"], [f"素朴な記憶 {p2['unsafe_M1']}件"], [],
+            [f"記憶なし {p3['unsafe_M0']}/{p3['n_pairs']}"], [f"記憶をうのみにする方式（確認を省く） {p2['unsafe_M1']}件"], [],
             {'HUnsafeMzero': str(p3['unsafe_M0']), 'HUnsafeMone': str(p2['unsafe_M1']), 'HUnsafeMtwo': str(p2['unsafe_M2']), 'HPTwoN': str(p2['n_pairs'])})
     lj = jload('l_summary.json')
     if lj and lj.get('complete'):
@@ -146,8 +146,8 @@ def facts():
             [f"実測 {d:.0f} 秒", f"{vf['pred_lo']:.0f}〜{vf['pred_hi']:.0f} 秒"], [f"時間差 {d:.0f}秒", f"{vf['pred_lo']:.0f}〜{vf['pred_hi']:.0f}秒"],
             [f"実測 {d:.0f} 秒", f"{vf['pred_lo']:.0f}〜{vf['pred_hi']:.0f} 秒"], {'VObsDiff': f'{d:.0f}'})
         add('V unsafe deliveries M0 / M1 / M2', f"{u['M0']} / {u['M1']} / {u['M2']} of {vf['n_per_arm']}",
-            [f"記憶なし {u['M0']}・素朴な記憶 {u['M1']}・検証つき記憶 {u['M2']}件"], [f"記憶なし {u['M0']}・素朴な記憶 {u['M1']}・検証つき記憶 {u['M2']}件"],
-            [f"記憶なし {u['M0']}・素朴な記憶 {u['M1']}・本方式 {u['M2']}件"],
+            [f"記憶なし {u['M0']}・記憶をうのみにする方式 {u['M1']}・確認つきの記憶 {u['M2']}件"], [f"記憶なし {u['M0']}・記憶をうのみにする方式 {u['M1']}・確認つきの記憶 {u['M2']}件"],
+            [f"記憶なし {u['M0']}・記憶をうのみにする方式 {u['M1']}・本方式 {u['M2']}件"],
             {'VUnsafeMzero': str(u['M0']), 'VUnsafeMone': str(u['M1']), 'VUnsafeMtwo': str(u['M2'])})
         add('V claims (model / memory under random change) and the sequence McNemar p', f"{ok(vf['model_claim'])} / {ok(vf['memory_claim'])}, p={mp}",
             [f"モデルの予測：{ok(vf['model_claim'])}", f"記憶はランダムな変化でも安全：{ok(vf['memory_claim'])}", f"p={mp}"],

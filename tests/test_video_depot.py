@@ -207,7 +207,7 @@ class EvidenceCard(unittest.TestCase):
             self.assertLessEqual(mvp.cell_px(cell), mvp.EVIDENCE_CELL_PX, cell)
             self.assertLessEqual(mvp.cell_px(label), 560, label)
         names = ''.join(r[0] for r in card['rows'])
-        for key in ('閉ループ A', '閉ループ GL', '別系統AI審判 JH', '（QI）', '閉ループ G', '閉ループ E'):      # v12: W and P rows left the card for GL, JH and QI
+        for key in ('ランダムな', '物資の陰の火', '雑多な倉庫', 'うその情報', '別のAI', '写真に近づけた'):      # I-184: plain labels, no study codes
             self.assertIn(key, names)
 
 
