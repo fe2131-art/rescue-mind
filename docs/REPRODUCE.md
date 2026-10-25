@@ -356,14 +356,13 @@ Documented but **not run** here (the host was busy with GPU evaluation; each com
 
 If something in a tier does not reproduce, the first suspects are: a different solver or library version (tier 1), a snapshot that differs from the pinned revision (tier 2), and a second stack sharing the ROS domain, the GPU or the CPU (tier 3).
 
-## 公開していない生成データ（作り直し方、I-168）
+## 10. Generated data that is not in the repository (I-168)
 
-容量が大きく、公開した手順から作り直せるデータは Git に入れていない（`.gitignore`）。結果ファイル（`experiments/results/*_summary.json`、全試行の台帳、各モデルの採点結果）はすべて公開している。
+Large data that the published scripts regenerate is not committed (`.gitignore`). Every result file (`experiments/results/*_summary.json`), every trial ledger and every per-model score file is committed.
 
-| 公開していないもの | 大きさ | 作り直し方 |
+| Not committed | Size | How to regenerate |
 |---|---|---|
-| `experiments/results/ij_features.npz`（IJ の隠れ層の特徴量） | 46 MB | `bash scripts/ij_run.sh` の中の `scripts/ij_extract.py`（GPU、約 10 分） |
-| `experiments/vlm_testset_{ji,s,s_ocrmask,w,xd}/`、`worlds/testset_{ji,s,xd}/`（画像レベルの評価用の画像とワールド） | 約 400 MB | 各研究の登録文書 `experiments/PREREGISTRATION_<研究>.md` に書いた生成スクリプト（ワールドはシードから決定的に作られる） |
-| `outputs/qi/`、`outputs/qj/`（画像生成モデルで作った画像） | 約 100 MB | `scripts/qi_run.sh`、`scripts/qj_run.sh`（画像ごとの採点結果は公開済み） |
-| `outputs/runs/`、`outputs/video/`（各走行の記録と動画） | 数十 GB | 台帳の各行の設定でその走行を再実行する（`scripts/run_campaign.py`） |
-
+| `experiments/results/ij_features.npz` (IJ hidden-state features) | 46 MB | `scripts/ij_extract.py`, run by `bash scripts/ij_run.sh` (GPU, about 10 min) |
+| `experiments/vlm_testset_{ji,s,s_ocrmask,w,xd}/`, `worlds/testset_{ji,s,xd}/` (image-level test sets and their worlds) | about 400 MB | the generation scripts named in each `experiments/PREREGISTRATION_<study>.md` (worlds are deterministic from their seeds) |
+| `outputs/qi/`, `outputs/qj/` (images made by the image-generation model) | about 100 MB | `scripts/qi_run.sh`, `scripts/qj_run.sh` (the per-image scores are committed) |
+| `outputs/runs/`, `outputs/video/` (per-run records and videos) | tens of GB | re-run a ledger row's configuration with `scripts/run_campaign.py` |
