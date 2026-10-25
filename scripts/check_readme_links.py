@@ -3,6 +3,7 @@
 and every in-page anchor (#...) must match a heading (GitHub slug rules).  Also reports the pixel size of local images.
 
   python3 scripts/check_readme_links.py [README.md]      # exit 1 on a broken link
+  python3 scripts/check_readme_links.py --all            # README and every tracked docs/**/*.md (I-181)
 """
 from __future__ import annotations
 import re
@@ -58,12 +59,25 @@ def check(readme: Path):
     return n, bad, imgs
 
 
+def published_docs():
+    """README.md and every tracked Markdown file under docs/ (what a reader of the public repository can open).  The
+    pre-registration texts under experiments/ are hash-attested and cannot be edited, so they are not checked (I-181)."""
+    out = subprocess.run(['git', 'ls-files', '-z', 'README.md', 'docs/*.md', 'docs/**/*.md'], cwd=ROOT, capture_output=True, check=True)
+    return [ROOT / f for f in sorted(set(out.stdout.decode().split('\0'))) if f]
+
+
 if __name__ == '__main__':
-    readme = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / 'README.md'
-    n, bad, imgs = check(readme.resolve())
-    for rel, size, nbytes in sorted(set(imgs)):
-        print(f'image {rel}: {size[0]}x{size[1]}, {nbytes / 1024:.0f} KB' + ('  (large: > 1.5 MB)' if nbytes > 1.5e6 else ''))
-    print(f'{n} relative links checked, {len(bad)} broken')
-    for b in bad:
+    args = sys.argv[1:]
+    files = published_docs() if args == ['--all'] else [Path(args[0]) if args else ROOT / 'README.md']
+    total, broken = 0, []
+    for doc in files:
+        n, bad, imgs = check(doc.resolve())
+        total += n
+        broken += [f'{doc.resolve().relative_to(ROOT)}: {b}' for b in bad]
+        if doc.name == 'README.md' and doc.parent == ROOT:
+            for rel, size, nbytes in sorted(set(imgs)):
+                print(f'image {rel}: {size[0]}x{size[1]}, {nbytes / 1024:.0f} KB' + ('  (large: > 1.5 MB)' if nbytes > 1.5e6 else ''))
+    print(f'{len(files)} files, {total} relative links checked, {len(broken)} broken')
+    for b in broken:
         print('BROKEN', b)
-    sys.exit(1 if bad else 0)
+    sys.exit(1 if broken else 0)
