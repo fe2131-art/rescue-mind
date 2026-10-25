@@ -1326,7 +1326,8 @@ def main():
         print('README snapshot written:', out)
         return
     readme.write_text(txt, encoding='utf8')
-    for name in ('FINDINGS.md', 'HANDOFF.md'):       # prose counts in the other docs
+    import release_mode
+    for name in [n for n in ('FINDINGS.md', 'HANDOFF.md') if n == 'FINDINGS.md' or release_mode.internal('docs/' + n)]:       # prose counts (HANDOFF: dev mode only, I-180)
         f = ROOT / 'docs' / name
         f.write_text(sync_counts(f.read_text(encoding='utf8'), f), encoding='utf8')
     print('README results updated: G', v[1] if v else None, '| E', e[1] if e else None, '| D', d[1] if d else None, '| T1', bool(t))

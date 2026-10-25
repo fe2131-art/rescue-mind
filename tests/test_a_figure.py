@@ -9,6 +9,13 @@ from pathlib import Path
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _dev():
+    import sys
+    sys.path.insert(0, str(ROOT / 'scripts'))
+    import release_mode
+    return release_mode.mode() == 'dev'
 sys.path.insert(0, str(ROOT / 'scripts'))
 import advice_numbers  # noqa: E402
 import make_a_figure  # noqa: E402
@@ -86,6 +93,7 @@ class AConfigurationWording(unittest.TestCase):
         self.assertRegex(md, r'C9: A adds no failed claim; the paper\'s total of failed registered claims is \d+')
 
 
+@unittest.skipUnless(_dev(), 'docs/SUBMISSION.md is a local note: RESCUEMIND_MODE=public (I-180)')
 class SubmissionFacts(unittest.TestCase):
     def test_report_page_counts_line_has_the_generated_form(self):
         s = (ROOT / 'docs/SUBMISSION.md').read_text(encoding='utf8')

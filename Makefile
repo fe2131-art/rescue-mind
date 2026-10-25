@@ -12,7 +12,7 @@ LATEX_IMG ?= rescuemind:latex
 NICE     ?= nice -n 19
 # Where `make verify` / `verify-quick` write their fresh result files (override on a shared host: make verify SMT_TMP=$$HOME/tmp)
 SMT_TMP  ?= /tmp
-# NB: no nice inside the container (nice drops LD_LIBRARY_PATH in the ROS shell, HANDOFF section 4)
+# NB: no nice inside the container (nice drops LD_LIBRARY_PATH in the ROS shell, docs/OPERATIONS.md section 4)
 IN_DEV    = docker exec $(DEV) rescuemind-entrypoint
 FINAL    ?=
 
