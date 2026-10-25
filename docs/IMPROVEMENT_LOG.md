@@ -1540,3 +1540,8 @@
 ## I-171 (2026-10-25) The v14 video recipe written into FINAL_PLAN
 * **Change.** FINAL_PLAN's video item carries the exact commands (backup without rm, plan with the JK film run if usable, render in the background, duration check, frame-by-frame review every 10 s, submission facts).
 * **Before → After.** Video step: from memory → a fixed recipe with its checks.
+
+## I-121 Result (2026-10-25): JM1 fails, JM2 and JM3 hold — the plume is not a confirmed cause; the extra views work with and without it
+* **Numbers** (`experiments/results/jm_summary.json`; 240 trials, 0 failed, 0 audit failures): v3.6 deliveries into fire with the plume 12/60, without 9/60 (discordant 6 vs 3, one-sided p = 0.25; JM1 fails). Extra views with the plume 3/60 (upper 12.4%, line 4; JM3 holds), paired against v3.6 9 vs 0, p = 0.002 (JM2 holds); without the plume 0/60 (v3.6 9/60). Time cost 0.8 s (P3 holds); P1 holds; P2 fails (trigger share 91% with plume vs 100% without; few missions reached the extra stage).
+* **Reading.** The post hoc association between plume and residual misses (GM, JK) is not confirmed as a cause; the reading pre-committed for this outcome (I-164, (b)) is used unchanged. The extra views reduce deliveries into fire on a third set of fresh worlds (after JK and JL).
+* **Integrated.** `jm_section.tex`, FINDINGS #59, TRIAL_AND_ERROR row; JM1 lands in the trial-chain step placed before the result (I-163); hooks of I-122 update failed claims (23), macros, README, YouTube, report.
