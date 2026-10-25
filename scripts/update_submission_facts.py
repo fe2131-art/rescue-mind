@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Write the two measured facts of docs/SUBMISSION.md from the actual files (no hand-typed values):
-  * the video length / size / codecs from `ffprobe` on outputs/video/PAI最終課題_tetsutetsu.mp4 (git-ignored file),
+  * the video length / size / codecs from `ffprobe` on outputs/video/PAI最終課題_141628.mp4 (git-ignored file),
   * the explanation PDF's main-part and appendix page counts from the PDF text (the appendix starts on the page that carries the
     heading "付録（詳細・証明・過去の評価・失敗の一覧）").
 The values sit between <!--FACT:video-->...<!--/FACT:video--> and <!--FACT:report-->...<!--/FACT:report--> in docs/SUBMISSION.md.
@@ -21,7 +21,7 @@ def _video() -> Path:
     import subprocess
     if os.environ.get('RESCUEMIND_VIDEO'):
         return Path(os.environ['RESCUEMIND_VIDEO'])
-    rel = Path('outputs/video/PAI最終課題_tetsutetsu.mp4')
+    rel = Path('outputs/video/PAI最終課題_141628.mp4')
     here = Path(__file__).resolve().parents[1] / rel
     if here.is_file():
         return here
@@ -35,7 +35,7 @@ def _video() -> Path:
 
 VIDEO = _video()
 if not VIDEO.is_file():
-    VIDEO = ROOT / 'outputs/video/PAI最終課題_tetsutetsu.mp4'
+    VIDEO = ROOT / 'outputs/video/PAI最終課題_141628.mp4'
 PDF = ROOT / 'docs/report/説明資料_PAI最終課題_tetsutetsu.pdf'
 SUB = ROOT / 'docs/SUBMISSION.md'
 CHAP = ROOT / 'docs/video_chapters.json'

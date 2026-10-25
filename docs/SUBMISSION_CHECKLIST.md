@@ -18,7 +18,7 @@ omnicampus アカウント名は `tetsutetsu`。コマンドはすべて `~/work
 | 3 | 文書と結果ファイルの一致 | `python3 scripts/check_consistency.py` | **0 mismatch**（終了コード 0） |
 | 4 | 単体テスト | `make test`（`docker exec rm-dev rescuemind-entrypoint ...` で実行） | 全件成功 |
 | 5 | **最終版かスナップショットか** | 下の判定 | 下記 |
-| 6 | 動画 1〜3 分 | `ffprobe -v error -show_entries format=duration -of csv=p=0 ~/work/rescue-mind/outputs/video/PAI最終課題_tetsutetsu.mp4` | 60 以上 180 以下（秒）。続けて `python3 scripts/update_submission_facts.py`（`docs/SUBMISSION.md` の実測値を更新）。`docs/video_chapters.json` の終端と一致 |
+| 6 | 動画 1〜3 分 | `ffprobe -v error -show_entries format=duration -of csv=p=0 ~/work/rescue-mind/outputs/video/PAI最終課題_141628.mp4` | 60 以上 180 以下（秒）。続けて `python3 scripts/update_submission_facts.py`（`docs/SUBMISSION.md` の実測値を更新）。`docs/video_chapters.json` の終端と一致 |
 | 7 | 倍速表示 | 下の「倍速の目視」 | 走行 8 倍速・確認 4 倍速が画面左上に出ている |
 | 8 | 概要欄が上限内 | `sed -n '/^## 概要欄/,/^## 公開設定チェック/p' docs/YOUTUBE_DESCRIPTION.md \| sed '1d;$d' \| wc -m` | 5000 **文字**以下（YouTube Studio の上限は文字数。生成側は 4900 文字で抑える。2026-10-20 時点は約 3700 文字） |
 | 9 | レポートのファイル名・著者 | `ls docs/report/`、`docker run --rm -v "$PWD/docs/report:/w:ro" rescuemind:latex pdfinfo "/w/説明資料_PAI最終課題_tetsutetsu.pdf" \| grep -E 'Author\|Pages'` | ファイル名は **`説明資料_PAI最終課題_tetsutetsu.pdf`** だけ。Author は `tetsutetsu` |
@@ -34,7 +34,7 @@ omnicampus アカウント名は `tetsutetsu`。コマンドはすべて `~/work
 
 **倍速の目視（#7・#10）**：
 ```bash
-mkdir -p ~/rescue-mind-check && V=~/work/rescue-mind/outputs/video/PAI最終課題_tetsutetsu.mp4
+mkdir -p ~/rescue-mind-check && V=~/work/rescue-mind/outputs/video/PAI最終課題_141628.mp4
 for t in 20 55 95 130; do nice -n 19 ffmpeg -v error -y -ss $t -i "$V" -frames:v 1 ~/rescue-mind-check/f_$t.png; done
 ```
 4 枚（各デモの途中）を開き、左上の倍速表示を確認する。音声は一度通して聞き、氏名・所属・メールが出ないことを確認する。
@@ -65,10 +65,10 @@ for t in 20 55 95 130; do nice -n 19 ffmpeg -v error -y -ss $t -i "$V" -frames:v
 
 ## 2. YouTube（ご本人）
 
-アップロードするファイル：`~/work/rescue-mind/outputs/video/PAI最終課題_tetsutetsu.mp4`（MP4、Git 管理外）。
+アップロードするファイル：`~/work/rescue-mind/outputs/video/PAI最終課題_141628.mp4`（MP4、Git 管理外）。
 
 1. YouTube Studio → 作成 → 動画をアップロード。
-2. **タイトル**：`PAI最終課題_tetsutetsu`（課題の指定どおり）。
+2. **タイトル**：`PAI最終課題_141628`（omnicampus アカウント ID。課題の指定「アカウント名 or アカウントID」どおり）。
 3. **概要欄**：次のコマンドの出力をそのまま貼る（倍速の明記・VOICEVOX のクレジット・コードの URL・チャプター〔0:00 から〕を含む）。出力は `docs/YOUTUBE_DESCRIPTION.md` の「概要欄」の節。
    ```bash
    sed -n '/^## 概要欄/,/^## 公開設定チェック/p' docs/YOUTUBE_DESCRIPTION.md | sed '1d;$d'
@@ -127,7 +127,8 @@ python3 scripts/set_video_url.py 'https://www.youtube.com/watch?v=XXXXXXXXXXX' -
 | ① レポート（PDF、ファイル名は `説明資料_PAI最終課題_omnicampusアカウント名.pdf`） | `説明資料_PAI最終課題_tetsutetsu.pdf` | `docs/report/説明資料_PAI最終課題_tetsutetsu.pdf`（スナップショットは `docs/snapshot/report/`。#5 の判定に従う。URL 入りの再生成後のもの） |
 | ② GitHub のリポジトリ URL（公開設定は必ず public） | `https://github.com/fe2131-art/rescue-mind` | 4 で public にしたあと。シークレットウィンドウで開けること |
 | ③ YouTube の動画 URL（指定フォーム） | `https://www.youtube.com/watch?v=...` | 2 で取得した URL（3 で README・PDF に入れたものと同じ） |
-| アカウント名 | `tetsutetsu` | タイトル・PDF のファイル名に使用済み |
+| アカウント名 | `tetsutetsu` | 説明資料 PDF のファイル名・著者欄に使用済み |
+| アカウント ID | `141628` | YouTube の動画タイトル・動画ファイル名に使用済み |
 
 フォームの実際の項目名が上と違う場合は、課題文のとおりに上の 3 つ（PDF・GitHub URL・YouTube URL）を入れる。
 提出後：提出完了の画面（またはメール）を保存する。**採点完了まで、動画の削除・非公開、リポジトリの private 化をしない。**

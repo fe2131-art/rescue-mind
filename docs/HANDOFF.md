@@ -14,8 +14,8 @@
 **成果物（すべて `main` に push 済み）**
 | もの | 場所 | 状態 |
 |---|---|---|
-| 動画 v14 | `outputs/video/PAI最終課題_tetsutetsu.mp4`（Git 管理外） | 176.1 s、1920×1080。デモ4本（取り違え、記憶、「確認不要」、倉庫で左右0.8 mの追加視点が火を見つける＝JK の世界 GM041、run `0f97606079a94dfa`）、評価のまとめ（失敗は赤）、結び「失敗も残し、次の工夫につなげました」。走行8倍速・確認動作4倍速・判断は等速（左上に表示）。旧版 `_v13_backup.mp4`、長すぎた版 `_v14a_over180.mp4` |
-| 説明資料 | `docs/report/説明資料_PAI最終課題_tetsutetsu.pdf` | 本文11頁・全27頁、著者 tetsutetsu。1頁目に審査向けの要点と提出情報、2頁目に審査基準表、試行錯誤の表（失敗した主張すべて） |
+| 動画 v15 | `outputs/video/PAI最終課題_141628.mp4`（Git 管理外。YouTube タイトルは `PAI最終課題_141628`＝アカウントID、2026-10-25 ユーザー指示） | 175.0 s、1920×1080。v15 は v14 のナレーション・カードを平易な言葉に直したもの（I-177）。デモ4本（取り違え、記憶、「確認不要」、倉庫で左右0.8 mの追加視点が火を見つける＝JK の世界 GM041、run `0f97606079a94dfa`）、評価のまとめ（失敗は赤）、結び「失敗も残し、次の工夫につなげました」。走行8倍速・確認動作4倍速・判断は等速（左上に表示）。旧版 `_v14_backup.mp4`・`_v13_backup.mp4`、長すぎた版 `_v14a_over180.mp4` |
+| 説明資料 | `docs/report/説明資料_PAI最終課題_tetsutetsu.pdf` | 本文10頁・全26頁、著者 tetsutetsu（ファイル名もアカウント名、課題の指定）。1頁目に審査向けの要点と提出情報、2頁目に審査基準表、試行錯誤の表（失敗した主張すべて） |
 | 論文 | `docs/paper/main.pdf`、`supplement.pdf` | 本文8頁（9頁目は参考文献のみ）、要旨199語、補足46頁、参考文献384件（重複0） |
 | README・YouTube 説明文 | `README.md`、`docs/YOUTUBE_DESCRIPTION.md` | 説明文 4,752 字（上限5000） |
 
@@ -24,13 +24,15 @@
 **圧縮後の確認手順（この順で。どれも数分）**
 1. `git fetch origin && git status -sb`（`main` と `origin/main` が一致、未コミット0）
 2. `bash scripts/final_check.sh`（`FINAL_CHECK_DONE fails=0`。文書の再ビルド・8頁・整合性・網羅・参考文献・試行錯誤・秘密情報・テスト・動画長さ・説明文字数を含む）
-3. 動画：`ffprobe -v error -show_entries format=duration -of csv=p=0 outputs/video/PAI最終課題_tetsutetsu.mp4`（60〜180）、10秒ごとのフレームを見る（`docs/FINAL_PLAN.md` の手順）
+3. 動画：`ffprobe -v error -show_entries format=duration -of csv=p=0 outputs/video/PAI最終課題_141628.mp4`（60〜180）、10秒ごとのフレームを見る（`docs/FINAL_PLAN.md` の手順）
 4. `python3 scripts/ingest_check.py JL IJ JM`（0件）、`python3 scripts/check_study_coverage.py`（0）、`python3 scripts/check_bib.py`（0）
 5. `python3 scripts/secret_scan.py`（0件）、`python3 scripts/public_release_audit.py`（PASS）
 
-**ユーザーの作業（アシスタントはしない）**：①動画 v14 を通して見る ②履歴の個人パス（`secret_scan.py --history` で235件、鍵・メールは0件）を (a) 残す／(b) 書き換える（コミットのハッシュが変わり、登録監査の作り直しが要る。チェックリスト 1b）③YouTube 投稿 → `python3 scripts/set_video_url.py '<URL>' --apply` ④public 化 → `gh run rerun`（CI の赤は Billing によるもので、public なら無料枠で動く）⑤omnicampus 提出 ⑥優秀生選出フォーム。加えて Q の目視確認、カーネル再起動と NVIDIA 更新。
+**ユーザーの作業（アシスタントはしない）**：①動画 v15 を通して見る ②履歴の個人パス（`secret_scan.py --history` で235件、鍵・メールは0件）を (a) 残す／(b) 書き換える（コミットのハッシュが変わり、登録監査の作り直しが要る。チェックリスト 1b）③YouTube 投稿（タイトル `PAI最終課題_141628`）→ `python3 scripts/set_video_url.py '<URL>' --apply` ④public 化 → `gh run rerun`（CI の赤は Billing によるもので、public なら無料枠で動く）⑤omnicampus 提出 ⑥優秀生選出フォーム。加えて Q の目視確認、カーネル再起動と NVIDIA 更新。
 
 **守ること**：公開設定を変えない／rm 禁止（`~/rescue-mind-trash/<日時>/` へ移す）／個人情報なし／履歴の書き換え・force push はユーザーが言うまでしない／明示したファイルだけ commit・push／sudo 不使用／研究の一覧は `make_registrations.STUDIES` からだけ作る／論文を直したら `check_bib.py` と `check_study_coverage.py` を 0 に／複数手順の commit は `set -e`／`build_paper.sh` を直接呼ばず `rebuild_docs.sh`。日本語で簡潔に報告し、最後にユーザーの作業を一行で念押しする。
+
+**I-177（2026-10-25）**：ユーザー指摘「助言は『厳しくする』ことしかできない」のような意味の通りにくい言い回しを総点検し、README・説明資料・YouTube 説明文・動画・図・DEPLOYMENT を平易な言葉に直した（中心の考えは「見ていない情報では確認を省けない」）。あわせて説明資料の古い記述（B・IF2 が「実行中」、`**` の残り、「23件目」）と DEPLOYMENT の古い「結果が無い」を直した。英語の論文題目 *Advice May Only Tighten* は学術英語として残した。
 
 **旧「最新」節と旧「現在地」**は `docs/HANDOFF_ARCHIVE.md` の末尾に一字も変えずに移した（2026-10-25）。
 
@@ -93,7 +95,7 @@ docker exec rm-dev rescuemind-entrypoint python3 scripts/make_figures.py
 python3 scripts/update_readme_results.py
 docker exec rm-dev rescuemind-entrypoint python3 scripts/make_report.py --account tetsutetsu
 docker exec rm-dev rescuemind-entrypoint python3 scripts/make_video_plan.py --deliver a93d6a9cc8704e6c --recover 8b54abfb36454b27 --fire a213a61bc53e4787
-docker exec rm-dev rescuemind-entrypoint python3 scripts/make_demo_video.py --plan docs/video_plan.json --out outputs/video/PAI最終課題_tetsutetsu.mp4 --narrate 2
+docker exec rm-dev rescuemind-entrypoint python3 scripts/make_demo_video.py --plan docs/video_plan.json --out outputs/video/PAI最終課題_141628.mp4 --narrate 2
 # 開発セット・モデル比較
 scripts/robust_devset_build.py, scripts/vlm_devset_eval.py, scripts/robust_devset_report.py, scripts/model_comparison_v35.sh, scripts/model_selection_table.py
 scripts/intent_eval.py --method hybrid --model <id> --split dev_v35|held_out_v34   # held-out はチューニングに使わない

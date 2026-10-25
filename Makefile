@@ -23,7 +23,8 @@ VID_HIDDEN  ?= 9d73663832c94f16
 VID_MEMORY  ?= b93040decbf04ca4
 ADVICE      ?=
 VIDEO_ARGS  ?= --deliver $(VID_DELIVER) --recover $(VID_RECOVER) $(if $(ADVICE),--advice $(ADVICE),--hidden-fire $(VID_HIDDEN)) --memory $(VID_MEMORY)
-VIDEO_OUT   ?= outputs/video/PAI最終課題_$(ACCOUNT).mp4
+VIDEO_ID    ?= 141628
+VIDEO_OUT   ?= outputs/video/PAI最終課題_$(VIDEO_ID).mp4
 NARRATE     ?= 2
 
 # --- prerequisite checks (print a helpful message instead of failing obscurely) ---
