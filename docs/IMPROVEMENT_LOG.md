@@ -1556,3 +1556,8 @@
 * **Problem.** After JM the GPU queue is empty by design (FINAL_PLAN: no new studies, agreed with the user on 2026-10-24), but the Stop hook (I-72) demanded a new GPU job — it would push toward exactly what the user ruled out.
 * **Change.** `stop_hook_gpu_idle.py`: while `docs/FINAL_PLAN.md` carries the marker `EXPERIMENT_FREEZE`, an idle GPU does not block (the coverage rule of I-136 still does). The marker is in FINAL_PLAN's agreement line.
 * **Before → After.** Hook vs user decision: in conflict → consistent; stop-hook tests pass.
+
+## I-174 (2026-10-25) Final check passes: v14 and all documents complete
+* **Video v14.** First render 180.1 s (over 3:00); spoken text trimmed by about 6 s (the naive-arm count dropped from the evidence narration; the closing line shortened to「失敗も残し、次の工夫につなげました」): 176.1 s. All frames reviewed every 10 s (new depot scene shows the 0.8 m view finding the fire; failures red on the card; speed overlay 8x/4x). v13 kept as `_v13_backup.mp4`, the over-length render as `_v14a_over180.mp4`.
+* **Final check.** First run: 2 fails (test count 1675 not propagated; an old "21 failed claims" line in HANDOFF) and a stale `numbers.tex`; fixed and rebuilt. Second run: `FINAL_CHECK_DONE fails=0` — rebuild, 8-page rule, consistency 0 mismatches, study coverage, bibliography, trial chain, secret scan, README links, unit tests, test count, submission facts, YouTube ≤ 5000 (4,752), video 60-180 s.
+* **Before → After.** FINAL_PLAN must-do list: all items done.

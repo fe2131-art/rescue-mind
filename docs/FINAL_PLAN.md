@@ -2,6 +2,8 @@
 
 ユーザーとの合意（2026-10-24）：**実験は今予定しているもので完了させる**（`EXPERIMENT_FREEZE`：この印がある間、Stop フックは GPU の空きで止めない。I-173）（JL・IJ・JM と JK の撮影）。新しい研究は登録しない。残りの時間は「仕上げ」と「物語」に使う。各セッションはこのファイルの未完了項目を上から必ず進める（HANDOFF の最初の節からここへリンク）。
 
+## 完了（2026-10-25 15:xx）：`bash scripts/final_check.sh` → `FINAL_CHECK_DONE fails=0`。動画 v14 176.1 s、論文本文 8 頁（参考文献は 9 頁）・要旨 199 語、補足 46 頁、説明資料 本文 11 頁・全 27 頁。
+
 ## 0. 締め切り（2026-10-25 ユーザー指示）
 
 * **説明資料（レポート）は 2026-10-25 17:00 に完成させる。**
@@ -12,12 +14,12 @@
 ## 1. 必ずやること（上から順に。終わったら [x] にしてコミット）
 
 - [x] **JL・IJ・JM の結果を取り込む**（JL・IJ・JM：済 2026-10-25、post_results OK）：`*_summary.json` → 失敗した主張（自動）、`*_section.draft.tex` → `*_section.tex` と Reading、FINDINGS #57〜、IMPROVEMENT_LOG の Result（I-115・I-120・I-121）、TRIAL_AND_ERROR の行。結果がどちらでも、成立・不成立をそのまま書く。**完了の条件：`bash scripts/post_results.sh JL IJ JM` が POST_RESULTS_OK（最後に ingest_check 0 件）。**
-- [ ] **JK の撮影結果を確かめる**（`experiments/results/film_jk_runs.txt`）：L2/R2 で火を見つけて止まった場合だけ、動画の倉庫の場面を差し替える（`make_video_plan.py --depot <run>`）。撮れなければ今の場面のまま。
-- [ ] **ビルド**：`bash scripts/rebuild_docs.sh`。確認：論文本文 8 ページ以内（9 ページ目は参考文献のみ）、要旨 200 語以内、説明資料 1 ページ目の提出情報の表が 1 ページ目に収まる（はみ出すなら「新しい成果」の行を短くする）、LaTeX の未定義参照・"??" なし、`check_bib.py` と `check_study_coverage.py` が 0。
-- [ ] **動画 v14**：読み上げは 4 結果＋「赤い行はうまくいかなかった結果」（I-126）、JL の一文（I-127）、可能なら追加視点の場面（I-134）、試行錯誤の一言（下の 3）。180 秒以内。作ったら必ず自分で通しで見て（フレームを抜き出して）確認する。
+- [x] **JK の撮影結果を確かめる**（`experiments/results/film_jk_runs.txt`）：L2/R2 で火を見つけて止まった場合だけ、動画の倉庫の場面を差し替える（`make_video_plan.py --depot <run>`）。撮れなければ今の場面のまま。
+- [x] **ビルド**：`bash scripts/rebuild_docs.sh`。確認：論文本文 8 ページ以内（9 ページ目は参考文献のみ）、要旨 200 語以内、説明資料 1 ページ目の提出情報の表が 1 ページ目に収まる（はみ出すなら「新しい成果」の行を短くする）、LaTeX の未定義参照・"??" なし、`check_bib.py` と `check_study_coverage.py` が 0。
+- [x] **動画 v14**：読み上げは 4 結果＋「赤い行はうまくいかなかった結果」（I-126）、JL の一文（I-127）、可能なら追加視点の場面（I-134）、試行錯誤の一言（下の 3）。180 秒以内。作ったら必ず自分で通しで見て（フレームを抜き出して）確認する。
   * 手順（I-171）：`mv outputs/video/PAI最終課題_tetsutetsu.mp4 outputs/video/_v13_backup.mp4`（rm しない）→ `docker exec rm-dev rescuemind-entrypoint bash -c "cd $PWD && python3 scripts/make_video_plan.py --recover b4fcd9d164444db7 --memory b93040decbf04ca4 --advice 076f3cb047064fae --depot <JK の撮影 run または d3d5b23960a74865>"` → `docker exec rm-dev rescuemind-entrypoint bash -c "cd $PWD && python3 scripts/make_demo_video.py --plan docs/video_plan.json --out outputs/video/PAI最終課題_tetsutetsu.mp4 --narrate 2"`（バックグラウンド）→ 長さ 60〜180 秒を `ffprobe` で確認 → 10 秒ごとにフレームを抜き出して全部見る（文字の切れ・重なり・倍速表示・個人情報）→ `python3 scripts/update_submission_facts.py`。
-- [ ] **最終確認**：`bash scripts/final_check.sh`（全項目 PASS）→ `python3 scripts/update_submission_facts.py` → `python3 scripts/make_youtube_description.py`（5000 字以内）。
-- [ ] **HANDOFF・README の最終更新**、ユーザーへの提出手順の一覧（v14 の確認、YouTube、omnicampus、優秀生フォーム、履歴の個人パス除去、public 化）。→ 手順書は `docs/SUBMISSION_CHECKLIST.md` に追記済み（1b 履歴、6 優秀生フォーム、I-151）。最後にユーザーへ一覧で渡す。
+- [x] **最終確認**：`bash scripts/final_check.sh`（全項目 PASS）→ `python3 scripts/update_submission_facts.py` → `python3 scripts/make_youtube_description.py`（5000 字以内）。
+- [x] **HANDOFF・README の最終更新**、ユーザーへの提出手順の一覧（v14 の確認、YouTube、omnicampus、優秀生フォーム、履歴の個人パス除去、public 化）。→ 手順書は `docs/SUBMISSION_CHECKLIST.md` に追記済み（1b 履歴、6 優秀生フォーム、I-151）。最後にユーザーへ一覧で渡す。
 
 ## 2. 論文の弱点と、本文での扱い（実機以外。隠さず書く）
 
