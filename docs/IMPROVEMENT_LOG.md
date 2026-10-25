@@ -1561,3 +1561,8 @@
 * **Video v14.** First render 180.1 s (over 3:00); spoken text trimmed by about 6 s (the naive-arm count dropped from the evidence narration; the closing line shortened to「失敗も残し、次の工夫につなげました」): 176.1 s. All frames reviewed every 10 s (new depot scene shows the 0.8 m view finding the fire; failures red on the card; speed overlay 8x/4x). v13 kept as `_v13_backup.mp4`, the over-length render as `_v14a_over180.mp4`.
 * **Final check.** First run: 2 fails (test count 1675 not propagated; an old "21 failed claims" line in HANDOFF) and a stale `numbers.tex`; fixed and rebuilt. Second run: `FINAL_CHECK_DONE fails=0` — rebuild, 8-page rule, consistency 0 mismatches, study coverage, bibliography, trial chain, secret scan, README links, unit tests, test count, submission facts, YouTube ≤ 5000 (4,752), video 60-180 s.
 * **Before → After.** FINAL_PLAN must-do list: all items done.
+
+## I-175 (2026-10-25) All OpenTimestamps proofs upgraded to Bitcoin attestations
+* **Motivation.** The registrations of GM, IG, IH, IJ, JC, JH, JI, JK (amendments), JL, JM and others were stamped but their proofs still held only calendar commitments (pending); a reader checking them independently needs the Bitcoin block-header attestation.
+* **Change.** `ots upgrade` on every `docs/timestamps/*.ots` without an attestation (hashes only leave the machine); 18 proofs upgraded; the `.bak` copies moved to `~/rescue-mind-trash/<stamp>/`.
+* **Before → After.** Proofs with a Bitcoin attestation: 8 of 26 → 26 of 26. No document text changes (no sentence claimed a pending state).
