@@ -24,7 +24,7 @@ sys.path.insert(0, str(ROOT / 'scripts'))
 import advice_numbers  # noqa: E402  (study A wording: one reader for README, report, YouTube and this card)
 G, R, W = (60, 200, 120), (240, 80, 80), (236, 241, 248)
 LIMIT_S = 175.0      # assignment: 1-3 min
-FAST, CHECK = 8.0, 3.0   # playback speed while driving / during the check motion (shown on screen per segment)
+FAST, CHECK = 8.0, 4.0   # playback speed while driving / during the check motion (shown on screen per segment)
 TARGET_S = 168.0     # plan to this (the narration-length estimate is approximate)
 CHARS_PER_S = 6.4    # VOICEVOX speaker 2, calibrated on the v3.4 video (about 7 morae/s)
 CARD_PAD_S = 0.7     # make_demo_video: card seconds >= narration + 0.3 start + 0.4 tail
