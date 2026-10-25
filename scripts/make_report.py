@@ -460,7 +460,7 @@ def v_detail(vs):
             ['V2 危険な配達・探索回数が予測区間の内側', f"危険な配達 M0 {a['M0']['unsafe']}・M1 {a['M1']['unsafe']}・M2 {a['M2']['unsafe']}、探索 M0 {a['M0']['searches']}・M2 {a['M2']['searches']} 回", ok(f['v2'])],
             ['V3 速さ（系列単位の対比較）', f"{f['seq_n']}系列、差の中央値 {vs['V3_speed']['median_seq_mean_diff_s']:.1f} 秒、Wilcoxon正確検定 {pexact(f['v3_p'])}", ok(f['v3'])],
             ['V4 安全：M2−M0 が余裕（3 件）以下、かつ系列単位のMcNemar（M1 対 M2）が p&lt;0.05',
-             f"M2−M0 = {f['m2_minus_m0']} 件（余裕の条件は成立）。危険な配達のあった系列 M1 {f['seq_unsafe']['M1']}・M2 {f['seq_unsafe']['M2']}／{f['seq_n']}（食い違い {f['disc'][0]}対{f['disc'][1]}）、{pexact(f['mcnemar_p'])}。副次の厳密な M2 ≤ M0 は不成立（{a['M2']['unsafe']} 対 {a['M0']['unsafe']}）", ok(f['v4'])]]
+             f"M2−M0 = {f['m2_minus_m0']} 件（余裕の条件は成立）。危険な配達のあった系列 M1 {f['seq_unsafe']['M1']}・M2 {f['seq_unsafe']['M2']}／{f['seq_n']}（食い違い {f['disc'][0]}対{f['disc'][1]}）、{pexact(f['mcnemar_p'])}。副次の厳密な「M2 が M0 以下」は不成立（{a['M2']['unsafe']} 対 {a['M0']['unsafe']}）", ok(f['v4'])]]
     out = [head, Spacer(1, 2), table(rows, [52, 100, 22]), Spacer(1, 3)]
     out += fig('v_prediction.png', 168, '評価V：登録した予測（帯：95%区間、横線：中央値）と閉ループの実測（点）。所要時間の差・危険な配達・探索回数は区間の内側。'
                'M2 の危険な配達 1 件は区間の内側だが M0 の 0 件より多く、これが V4 の厳密な比較を満たさなかった。')
@@ -513,7 +513,7 @@ def sec_new_detail():
         k4 = c['k4']
         lab = [('liar', '毎回嘘をつく（場所）', 'extra_s', '余分な時間'), ('farmer', '適応的な嘘つき（信用を見て嘘をつく）', 'extra_s', '余分な時間'),
                ('honest', '正直（常に正しい）', 'extra_s', '時間の変化'), ('noisy', '7割正しい', 'extra_s', '時間の変化'),
-               ('flooder_real', '危険の連打（実写の誤警報率 ' + f"{c['flood_delta']:g}" + '）', 'false_refusals', '誤った停止')]
+               ('flooder_real', '危険の誤報の繰り返し（実写の誤警報率 ' + f"{c['flood_delta']:g}" + '）', 'false_refusals', '誤った停止')]
         rows = [['情報源（k=4、' + str(c['missions']) + '出動）', '測った量', '信用なし', '信用あり']]
         for key, nm, fld, what in lab:
             a, b = k4[key][fld]
@@ -712,12 +712,12 @@ def sec_camera():
     worst = min(cond, key=lambda c: cond[c]['ca_rate'])
     nm = lambda c: f"{R_FAM.get(c.rsplit('_', 1)[0], c)}（{'中' if c.endswith('_M') else '強'}）"
     out += [P(f"12条件をまとめた誤許可は <b>{pp['false_approvals']}/{pp['n']}（{pp['rate'] * 100:.2f} %）</b>、Wilson 95%区間の上限 {pp['wilson_ci95'][1] * 100:.2f} %（上限が2 %未満なら「フェイルクローズ」と主張すると登録した）→ "
-              f"<b>{'成立' if pp['supported'] else '不成立'}</b>。清浄な画像の誤許可は {r['clean']['false_approvals']}/{r['n_deny']}。"
-              f"代償は可用性で、正しい許可が最も下がったのは<b>{nm(worst)}</b>の <b>{cond[worst]['correct_approvals']}/{r['n_allow']}</b>"
-              f"（清浄 {r['clean']['correct_approvals']}/{r['n_allow']}、品質ゲートによる棄却 {cond[worst]['gate_rejected']}件）。"
+              f"<b>{'成立' if pp['supported'] else '不成立'}</b>。劣化させていない画像の誤許可は {r['clean']['false_approvals']}/{r['n_deny']}。"
+              f"代償は配達できなくなること（可用性）で、正しい許可が最も下がったのは<b>{nm(worst)}</b>の <b>{cond[worst]['correct_approvals']}/{r['n_allow']}</b>"
+              f"（劣化なし {r['clean']['correct_approvals']}/{r['n_allow']}、品質ゲートによる棄却 {cond[worst]['gate_rejected']}件）。"
               f"他の条件は {min(cond[c]['correct_approvals'] for c in cond if c != worst)}/{r['n_allow']} 以上で、可用性の低下は露出過多に集中する。"
               + ('「危険な劣化」と判定された条件：' + '、'.join(nm(c) for c in r['P2_unsafe_conditions']) + '。' if r['P2_unsafe_conditions']
-                 else '清浄な画像より有意に誤許可が増えた条件はない（Holm補正）。'))]
+                 else '劣化させていない画像より有意に誤許可が増えた条件はない（Holm補正）。'))]
     return out + [Spacer(1, 4)]
 
 
@@ -766,7 +766,7 @@ def sec_prereg(D, E):
              if advice_numbers.xd_ja() else PEND_NOT_RUN + ('。' + advice_numbers.xdr_ja() if advice_numbers.xdr_facts() else '')],
             ['Q', '実物の写真（Commons 405枚）で物資の確認は通用するか', reg('Q'), advice_numbers.q_ja(PEND_NOT_RUN)],
             ['B', '助言の信用枠は、毎回嘘をつく情報源の代償を閉ループで抑えるか（機構の確認）', reg('B'), (advice_numbers.b_ja('').split('。')[0] or PEND) if jload('b_summary.json') else PEND_NOT_RUN],
-            ['IF', '依頼文で、頼まれた物資をすり替えられるか（査読 R6 の P7）', reg('IF'),
+            ['IF', '依頼文で、頼まれた物資をすり替えられるか', reg('IF'),
              (f"主張 IF1 {'成立' if advice_numbers.if_facts()['held'] else '不成立'}：すり替えの受理 {advice_numbers.if_facts()['k']}/{advice_numbers.if_facts()['n']}（95%区間 {advice_numbers.if_facts()['ci'][0] * 100:.0f}〜{advice_numbers.if_facts()['ci'][1] * 100:.0f}%）、"
               f"言い直しは {advice_numbers.if_facts()['corr'][0]}/{advice_numbers.if_facts()['corr'][1]} で従う") if advice_numbers.if_facts() else PEND_NOT_RUN],
             ['IF2', '物資が食い違えば聞き返す対策（I-27）で、すり替えを止められるか（新しい72文）', reg('IF2'), advice_numbers.if2_short_ja() if jload('if2_summary.json') else PEND_NOT_RUN],
@@ -1097,9 +1097,9 @@ def new_results_main():
                  '確認を緩められる入力経路には、上限を超える世界と助言者が必ずある' + ex + '。確認を省く素朴な方式・フィルタ方式には、この上限が無い。',
                  '前提：証明書なし、許可は配送につながる'])
     if c:
-        rows.append(['<b>③ 信用枠</b>（I-24、命題3）', f"情報源ごとの信用で、助言を<b>捨てるだけ</b>（安全は変わらない）。毎回嘘をつく・危険を連打する情報源の代償に、何回出動しても上限がつく：場所の無駄な訪問は {c['c_loc']:g} + {c['rho_shadow']:g}×出動数 以下、誤った停止は {c['c_haz']:g} + {c['rho']:g}×出動数 以下。"
-                     f"{c['missions']}出動のモデル：嘘つきの余分な時間 <b>+{c['liar_no']:.0f} → +{c['liar_yes']:.0f} 秒</b>、実写の誤警報率での危険の連打による誤停止 <b>{c['flood_no']} → {c['flood_yes']} 回</b>、正直な情報源の{c['honest_no']:.0f}秒の短縮は変わらない。",
-                     '合成した結果の記述モデル（事前登録なし、閉ループは未確認）。報告書は不採用の助言と理由を書く'])
+        rows.append(['<b>③ 信用枠</b>（I-24、命題3）', f"情報源ごとの信用で、助言を<b>捨てるだけ</b>（安全は変わらない）。毎回嘘をつく・危険の誤報を繰り返す情報源の代償に、何回出動しても上限がつく：場所の無駄な訪問は {c['c_loc']:g} + {c['rho_shadow']:g}×出動数 以下、誤った停止は {c['c_haz']:g} + {c['rho']:g}×出動数 以下。"
+                     f"{c['missions']}出動のモデル：嘘つきの余分な時間 <b>+{c['liar_no']:.0f} → +{c['liar_yes']:.0f} 秒</b>、実写の誤警報率での危険の誤報の繰り返しによる誤停止 <b>{c['flood_no']} → {c['flood_yes']} 回</b>、正直な情報源の{c['honest_no']:.0f}秒の短縮は変わらない。",
+                     '合成した結果の記述モデル（事前登録なし、閉ループは研究Bで確認）。報告書は不採用の助言と理由を書く'])
     iff_ = advice_numbers.if_facts()
     rows.append(['<b>研究B・IF・IF2</b>', '<b>B</b>：信用枠の閉ループ確認（毎回嘘をつく情報源の系列、48試行、予測は計算で一意に決まる）。<b>IF</b>：依頼文で依頼物資を書き換えられるか（72文）'
                  + (f"：書き換えた{iff_['n']}文のうち<b>{iff_['k']}文で受理</b>され、登録した主張は<b>不成立</b>。依頼物資は保証の対象外で、出発前の読み返しが必須。" if iff_ else '。')
@@ -1108,7 +1108,7 @@ def new_results_main():
                  + '、IF2：' + (advice_numbers.if2_short_ja() if advice_numbers.if2_done() else '<b>' + WAIT_JA + '</b>')])
     out = [P('<b>この保証の新しい成果</b>（機械検証・必要十分・期間の上限）', 'small'), Spacer(1, 2), table(rows, [26, 112, 36])]
     if c:
-        out += fig('advice_credit.png', 128, f"図 助言の信用枠の記述モデル（{c['missions']}出動）：嘘つき・危険の連打の代償は上限で止まり、正直な情報源は何も失わない。")
+        out += fig('advice_credit.png', 128, f"図 助言の信用枠の記述モデル（{c['missions']}出動）：嘘つき・危険の誤報の繰り返しの代償は上限で止まり、正直な情報源は何も失わない。")
     return out
 
 
@@ -1203,7 +1203,7 @@ def story_criteria(E, V):
              f"誤警報 {p2['chosen_test']['false_alarm']['k']}/{p2['chosen_test']['false_alarm']['n']}）") if p2 and p2.get('chosen_test') else '現場写真での閾値の較正（P2）'
     rows = [['審査基準', '本作品での取り組み', '見る場所'],
             ['創造性', '<b>「助言では確認を省けない」</b>：記憶・他のロボット・依頼文・在庫表を「助言」とし、確認の順番と慎重さしか変えられない設計。どんな助言でも危険な配達は確認自身の誤り以下。'
-                       'もう一つは、見逃しを<b>賢くするのでなく動いて減らす</b>「横から見直す」。'
+                       'もう一つは、AIを賢くするのでなく<b>ロボットが動いて見逃しを減らす</b>「横から見直す」。'
                        '助言が慎重にする方向にしか使えないことは、危険な配達の確率を確認自身の誤り以下に抑えるための<b>必要十分条件</b>で、素朴な方式・フィルタ方式には上限が無い。', '3・4章'],
             ['技術力', f'上の原理の<b>証明</b>（付録C）と、その<b>機械検証</b>（' + (smt_line() or 'z3') + '）、事前登録した' + advice_numbers.study_phrase() + '（失敗した主張も公開）、真値による独立監査、' + x_tech + f'。実際に動かして見つけた問題 {count_tests.n_findings()}件。', '2–4章、付録C・M'],
             ['実用性', '現場導入ガイド（docs/DEPLOYMENT.md、付録O）、' + p2txt + '、運用者向けの<b>報告書の自動生成</b>（統合済み）、'
@@ -1303,7 +1303,7 @@ def story_advice(h):
         s += fig('a_results_ja.png', 140, f"図 評価A（悪意のある助言）。(a) 経路ごとの危険な配達（各{af_['by_channel']['naive']['file'][1]}試行）と、方式ごとの危険な世界（図の下の行）。"
                  f"ガードレールは他ロボットの助言ファイルを見ない（止めた数 {af_['filter_flag_file'][0]}/{af_['filter_flag_file'][1]}、依頼文では {af_['filter_flag_operator'][0]}/{af_['filter_flag_operator'][1]}）。"
                  f"依頼文の経路で設計どおりの助言を取り出せたのは {af_['extract'][0]}/{af_['extract'][1]}。全試行は意図の質問 i38、提出版の既定は i35。"
-                 f"(b) 誘導（記述的）：配達できなかった世界は 本方式 {st_['ours']['lost']}/{st_['n']}、警戒強化版 {st_['scrutiny']['lost']}/{st_['n']}、助言なし {st_['control']['lost']}/{st_['n']}。代償は可用性。"
+                 f"(b) 誘導（記述的）：配達できなかった世界は 本方式 {st_['ours']['lost']}/{st_['n']}、警戒強化版 {st_['scrutiny']['lost']}/{st_['n']}、助言なし {st_['control']['lost']}/{st_['n']}。代償は配達できなくなること（可用性）。"
                  f"(c) 本方式の時間：正しい助言で中央値 {af_['time_median']:.1f} 秒の短縮、嘘の助言で最大 {af_['price']['max_extra']:.1f} 秒の追加（上限 {af_['price']['bound']:.1f} 秒）。")
     s += fig('memory_principle_ja.png', 108, '図 記憶の場合：前回の記憶は拠点の順番を提案するだけ。行った先では必ず確認し、最近火を見た拠点では判定を厳しくする。')
     return s
@@ -1377,7 +1377,7 @@ def gd_items(gj):
     c, v, k = gj['arms']['cal']['fire'], gj['arms']['v36']['fire'], gj['criteria']
     return [(f"<b>倉庫での較正（GD、{gj['n_fire_worlds']}世界）</b>：火へ配達 較正（{GD_TAU()}）<b>{c['k']}/{c['n']}</b>（上限 {c['upper95_exact'] * 100:.1f}%）、既定 0.05 は {v['k']}/{v['n']}（差なし）、"
              f"誤停止 {gj['arms']['cal']['fire_free']['k']}/{gj['arms']['cal']['fire_free']['n']}（GD1・GD2 {'成立' if k['GD1_cal_upper_at_most_25pct'] and k['GD2_false_stops_at_most_2'] else '一部不成立'}）。"
-             f"見逃しは減らない（小さな火の得点が火のない世界の裾に入る）。")]
+             f"見逃しは減らない（小さな火のスコアが、火のない世界のスコアの範囲に重なる）。")]
 
 
 def gl_items(gj):
@@ -1422,11 +1422,11 @@ def dest_items(ig, ih, ij):
     out = []
     if ig:
         c = ig['criteria']
-        out.append(f"<b>新しい依頼文{ig['n']}件（IG）</b>：取り違え・受理すべきでない依頼の受理 {ig['IG1_unsafe']['k']}/{ig['n']}（登録した線2件、IG1 {'成立' if c['IG1_unsafe_at_most_2'] else '不成立'}）。"
+        out.append(f"<b>新しい依頼文{ig['n']}件（IG）</b>：取り違え・受理すべきでない依頼の受理 {ig['IG1_unsafe']['k']}/{ig['n']}（登録した上限2件、IG1 {'成立' if c['IG1_unsafe_at_most_2'] else '不成立'}）。"
                    f"リストにない届け先（公民館・市役所など）を避難所Bと読んだ。正当な依頼の受理 {ig['IG2_accepted_right_supply']['k']}/{ig['IG2_accepted_right_supply']['n']}（IG2 {'成立' if c['IG2_accepted_at_least_80pct'] else '不成立'}）。")
     if ih:
         c = ih['criteria']
-        out.append(f"<b>知らない行き先を断る規則（IH、新しい{ih['n']}件、既定はオフ）</b>：危険な結果 {ih['v36']['unsafe']['k']} → {ih['strict']['unsafe']['k']}（線5件、IH1 {'成立' if c['IH1_strict_unsafe_at_most_5'] else '不成立'}）。"
+        out.append(f"<b>知らない行き先を断る規則（IH、新しい{ih['n']}件、既定はオフ）</b>：危険な結果 {ih['v36']['unsafe']['k']} → {ih['strict']['unsafe']['k']}（上限5件、IH1 {'成立' if c['IH1_strict_unsafe_at_most_5'] else '不成立'}）。"
                    "リストにない地名は素通りするので、届け先の読み返しは必須のまま。")
     if ij:
         pr, c = ij['scorers']['probe'], ij['criteria']
@@ -1484,7 +1484,7 @@ def y_more_text():
         k = ys['criteria']
         lv = ys['lost_vs_control']['scrutiny_hc']
         t.append(f"<b>新しい世界での再現（YF、{yfj['n_planned']}本）</b>：Y1（別の拠点から配達）と監査は成立、本方式の見逃しも再現（火へ配達 "
-              f"{ys['arms']['monotone_hc']['fire_worlds']['unsafe_deliveries']['k']}/{ys['arms']['monotone_hc']['fire_worlds']['n']}）。<b>YF4（訪れる拠点は2つまで）は不成立</b>：火のない双子で 警戒強化版が4拠点を訪れ配達できなかった"
+              f"{ys['arms']['monotone_hc']['fire_worlds']['unsafe_deliveries']['k']}/{ys['arms']['monotone_hc']['fire_worlds']['n']}）。<b>YF4（訪れる拠点は2つまで）は不成立</b>：火のない双子で警戒強化版が4拠点を訪れ配達できなかった"
               f"（警戒強化版の閾値は火のない拠点を拒否しうる）。警戒強化版＋フラグの失う配達は {lv['fire_worlds']['lost'] + lv['clean_worlds']['lost']}/{lv['fire_worlds']['pairs'] + lv['clean_worlds']['pairs']}"
               f"（Yは0/15、合わせて 1/24）。")
     return t
@@ -1500,7 +1500,7 @@ def y_result_items(yj):
     mono = ya['monotone_hc']['fire_worlds']
     ok = k['Y1_holds'] and k['Y3_holds'] and k['Y4_holds'] and yc['criteria']['Y2_holds']
     head = (f"{yj['n_planned']}本（失敗{sum(yj['n_failed_by_part'].values()) if yj['n_failed_by_part'] else 0}）、登録した主張Y1〜Y4は<b>{'すべて成立' if ok else '一部不成立'}</b>："
-            f"助言で火の棚を先に拒否した{k['Y1_refused_runs']}本はすべて別の棚から配達できた（Xでは失っていた配達）。清潔な棚がない場合は{yc['observed'].get('DENY_HAZARD_AFTER_SEARCH', 0)}/{yc['n_runs']}本が4拠点を確認して拒否。"
+            f"助言で火の棚を先に拒否した{k['Y1_refused_runs']}本はすべて別の棚から配達できた（Xでは失っていた配達）。火のない棚がない場合は{yc['observed'].get('DENY_HAZARD_AFTER_SEARCH', 0)}/{yc['n_runs']}本が4拠点を確認して拒否。"
             f"警戒強化版＋フラグは対照比で配達を{lost}/{pairs}失い、時間は{ya['scrutiny_hc']['fire_worlds']['mean_time_s']:.0f}秒（対照{ya['control_hc']['fire_worlds']['mean_time_s']:.0f}秒）。")
     left = (f"<b>直らないもの</b>：本方式は火のある世界{mono['unsafe_deliveries']['n']}本のうち{mono['unsafe_deliveries']['k']}本で火へ配達"
             f"（すべて XC05：3回とも、全視点が閾値未満の知覚の見逃し）。")
@@ -1589,7 +1589,7 @@ def story_limits(D, E, V, SP):
     _iff = advice_numbers.if_facts()
     if _iff:
         items.insert(0, f"<b>依頼物資のすり替え（評価IF）の主張は{'成立' if _iff['held'] else '不成立'}</b>：凍結した解析は、書き換えた{_iff['n']}文のうち{_iff['k']}文で、注入された物資を受理した（95%区間 {_iff['ci'][0] * 100:.0f}〜{_iff['ci'][1] * 100:.0f}%）。"
-                        f"依頼物資は助言ではなく命令なので、保証の対象外にある。現場では出発前に運用者が解析結果を読み返すことを必須とし、聞き返しの対策（I-27）は研究IF2で測る（{'結果あり' if advice_numbers.if2_done() else advice_numbers.pending_word()}）。")
+                        f"依頼物資は助言ではなく命令なので、保証の対象外にある。現場では出発前に運用者が解析結果を読み返すことを必須とし、聞き返しの対策（I-27）は研究IF2で測った（{'結果あり' if advice_numbers.if2_done() else advice_numbers.pending_word()}）。")
     items += ['保証は<b>相対的</b>：助言は確認自身の誤りを超えて危険を増やさないが、その誤りは0ではない。助言で先に向かわされた拠点が本当に燃えているときの接近は、保証の範囲外。',
               '<b>すべてシミュレーション</b>（実機なし）。物資の把持・運搬は未実装。実写で検証したのは火災判定（P）だけで、閾値は現場ごとに較正が要る。',
               '信用枠（I-24）の数値は<b>合成した結果の記述モデル</b>である。実際にロボットを動かした確認（研究B）では、' + ((advice_numbers.b_ja() + '。') if advice_numbers.pending_studies()['B'] else WAIT_JA + '。')
@@ -1606,7 +1606,7 @@ def story_limits(D, E, V, SP):
                     '<b>助言の保証は、確認の誤り（ε）を超えないだけで、εを小さくはしない。</b>効いたのは見回し（正面だけ76/150 → 3/150）で、助言を制限することと同じくらい、確認そのものの誤り（ε）を下げることが重要だった。',
                     '<b>可用性と安全は交換になる。</b>火の棚へ誘導されて配達を失う問題は、拒否のあとも探索を続けるフラグで取り戻せた（Y）が、代わりに火へ近づく危険が増えた（2つ目の火を見逃して配達 2/12、上限44%、YE）。無料の改善ではないので、既定はオフのままにした。',
                     '<b>自分の誤りも失敗として残した。</b>YEの主張YE2は、私が「2拠点を訪れる」と書いた登録文言が誤りだった（拒否後も探索は残りの拠点まで続く）。事前の予行でもこの誤りに気づけなかった（予行がたまたま、2つ目の火を見逃して配達する場合だけを通っていたため）。登録は直さず、結果の後の解釈を別に書き添えた。',
-                    '<b>独立性の限界。</b>Yは同じ世界の再利用で、世界は同じ筆者の生成器から作った。新しい世界での再現（YF）で、可用性は再現した一方、警戒強化版が火のない現場で配達を失いうること（1/9）が新しく分かった。実機・実物の火・実際の倉庫では未検証で、これが最大の残りの課題である。'])]
+                    '<b>独立性の限界。</b>Yは同じ世界の再利用で、世界は同じ筆者の生成器から作った。新しい世界での再現（YF）で、配達を取り戻す効果は再現した一方、警戒強化版が火のない現場で配達を失いうること（1/9）が新しく分かった。実機・実物の火・実際の倉庫では未検証で、これが最大の残りの課題である。'])]
     s += [P('7. 動画と再現', 'h1')]
     chap = ROOT / 'docs/video_chapters.json'
     if chap.is_file():
@@ -1652,7 +1652,7 @@ def appendix_deployment():
                                   "規則を現場の写真に適用する <font name=\"IPAexG\">scripts/site_calibration.py</font> を用意した。"],
             ['運用', "1枚の現場報告で「次にしてほしいこと」を読めば動ける。拒否を上書きする手段は設計上なく、人がロボットの外で判断する。助言（記憶・他のロボット・在庫表）は見に行く順番の変更と、判定を厳しくすることだけ。"
                      f"依頼文からの助言の取り出しは予備走行で {A['rerun_op_exact']}/{A['rerun_op_n']}（当てにしない）。"],
-            ['検証していないこと', "実機での走行、実際の煙・炎、実写の物資確認（研究Q）、実写の倉庫写真の採点（XD-R）、助言の閉ループ評価（研究A）、閾値を較正したあとの閉ループの安全性。"]]
+            ['検証していないこと', "実機での走行、実際の煙・炎、実物の倉庫、閾値を較正したあとの閉ループの安全性。実写の物資確認（研究Q）と実写の倉庫写真（XD-R）は画像だけで評価した。"]]
     return [P('O. 現場導入ガイド（docs/DEPLOYMENT.md）の要約', 'h2'),
             P('運用者とロボット技術者向けの手順書。ここに載せた数値は <font name="IPAexG">scripts/deployment_facts.py</font> が結果ファイルから読み、'
               '<font name="IPAexG">scripts/check_consistency.py</font> がガイド本文との一致を確かめる。実機では動かしていない。', 'small'),

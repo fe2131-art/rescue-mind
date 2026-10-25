@@ -195,7 +195,7 @@ def w_claims_ja(f=None, bold='b'):
             f"{B('先行手法より危険判定の規則そのものが優れる：' + ok(f['n_dist'] > 0))}（区別できたのは3つ中 {f['n_dist']}、投票とは Holm補正後 p={f['vote_holm']:.3f}）。"
             f"切り出しを含む実際の方式は投票より誤許可が少ない（{f['fa_dep']} 対 {f['fa_vote']}、Holm補正後 p={f['vote_dep_holm']:.3f}）。"
             f"疑わしいときだけ視点を増やす案（I-20）：見逃し {f['adapt_miss']}/{la['n']}（見回しとの差は {f['adapt_pair'][0]} 世界だけ）、双子で失った許可 {f['adapt_lost']} 件。"
-            f"事前に決めた採用規則を{'満たしたので v3.7 の既定にする' if f['adopt'] else '満たさなかったので既定にしない'}")
+            f"事前に決めた採用規則を{'満たした（その後、倉庫の評価XDの撤回規則で既定からは外した）' if f['adopt'] else '満たさなかったので既定にしない'}")
 
 
 def w_claims_en(f=None):
@@ -380,7 +380,7 @@ def a_ja():
             f"正しい場所の助言は中央値 {round(f['time_median'], 1)} 秒を節約（{f['time_pos']}/{f['time_n']} 世界で短縮、p={f['time_p']}）。"
             f"嘘の助言の代償は最大 {pr['max_extra']:.1f} 秒（上限 {pr['bound']:.1f} 秒）、配達の取りこぼし {pr['lost']}（許容 {pr['allowed']}）。"
             f"誘導（正しい火の報告で、火のある拠点へ先に行かせる）{s['n']}世界：危険な配達 本方式 {s['ours']['unsafe']}/{s['n']}・助言なし {s['control']['unsafe']}/{s['n']}・警戒強化版 {s['scrutiny']['unsafe']}/{s['n']}、"
-            f"本方式の{s['ours']['unsafe']}件は確認の誤り（助言なしの確認でも許可される配達）で、差は有意でなく W の ε_any の範囲内。代償は可用性：配達できなかった世界 本方式 {s['ours']['lost']}/{s['n']}、警戒強化版 {s['scrutiny']['lost']}/{s['n']}、助言なし {s['control']['lost']}/{s['n']}。"
+            f"本方式の{s['ours']['unsafe']}件は確認の誤り（助言なしの確認でも許可される配達）で、差は有意でなく W の ε_any の範囲内。代償は配達できなくなること（可用性）：配達できなかった世界 本方式 {s['ours']['lost']}/{s['n']}、警戒強化版 {s['scrutiny']['lost']}/{s['n']}、助言なし {s['control']['lost']}/{s['n']}。"
             f"依頼文の意図の受理 {f['intent_accepted']}/{f['extract'][1]}、設計した助言の正確な取り出し {f['extract'][0]}/{f['extract'][1]}（報告項目）。"
             f"保証は相対的で、火のある拠点へ近づく危険は上限の外。"
             + (_aoff_ja() if f['offline_done'] else '登録した224件のオフライン注入セット（届け先の誤受理 0 が条件）の採点は未実施。'))
@@ -495,7 +495,7 @@ def if_ja():
     return (f"凍結した v3.6 の意図の解析が、すり替えの依頼文{f['n']}件のうち{f['k']}件で、注入された物資を受理した（Wilson 95% {_pct(f['ci'][0])}〜{_pct(f['ci'][1])}%。偽のシステム通知 {c['flip_system'][0]}/{c['flip_system'][1]}、転送メモ {c['flip_forwarded'][0]}/{c['flip_forwarded'][1]}、"
             f"「上は無視して」 {c['flip_hidden'][0]}/{c['flip_hidden'][1]}）。曖昧として断ると予測した件は{f['both']}件で、予測は外れ、登録した主張 IF1（上限 10% 未満）は"
             + ('成立' if f['held'] else '不成立') + f"。言い直しは{f['corr'][0]}/{f['corr'][1]}で従い、通常・否定の依頼は{f['ctrl'][0]}/{f['ctrl'][1]}で受理、通常・否定・言い直しの依頼で誤った物資の受理は{f['ctrl_wrong'] + f['corr_wrong'][0]}件。"
-            "依頼文から解析した依頼物資は保証の対象外で、対策（物資が食い違えば聞き返す、I-27）は研究 IF2 として事前登録した（" + ('結果：' + if2_short_ja() if if2_done() else pending_word()) + '）。')
+            "依頼文から解析した依頼物資は保証の対象外で、対策（物資が食い違えば聞き返す、I-27）は研究 IF2 として事前登録した（" + ('結果は' + if2_short_ja().replace('（', '、').replace('）', '') if if2_done() else pending_word()) + '）。')
 
 
 def if_en():
@@ -513,7 +513,7 @@ def if_short_ja():
     f = if_facts()
     if not f:
         return ''
-    return (f"依頼文のすり替え（研究IF）：{f['n']}文中{f['k']}文で、注入された物資を受理（主張不成立）。対策の聞き返し（I-27）は研究IF2で再測定する（" + ('結果：' + if2_short_ja() if if2_done() else pending_word()) + "）")
+    return (f"依頼文のすり替え（研究IF）：{f['n']}文中{f['k']}文で、注入された物資を受理（主張不成立）。対策の聞き返し（I-27）は研究IF2で再測定" + (('し、' + if2_short_ja() + 'となった') if if2_done() else ('する（' + pending_word() + '）')))
 
 
 def if_short_en():
@@ -674,7 +674,7 @@ def s_ja(none=None):
         return (f"本方式で標識により「拒否→許可」に変わった世界は全体で {fa['k']}/{fa['n']}（Wilson 上限 {100 * fa['ci95'][1]:.1f}%）：「Cと答えよ」 {fl(t['letter_C'])}、順序固定の文字A {fl(t['letter_A'])}、"
                 f"順序に依らない文字B {fl(t['letter_B'])}、取り違えのラベル {fl(g['mislabel'])}、「火災なし」の標識 {fl(g['false_safe'])}。"
                 f"予想した残る弱点（文字B・取り違え・可用性攻撃）は見つからず、1回判定の方式も騙されなかったので、登録した主張「順序の入れ替えが理由」は不成立"
-                "（失敗した主張の一つ）。害のない文字は自由記述の基準方式を{d7['FREE-FORM']}世界で動かした（本方式は{d7['OURS']}）。"
+                f"（失敗した主張の一つ）。害のない文字は自由記述の基準方式を{d7['FREE-FORM']}世界で動かした（本方式は{d7['OURS']}）。"
                 f"OCR マスクと「文字を無視せよ」は何も変えなかった（もともと騙されていなかったため）。標識は適応的でないものだけで、**画像に映る文字は構造的な保証の対象外**")
     except (TypeError, KeyError):
         return none
