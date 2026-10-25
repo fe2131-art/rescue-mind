@@ -4,7 +4,7 @@ Physical AI 応用1講座 最終課題 ｜ ROS 2 Jazzy × Gazebo Harmonic × ロ
 
 **30秒で**：災害現場で「水を避難所へ届けて」と日本語で頼むと、ロボットは ①台の上の物が頼まれた物資か自分のカメラで確かめ、②火や煙が見えれば横へ動いて撮り直し、③迷ったら届けずに止まります。記憶や他のロボットの報告は参考にしますが、それを理由に確認を省くことはありません。評価はすべてシミュレーションです。
 
-**動画**：<!--VIDEOURL-->YouTube（提出時にURLを記載）<!--/VIDEOURL-->｜ [説明資料（PDF）](docs/report/説明資料_PAI最終課題_tetsutetsu.pdf) ｜ [論文（PDF）](docs/paper/main.pdf)（[補足](docs/paper/supplement.pdf)）｜ [5分で検証：`make verify-quick`（20秒）・`make verify`](docs/REPRODUCE.md) ｜ [現場への導入](docs/DEPLOYMENT.md)
+**動画**：<!--VIDEOURL-->[YouTube](https://www.youtube.com/watch?v=yxubgnMxwvM)<!--/VIDEOURL-->｜ [説明資料（PDF）](docs/report/説明資料_PAI最終課題_tetsutetsu.pdf) ｜ [論文（PDF）](docs/paper/main.pdf)（[補足](docs/paper/supplement.pdf)）｜ [5分で検証：`make verify-quick`（20秒）・`make verify`](docs/REPRODUCE.md) ｜ [現場への導入](docs/DEPLOYMENT.md)
 
 **一文で**：ロボットが自分で見ていない情報（記憶・他のロボットの報告・在庫表・依頼文の言葉）はすべて「助言」として扱い、助言で変えてよいのは「拠点を見に行く順番」と「判定をより慎重にすること」の2つだけにする。こうすると、悪意のある助言を受けても、危険な配達の確率は、カメラによる確認そのものの誤りの確率 ε_any を超えない。
 

@@ -1603,3 +1603,9 @@
 * **仮説**：README と追跡している `docs/**/*.md` のすべてで、リンク先が「git で追跡されているか」を確かめれば、公開版で切れるリンクを公開前に見つけられる。
 * **変更**：`check_readme_links.py --all`（README と追跡中の docs 以下の Markdown。事前登録の文書は時刻証明済みで直せないため対象外）。`final_check.sh` はこれを使う。見つかった1件（IMPROVEMENT_LOG から非公開の REVIEW_AND_PLAN.md へのリンク）を文章に直した。
 * **Before/After**：確認する文書 1 → 27、リンク 105 本。公開版で切れるリンク 1 → 0。
+
+## I-182 YouTube の URL を README と説明資料に入れ、作り直しても消えないようにする（2026-10-25）
+
+* **動機**：動画を YouTube に上げた（https://youtu.be/yxubgnMxwvM、2026-11-02 0:00 に公開予約）。`set_video_url.py` は URL を README に書き、説明資料も作り直すが、その後の通常の作り直し（`rebuild_docs.sh`・`final_check.sh`）は URL を渡さないため、PDF から URL が消える作りだった。また URL を入れると、1ページ目の動画欄から倍速の表示が消えていた。
+* **変更**：`make_report.py` は `--video-url` が無ければ README の `<!--VIDEOURL-->` から URL を読む。動画欄は URL・タイトル・倍速・ナレーションをすべて載せる。
+* **Before/After**：作り直し後の PDF の URL：消える → 残る。動画欄の倍速表示：URL ありで消える → 常に表示。

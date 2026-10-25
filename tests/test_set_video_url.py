@@ -88,7 +88,8 @@ class CommandLine(unittest.TestCase):
             self.assertIn(URL, (d / 'docs/SUBMISSION.md').read_text(encoding='utf8'))
             r = subprocess.run([sys.executable, str(d / 'scripts/set_video_url.py'), '--clear', '--apply', '--no-report'], capture_output=True, text=True)
             self.assertEqual(r.returncode, 0, r.stderr)
-            self.assertEqual((d / 'README.md').read_text(encoding='utf8'), (ROOT / 'README.md').read_text(encoding='utf8'))
+            # --clear restores the placeholder (the repository README may already carry the real URL, I-182)
+            self.assertEqual((d / 'README.md').read_text(encoding='utf8'), sv.rewrite((ROOT / 'README.md').read_text(encoding='utf8'), sv.PLACEHOLDER, 'README.md'))
 
 
 class SecretScan(unittest.TestCase):
