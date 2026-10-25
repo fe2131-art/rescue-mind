@@ -43,9 +43,15 @@ class Rewrite(unittest.TestCase):
         self.assertEqual(sv.rewrite(a, sv.PLACEHOLDER, 'f'), t)
 
     def test_real_documents_have_exactly_one_marker_pair(self):
-        for rel in ('README.md', 'docs/SUBMISSION.md'):
+        for rel in SUBS:
             self.assertEqual(len(sv.MARK.findall((ROOT / rel).read_text(encoding='utf8'))), 1, rel)
         self.assertIn('<!--VIDEOURL-->', '\n'.join((ROOT / 'README.md').read_text(encoding='utf8').splitlines()[:36]), 'README first screen')
+
+
+sys.path.insert(0, str(ROOT / 'scripts'))
+import release_mode  # noqa: E402
+DEV = release_mode.mode() == 'dev'
+SUBS = ['README.md'] + (['docs/SUBMISSION.md'] if DEV else [])
 
 
 class CommandLine(unittest.TestCase):
@@ -53,23 +59,27 @@ class CommandLine(unittest.TestCase):
         return subprocess.run([sys.executable, str(ROOT / 'scripts/set_video_url.py'), *args], capture_output=True, text=True, cwd=root)
 
     def test_dry_run_changes_nothing(self):
-        before = [(ROOT / r).read_bytes() for r in ('README.md', 'docs/SUBMISSION.md')]
+        before = [(ROOT / r).read_bytes() for r in SUBS]
         r = self.run_cli(URL, '--no-report')
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn('DRY RUN', r.stdout)
         self.assertIn(URL, r.stdout)
-        self.assertEqual(before, [(ROOT / r_).read_bytes() for r_ in ('README.md', 'docs/SUBMISSION.md')])
+        self.assertEqual(before, [(ROOT / r_).read_bytes() for r_ in SUBS])
 
     def test_bad_url_exit_2(self):
         r = self.run_cli('https://example.com/x', '--no-report')
         self.assertEqual(r.returncode, 2)
 
+    @unittest.skipUnless(DEV, 'docs/SUBMISSION.md is a local note: RESCUEMIND_MODE=public (I-180)')
     def test_apply_in_a_copy(self):
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             (d / 'scripts').mkdir()
             (d / 'docs').mkdir()
             shutil.copy(ROOT / 'scripts/set_video_url.py', d / 'scripts')
+            shutil.copy(ROOT / 'scripts/release_mode.py', d / 'scripts')
+            (d / 'docs/HANDOFF.md').parent.mkdir(exist_ok=True)
+            (d / 'docs/HANDOFF.md').write_text('', encoding='utf8')      # dev mode in the copy
             shutil.copy(ROOT / 'README.md', d)
             shutil.copy(ROOT / 'docs/SUBMISSION.md', d / 'docs')
             r = subprocess.run([sys.executable, str(d / 'scripts/set_video_url.py'), URL, '--apply', '--no-report'], capture_output=True, text=True)

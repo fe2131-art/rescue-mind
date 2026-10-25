@@ -18,6 +18,9 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import release_mode  # noqa: E402
 from urllib.parse import parse_qs, urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -55,6 +58,8 @@ def new_texts(url: str | None) -> dict[str, str]:
     """{relative path: new text}.  url=None restores the placeholders."""
     out = {}
     for rel, inner in (('README.md', f'[YouTube]({url})' if url else PLACEHOLDER), ('docs/SUBMISSION.md', url or UNSET_SUB)):
+        if rel != 'README.md' and not release_mode.internal(rel):      # docs/SUBMISSION.md is a local note (I-180)
+            continue
         out[rel] = rewrite((ROOT / rel).read_text(encoding='utf8'), inner, rel)
     return out
 

@@ -1880,8 +1880,8 @@ def build(account: str, video_url: str | None, repo_url: str):
     s += sec_prereg(D, E)
     # ---- improvements
     s += [P('L. 改善の軌跡（v3.3 → v3.6）', 'h2'),
-          P('審査基準（創造性・技術力・実用性・表現力）に沿って自己レビューし、弱点ごとに改善項目を立て、すべて「仮説 → 変更 → 計測（Before/After）」で記録した'
-            '（<font name="IPAexG">docs/REVIEW_AND_PLAN.md</font>、<font name="IPAexG">docs/IMPROVEMENT_LOG.md</font>、コミットは <font name="IPAexG">git log --grep I-0</font> で追跡可能）。')]
+          P('創造性・技術力・実用性・表現力の観点で自己レビューし、弱点ごとに改善項目を立て、すべて「仮説 → 変更 → 計測（Before/After）」で記録した'
+            '（<font name="IPAexG">docs/IMPROVEMENT_LOG.md</font>、コミットは <font name="IPAexG">git log --grep I-0</font> で追跡可能）。')]
     imp = [['ID', '弱点・動機', '改善', 'Before → After（計測）']]
     if i01['baseline'] and i01['sphere_wheels']:
         b = max(x['pos_error_m'] for x in i01['baseline']['patterns']['medicine_route'])

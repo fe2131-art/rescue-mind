@@ -22,7 +22,7 @@ step "secret scan (HEAD tree)" python3 scripts/secret_scan.py
 step "readme links" python3 scripts/check_readme_links.py
 if [ -z "$QUICK" ]; then
   step "unit tests" make test
-  step "test count in docs" bash -c 'n=$(python3 scripts/count_tests.py | grep -oE "[0-9]+" | head -1); grep -q "$n" docs/HANDOFF.md'
+  step "test count in docs" bash -c 'n=$(python3 scripts/count_tests.py | grep -oE "[0-9]+" | head -1); grep -q "$n" README.md && { [ "$(python3 scripts/release_mode.py | head -1)" != "mode: dev" ] || grep -q "$n" docs/HANDOFF.md; }'
 fi
 step "submission facts (video, report pages)" python3 scripts/update_submission_facts.py
 [ -f docs/YOUTUBE_DESCRIPTION.md ] && step "YouTube description <= 5000 chars" bash -c 'n=$(sed -n "/^## 概要欄/,/^## 公開設定チェック/p" docs/YOUTUBE_DESCRIPTION.md | sed "1d;\$d" | wc -m); [ "$n" -le 5000 ]'

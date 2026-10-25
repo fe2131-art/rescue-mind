@@ -1,7 +1,7 @@
 # 再現手順（査読者・採点者向け）
 
 事前登録した各研究を再現し、論文・報告書・README の数値を再生成するための手順。パスは `<repo>`（リポジトリのルート）からの相対で書く。
-研究の内容・結論は `README.md`、`docs/paper/main.pdf`、`docs/HANDOFF.md` を参照。
+研究の内容・結論は `README.md`、`docs/paper/main.pdf`、`docs/OPERATIONS.md` を参照。
 
 ## 0. Makefile（成果物ごとに 1 コマンド）
 
@@ -33,7 +33,7 @@
 | モデル重み | Hugging Face から一度だけ取得し、以降は `HF_HUB_OFFLINE=1`（`docker/run.sh` の既定）。キャッシュはホストの `$HF_HOME`（既定 `~/.cache/huggingface`）を `/hf` に共有。 |
 | 同時実行 | 2 つのスタックを同時に走らせない（同じ ROS ドメイン 73 / Gazebo パーティション / ポート 8765）。キャンペーン中に `rescuemind/` や `scripts/` を編集しない。 |
 
-詳細な落とし穴は `docs/HANDOFF.md` §2–§4。
+詳細な落とし穴は `docs/OPERATIONS.md` §2–§4。
 
 ## 2. イメージのビルドとコンテナ起動
 

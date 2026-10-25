@@ -221,7 +221,7 @@ node, and writes `outputs/runs/<run_id>/` (git-ignored). Stop everything else fi
 
 **Plan without side effects** (verified, prints the services and commands, starts nothing): add `--plan` instead of `--run`.
 
-**One live mission** (the command of `docs/HANDOFF.md` section 3; about 100 s of wall time):
+**One live mission** (the command of `docs/OPERATIONS.md` section 3; about 100 s of wall time):
 
 ```bash
 docker exec rm-next rescuemind-entrypoint python3 scripts/v32_orchestrate.py --run --scenario live --scene swapped \
@@ -287,7 +287,7 @@ the others are drafts or without results yet (`A, S, X, XD, Q, B, IF` at this re
 Limits: git history proves order only if you trust the history. To rule out a rewritten history, timestamp the commit hash externally (for example with OpenTimestamps).
 For study V, the model predictions were committed before the first trial (`experiments/results/v_predictions.json`, committed by `v_run.sh`'s gate).
 
-## 7. Known pitfalls (from `docs/HANDOFF.md` section 4, plus ones found while writing this)
+## 7. Known pitfalls (from `docs/OPERATIONS.md` section 4, plus ones found while writing this)
 
 * **`nice` and `LD_LIBRARY_PATH`.** `nice` carries a file capability in the image, so its child runs in glibc secure mode and loses `LD_LIBRARY_PATH`. Put `nice` outside the shell that sources ROS
   (`nice -n 19 bash -c 'source /opt/ros/jazzy/setup.bash; ...'`, never `bash -c 'source ...; nice ...'`); in shell scripts use `renice -n N -p $$`. The Makefile therefore uses `nice` only on host commands, not inside containers (test: `tests/test_v34_priority_wrapping.py`).
@@ -346,7 +346,7 @@ Executed on the reference host (CPU only, `nice -n 19`, while other GPU jobs wer
 * that the eight model snapshots in the reference cache equal the revisions in section 1, and that the D-Fire mirror's file sizes equal the cached files (so the rename in 5.2 is right);
 * the `make reproduce-help` and `make verify-quick` targets.
 
-Documented but **not run** here (the host was busy with GPU evaluation; each command was taken from the script's argparse or header, or from `docs/HANDOFF.md`):
+Documented but **not run** here (the host was busy with GPU evaluation; each command was taken from the script's argparse or header, or from `docs/OPERATIONS.md`):
 
 * the Docker builds, container start-up and `docker exec` forms (the container and image names follow `docker/run.sh` and the Makefile);
 * every GPU image study of section 5.3 and every live mission or campaign of section 6, including their times (times are the project's measured or estimated figures, labelled as such);

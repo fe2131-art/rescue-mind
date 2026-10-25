@@ -28,6 +28,9 @@ import sys
 import tempfile
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import release_mode  # noqa: E402
+
 SNAP = '--snapshot' in sys.argv
 if SNAP:
     os.environ['SNAPSHOT'] = '1'          # before paper_numbers / advice_numbers are imported
@@ -440,6 +443,8 @@ def main():
     import count_tests
     nf_ = count_tests.n_findings()
     for fn_, pats_ in (('README.md', [r'初めて分かった(\d+)件']), ('docs/FINDINGS.md', [r'以下の(\d+)件']), ('docs/HANDOFF.md', [r'FINDINGS は (\d+) 件', r'実行で見つけた(\d+)件'])):
+        if fn_ == 'docs/HANDOFF.md' and not release_mode.internal(fn_):      # local development note (I-180)
+            continue
         for pat_ in pats_:
             got_ = re.findall(pat_, read(fn_))
             extra.append((f'{fn_}: FINDINGS count {nf_} ({pat_})', 'ok' if got_ and all(g_ == str(nf_) for g_ in got_) else 'MISMATCH', f'found {got_}' if not (got_ and all(g_ == str(nf_) for g_ in got_)) else ''))
@@ -447,14 +452,14 @@ def main():
     # HANDOFF: the failed-claim count and list, and the latest third-party evaluation (round and score), are read back from advice_numbers.failed_claims() and docs/evaluations/
     if not SNAP:
         import advice_numbers as an_
-        _ho = read('docs/HANDOFF.md')
+        _ho = read('docs/HANDOFF.md') if release_mode.internal('docs/HANDOFF.md') else None      # local note only (I-180)
         _fc = an_.failed_claims()
-        _m = re.search(r'不成立の主張は(\d+)件：([^。（）]*)', _ho)
+        _m = re.search(r'不成立の主張は(\d+)件：([^。（）]*)', _ho or '')
         _want = '・'.join(c['key'] for c in _fc)
-        _ok = bool(_m) and int(_m.group(1)) == len(_fc) and _m.group(2).strip() == _want
+        _ok = _ho is None or bool(_m) and int(_m.group(1)) == len(_fc) and _m.group(2).strip() == _want
         extra.append((f'docs/HANDOFF.md: failed registered claims = {len(_fc)} ({_want})', 'ok' if _ok else 'MISMATCH', '' if _ok else f'found {_m.groups() if _m else None}'))
         _evs = sorted((ROOT / 'docs/evaluations').glob('EVAL_*_*.md'), key=lambda p_: (re.search(r'EVAL_(\d{4}-\d\d-\d\d)_', p_.name).group(1), int(re.search(r'_(\d+)\.md$', p_.name).group(1))))
-        if _evs:
+        if _evs and _ho is not None:
             _last = _evs[-1]
             _round = int(re.search(r'_(\d+)\.md$', _last.name).group(1))
             _row = re.search(r'\*\*合計 / 40\*\*[^\n]*', _last.read_text(encoding='utf8'))
@@ -469,7 +474,7 @@ def main():
             extra.append(('README shows the study A figure', 'ok' if 'docs/figures/a_results_ja.png' in docs['readme'] else 'MISMATCH', ''))
 
     # docs/SUBMISSION.md: the report's page counts are the measured ones (scripts/update_submission_facts.py writes them)
-    if not SNAP and not a.no_report and pdfs:
+    if not SNAP and not a.no_report and pdfs and release_mode.internal('docs/SUBMISSION.md'):      # local submission notes only (I-180)
         import update_submission_facts as usf_
         _now = usf_.report_fact()
         _have = re.search(r'<!--FACT:report-->(.*?)<!--/FACT:report-->', read('docs/SUBMISSION.md'), re.S)
