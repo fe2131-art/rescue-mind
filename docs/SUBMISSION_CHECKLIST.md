@@ -48,7 +48,7 @@ for t in 20 55 95 130; do nice -n 19 ffmpeg -v error -y -ss $t -i "$V" -frames:v
 
 ## 1b. git 履歴に残る個人パス（ご本人が判断。アシスタントは書き換えない）
 
-* **現状**（2026-10-24 確認）：最新のファイル（HEAD）にはホームディレクトリのパスは 0 件。過去の **10 コミット**の差分に残っている（`git log --all --format=%h -S"/home/<ユーザー名>" | wc -l`）。public にすると履歴から読める。
+* **現状**（2026-10-24 確認）：最新のファイル（HEAD）にはホームディレクトリのパスは 0 件。過去の **10 コミット**の差分に残っている（`git log --all --format=%h -S"/home/<ユーザー名>" | wc -l`）。`python3 scripts/secret_scan.py --history` では 235 件（すべてこの種類の個人パス、鍵・トークン・メールは 0 件。2026-10-25 確認）。public にすると履歴から読める。
 * **消す方法**：新しい clone で `git filter-repo --replace-text` を使い、`/home/<ユーザー名>` を `~` に置き換えてから `git push --force`（全ブランチ・タグ）。
 * **重要な副作用**：履歴を書き換えると**全コミットのハッシュが変わる**。論文の登録順の監査（表 S9・S10、`docs/REGISTRATIONS.md`）と OpenTimestamps の証明（`docs/timestamps/`）はコミットのハッシュを指しているので、書き換え後は `python3 scripts/make_registrations.py`・`python3 scripts/paper_numbers.py`・`bash scripts/rebuild_docs.sh` で作り直す必要がある。OpenTimestamps の証明は**元のハッシュ**に対するもので、書き換え後のコミットとは一致しなくなる（論文には「証明は書き換え前のハッシュに対するもの」と一文足す）。
 * **選択肢**：(a) 書き換えない（パスはユーザー名を含むだけで、鍵や連絡先ではない）／(b) 書き換えて、上の作り直しをアシスタントに頼む。どちらにするかをアシスタントに伝える。
