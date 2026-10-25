@@ -225,11 +225,11 @@ def line_h(res):
         p1, p2 = h['P1_efficiency_relocation_persist'], h['P2_safety_naive_vs_verified']
         pa, p3 = h['per_arm'], h['P3_no_extra_risk_vs_v36']
         rc = {a: pa[a]['by_transition']['relocation_change']['time_median_s'] for a in ('M0', 'M2')}
-        t = (f"所要時間の中央値は、物資が移されたままの{p1['n_pairs']}出動で 記憶なし {p1['time_M0_median_s']:.0f}秒・検証つき記憶 {p1['time_M2_median_s']:.0f}秒"
+        t = (f"所要時間の中央値は、物資が移されたままの{p1['n_pairs']}出動で 記憶なし {p1['time_M0_median_s']:.0f}秒・確認つきの記憶 {p1['time_M2_median_s']:.0f}秒"
              f"（物資が元に戻った出動では {rc['M0']:.0f}秒 対 {rc['M2']:.0f}秒と遅い（遠回りの代償）。全体は {pa['M0']['time_median_s']:.0f}→{pa['M2']['time_median_s']:.0f}秒）。"
              if p1['n_pairs'] else '')
-        return (f"・出動をまたぐ記憶の評価H：{t}"
-                f"危険な配達は {p2['n_pairs']}出動のうち、確認を省く素朴な記憶 {p2['unsafe_M1']}件（省く設計の比較）、記憶なし {p3['unsafe_M0']}件、検証つき記憶 {p2['unsafe_M2']}件")
+        return (f"・前回の配達の記憶の評価H：{t}"
+                f"危険な配達は {p2['n_pairs']}出動のうち、記憶をうのみにする方式（確認を省く） {p2['unsafe_M1']}件、記憶なし {p3['unsafe_M0']}件、確認つきの記憶 {p2['unsafe_M2']}件")
     except (TypeError, KeyError, ValueError):
         return None
 
@@ -240,7 +240,7 @@ def line_v(res):
     if not f:
         return None
     t = (f"・ランダムな変化での再検証V：時間差 {f['diff']:.0f}秒（登録した予測区間 {f['pred_lo']:.0f}〜{f['pred_hi']:.0f}秒の内側）でモデルの予測は{'成立' if f['model_claim'] else '不成立'}、"
-         f"危険な配達は 記憶なし {f['unsafe']['M0']}・素朴な記憶 {f['unsafe']['M1']}・検証つき記憶 {f['unsafe']['M2']}件。")
+         f"危険な配達は 記憶なし {f['unsafe']['M0']}・記憶をうのみにする方式 {f['unsafe']['M1']}・確認つきの記憶 {f['unsafe']['M2']}件。")
     if not f['memory_claim']:
         t += (f"「記憶は安全」の主張は不成立（余裕の条件は成立、系列単位の検定 p={f['mcnemar_p']:.4f}、10系列では検出力不足。1件は確認の誤り）。失敗として記録")
     return t
@@ -470,8 +470,9 @@ def line_j(res):
 def headline_block(res):
     """First-screen summary for a busy judge: problem, what is new, three numbers in plain words, what to watch."""
     res = Path(res)
-    out = ['【問題】災害時の物資配達ロボットは、在庫表と現物の食い違い（水のはずが救急箱・空）や火災に出会う。指示どおり運ぶだけでは、誤った物資や危険な場所へ届けてしまう。',
-           '【新しさ】記憶・他のロボットの報告・依頼文・在庫表など、自分で見ていない情報は「助言」として扱い、見に行く順番を変えるか、判定を慎重にすることにだけ使う。確認は省けないので、どんな助言でも危険な配達は確認自身の誤りの範囲に収まる（命題2、z3 で機械検証）。毎回嘘をつく情報源の代償には、信用枠で上限を設けた（研究Bで閉ループでも確認）。']
+    out = ['【背景】災害現場は計画どおりにいきません。予定の場所に物資が無い、別の物資が置かれている、火災が起きている、ということが起こります。指示どおり運ぶだけのロボットは、誤った物資や危険な場所へ届けてしまいます。',
+           '【工夫】届ける前に拠点で止まり、ローカルのAIがカメラ画像で物資と火・煙を確かめます。正面で問題がなくても横からもう一度撮り直し、迷ったら止まります。前回の記憶・ほかのロボットの報告・依頼文の「確認不要」などの聞いた情報は、行き先の順番を決めるのには使いますが、確認を省く理由にはしません（数学的に証明し、プログラムでも検証）。',
+           '【名前】RescueMind＝Rescue（救援）＋Mind（考える心）。指示をうのみにせず、自分で確かめて判断する救援ロボットという意味です。']
     nums = []
     f = res / 'campaign_E_ledger.jsonl'
     if f.is_file():

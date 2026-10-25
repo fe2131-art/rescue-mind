@@ -432,14 +432,14 @@ def mission_segment(run_dir: Path, spec: dict, cam: FilmCamera, emit, narr=None,
                 # I-19: advice that tried to relax a check is shown as rejected (it can only reorder or add caution)
                 rej = [x for x in mission['advice']['rejected'] if x.get('kind') in ('safe', 'skip')][0]
                 rounded(d, (1356, y - 4, 1866, y + 58), (92, 58, 24), 10)
-                text(d, (1366, y), '助言（依頼文）→ 確認は省けないため不採用', 18, (255, 214, 160), True)
+                text(d, (1366, y), '依頼文の「確認不要」→ うのみにせず確認する', 18, (255, 214, 160), True)
                 for k, ln in enumerate(wrap_lines(f"「{rej.get('text') or '確認不要'}」", 18, 490)[:1]):
                     text(d, (1366, y + 26 + 22 * k), ln, 18, INK)
                 y += 66
             elif mem.get('mode') == 'verified' and mem.get('rationale'):
                 # I-15: what the memory proposed for this mission (it never skips a check)
                 rounded(d, (1356, y - 4, 1866, y + 58), (40, 44, 92), 10)
-                text(d, (1366, y), '記憶（前回の出動）→ 提案のみ・確認は省略しない', 18, (190, 196, 255), True)
+                text(d, (1366, y), '前回の記憶 → 行き先だけ決める・確認は省かない', 18, (190, 196, 255), True)
                 st_ja = {'water': '拠点W', 'medicine': '拠点M'}
                 it_ja = {'water': '飲料水', 'medicine': '医療物資'}
                 fs, cs = mem.get('first_station'), mem.get('catalog_station')

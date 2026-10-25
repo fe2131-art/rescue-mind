@@ -109,7 +109,7 @@ Qwen3.5-9B、回復探索・状況報告・LLM指示理解あり。条件は結�
 
 {fo_txt}* **誤配達（誤った物資・欠品・火災の拠点へ届けた）{wrong}/{n}**（Wilson 95%CI {pct(wrong_lo)}〜{pct(wrong_hi)}）、期待どおりの行動 **{ok}/{n}**（{pct(ok_lo)}〜{pct(ok_hi)}）、安全に届けられる{len(safe)}試行の達成 **{safe_ok}/{len(safe)}**（{pct(s_lo)}〜{pct(s_hi)}）
 * 同じ{n}試行での反実仮想（実行せず、同じログから計算した方針比較）：
-  * **確認なしの配達**（在庫表を信じる）：誤配達 **{b0_wrong}/{n}**、期待どおり {b0_ok}/{n}（正常配置だけ正しい）
+  * **確認なしの配達**（物資リストを信じる）：誤配達 **{b0_wrong}/{n}**、期待どおり {b0_ok}/{n}（正常配置だけ正しい）
   * **確認はするが回復探索なし**（v3.3方針）：誤配達 {b1_wrong}/{n}だが、安全に届けられる{len(safe)}試行のうち完了は **{b1_done}/{len(safe)}**（取り違えの{sum(r['expected_action'] == 'DELIVER_AFTER_SEARCH' for r in rows)}試行は停止で終わる）
   * 本方式：誤配達 {wrong}/{n}、完了 **{safe_ok}/{len(safe)}**
 * VLM判断前のインフラ失敗による再試行：{retries}件（台帳に全件記録）。独立シーン数は{n}で、試行はすべて別の乱数世界。ただし**拠点の配置自体は固定**"""
@@ -367,19 +367,19 @@ def h_text(short=False):
         pa = h['per_arm']
         cn, cf, cfr, cup = caution_denominator(h)
         rc = {a: pa[a]['by_transition']['relocation_change']['time_median_s'] for a in ('M0', 'M2')}
-        t1 = ((f"所要時間の中央値は、置き場所が変わったままの出動（{p1['n_pairs']}対）で 記憶なし {p1['time_M0_median_s']:.0f} 秒 → 検証つき記憶 {p1['time_M2_median_s']:.0f} 秒"
+        t1 = ((f"所要時間の中央値は、置き場所が変わったままの出動（{p1['n_pairs']}対）で 記憶なし {p1['time_M0_median_s']:.0f} 秒 → 確認つきの記憶 {p1['time_M2_median_s']:.0f} 秒"
                f"（対ごとの差の中央値 {p1['median_diff_s']} 秒、Wilcoxon正確検定 p={p1['wilcoxon_exact_p']}）。"
-               f"置き場所が元に戻った出動では、記憶の提案先に寄ってから探すため検証つき記憶の方が遅い（{rc['M2']:.0f} 秒 対 記憶なし {rc['M0']:.0f} 秒）。"
+               f"置き場所が元に戻った出動では、記憶の提案先に寄ってから探すため確認つきの記憶の方が遅い（{rc['M2']:.0f} 秒 対 記憶なし {rc['M0']:.0f} 秒）。"
                f"全体の中央値は {pa['M0']['time_median_s']:.0f} → {pa['M2']['time_median_s']:.0f} 秒")
               if p1['n_pairs'] else '置き場所が変わったままの出動で比べられる対はなし')
         if short:
             return (f"評価H：置き場所が変わったままの出動（{p1['n_pairs']}対）の所要時間の中央値 {p1['time_M0_median_s']:.0f} 秒 → {p1['time_M2_median_s']:.0f} 秒"
-                    f"（Wilcoxon正確検定 p={p1['wilcoxon_exact_p']}）。全{p3['n_pairs']}出動の中央値は {pa['M0']['time_median_s']:.0f} 秒 → {pa['M2']['time_median_s']:.0f} 秒、危険な配達は記憶なし {p3['unsafe_M0']}/{p3['n_pairs']} 対 検証つき記憶 {p3['unsafe_M2']}/{p3['n_pairs']}。詳しくは[結果](#結果)の評価H")
+                    f"（Wilcoxon正確検定 p={p1['wilcoxon_exact_p']}）。全{p3['n_pairs']}出動の中央値は {pa['M0']['time_median_s']:.0f} 秒 → {pa['M2']['time_median_s']:.0f} 秒、危険な配達は記憶なし {p3['unsafe_M0']}/{p3['n_pairs']} 対 確認つきの記憶 {p3['unsafe_M2']}/{p3['n_pairs']}。詳しくは[結果](#結果)の評価H")
         return (f"{t1}。"
-                f"比較対象の素朴な記憶は確認を省く方式なので、危険な配達 {p2['unsafe_M1']}/{p2['n_pairs']} 対 検証つき記憶 {p2['unsafe_M2']}/{p2['n_pairs']}は、確認を省く代償を示すもの（設計上の帰結）。"
-                f"安全面で意味のある比較は 記憶なし {p3['unsafe_M0']}/{p3['n_pairs']} 対 検証つき記憶 {p3['unsafe_M2']}/{p3['n_pairs']} で、検証つき記憶は記憶なしより危険ではない"
+                f"比較対象の記憶をうのみにする方式は確認を省く方式なので、危険な配達 {p2['unsafe_M1']}/{p2['n_pairs']} 対 確認つきの記憶 {p2['unsafe_M2']}/{p2['n_pairs']}は、確認を省く代償を示すもの（設計上の帰結）。"
+                f"安全面で意味のある比較は 記憶なし {p3['unsafe_M0']}/{p3['n_pairs']} 対 確認つきの記憶 {p3['unsafe_M2']}/{p3['n_pairs']} で、確認つきの記憶は記憶なしより危険ではない"
                 f"（{'追加リスクなし' if p3['supported'] else '追加リスクあり'}。1件対0件のため「より安全」とは言わない）。"
-                f"記憶による慎重さ（τ_h=0.01）が使われたのは検証つき記憶の{p2['n_pairs']}出動中 {cn} 出動で、火のない拠点はそのうち {cf} 出動だけ"
+                f"記憶による慎重さ（τ_h=0.01）が使われたのは確認つきの記憶の{p2['n_pairs']}出動中 {cn} 出動で、火のない拠点はそのうち {cf} 出動だけ"
                 f"（誤拒否 {cfr}/{cf}、Wilson上限 {cup:.0f}%）なので、慎重さの費用はまだ確立していない")
     except (TypeError, KeyError):
         return f'評価H（16系列×3出動）：{PENDING}' if short else PENDING
@@ -400,7 +400,7 @@ def v_text():
     try:
         d, a = v['V1_time_diff'], v['arms']
         return (f"M0−M2の所要時間差 実測 {d['mean_M0_minus_M2_s']:.0f} 秒（事前登録した95%予測区間 {d['pred']['p2.5']:.0f}〜{d['pred']['p97.5']:.0f} 秒）、"
-                f"危険な配達は 記憶なし {a['M0']['unsafe']}・素朴な記憶 {a['M1']['unsafe']}・検証つき記憶 {a['M2']['unsafe']}件。"
+                f"危険な配達は 記憶なし {a['M0']['unsafe']}・記憶をうのみにする方式 {a['M1']['unsafe']}・確認つきの記憶 {a['M2']['unsafe']}件。"
                 + advice_numbers.v_claims_ja(bold='md') + ' 図：[`docs/figures/v_prediction.png`](docs/figures/v_prediction.png)')
     except (TypeError, KeyError):
         return PENDING
@@ -444,7 +444,7 @@ def a_figure_md():
     if not f or not (ROOT / 'docs/figures/a_results_ja.png').is_file():
         return ''
     s = f['steer']
-    return (f"\n\n    ![評価A：(a) 経路ごとの危険な配達（各{f['by_channel']['naive']['file'][1]}試行）と方式ごとの危険な世界、(b) 誘導で配達できなかった世界（素朴 {s['naive']['lost']}/{s['n']}・本方式 {s['ours']['lost']}/{s['n']}・警戒強化版 {s['scrutiny']['lost']}/{s['n']}・助言なし {s['control']['lost']}/{s['n']}）、"
+    return (f"\n\n    ![評価A：(a) 経路ごとの危険な配達（各{f['by_channel']['naive']['file'][1]}試行）と方式ごとの危険な世界、(b) 誘導で配達できなかった世界（うのみにする方式 {s['naive']['lost']}/{s['n']}・本方式 {s['ours']['lost']}/{s['n']}・警戒強化版 {s['scrutiny']['lost']}/{s['n']}・助言なし {s['control']['lost']}/{s['n']}）、"
             f"(c) 時間（正しい助言の短縮と、嘘の助言の追加）。ガードレールはファイル経由の助言を見ない。(b) は記述的](docs/figures/a_results_ja.png)")
 
 
@@ -484,9 +484,9 @@ def i23_text():
 def necessity_text():
     f = advice_numbers.smt_facts()
     ex = (f"（z3 が返した反例では、確認を緩められる入力経路の危険な配達の率が {f['unsafe_rate']} で、上限 {f['eps_any']} を超えた）" if f and f.get('unsafe_rate') is not None else '')
-    return ('命題2は特徴づけにもなった。どの確認も「安全だと証明できる画像は無い」前提のもとで、**助言が慎重にする方向にしか使えないこと**と、'
+    return ('命題2は特徴づけにもなった。どの確認も「安全だと証明できる画像は無い」前提のもとで、**助言が確認を省く方向には使えないこと**と、'
             '**どんな助言者に対しても誤許可の上限が守られること**は同値である。確認を省く・確認を緩められる入力経路には、上限を超える世界と世界の状態をすべて知る助言者が必ずある' + ex
-            + '。したがって、助言に従う素朴な方式と、フィルタをかける方式には、この上限が成り立たない。')
+            + '。したがって、助言に従うそのまま信じる方式と、フィルタをかける方式には、この上限が成り立たない。')
 
 
 def i24_text():
@@ -555,25 +555,25 @@ def section_key(e, t):
     h, vf = jl('h_summary.json'), advice_numbers.v_facts()
     try:
         p1, p2, p3 = h['P1_efficiency_relocation_persist'], h['P2_safety_naive_vs_verified'], h['P3_no_extra_risk_vs_v36']
-        res = (f"H：全{p3['n_pairs']}出動の危険な配達は 検証つき記憶 {p3['unsafe_M2']}（素朴な記憶 {p2['unsafe_M1']}）、物資が移された{p1['n_pairs']}出動の所要時間 {p1['time_M0_median_s']:.0f}秒 → {p1['time_M2_median_s']:.0f}秒"
-               + (f"。V：検証つき記憶にも危険な配達が {vf['unsafe']['M2']}/{vf['n_per_arm']} 残り、McNemar p={vf['mcnemar_p']:.4f}（基準 0.05）" if vf else ''))
+        res = (f"H：全{p3['n_pairs']}出動の危険な配達は 確認つきの記憶 {p3['unsafe_M2']}（記憶をうのみにする方式 {p2['unsafe_M1']}）、物資が移された{p1['n_pairs']}出動の所要時間 {p1['time_M0_median_s']:.0f}秒 → {p1['time_M2_median_s']:.0f}秒"
+               + (f"。V：確認つきの記憶にも危険な配達が {vf['unsafe']['M2']}/{vf['n_per_arm']} 残り、McNemar p={vf['mcnemar_p']:.4f}（基準 0.05）" if vf else ''))
         st = f"H：**{'支持' if h['headline_supported'] else '不成立'}**" + (f"／V：**{'支持' if vf['memory_claim'] else '不成立'}**" if vf else '')
-        rows.append(f'| 出動をまたぐ記憶は提案だけ（評価H・V） | {res} | {st} |')
+        rows.append(f'| 前回の配達の記憶は行き先を決めるだけ（評価H・V） | {res} | {st} |')
     except (TypeError, KeyError):
-        rows.append(f'| 出動をまたぐ記憶は提案だけ（評価H・V） | {PENDING} | {PENDING_JA_SHORT} |')
+        rows.append(f'| 前回の配達の記憶は行き先を決めるだけ（評価H・V） | {PENDING} | {PENDING_JA_SHORT} |')
     if t:
         full = t[2]
         lo, hi = full['fa_ci95']
         rows.append(f"| 未使用の画像600枚 T1 で誤許可 2% 未満 | 誤許可 **{full['false_approvals']}/{full['n_deny']}**（{pct(full['fa_rate'])}、95%信頼区間の上限 {pct(hi)}）。原因は物資の陰に隠れた火 | **{'支持' if hi < 0.02 else '不成立'}** |")
     f = advice_numbers.smt_facts()
     if f:
-        rows.append(f"| 助言では確認を省けない：命題2の機械検証（z3） | {f['queries']}件の問いのうち {f['unsat']}件が反例なし（残りは必要性の反例など）。モデルと実コードの突き合わせ {f['cases']:,}件で不一致 {f['disagreements']}、わざと入れたバグ {f['caught']}/{f['mutants']} を検出 | **支持（機械検証）** |")
+        rows.append(f"| 聞いた情報で確認は省かない：命題2の機械検証（z3） | {f['queries']}件の問いのうち {f['unsat']}件が反例なし（残りは必要性の反例など）。モデルと実コードの突き合わせ {f['cases']:,}件で不一致 {f['disagreements']}、わざと入れたバグ {f['caught']}/{f['mutants']} を検出 | **支持（機械検証）** |")
     a = jl('a_summary.json')
     try:
         a1 = a['A1_unsafe_naive_vs_monotone']
         r_ = a1['runs']
         af_ = advice_numbers.a_facts()
-        wtxt_ = (f"（{af_['worlds']['naive'][1]}世界で危険な配達が起きた世界は 素朴 {af_['worlds']['naive'][0]}・ガードレール {af_['worlds']['filtered'][0]}・本方式 {af_['worlds']['monotone'][0]}。"
+        wtxt_ = (f"（{af_['worlds']['naive'][1]}世界で危険な配達が起きた世界は うのみにする方式 {af_['worlds']['naive'][0]}・ガードレール {af_['worlds']['filtered'][0]}・本方式 {af_['worlds']['monotone'][0]}。"
                  f"ガードレールはファイル経由の助言を見ず（止めた数 {af_['filter_flag_file'][0]}/{af_['filter_flag_file'][1]}、依頼文では {af_['filter_flag_operator'][0]}/{af_['filter_flag_operator'][1]}）、"
                  "A は意図の質問 i38 で走らせ、提出版の既定は i35）") if af_ and af_['worlds']['naive'] else ""
         steer_ = (f"。誘導の16世界では本方式の危険な配達 {af_['steer']['ours']['unsafe']}/{af_['steer']['n']}（確認の誤り、有意でない）、配達の取りこぼし {af_['steer']['ours']['lost']}/{af_['steer']['n']}（相対的な保証で、火へ近づく危険と配達できなくなることは上限の対象外）" if af_ else '')
@@ -754,7 +754,7 @@ def section_key(e, t):
 
 def section_judge(e):
     """Below the first screen: the problem, the four episodes (attack -> finding -> countermeasure -> re-measurement), what to watch in the video."""
-    lines = ['**問題**：災害時の物資配達ロボットは、在庫表と現物の食い違い（水のはずが救急箱だった・空だった）や火災に出会う。指示どおり運ぶだけでは、誤った物資や危険な場所へ届けてしまう。',
+    lines = ['**問題**：災害時の物資配達ロボットは、予定していた物資の置き場所と現物の食い違い（水のはずが救急箱だった・空だった）や火災に出会う。指示どおり運ぶだけでは、誤った物資や危険な場所へ届けてしまう。',
              '',
              *storyline_lines(),
              '',
@@ -774,7 +774,7 @@ def section_novelty():
         gtxt = f'横から撮り直す能動知覚（評価G）：{PENDING}'
     return f"""## 工夫した点
 
-一つの流れで読む：確かめる → 誤りの大半（隠れた火）は横から見直す → 見ていない情報では確認を省けない → 保証の対象外は測るだけ。
+一つの流れで読む：確かめる → 誤りの大半（隠れた火）は横から見直す → 聞いた情報は参考にするが、確認は省かない → 保証の対象外は測るだけ。
 
 **試行錯誤：失敗が次の研究を生んだ**（事前登録して成立しなかった主張を消さずに、次の一手とつないだもの。結果は結果ファイルから自動で入る。I-149）
 
@@ -782,16 +782,16 @@ def section_novelty():
 
 **先行研究との位置づけ**：[文献調査のまとめ](docs/paper/LITERATURE_SUMMARY.md)（テーマ別に「先行研究が示すこと → 本研究の位置」、新しさの主張を反証できる論文を探した結果、査読で聞かれそうな問いへの答え）。引用した論文はすべて arXiv の要旨ページ（または出版社のページ）で確かめ、`python3 scripts/check_bib.py` で重複・未定義の引用が無いことを確かめている（I-147）。
 
-![見ていない情報では確認を省けない：助言で変えられるのは見に行く順番と判定の慎重さだけ（I-19）](docs/figures/advice_principle_ja.png)
+![聞いた情報は参考にするが、確認は省かない：使えるのは行き先の順番と、より注意して調べることだけ（I-19）](docs/figures/advice_principle_ja.png)
 
 * **1. 届ける前に、その場で確かめる**：VLMに文章を書かせず、答えの選択肢（A/B/C、はい/いいえ）の確率だけを読む。2問で選択肢の順序を入れ替えて合意を取り、火や煙の問いも別に立てる。1つでも失敗すれば拒否（止まる）。速度指令は別プロセスの独立したガードだけが出す。測定は[結果](#結果)の評価E（ランダムな世界）など。
 * **2. 誤りの大半は「物資の陰の小さな火」なので、横から見直す**（[I-14](docs/IMPROVEMENT_LOG.md)）：{gtxt}。表は[結果](#結果)の評価G。{advice_numbers.i20_ja().replace('（I-20）','（[I-20](docs/IMPROVEMENT_LOG.md)）',1)}
-* **3. 見ていない情報では確認を省けない**（[I-19](docs/IMPROVEMENT_LOG.md)・[D18](docs/DESIGN_DECISIONS.md)、論文の命題2）：記憶・他のロボット・在庫・依頼文の言葉はすべて「助言」で、拠点の順序と閾値の強化にしか使えない。「安全」「確認不要」は何の効果も持たない。どんな（悪意のある）助言でも、危険な配達の確率は、確認自身の誤許可の上限 ε_any（拠点ごとの上限の和 kε 以下）の内側に収まる（相対的な保証。確認の誤りそのものは消えない）。代償は上限つき（1拠点の無駄足と、慎重な閾値による誤拒否）。
+* **3. 聞いた情報は参考にするが、確認は省かない**（[I-19](docs/IMPROVEMENT_LOG.md)・[D18](docs/DESIGN_DECISIONS.md)、論文の命題2）：記憶・他のロボット・在庫・依頼文の言葉はすべて「助言」で、拠点の順序と閾値の強化にしか使えない。「安全」「確認不要」は何の効果も持たない。どんな（悪意のある）助言でも、危険な配達の確率は、確認自身の誤許可の上限 ε_any（拠点ごとの上限の和 kε 以下）の内側に収まる（相対的な保証。確認の誤りそのものは消えない）。代償は上限つき（1拠点の無駄足と、慎重な閾値による誤拒否）。
   * 記憶は助言の一例（[I-15](docs/IMPROVEMENT_LOG.md)・[D13](docs/DESIGN_DECISIONS.md)）：前回の物資の場所は「先に行く拠点」を決めるだけで、行った先で必ず確認する。火を見た拠点は閾値を厳しくする。同じ画像なら記憶ありの許可は記憶なしの許可の部分集合になる（コードで強制）。{h_text(True)}
 
-    ![記憶は提案、判断はその場の目で（出動をまたぐ記憶の原則）](docs/figures/memory_principle_ja.png)
+    ![記憶は提案、判断はその場の目で（前回の配達の記憶の原則）](docs/figures/memory_principle_ja.png)
 
-    ![事例：記憶なしは隠れた火に配達（p_h=0.0346）、検証つき記憶は火を見た拠点の閾値を0.01に厳しくして停止（p_h=0.0489）。1件の事例で、統計的な主張ではない](docs/figures/memory_case_ja.png)
+    ![事例：記憶なしは隠れた火に配達（p_h=0.0346）、確認つきの記憶は火を見た拠点の閾値を0.01に厳しくして停止（p_h=0.0489）。1件の事例で、統計的な主張ではない](docs/figures/memory_case_ja.png)
 
   * **ランダムな変化での再検証（評価V）**：{v_idea_text()}
 
@@ -1241,7 +1241,7 @@ def main():
     k_ja, k_en = section_k()
     if k_ja:
         R['K'] = k_ja
-    R['H'] = f"| 評価H（出動をまたぐ記憶） | 前回の物資の場所を「先に行く拠点」の提案だけに使う（助言の一例）。記憶なし・素朴な記憶・検証つき記憶を対比較 | {h_text()} |"
+    R['H'] = f"| 評価H（前回の配達の記憶） | 前回の物資の場所を「先に行く拠点」の提案だけに使う（助言の一例）。記憶なし・記憶をうのみにする方式・確認つきの記憶を対比較 | {h_text()} |"
     R['L'] = f"| 評価L（未知の配置） | 2つの拠点と避難所の位置をランダムに変えた24通りの未知の配置で、v3.6 が期待どおり動くか（閉ループ） | {l_text()} |"
     R['J'] = f"| 評価J（2つのAI）：**採用せず** | Jev役 Clef-Flash＋Qwen の2モデル確認を閉ループで、v3.6単独と対比較 | {j_text()} |"
     R['V'] = f"| 評価V（ランダムな変化での予測検証） | 出動ごとに世界がランダムに変わる10系列×6出動で、事前登録した予測区間と実測を比較 | {v_text()} |"
@@ -1252,13 +1252,13 @@ def main():
         R['Q'] = f"| 評価Q（実写の物資確認、画像レベル） | Wikimedia Commons の写真405枚（水・救急箱・どちらでもない）で、頼まれた物資の確認を v3.6 のまま採点 | {advice_numbers.q_ja()} |"
     R['S'] = f"| 評価S（画像内の文字による注入、画像レベル） | 標識・ラベル・「Cと答えよ」を置いた64世界を、標識なし・攻撃・無害の3通りで描画し、本方式・1回判定・自由記述・全体画像で比較 | {s_text()} |"
     R['W'] = f"| 評価W（小さく隠れた火の見逃しと先行手法、I-20の副次解析を含む） | 画像レベル：正面のみ対見回し（150火世界＋75双子）、VAP-TAMP風の投票・KnowNo風の共形集合との誤許可の比較 | {w_text()} |"
-    R['X'] = f"| 評価XD・X（倉庫の世界、4拠点） | XD：倉庫の保留画像で ε と閾値の再較正（画像レベル）。X：記憶なし対検証つき記憶と、助言による方向づけを閉ループ59試行で。描画の確認は I-21（`docs/figures/depot_preview_sheet.jpg`） | {x_text()} |"
+    R['X'] = f"| 評価XD・X（倉庫の世界、4拠点） | XD：倉庫の保留画像で ε と閾値の再較正（画像レベル）。X：記憶なし対確認つきの記憶と、助言による方向づけを閉ループ59試行で。描画の確認は I-21（`docs/figures/depot_preview_sheet.jpg`） | {x_text()} |"
     head = ['| 評価（事前登録） | 内容 | 結果 |', '|---|---|---|']
     stages = [      # study-subset: the chain's detailed rows; the later studies are named in group 7 (I-136)
         ('1. 届ける前に確かめる（確認は閉集合の確率、迷えば止まる）', ['E', 'L', 'D', 'Z']),
         ('2. 誤りはどこにあるか（隠れた火が大半）・閾値', ['T1', 'T1b', 'K']),
         ('3. 横から見直す（誤りを小さくする）', ['F', 'G', 'W']),
-        ('4. 見ていない情報では確認を省けない（記憶・他のロボット・依頼文・在庫表）', ['H', 'V', 'A', 'IF']),
+        ('4. 聞いた情報は参考にするが、確認は省かない（記憶・他のロボット・依頼文・物資リスト）', ['H', 'V', 'A', 'IF']),
         ('5. 保証の対象外：画像内の文字と現実との差（測るだけで、保証とは言わない）', ['S', 'P', 'R', 'Q', 'X']),
         ('6. 試したが採用しなかったもの', ['J']),
     ]      # study-subset: the chain's detailed rows; every other study is named below (I-136)
@@ -1273,7 +1273,7 @@ def main():
     if _later:
         tables += ['#### 7. この節に行の無い研究', '', f"{'・'.join(_later)}（計{len(_later)}本）の結果と状態は、このページ先頭の表（「残りの事前登録した評価」を含む）と論文の補足資料にある。", '']
     parts = ['<!-- RESULTS:START -->', '## 結果', '',
-             '事前登録した評価（' + str(len(list((RES.parent).glob('PREREGISTRATION_*.md')))) + '本の登録文書' + (('、' + ('登録済み・提出時点で未実施の' if SNAP else '結果待ちの') + '・'.join(waiting_studies())) if waiting_studies() else '') + '）を、論文と同じ**一つの流れ**の順に並べる：①確かめる ②誤りの大半は隠れた火 ③横から見直す ④見ていない情報では確認を省けない ⑤保証の対象外 ⑥採用しなかったもの。Qwen3.5-9B（ローカル・V100）。条件・閾値・解析は結果を見る前に `experiments/PREREGISTRATION_*.md` に固定し、台帳は全試行を記録。' + ('登録済み・提出時点で未実施の研究は、数値を載せていない（結果ファイルができれば自動で入る）。' if SNAP else '結果待ちの研究は、結果ファイルができると数値が自動で入る。'), '',
+             '事前登録した評価（' + str(len(list((RES.parent).glob('PREREGISTRATION_*.md')))) + '本の登録文書' + (('、' + ('登録済み・提出時点で未実施の' if SNAP else '結果待ちの') + '・'.join(waiting_studies())) if waiting_studies() else '') + '）を、論文と同じ**一つの流れ**の順に並べる：①確かめる ②誤りの大半は隠れた火 ③横から見直す ④聞いた情報は参考にするが、確認は省かない ⑤保証の対象外 ⑥採用しなかったもの。Qwen3.5-9B（ローカル・V100）。条件・閾値・解析は結果を見る前に `experiments/PREREGISTRATION_*.md` に固定し、台帳は全試行を記録。' + ('登録済み・提出時点で未実施の研究は、数値を載せていない（結果ファイルができれば自動で入る）。' if SNAP else '結果待ちの研究は、結果ファイルができると数値が自動で入る。'), '',
              '用語：**誤許可**＝届けてはいけない場面で「届けてよい」と判断してしまうこと（ロボットを実際に動かす評価では**誤配達**。火のある拠点から届けてしまうことは**危険な配達**）。**正しい許可**＝届けてよい場面で正しく「よい」と判断できること。**閉ループ**＝AIの判断でロボットが実際に動くところまで含めた評価。**ε**＝確認そのものが、届けてはいけない拠点を許可してしまう確率（助言の危険は、この内側に収まる）。', '',
              '\n'.join(tables)]
     if t1_block:

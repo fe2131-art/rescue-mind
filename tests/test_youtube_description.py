@@ -49,7 +49,7 @@ class YoutubeDescription(unittest.TestCase):
         self.assertIn('走行区間は8倍速、確認動作は3倍速、AI判断の瞬間（画像取得〜判断）は等速です', text)
         # the 6 s cards are merged into their neighbours: YouTube ignores a list with a chapter shorter than 10 s
         for line in ('0:00 RescueMind ＋ デモ1：言い換えた指示でも配達', '0:40 デモ2：欠品 → 停止', '1:25 デモ3：前回の記憶を使って最短で配達',
-                     '2:10 証拠のまとめ ＋ RescueMind'):
+                     '2:10 証拠のまとめ'):
             self.assertIn(line, text)
         self.assertEqual(facts['warnings'], [])
         self.assertEqual(len(facts['chapters']), 4)
@@ -75,9 +75,9 @@ class YoutubeDescription(unittest.TestCase):
         (self.res / 'p_summary.json').write_text(json.dumps({
             'n': 400, 'recall': {'k': 298, 'n': 300}, 'false_alarm': {'k': 64, 'n': 100}}), encoding='utf8')
         text, _ = mk.build_description(CHAPTERS, self.res)
-        self.assertIn('評価H：所要時間の中央値は、物資が移されたままの8出動で 記憶なし 120秒・検証つき記憶 80秒', text)
+        self.assertIn('前回の配達の記憶の評価H：所要時間の中央値は、物資が移されたままの8出動で 記憶なし 120秒・確認つきの記憶 80秒', text)
         self.assertIn('物資が元に戻った出動では 100秒 対 111秒と遅い（遠回りの代償）。全体は 90→70秒', text)
-        self.assertIn('危険な配達は 32出動のうち、確認を省く素朴な記憶 3件（省く設計の比較）、記憶なし 1件、検証つき記憶 0件', text)
+        self.assertIn('危険な配達は 32出動のうち、記憶をうのみにする方式（確認を省く） 3件、記憶なし 1件、確認つきの記憶 0件', text)
         self.assertIn('検出 298/300、火の無い写真で誤警報 64/100', text)
         self.assertNotIn('評価J', text)
 
@@ -109,7 +109,7 @@ class YoutubeDescription(unittest.TestCase):
         self.assertEqual(mk.main(args + ['--check']), 1)
         self.assertEqual(mk.main(args), 0)
         self.assertEqual(mk.main(args + ['--check']), 0)
-        self.assertIn('2:10 証拠のまとめ ＋ RescueMind', out.read_text(encoding='utf8'))
+        self.assertIn('2:10 証拠のまとめ', out.read_text(encoding='utf8'))
 
     def test_description_limit_counts_characters(self):
         text, _ = mk.build_description(CHAPTERS, self.res)
