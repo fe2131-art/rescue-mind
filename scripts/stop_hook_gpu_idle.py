@@ -33,6 +33,12 @@ REASON_COVERAGE = ("STOP REFUSED (I-136): a registered study is missing from an 
                    "Fix it now (derive the list from scripts/make_registrations.STUDIES, regenerate with the command shown), re-run `python3 scripts/check_study_coverage.py` until it prints 0, commit, then continue.")
 
 
+def frozen() -> bool:
+    """True when docs/FINAL_PLAN.md records the user's experiment freeze (I-173)."""
+    f = ROOT / 'docs/FINAL_PLAN.md'
+    return f.is_file() and 'EXPERIMENT_FREEZE' in f.read_text(encoding='utf8')
+
+
 def coverage_problems() -> list:
     r = subprocess.run([sys.executable, str(ROOT / 'scripts/check_study_coverage.py')], capture_output=True, text=True, timeout=60)
     return [x[len('COVERAGE: '):] for x in r.stdout.splitlines() if x.startswith('COVERAGE: ')]
@@ -81,6 +87,10 @@ def main() -> int:
             print(json.dumps({'decision': 'block', 'reason': REASON_COVERAGE.format(p='; '.join(cov[:5]))}, ensure_ascii=False))
             return 0
         state = {k: v for k, v in state.items() if k != 'cov_blocks'}
+        if frozen():      # I-173: the user froze experiments (docs/FINAL_PLAN.md); an idle GPU is then expected, not a reason to block
+            STATE.write_text(json.dumps({'blocks': 0}))
+            log('allow (experiments frozen by FINAL_PLAN)')
+            return 0
         i = idle()
         out, new = decide(i, state, is_watched=True if i else watched())
         STATE.write_text(json.dumps(new))

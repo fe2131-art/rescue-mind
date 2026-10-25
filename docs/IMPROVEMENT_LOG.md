@@ -1551,3 +1551,8 @@
 * **Film.** `film_jk.sh` on JK world GM041 (where v3.6 delivered into the fire): front, L and R allowed, the 0.8 m left view (L2) found the fire, the robot stopped (`0f97606079a94dfa`, COMPLETED_EXPECTED_DENIAL). It replaces the front-fire depot demo.
 * **Length.** With the new demo (39 s of footage, mostly VLM waits at the 3x check speed) the plan estimated 190.7 s, over the 180 s limit. Rather than drop a demo or the honest QI card, the check motion is shown at 4x for every demo (`make_video_plan.FAST, CHECK = 8.0, 4.0`; the overlay shows the actual speed, and the description text is generated from the same constants): 172.0 s estimated. Checklist text updated to 4x.
 * **Build.** `rebuild_docs.sh` after JM: main body ends on page 8 (references from page 8), supplement 46 pages, 0 unresolved references; report main part 10 pages.
+
+## I-173 (2026-10-25) The Stop hook respects the user's experiment freeze
+* **Problem.** After JM the GPU queue is empty by design (FINAL_PLAN: no new studies, agreed with the user on 2026-10-24), but the Stop hook (I-72) demanded a new GPU job — it would push toward exactly what the user ruled out.
+* **Change.** `stop_hook_gpu_idle.py`: while `docs/FINAL_PLAN.md` carries the marker `EXPERIMENT_FREEZE`, an idle GPU does not block (the coverage rule of I-136 still does). The marker is in FINAL_PLAN's agreement line.
+* **Before → After.** Hook vs user decision: in conflict → consistent; stop-hook tests pass.
