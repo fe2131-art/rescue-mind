@@ -1536,3 +1536,7 @@
 ## I-170 (2026-10-25) One command for the regeneration after a result, so the last ingestion is fast and complete
 * **Change.** `scripts/post_results.sh <studies>`: multiplicity, paper macros, registration ledger, trial-chain document, README, YouTube description, then `check_bib`, `check_study_coverage` and `ingest_check` (exit 1 on any problem). FINAL_PLAN step 1 uses it for JM.
 * **Before → After.** Nine commands remembered by hand → one, with the checks last.
+
+## I-171 (2026-10-25) The v14 video recipe written into FINAL_PLAN
+* **Change.** FINAL_PLAN's video item carries the exact commands (backup without rm, plan with the JK film run if usable, render in the background, duration check, frame-by-frame review every 10 s, submission facts).
+* **Before → After.** Video step: from memory → a fixed recipe with its checks.
