@@ -189,12 +189,12 @@ def w_claims_ja(f=None, bold='b'):
     la, fr = f['la'], f['front']
     return (f"小さく隠れた火 {f['n']} 世界（画像レベル、新しい世界）の見逃し：正面のみ {fr['k']}/{fr['n']}、見回し {la['k']}/{la['n']}"
             f"（Wilson 95%CI {100 * la['ci95'][0]:.1f}〜{100 * la['ci95'][1]:.1f}%）。{B('見逃しの上限15%以下：' + ok(f['claim_eps']))}、"
-            f"火の無い双子での余計な停止 {f['false_stops']['k']}/{f['false_stops']['n']}（{B('許容できる代償：' + ok(f['claim_cost']))}）。"
+            f"火を取り除いた同じ場面での余計な停止 {f['false_stops']['k']}/{f['false_stops']['n']}（{B('許容できる代償：' + ok(f['claim_cost']))}）。"
             f"拠点2か所のとき、少なくとも1か所で見逃す確率 ε_any(2) は見回しで {100 * f['eps2']:.1f}%（正面のみ {100 * f['eps2_front']:.1f}%）。"
             f"同じ入力（全体画像）での誤許可（{f['nd']}件中）：本方式 {f['fa_ref']}、5問の言い換え投票 {f['fa_vote']}、KnowNo風α=0.05 {f['fa_kf']}（ただし正しい許可は {f['ca_kf']}/{f['nal']} で本方式の {f['ca_ref']}/{f['nal']} より低い）、α=0.10 {f['fa_kt']}（本方式と同じ判定）。"
             f"{B('先行手法より危険判定の規則そのものが優れる：' + ok(f['n_dist'] > 0))}（区別できたのは3つ中 {f['n_dist']}、投票とは Holm補正後 p={f['vote_holm']:.3f}）。"
             f"切り出しを含む実際の方式は投票より誤許可が少ない（{f['fa_dep']} 対 {f['fa_vote']}、Holm補正後 p={f['vote_dep_holm']:.3f}）。"
-            f"疑わしいときだけ視点を増やす案（I-20）：見逃し {f['adapt_miss']}/{la['n']}（見回しとの差は {f['adapt_pair'][0]} 世界だけ）、双子で失った許可 {f['adapt_lost']} 件。"
+            f"疑わしいときだけ視点を増やす案（I-20）：見逃し {f['adapt_miss']}/{la['n']}（見回しとの差は {f['adapt_pair'][0]} 世界だけ）、対の場面で失った許可 {f['adapt_lost']} 件。"
             f"事前に決めた採用規則を{'満たした（その後、倉庫の評価XDの撤回規則で既定からは外した）' if f['adopt'] else '満たさなかったので既定にしない'}")
 
 
@@ -718,7 +718,7 @@ def xd_ja(none=None):
     return (f"倉庫（4拠点）の画像 {f['nworlds']} 世界（知覚できる火 {f['nperc']}）：正面のみの見逃し {f['front']}、見回し {f['la']}（Wilson 上限 {f['la_upper']:.1f}%）。"
             f"難しい火（小さく半分隠れた炎）の見回しの見逃しは {f['hard_la']}（上限 {f['hard_upper']:.1f}%）で、登録した上限15%は**不成立**。"
             f"相対的な主張のうち、見回しが正面の見逃しの大半を減らす（O1）と、誤った物資の許可が無い（O4）は成り立ったが、疑わしいときだけ足す追加視点（I-20）は"
-            f"見逃しを {f['removed']} 件減らし増やさなかった（{f['ad']}）一方で、火のない双子の {f['trig']}（{f['trig_rate']:.0f}%）で発動し、事前の撤回規則（15%超）で既定にしないことになった（O3 不成立）。"
+            f"見逃しを {f['removed']} 件減らし増やさなかった（{f['ad']}）一方で、火を取り除いた同じ場面の {f['trig']}（{f['trig_rate']:.0f}%）で発動し、事前の撤回規則（15%超）で既定にしないことになった（O3 不成立）。"
             f"閾値の再較正は登録の基準（較正の再現率0.95）を満たす閾値が無く不成立（0.05 での再現率 {f['recall']:.0f}%）" + xdr_result_ja())
 
 
@@ -782,7 +782,7 @@ def x_ja(none=None):
     return (f"倉庫の閉ループ{f['n']}試行（1回だけ実行、失敗{f['failed']}件も数に入れた）：行動の確認は{f['a_ok']}が設計どおりで、火への配達は{f['a_unsafe']}（上限{f['a_upper']:.0f}%）。"
             f"4拠点で確認つきの記憶は訪問を{f['saving']:.2f}拠点減らした（{f['pairs']}組・{f['clusters']}系列、95%区間 {f['ci'][0]:.2f}〜{f['ci'][1]:.2f}、設計の予測{f['design']:.2f}）、誤った物資の配達は{f['wrong']}。"
             f"助言で隠れた火へ向かわせる実験（火{f['fire']}世界、記述のみ）：助言なし {f['u_ctl']}、本方式 {f['u_mono']}（配達{f['lost_mono']}件を諦めた）、"
-            f"警戒強化版 {f['u_scr']}だが火のない双子も{f['false_scr']}で拒否した（しきい値0.01が火のない映像の範囲内。S4不成立）")
+            f"警戒強化版 {f['u_scr']}だが火を取り除いた同じ場面も{f['false_scr']}で拒否した（しきい値0.01が火のない映像の範囲内。S4不成立）")
 
 
 def x_en(none=None):
@@ -889,7 +889,7 @@ def failed_claims():
     yf = _load('yf_summary.json')      # registered claim YF4 (= Y4) of PREREGISTRATION_YF: at most 2 stations per run
     if yf is not None and not yf['Y-s']['criteria']['Y4_holds']:
         out.append(dict(key='YF4', tex='YF4 (at most two stations per run)', en='YF4 (at most two stations per run, on fresh worlds)',
-                        ja='YF4（1回の試行で訪れる拠点は2つまで。新しい世界で、双子の1本が4拠点を訪れた）'))
+                        ja='YF4（1回の試行で訪れる拠点は2つまで。新しい世界で、対の場面の1本が4拠点を訪れた）'))
     gr = _load('gr_summary.json')      # registered claims GR1-GR3 (PREREGISTRATION_GR): the closed-loop budget of the look-around, its paired replication, the false stops
     if gr is not None:
         c = gr['criteria']
@@ -978,7 +978,7 @@ def failed_claims():
     if jm is not None:
         c = jm['criteria']
         for key, name, tex, en, ja in (
-                ('JM1_smoke_increases_v36_misses', 'JM1', 'JM1 (smoke plume raises misses)', 'JM1 (in twin worlds that differ only in the smoke plume, the submitted look-around delivers into more fires with the plume, paired one-sided p < 0.05)', 'JM1（煙の有無だけが違う双子の世界で、提出版は煙ありの方が火へ多く配達する：対の片側p<0.05）'),
+                ('JM1_smoke_increases_v36_misses', 'JM1', 'JM1 (smoke plume raises misses)', 'JM1 (in twin worlds that differ only in the smoke plume, the submitted look-around delivers into more fires with the plume, paired one-sided p < 0.05)', 'JM1（煙の有無だけが違う対の場面の世界で、提出版は煙ありの方が火へ多く配達する：対の片側p<0.05）'),
                 ('JM2_extra_views_reduce_misses_in_smoke', 'JM2', 'JM2 (extra views under smoke)', 'JM2 (in the smoke twins, the extra views deliver into fewer fires than the submitted look-around, paired one-sided p < 0.05)', 'JM2（煙ありの世界で、追加視点の方式は提出版より火への配達が少ない：対の片側p<0.05）'),
                 ('JM3_adapt_smoke_at_most_4_of_60', 'JM3', 'JM3 (extra views under smoke: budget)', 'JM3 (the extra views deliver into at most 4 of 60 smoke-twin fires)', 'JM3（煙ありの60世界で、追加視点の方式の火への配達は4件以下）')):
             if not c[key]:
@@ -1125,7 +1125,7 @@ def i20_ja():
     x = xd_facts()
     if f['adopt'] and x:
         return (f"疑わしいときだけ視点を足す案（I-20）は、評価Wで採用規則を満たした（見逃し {f['adapt_miss']}/{f['la']['n']} 対 見回しのみ {f['la']['k']}/{f['la']['n']}）が、"
-                f"倉庫の評価XDで事前に決めた撤回規則（火のない双子の15%超で発動）に当たり、既定にしない。倉庫では見逃しを {x['removed']} 件減らし増やさなかった（{x['ad']}）が、双子の {x['trig_rate']:.0f}% で発動した。"
+                f"倉庫の評価XDで事前に決めた撤回規則（火を取り除いた同じ場面の15%超で発動）に当たり、既定にしない。倉庫では見逃しを {x['removed']} 件減らし増やさなかった（{x['ad']}）が、対の場面の {x['trig_rate']:.0f}% で発動した。"
                 "これまでの閉ループの結果はすべて追加視点なしの v3.6")
     if f['adopt']:
         return (f"疑わしいときだけ視点を足す案（I-20）は、事前に決めた採用規則を評価Wで満たした（見逃し {f['adapt_miss']}/{f['la']['n']} 対 見回しのみ {f['la']['k']}/{f['la']['n']}、"

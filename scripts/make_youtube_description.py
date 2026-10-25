@@ -380,7 +380,7 @@ def line_views(res):
     try:
         v_, a_ = m_['arms']['v36'], m_['arms']['adapt']
         ok = all(m_['criteria'][x] for x in ('JM1_smoke_increases_v36_misses', 'JM2_extra_views_reduce_misses_in_smoke', 'JM3_adapt_smoke_at_most_4_of_60'))
-        out.append(f"・煙の有無だけが違う双子の世界（評価JM）：提出版の火への配達 煙あり{v_['smoke']['k']}・煙なし{v_['no_smoke']['k']}/{v_['smoke']['n']}、追加視点は煙あり{a_['smoke']['k']}/{a_['smoke']['n']}で{'成立' if ok else '一部不成立'}")
+        out.append(f"・煙の有無だけが違う対の場面の世界（評価JM）：提出版の火への配達 煙あり{v_['smoke']['k']}・煙なし{v_['no_smoke']['k']}/{v_['smoke']['n']}、追加視点は煙あり{a_['smoke']['k']}/{a_['smoke']['n']}で{'成立' if ok else '一部不成立'}")
     except (TypeError, KeyError):
         pass
     i_ = jload(Path(res) / 'ij_summary.json')
