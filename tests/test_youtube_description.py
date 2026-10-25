@@ -74,7 +74,7 @@ class YoutubeDescription(unittest.TestCase):
                         for a, t, r in (('M0', 90.4, 100.2), ('M2', 70.2, 110.6))}}), encoding='utf8')
         (self.res / 'p_summary.json').write_text(json.dumps({
             'n': 400, 'recall': {'k': 298, 'n': 300}, 'false_alarm': {'k': 64, 'n': 100}}), encoding='utf8')
-        text, _ = mk.build_description(CHAPTERS, self.res)
+        text = '\n'.join(mk.number_lines(self.res))      # I-186: the detailed lines (README / report); the short description omits them
         self.assertIn('前回の配達の記憶の評価H：所要時間の中央値は、物資が移されたままの8出動で 記憶なし 120秒・確認つきの記憶 80秒', text)
         self.assertIn('物資が元に戻った出動では 100秒 対 111秒と遅い（遠回りの代償）。全体は 90→70秒', text)
         self.assertIn('危険な配達は 32出動のうち、記憶をうのみにする方式（確認を省く） 3件、記憶なし 1件、確認つきの記憶 0件', text)

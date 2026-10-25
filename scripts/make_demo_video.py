@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 import subprocess
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -423,6 +424,7 @@ def mission_segment(run_dir: Path, spec: dict, cam: FilmCamera, emit, narr=None,
             text(d, (1362, 608), f'指示理解（{how}）→ {ITEM_JA[item]} を避難所Bへ', 21, INK)
             y = 640
             mem = mission.get('memory') or {}
+            reason = None      # set below when a decision is on screen (I-186 uses it for the robot's report)
             show_chg = bool(chg_lines) and chg_t is not None and t >= chg_t
             if show_chg and mem.get('mode') == 'verified' and mem.get('rationale'):
                 # after the final decision the banner's slot shows the change report (no extra height -> no overlap)
@@ -440,10 +442,9 @@ def mission_segment(run_dir: Path, spec: dict, cam: FilmCamera, emit, narr=None,
                 # I-15: what the memory proposed for this mission (it never skips a check)
                 rounded(d, (1356, y - 4, 1866, y + 58), (40, 44, 92), 10)
                 text(d, (1366, y), '前回の記憶 → 行き先だけ決める・確認は省かない', 18, (190, 196, 255), True)
-                st_ja = {'water': '拠点W', 'medicine': '拠点M'}
-                it_ja = {'water': '飲料水', 'medicine': '医療物資'}
                 fs, cs = mem.get('first_station'), mem.get('catalog_station')
-                short = (f"前回、{it_ja.get(cs, cs)}を{st_ja.get(fs, fs)}で確認 → 先に{st_ja.get(fs, fs)}へ" if fs and cs and fs != cs
+                item_ja = ITEM_JA.get(item, item)      # I-186: the requested supply (catalog_station is a station key, not an item)
+                short = (f"前回、{item_ja}を{station_ja(fs)}で確認 → 先に{station_ja(fs)}へ" if fs and cs and fs != cs
                          else mem['rationale'][0])
                 for k, ln in enumerate(wrap_lines(short, 18, 490)[:1]):
                     text(d, (1366, y + 26 + 22 * k), ln, 18, INK)
@@ -525,6 +526,8 @@ def mission_segment(run_dir: Path, spec: dict, cam: FilmCamera, emit, narr=None,
                     said = e['explain']
                 if e.get('peek') and t >= (e['arrive'] or e['frame']):
                     said = None     # a side view has its own decision; the front report no longer describes it
+            if said and reason == 'visible_hazard_at_checkpoint' and re.search(r'(火|煙)[^。]*(見られません|ありません|見えません)', said):
+                said = None     # I-186: the free-text report (not used for decisions) contradicts the hazard stop on screen; show the decision only
             if said:
                 text(d, (64, 958), 'ロボットの報告（VLMの説明文・判断には不使用）', 19, MUTED, True)
                 for k, ln in enumerate(wrap_lines(f'「{said}」', 25, 1230)[:2]):

@@ -497,7 +497,7 @@ def headline_block(res):
         p1, p3 = h['P1_efficiency_relocation_persist'], h['P3_no_extra_risk_vs_v36']
         nums.append(f"③記憶で先に向かう拠点を決めると、物資が移されたままの{p1['n_pairs']}出動で所要時間（中央値）{p1['time_M0_median_s']:.0f}秒→{p1['time_M2_median_s']:.0f}秒（全{p3['n_pairs']}出動 {h['per_arm']['M0']['time_median_s']:.0f}→{h['per_arm']['M2']['time_median_s']:.0f}秒）。"
                     f"確認は省かないので危険な配達は 記憶なし {p3['unsafe_M0']}/{p3['n_pairs']}・記憶つき {p3['unsafe_M2']}/{p3['n_pairs']}。元に戻った出動は遠回りで遅い。"
-                    + (advice_numbers.pooled_memory_short_ja() if advice_numbers.pooled_memory() else ''))
+                    )      # I-186: the pooled H+V line (study codes) stays in README and the report
     except (TypeError, KeyError):
         pass
     if nums:
@@ -516,6 +516,37 @@ def line_pending(res):
 def number_lines(res):
     fns = (line_t1, line_t2, line_z, line_r, line_p, line_l, line_h, line_v, line_w, line_xd, line_a, line_y, line_gr, line_gc, line_gd, line_gv, line_gl, line_gm_ig, line_views, line_qi, line_if, line_j, line_pending)
     return [x for x in (f(res) for f in fns) if x]
+
+
+def short_lines(res):
+    """I-186: five plain result lines for the description (numbers from the result files; the full list is number_lines, kept for README)."""
+    res, out = Path(res), []
+    jk, jl, jm = jload(res / 'jk_summary.json'), jload(res / 'jl_summary.json'), None
+    if jk:
+        out.append(f"・現実に近い倉庫（{jk['arms']['adapt']['fire']['n']}の場面）：疑わしいときに左右0.8 mからも撮り直すと、火のある拠点への配達 "
+                   f"{jk['arms']['v36']['fire']['k']}件 → {jk['arms']['adapt']['fire']['k']}件")
+    if jl:
+        out.append(f"・新しい倉庫の場面での再試験：{jl['arms']['v36']['fire']['k']}件 → {jl['arms']['adapt']['fire']['k']}件")
+    af = advice_numbers.a_facts()
+    if af and af['worlds']['naive'] and af['worlds']['monotone']:
+        w = af['worlds']
+        out.append(f"・うその情報（「確認不要」など、{w['naive'][1]}の場面）：危険な配達が起きた場面は そのまま信じる方式 {w['naive'][0]}・本方式 {w['monotone'][0]}")
+    p2 = jload(res / 'p2_summary.json')
+    try:
+        ct = p2['chosen_test']
+        out.append(f"・実写の火災写真：現場ごとに較正すると、火・煙の検出 {ct['recall']['k']}/{ct['recall']['n']}、火のない写真の誤警報 {ct['false_alarm']['k']}/{ct['false_alarm']['n']}")
+    except (TypeError, KeyError):
+        pass
+    qi = jload(res / 'qi_summary.json')
+    try:
+        out.append(f"・今後の課題：写真に近づけた画像では、火の見逃しが {qi['xd_baseline']['miss']['k']}件 → {qi['R']['miss']['k']}件に増えた")
+    except (TypeError, KeyError):
+        pass
+    if line_pending(res):      # snapshot only: the registered studies not run at submission
+        out.append(line_pending(res))
+    out.append(f"・うまくいかなかった結果も公開：「前回の記憶は、ランダムな変化でも安全」という主張は、試行数が足りず統計的に示せなかった（不成立）など、"
+               f"成立しなかった主張は全{advice_numbers.n_failed_word()}件")
+    return out
 
 
 # ------------------------------------------------------------------ documents
@@ -555,8 +586,10 @@ def build_description(chapters, res, _nums=None):
         '※ 「届ける」は、現物確認して避難所Bへ向かう（接近する）ところまで。物資の把持・荷降ろしはシミュレーションしていません。']
     paras[-1] = paras[-1].replace('\n\n自然な言い回し', '\n\n' + '\n'.join(headline_block(res)) + '\n\n' + watch_sentence(facts) + '\n\n自然な言い回し', 1)
     blocks = [x for x in (demo_sentence(facts), speed_sentence(facts)) if x]
-    nums = number_lines(res) if _nums is None else _nums
+    nums = short_lines(res) if _nums is None else _nums      # I-186: a short plain summary; the full list stays in README and the report
     if nums:
+        blocks.append('【ほかの主な結果】（すべてシミュレーション）\n' + '\n'.join(nums) + '\n詳しい結果・うまくいかなかった主張・再現手順は、GitHub の README と説明資料（PDF）にあります。')
+    if False:
         blocks.append('詳しい結果（事前登録＝結果を見る前に条件を固定。v3.4〜v3.6＝システムの版名（v3.6が提出版）。誤許可＝届けてはいけない場面で「よい」と判断すること）：\n' + '\n'.join(nums))
     blocks.append('コード：https://github.com/fe2131-art/rescue-mind\nナレーション：VOICEVOX:四国めたん')
     blocks.append('\n'.join(f"{mmss(c['start_s'])} {c['title']}" for c in facts['chapters']))

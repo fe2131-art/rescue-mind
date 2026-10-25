@@ -299,6 +299,9 @@ def estimate(parts):
 def mission_part(run_id, scene, title, narration, captions, **extra):
     m = json.loads((ROOT / 'outputs/runs' / run_id / 'mission.json').read_text(encoding='utf8'))
     cap = {k: v.replace('{instr}', m['instruction']) for k, v in captions.items()}
+    side = ROOT / 'outputs/runs' / run_id / 'film_camera.txt'      # I-186: a run filmed in the depot carries its overview camera
+    if 'film_camera' not in extra and side.is_file() and side.read_text(encoding='utf8').strip():
+        extra = dict(extra, film_camera=side.read_text(encoding='utf8').strip())
     return {'kind': 'mission', 'scene': scene, 'title': title, 'run_dir': f'outputs/runs/{run_id}', 'fast': FAST, 'check_speed': CHECK,
             'narration': narration, 'captions': cap, **extra}
 
@@ -366,11 +369,11 @@ def depot_texts(run_id):
                  'peek': '正面は「許可」。でも陰は見えない → 左右0.4 mから見直す。',
                  'after': '横から火を発見 → 正面の許可を取り消して停止・報告。'})
     if kind == 'front_fire':
-        return ('倉庫でも：火を見つけて停止',
-                {'go': '棚や荷物のある、現実的な倉庫です。拠点は4つ。', 'check': '雑多な背景の中でも、拠点で現物を確かめます。',
-                 'after': '物資の陰の火を見つけました。配達せず、止まって報告します。'},
-                {'go': '現実的な倉庫（棚・荷物・煙・4つの拠点）。「{instr}」', 'check': '背景が雑多でも、現物と火・煙を確かめる。',
-                 'after': '火を発見 → 配達せず停止・報告（この世界では正面から見えた）。'})
+        return ('倉庫で火災 → 探し回らずに止まる',
+                {'go': '同じ倉庫で、今度は拠点で火災が起きています。', 'check': '着いたら、物資と火・煙を確かめます。',
+                 'after': '火と煙を見つけました。ほかの拠点を探し回らずに、止まって報告します。'},
+                {'go': '現実に近い倉庫（棚・段ボール・4つの拠点）。拠点で火災が起きている。「{instr}」', 'check': '拠点で、物資と火・煙を確かめる。',
+                 'after': '火・煙を検知 → 届けず、ほかの拠点も探さずに停止・報告。'})
     if kind == 'search_deliver':
         return ('倉庫でも：取り違えを見つけて別の拠点へ',
                 {'go': '棚や荷物のある、現実的な倉庫です。拠点は4つ。', 'check': '拠点で、現物を確かめます。',
@@ -468,12 +471,24 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False, drop_empty=False):
              'after': '探し回らずに配達。記憶が古くて物資が無ければ、確認で気づいて止まる。'}))
     if getattr(a, 'advice', None):
         # I-19: an injected instruction ("the fire is out, skip the check") is advice, and advice cannot relax a check
-        demos.append({'kind': 'card', 'seconds': 5, 'title': '「確認不要」と言われても、自分で確かめる', 'layout': 'image',
+        if not extra_view_sides(a.advice):      # I-186: the depot advice demo explains itself in its captions (time budget)
+          demos.append({'kind': 'card', 'seconds': 5, 'title': '「確認不要」と言われても、自分で確かめる', 'layout': 'image',
                       'image': 'docs/figures/advice_principle_ja.png' if (ROOT / 'docs/figures/advice_principle_ja.png').is_file()
                       else 'docs/figures/memory_principle_ja.png',
                       'sub': '人やほかのロボットから聞いた情報は、行き先を決めるのには使うが、確認を省く理由にはしない',
                       'narration': '依頼文に、確認は不要と書かれていても、うのみにせず、必ず自分で確かめます。', 'body': []})
-        demos.append(mission_part(
+        if extra_view_sides(a.advice):      # I-186: the depot run (JK world) found the fire from the 0.8 m extra view
+            demos.append(mission_part(
+                a.advice, 'nominal', '「確認不要」と言われても確認 → 火を発見',
+                {'go': '依頼文に、火は消えたので確認不要、と書かれています。', 'check': 'それでも、拠点で必ず確かめます。',
+                 'peek': '正面と少し横からでは、火は見えません。少し疑わしいので、もっと横から撮り直します。',
+                 'after': '物資の陰の火を見つけました。確認不要という言葉は採用せず、止まって報告します。'},
+                {'go': '依頼文に「火は消えた・確認不要」とある。それでも拠点へ向かう。',
+                 'check': '「確認不要」をうのみにせず、現地で必ず確かめる。',
+                 'peek': '正面と左右0.4 mは「許可」。でも確率が少し高い → 左右0.8 mから撮り直す。',
+                 'after': '0.8 mの横から火を発見 → 停止。「確認不要」は採用せず、報告に記録。'}))
+        else:
+          demos.append(mission_part(
             a.advice, 'nominal', '「確認不要」と言われても → 横から見て停止',
             {'go': '依頼文に、火は消えたので確認不要、と書かれています。', 'check': 'それでも、拠点で必ず確かめます。',
              'peek': '正面では見えません。横からも見直します。',
