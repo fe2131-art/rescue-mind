@@ -1546,3 +1546,8 @@
 * **Reading.** The post hoc association between plume and residual misses (GM, JK) is not confirmed as a cause; the reading pre-committed for this outcome (I-164, (b)) is used unchanged. The extra views reduce deliveries into fire on a third set of fresh worlds (after JK and JL).
 * **Integrated.** `jm_section.tex`, FINDINGS #59, TRIAL_AND_ERROR row; JM1 lands in the trial-chain step placed before the result (I-163); hooks of I-122 update failed claims (23), macros, README, YouTube, report.
 * **Follow-up (body).** `main.tex` Limits: "smoke-plume twins: \JMVSmoke to \JMAdaptSmoke, though the plume itself did not raise misses, JM" next to JK and JL (page budget checked at the final build).
+
+## I-172 (2026-10-25) Final build after JM; v14 plan with the filmed extra views at 4x check speed
+* **Film.** `film_jk.sh` on JK world GM041 (where v3.6 delivered into the fire): front, L and R allowed, the 0.8 m left view (L2) found the fire, the robot stopped (`0f97606079a94dfa`, COMPLETED_EXPECTED_DENIAL). It replaces the front-fire depot demo.
+* **Length.** With the new demo (39 s of footage, mostly VLM waits at the 3x check speed) the plan estimated 190.7 s, over the 180 s limit. Rather than drop a demo or the honest QI card, the check motion is shown at 4x for every demo (`make_video_plan.FAST, CHECK = 8.0, 4.0`; the overlay shows the actual speed, and the description text is generated from the same constants): 172.0 s estimated. Checklist text updated to 4x.
+* **Build.** `rebuild_docs.sh` after JM: main body ends on page 8 (references from page 8), supplement 46 pages, 0 unresolved references; report main part 10 pages.

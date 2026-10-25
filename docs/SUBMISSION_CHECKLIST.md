@@ -19,7 +19,7 @@ omnicampus アカウント名は `tetsutetsu`。コマンドはすべて `~/work
 | 4 | 単体テスト | `make test`（`docker exec rm-dev rescuemind-entrypoint ...` で実行） | 全件成功 |
 | 5 | **最終版かスナップショットか** | 下の判定 | 下記 |
 | 6 | 動画 1〜3 分 | `ffprobe -v error -show_entries format=duration -of csv=p=0 ~/work/rescue-mind/outputs/video/PAI最終課題_tetsutetsu.mp4` | 60 以上 180 以下（秒）。続けて `python3 scripts/update_submission_facts.py`（`docs/SUBMISSION.md` の実測値を更新）。`docs/video_chapters.json` の終端と一致 |
-| 7 | 倍速表示 | 下の「倍速の目視」 | 走行 8 倍速・確認 3 倍速が画面左上に出ている |
+| 7 | 倍速表示 | 下の「倍速の目視」 | 走行 8 倍速・確認 4 倍速が画面左上に出ている |
 | 8 | 概要欄が上限内 | `sed -n '/^## 概要欄/,/^## 公開設定チェック/p' docs/YOUTUBE_DESCRIPTION.md \| sed '1d;$d' \| wc -m` | 5000 **文字**以下（YouTube Studio の上限は文字数。生成側は 4900 文字で抑える。2026-10-20 時点は約 3700 文字） |
 | 9 | レポートのファイル名・著者 | `ls docs/report/`、`docker run --rm -v "$PWD/docs/report:/w:ro" rescuemind:latex pdfinfo "/w/説明資料_PAI最終課題_tetsutetsu.pdf" \| grep -E 'Author\|Pages'` | ファイル名は **`説明資料_PAI最終課題_tetsutetsu.pdf`** だけ。Author は `tetsutetsu` |
 | 10 | 個人情報・秘密情報の検査 | `python3 scripts/secret_scan.py --history` と `python3 scripts/public_release_audit.py` と `python3 -m unittest tests.test_no_personal_paths` | いずれも指摘 0 / PASS。動画の画面・ナレーションに氏名が無いことは**目視**（下記） |
@@ -38,7 +38,7 @@ mkdir -p ~/rescue-mind-check && V=~/work/rescue-mind/outputs/video/PAI最終課�
 for t in 20 55 95 130; do nice -n 19 ffmpeg -v error -y -ss $t -i "$V" -frames:v 1 ~/rescue-mind-check/f_$t.png; done
 ```
 4 枚（各デモの途中）を開き、左上の倍速表示を確認する。音声は一度通して聞き、氏名・所属・メールが出ないことを確認する。
-`docs/video_chapters.json` の `speed` が走行 8 倍速・確認 3 倍速・AI 判断は等速になっている。YouTube 概要欄にも同じ文（「倍速表示」）が入っている。
+`docs/video_chapters.json` の `speed` が走行 8 倍速・確認 4 倍速・AI 判断は等速になっている。YouTube 概要欄にも同じ文（「倍速表示」）が入っている。
 
 **チャプターについて**：`docs/video_chapters.json` に 10 秒未満の章がある場合、`make_youtube_description.py` が警告を出す。YouTube はチャプターを無視することがあるが、課題の要件ではないので提出に支障はない（気になる場合は概要欄の末尾の時刻つき章立てだけ消してよい）。
 
