@@ -1527,3 +1527,8 @@
 * **Motivation.** I-167 ignored large regenerable data; a public reader must know what is missing on purpose and how to rebuild it, or the "everything is public" claim reads as incomplete.
 * **Change.** `docs/REPRODUCE.md`: a table of the unpublished generated data (IJ features, image sets and worlds, generated images, per-run records and videos) with sizes and the script that regenerates each.
 * **Before → After.** Unpublished data: undocumented → listed with regeneration commands.
+
+## I-169 (2026-10-25) Why CI is red, and how it turns green after publication
+* **Finding.** All recent Actions runs end in 2-3 s with "The job was not started because recent account payments have failed or your spending limit needs to be increased": a billing block, not a test failure.
+* **Change.** SUBMISSION_CHECKLIST #13: the cause, and the step after making the repository public (public repositories run Actions in the free tier: re-run the latest run and check it is green); private + green needs the billing fix.
+* **Before → After.** Red CI: unexplained in the checklist → cause and remedy stated.

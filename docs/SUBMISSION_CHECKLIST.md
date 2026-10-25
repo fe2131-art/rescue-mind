@@ -25,7 +25,7 @@ omnicampus アカウント名は `tetsutetsu`。コマンドはすべて `~/work
 | 10 | 個人情報・秘密情報の検査 | `python3 scripts/secret_scan.py --history` と `python3 scripts/public_release_audit.py` と `python3 -m unittest tests.test_no_personal_paths` | いずれも指摘 0 / PASS。動画の画面・ナレーションに氏名が無いことは**目視**（下記） |
 | 11 | ライセンス・第三者表記 | `LICENSE`（MIT）、[`THIRD_PARTY.md`](THIRD_PARTY.md)、`grep -c 'VOICEVOX:四国めたん' docs/YOUTUBE_DESCRIPTION.md README.md` | 両方 1 以上（クレジット必須）。第三者の重み・画像・音声・動画を同梱していない（`THIRD_PARTY.md` の冒頭） |
 | 12 | `main` が最終版 | `git fetch origin && git status -sb`、`git log origin/main -1 --format=%h` | `main` が `origin/main` と同じ（GitHub に見えるのは `main`） |
-| 13 | GitHub Actions | `gh run list -R fe2131-art/rescue-mind -L 3` | `main` の最新が success（2026-10-18 時点は赤。下の「Actions」参照） |
+| 13 | GitHub Actions | `gh run list -R fe2131-art/rescue-mind -L 3` | 2026-10-25 時点は全件「ジョブが開始されない」：原因はテストではなく**支払いの失敗または利用上限**（`gh run view <id>` の注記）。public リポジトリの Actions は無料枠で動くので、**public にした後**に `gh run rerun <最新の id> -R fe2131-art/rescue-mind`（または空でない push）で緑を確認する。private のまま緑にするには Billing の設定が要る |
 
 **5. 最終版かスナップショットか**
 * `make paper FINAL=1` が成功する（`TBD` も `(pending)` も残っていない）＝全研究の結果が揃っている → **最終版**。`docs/report/説明資料_PAI最終課題_tetsutetsu.pdf` をそのまま提出する。
