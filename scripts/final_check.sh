@@ -19,7 +19,7 @@ step "study coverage (every registered study in every audit table)" python3 scri
 step "references.bib (no duplicates, every citation defined)" python3 scripts/check_bib.py
 step "trial-and-error story places every failed claim" python3 scripts/trial_chain.py --write
 step "secret scan (HEAD tree)" python3 scripts/secret_scan.py
-step "readme links" python3 scripts/check_readme_links.py
+step "links in README and published docs" python3 scripts/check_readme_links.py --all
 if [ -z "$QUICK" ]; then
   step "unit tests" make test
   step "test count in docs" bash -c 'n=$(python3 scripts/count_tests.py | grep -oE "[0-9]+" | head -1); grep -q "$n" README.md && { [ "$(python3 scripts/release_mode.py | head -1)" != "mode: dev" ] || grep -q "$n" docs/HANDOFF.md; }'

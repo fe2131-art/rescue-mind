@@ -2,7 +2,7 @@
 
 各改善は「動機 → 仮説 → 変更 → 計測（Before/After）→ 判断」で記録する。
 コミットはメッセージ先頭の `I-xx` で検索できる（`git log --grep "I-01"`）。基準点はタグ `v3.3.0`。
-計画と弱点の対応は [`REVIEW_AND_PLAN.md`](REVIEW_AND_PLAN.md)。v3.2→v3.3 で実行時に見つけた13件は [`FINDINGS.md`](FINDINGS.md)。
+計画と弱点の対応は、作業用の自己レビュー（公開対象外、I-180）にまとめた。v3.2→v3.3 で実行時に見つけた13件は [`FINDINGS.md`](FINDINGS.md)。
 
 | ID | 状態 | 主要指標 Before → After | 証拠 |
 |---|---|---|---|
@@ -1596,3 +1596,10 @@
 * **変更**：内部資料は作業ツリーに残したまま `git rm --cached` で追跡を外し、`.gitignore` に追加した（ファイルは1つも削除していない。過去の履歴もそのまま）。提出物（コード、README、説明資料 PDF、論文・補足、YouTube 説明文、再現手順）は追跡したまま。引継ぎメモのうち公開して役に立つ部分（実行環境・主要コマンド・落とし穴・ファイルの地図）を `docs/OPERATIONS.md` に移し、README・REPRODUCE・REPRODUCIBILITY・Makefile の参照先を直した。`scripts/release_mode.py` を追加：`RESCUEMIND_MODE=dev` で内部資料の確認を必ず行い（無ければエラー）、`public` で飛ばし、未指定なら `docs/HANDOFF.md` の有無で自動判定する。`check_consistency.py`・`final_check.sh`・`update_readme_results.py`・`set_video_url.py` と関連テストがこれに従う。テスト `tests/test_release_mode.py` を追加。
 * **限界**：事前登録の文書（ハッシュで時刻証明済みのため直せない）が、公開しない模擬査読メモ（R4・R5・R8）を参照している箇所が4つ残る。追跡を外した資料は過去のコミットには残る。
 * **Before/After**：公開対象のファイル 5,638 → 約 5,260。開発モードと公開モードの両方で確認が通る（本文の最終確認を参照）。
+
+## I-181 リンク確認を公開する文書すべてに広げる（2026-10-25）
+
+* **動機**：I-180 で内部資料の追跡を外したあと、公開する文書に、公開しないファイルへのリンクが残っても気づけなかった。リンク確認（`check_readme_links.py`）は README だけを見ていた。手元にはファイルがあるので、存在の確認だけでは通ってしまう。
+* **仮説**：README と追跡している `docs/**/*.md` のすべてで、リンク先が「git で追跡されているか」を確かめれば、公開版で切れるリンクを公開前に見つけられる。
+* **変更**：`check_readme_links.py --all`（README と追跡中の docs 以下の Markdown。事前登録の文書は時刻証明済みで直せないため対象外）。`final_check.sh` はこれを使う。見つかった1件（IMPROVEMENT_LOG から非公開の REVIEW_AND_PLAN.md へのリンク）を文章に直した。
+* **Before/After**：確認する文書 1 → 27、リンク 105 本。公開版で切れるリンク 1 → 0。
