@@ -145,7 +145,7 @@ def e_fire_note():
     v = json.loads(f.read_text())
     nv = sum(x['visibility'] == 'visible' for x in v)
     some = 'すべて' if nv == len(v) else f'うち{nv}試行'
-    return f'評価Eの火災{len(v)}試行の{some}は、停止位置から火が視野内にある配置（物資の陰に隠れる度合いは評価Eの設計に含めていない）'
+    return f'評価Eの火災{len(v)}試行の{some}は、停止位置から火が視野内にある配置（物資の影に隠れる度合いは評価Eの設計に含めていない）'
 
 
 def findings(s, m, dev):
@@ -166,7 +166,7 @@ def findings(s, m, dev):
         fa_vis = sum(r['hazard_visibility'] == 'visible' for r in fas)
         fa_small = sum(r['hazard_visibility'] == 'visible' and r['fire_pixels'] < SMALL_FIRE_PX for r in fas)
         lead = '**すべて**' if fa_vis == len(fas) else f'うち**{fa_vis}件**'
-        out.append(f'* **残る弱点：物資の陰に一部しか見えない火災**。登録済みの誤許可{len(fas)}件の{lead}がこの型（物資は正しく、火が一部だけ見える）で、うち{fa_small}件は見える火が{SMALL_FIRE_PX:,}画素未満。'
+        out.append(f'* **残る弱点：物資の影に一部しか見えない火災**。登録済みの誤許可{len(fas)}件の{lead}がこの型（物資は正しく、火が一部だけ見える）で、うち{fa_small}件は見える火が{SMALL_FIRE_PX:,}画素未満。'
                    f'見える火の検出（p(危険)≥{HAZ_DETECT}、2パスの最大）は{SMALL_FIRE_PX:,}画素以上で **{det(big)}/{len(big)}**、未満で **{det(small)}/{len(small)}**。'
                    f'{E_FIRE}')
     jm = s.get('json_method', {}).get('Qwen3.5-9B')
@@ -564,7 +564,7 @@ def section_key(e, t):
     if t:
         full = t[2]
         lo, hi = full['fa_ci95']
-        rows.append(f"| 未使用の画像600枚 T1 で誤許可 2% 未満 | 誤許可 **{full['false_approvals']}/{full['n_deny']}**（{pct(full['fa_rate'])}、95%信頼区間の上限 {pct(hi)}）。原因は物資の陰に隠れた火 | **{'支持' if hi < 0.02 else '不成立'}** |")
+        rows.append(f"| 未使用の画像600枚 T1 で誤許可 2% 未満 | 誤許可 **{full['false_approvals']}/{full['n_deny']}**（{pct(full['fa_rate'])}、95%信頼区間の上限 {pct(hi)}）。原因は物資の影に隠れた火 | **{'支持' if hi < 0.02 else '不成立'}** |")
     f = advice_numbers.smt_facts()
     if f:
         rows.append(f"| 聞いた情報で確認は省かない：命題2の機械検証（z3） | {f['queries']}件の問いのうち {f['unsat']}件が反例なし（残りは必要性の反例など）。モデルと実コードの突き合わせ {f['cases']:,}件で不一致 {f['disagreements']}、わざと入れたバグ {f['caught']}/{f['mutants']} を検出 | **支持（機械検証）** |")
@@ -785,7 +785,7 @@ def section_novelty():
 ![聞いた情報は参考にするが、確認は省かない：使えるのは行き先の順番と、より注意して調べることだけ（I-19）](docs/figures/advice_principle_ja.png)
 
 * **1. 届ける前に、その場で確かめる**：VLMに文章を書かせず、答えの選択肢（A/B/C、はい/いいえ）の確率だけを読む。2問で選択肢の順序を入れ替えて合意を取り、火や煙の問いも別に立てる。1つでも失敗すれば拒否（止まる）。速度指令は別プロセスの独立したガードだけが出す。測定は[結果](#結果)の評価E（ランダムな世界）など。
-* **2. 誤りの大半は「物資の陰の小さな火」なので、横から見直す**（[I-14](docs/IMPROVEMENT_LOG.md)）：{gtxt}。表は[結果](#結果)の評価G。{advice_numbers.i20_ja().replace('（I-20）','（[I-20](docs/IMPROVEMENT_LOG.md)）',1)}
+* **2. 誤りの大半は「物資の影にある小さな火」なので、横から見直す**（[I-14](docs/IMPROVEMENT_LOG.md)）：{gtxt}。表は[結果](#結果)の評価G。{advice_numbers.i20_ja().replace('（I-20）','（[I-20](docs/IMPROVEMENT_LOG.md)）',1)}
 * **3. 聞いた情報は参考にするが、確認は省かない**（[I-19](docs/IMPROVEMENT_LOG.md)・[D18](docs/DESIGN_DECISIONS.md)、論文の命題2）：記憶・他のロボット・在庫・依頼文の言葉はすべて「助言」で、拠点の順序と閾値の強化にしか使えない。「安全」「確認不要」は何の効果も持たない。どんな（悪意のある）助言でも、危険な配達の確率は、確認自身の誤許可の上限 ε_any（拠点ごとの上限の和 kε 以下）の内側に収まる（相対的な保証。確認の誤りそのものは消えない）。代償は上限つき（1拠点の無駄足と、慎重な閾値による誤拒否）。
   * 記憶は助言の一例（[I-15](docs/IMPROVEMENT_LOG.md)・[D13](docs/DESIGN_DECISIONS.md)）：前回の物資の場所は「先に行く拠点」を決めるだけで、行った先で必ず確認する。火を見た拠点は閾値を厳しくする。同じ画像なら記憶ありの許可は記憶なしの許可の部分集合になる（コードで強制）。{h_text(True)}
 
@@ -1237,7 +1237,7 @@ def main():
         s_, m, full, v35, n_img, fa_txt, ca_txt, claim, dev = t
         R['T1'] = f"| 未使用テスト T1（オフライン） | 開発に一度も使わない{n_img}枚（照明・位置・未知の妨害物・火災）、登録した規則（v3.4） | 誤許可 {fa_txt(full)}、正しい許可 {ca_txt(full)} |"
         R['T1b'] = f"| 〃 v3.5（τ_h=0.05、副の事前指定） | 同じ画像・同じ保存済み確率から再計算 | 誤許可 {fa_txt(v35)}、正しい許可 {ca_txt(v35)} |"
-        t1_block = f"* T1：{claim}主な原因は下の「残る弱点」（物資の陰に隠れた火）"
+        t1_block = f"* T1：{claim}主な原因は下の「残る弱点」（物資の影に隠れた火）"
     k_ja, k_en = section_k()
     if k_ja:
         R['K'] = k_ja
