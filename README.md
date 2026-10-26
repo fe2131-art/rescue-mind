@@ -351,7 +351,7 @@ Qwen3.5-9B（ローカル・V100）、回復探索・状況報告・LLM指示理
 
 | 工夫 | 内容 |
 |---|---|
-| **最新ローカルVLMの調査と公平な選定** | Qwen2.5-VL-3B／Qwen3-VL-8B／Qwen3.5-4B／**Qwen3.5-9B（2026-02、Apache-2.0）** を同一データ・同一手順で比較し、誤許可・危険な誤受理がともに0の 9B を採用（[I-08](docs/IMPROVEMENT_LOG.md)）。V100（FP16）向けに torch 2.8＋transformers 5 の環境を用意。 |
+| **ローカルVLMの調査と公平な選定** | Qwen2.5-VL-3B／Qwen3-VL-8B／Qwen3.5-4B／**Qwen3.5-9B（2026-02、Apache-2.0）** を同一データ・同一手順で比較し、誤許可・危険な誤受理がともに0の 9B を採用（[I-08](docs/IMPROVEMENT_LOG.md)）。V100（FP16）向けに torch 2.8＋transformers 5 の環境を用意。 |
 | **探索と回復・危険時の停止** | 物資違い・欠品なら別拠点を1回だけ確認し、確認できれば配達。火災・煙を見たら探索せず停止。最初の拒否から探索・再判断までの手順を監査（[I-02](docs/IMPROVEMENT_LOG.md)）。 |
 | **LLMによる指示理解と日本語の状況報告** | 物資名の無い間接的な依頼も解釈（未知の60文で 31→55/60、危険な誤受理0）。判断後に「台の上に何があり、火や煙が見えるか」を日本語1文で報告（判断には不使用）。 |
 | **開発セットと評価の分離** | プロンプトと閾値は、視点をランダム化した開発画像だけ（v3.3は48枚、v3.4以降は176枚）で決定し [`PREREGISTRATION_v33.md`](experiments/PREREGISTRATION_v33.md) に固定。未使用テスト T1 は [`PREREGISTRATION_T1.md`](experiments/PREREGISTRATION_T1.md)、ランダム化した閉ループ評価 E は [`PREREGISTRATION_E.md`](experiments/PREREGISTRATION_E.md) で、結果を見る前に固定した。 |
@@ -456,7 +456,7 @@ bash docker/run.sh python3 scripts/make_figures.py
 
 ## ライセンス
 
-MIT（`LICENSE`）。使用モデル：[Qwen/Qwen3.5-9B](https://huggingface.co/Qwen/Qwen3.5-9B)（Apache-2.0、重みは同梱しない）。
+Apache-2.0（`LICENSE`、`NOTICE`）。使用モデル：[Qwen/Qwen3.5-9B](https://huggingface.co/Qwen/Qwen3.5-9B)（Apache-2.0、重みは同梱しない）。
 比較実験で [Qwen3-VL-8B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct)・[Qwen3.5-4B](https://huggingface.co/Qwen/Qwen3.5-4B)（Apache-2.0）、
 v3.3 の [Qwen2.5-VL-3B-Instruct](https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct)（Qwen Research License）、[SmolVLM2-2.2B-Instruct](https://huggingface.co/HuggingFaceTB/SmolVLM2-2.2B-Instruct)（Apache-2.0）。
 
