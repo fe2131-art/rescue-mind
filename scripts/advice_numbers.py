@@ -1233,11 +1233,11 @@ def storyline():
         notes = [f"評価G（閉ループ、新しい{gn}世界）：{gb}/{gn} → {gc}/{gn}（p={gp['mcnemar_p']:.3f}）"]
         if w:
             notes.append(f"評価W（画像、新しい{w['n']}世界）：{w['front']['k']}/{w['n']} → {w['la']['k']}/{w['n']}")
-        rows.append({'key': 'look', 'title': '物資の陰の火', 'attack': '物資の陰に半ば隠れた小さな火を、正面から見せる',
-                     'found': f"未使用の画像の誤許可 {r['false_approvals']}/{r['n_deny']} は全て「正しい物資＋物資の陰の火」の画像。問い方を変えても分けられない（評価F）",
+        rows.append({'key': 'look', 'title': '物資の影にある火', 'attack': '物資の影に半ば隠れた小さな火を、正面から見せる',
+                     'found': f"未使用の画像の誤許可 {r['false_approvals']}/{r['n_deny']} は全て「正しい物資＋物資の影にある火」の画像。問い方を変えても分けられない（評価F）",
                      'fix': '許可の直前に0.4 m横へ動いて撮り直す（I-14）',
                      'before': f"{gb}/{gn}", 'after': f"{gc}/{gn}", 'label': '火のある拠点へ配達（評価G）', 'notes': notes, 'extra': notes[1:],
-                     'bullet': f"**物資の陰の火**（攻撃）→ 正面からは見逃す（発見）→ 横へ動いて撮り直す（対策、I-14）→ 再測定：火のある拠点への配達 {gb}/{gn} → {gc}/{gn}（評価G）"
+                     'bullet': f"**物資の影にある火**（攻撃）→ 正面からは見逃す（発見）→ 横へ動いて撮り直す（対策、I-14）→ 再測定：火のある拠点への配達 {gb}/{gn} → {gc}/{gn}（評価G）"
                                + (f"、画像では {w['front']['k']}/{w['n']} → {w['la']['k']}/{w['n']}（評価W）" if w else '')})
     except (TypeError, KeyError):
         pass

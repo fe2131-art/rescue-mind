@@ -20,7 +20,7 @@ import advice_numbers  # noqa: E402
 
 # study-subset: the story steps (failed claim keys, what it taught, next studies [(study, summary file)], what the next step was); unplaced failures are listed by rows()
 STEPS = [
-    (('T1', 'F', 'T2'), 'AIの誤りの大半は「物資の陰に隠れた小さな火」。問い方や拡大では区別できない',
+    (('T1', 'F', 'T2'), 'AIの誤りの大半は「物資の影に隠れた小さな火」。問い方や拡大では区別できない',
      [('G', 'g_summary.json'), ('GR', 'gr_summary.json')], 'AIを賢くせず、横へ動いて撮り直す（見回し）'),
     (('J', 'JH1', 'JC1'), '別のAIを足しても誤りが同じ場所に重なり、見逃しは減らない',
      [('JI', 'ji_summary.json'), ('JK', 'jk_summary.json'), ('JL', 'jl_summary.json')], 'AIではなく視点を増やす。疑わしいときだけ追加で撮る'),

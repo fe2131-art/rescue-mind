@@ -33,7 +33,7 @@ VIDEO_FILE = 'outputs/video/PAI最終課題_141628.mp4'
 # Longer wording for a demo, used only when the chapter title (without "デモN：") matches exactly.
 GLOSS = {
     '取り違え → 別拠点を探索': '物資の取り違え → 別の拠点を探索して配達',
-    '隠れた小さな火 → 停止': '物資の陰に隠れた小さな火 → 正面では見えないが、横から見て検知して停止',
+    '隠れた小さな火 → 停止': '物資の影に隠れた小さな火 → 正面では見えないが、横から見て検知して停止',
 }
 
 
@@ -129,7 +129,7 @@ def line_t1(res):
         fa, n = m['rules']['full']['false_approvals'], m['rules']['full']['n_deny']
         fa35 = m['rules']['v35_tau_h_0.05']['false_approvals']
         return (f"・未使用の画像{m['n_images']}枚（T1）：拒否すべき{n}枚のうち誤許可 {fa}枚（登録した規則 v3.4）、{fa35}枚（v3.5の規則）。"
-                f'すべて「物資の陰に一部しか見えない火」の型で、これが残る弱点と判明')
+                f'すべて「物資の影に一部しか見えない火」の型で、これが残る弱点と判明')
     except (TypeError, KeyError):
         return None
 

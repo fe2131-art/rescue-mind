@@ -129,7 +129,7 @@ def t1_card(seconds):
     return {'kind': 'table', 'seconds': seconds,
             'title': f"未使用{m['n_images']}枚（T1）：誤許可と正しい許可",
             'sub': 'Qwen3.5-9B・開発に一度も使っていない画像（照明・位置・未知の妨害物・火災）',
-            'narration': f"未使用の{m['n_images']}枚。拒否すべき{full['n_deny']}枚のうち、誤許可は{full['false_approvals']}枚。残る弱点は、物資の陰に隠れた小さな火です。",
+            'narration': f"未使用の{m['n_images']}枚。拒否すべき{full['n_deny']}枚のうち、誤許可は{full['false_approvals']}枚。残る弱点は、物資の影に隠れた小さな火です。",
             'header': ['判断規則', '誤許可', '正しい許可'], 'rows': rows, 'notes': notes}
 
 
@@ -211,8 +211,8 @@ def evidence_card(seconds):
     g = jload(RES / 'g_summary.json')
     if g:
         pr = g['primary']
-        rows.append([f"物資の陰の火（{pr['n_world_pairs_fire_perceivable']}場面）", [f"火の場所への配達 {pr['wrong_deliveries_B']}件 → {pr['wrong_deliveries_C']}件（横から見直す）", G]])
-        say.append(f"物資の陰の火は、横から見直すと、{pr['wrong_deliveries_B']}件から{pr['wrong_deliveries_C']}件に。")
+        rows.append([f"物資の影にある火（{pr['n_world_pairs_fire_perceivable']}場面）", [f"火の場所への配達 {pr['wrong_deliveries_B']}件 → {pr['wrong_deliveries_C']}件（横から見直す）", G]])
+        say.append(f"物資の影にある火は、横から見直すと、{pr['wrong_deliveries_B']}件から{pr['wrong_deliveries_C']}件に。")
     jk, jlx = jload(RES / 'jk_summary.json'), jload(RES / 'jl_summary.json')
     if jk:
         ja, jv = jk['arms']['adapt']['fire'], jk['arms']['v36']['fire']
@@ -356,7 +356,7 @@ def depot_texts(run_id):
         return ('倉庫で：疑わしいときは、さらに視点を増やす',
                 {'go': '雑多な倉庫です。追加の撮影をしないと、この場面では火に気づかず配達してしまいました。', 'check': '拠点で現物を確かめます。',
                  'peek': '正面でも、少し横からでも、火は見えません。ただ、少し疑わしいので、もっと横から撮り直します。',
-                 'after': '遠い横からの写真で、物資の陰の火を見つけました。配達せず、止まって報告します。'},
+                 'after': '遠い横からの写真で、物資の影にある火を見つけました。配達せず、止まって報告します。'},
                 {'go': '現実的な倉庫（追加撮影なしでは、この場面で火の場所へ配達してしまった）。「{instr}」', 'check': '背景が雑多でも、現物と火・煙を確かめる。',
                  'peek': '正面と左右0.4 mは「許可」。でも確率が少し高い → 左右0.8 mから撮り直す。',
                  'after': '0.8 mの横から火を発見 → 停止・報告。' + jk_line()})
@@ -366,7 +366,7 @@ def depot_texts(run_id):
                  'peek': '正面では見えません。横から見直します。',
                  'after': '横から小さな火を見つけました。許可を取り消して、止まって報告します。'},
                 {'go': '現実的な倉庫（棚・荷物・煙・4つの拠点）。「{instr}」', 'check': '背景が雑多でも、現物を確かめる。',
-                 'peek': '正面は「許可」。でも陰は見えない → 左右0.4 mから見直す。',
+                 'peek': '正面は「許可」。でも物資の影は見えない → 左右0.4 mから見直す。',
                  'after': '横から火を発見 → 正面の許可を取り消して停止・報告。'})
     if kind == 'front_fire':
         return ('倉庫で火災 → 探し回らずに止まる',
@@ -418,7 +418,7 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False, drop_empty=False):
              'after': '安全を確かめたので、避難所へ向かいます。'},
             {'go': '「{instr}」物資名がなくても、AIが依頼を読み取って出発。',
              'check': '着いたらまず停止。新しい画像で現物を確かめる。',
-             'peek': '正面で許可でも、出発前に左右0.4 mから見直す。物資の陰の火・煙を探す。',
+             'peek': '正面で許可でも、出発前に左右0.4 mから見直す。物資の影にある火・煙を探す。',
              'after': '現物も横の様子も問題なし → 避難所Bへ（橙線＝実際の軌跡）。'}))
     if getattr(a, 'depot_swap', None):
         # I-185: the swapped-supplies demo filmed in the realistic depot (scripts/film_depot.sh, 'search' world) replaces the plain-arena one
@@ -430,7 +430,7 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False, drop_empty=False):
             {'go': '現実に近い倉庫（棚・段ボール・4つの拠点）。予定の棚の物資が入れ替わっている。「{instr}」',
              'check': '拠点で止まり、現物をカメラで確かめる。',
              'search': '頼まれた物資ではない → 届けずに、別の拠点を探す。',
-             'peek': '正しい物資でも、出発前に横から見直す（物資の陰の火・煙を探す）。',
+             'peek': '正しい物資でも、出発前に横から見直す（物資の影にある火・煙を探す）。',
              'after': '別の拠点で正しい物資を確認 → 避難所Bへ。判断の経緯はすべて記録。'},
             film_camera=depot_camera(a.depot_swap)))
     elif a.recover:
@@ -458,13 +458,13 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False, drop_empty=False):
             {'go': '拠点の裏で火災が起きている。「{instr}」', 'check': '物資は正しい。でも画像に火や煙は無いか？',
              'after': '火・煙を検知 → 配達せず、探し回らずに止まって報告。'}, hazard_at='medicine'))
     if mem:
-        demos.append({'kind': 'card', 'seconds': 5, 'title': '前回の配達を覚えておき、近道に使う', 'layout': 'image',
+        demos.append({'kind': 'card', 'seconds': 5, 'title': '前回の配達を覚えておき、最適なルートで届ける', 'layout': 'image',
                       'image': 'docs/figures/memory_principle_ja.png', 'sub': '覚えるのは「前回どこに何があったか」だけ。届けてよいかは毎回その場で確かめる',
                       'narration': '前回見た物資の場所を覚えておき、先にそこへ向かいます。届けるかは、毎回その場で確かめます。', 'body': []})
         demos.append(mission_part(
-            a.memory, 'swapped', '前回の記憶で近道 → 着いたら確認',
+            a.memory, 'swapped', '前回の記憶で最適なルート → 着いたら確認',
             {'go': '前回の配達で、物資がこの拠点にあったことを覚えています。まずここへ向かいます。', 'check': 'それでも、着いたら必ず確かめます。',
-             'peek': '横からも見直します。', 'after': '記憶で近道をして、届けるかどうかはその場で判断しました。'},
+             'peek': '横からも見直します。', 'after': '記憶で最適なルートを選び、届けるかどうかはその場で判断しました。'},
             {'go': '前回の配達で見た場所を覚えている → その拠点へ先に向かう。「{instr}」',
              'check': '記憶は行き先を決めるだけ。着いたら必ず現物を確かめる。',
              'peek': '横からの見直しも省かない。',
@@ -482,7 +482,7 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False, drop_empty=False):
                 a.advice, 'nominal', '「確認不要」と言われても確認 → 火を発見',
                 {'go': '依頼文に、火は消えたので確認不要、と書かれています。', 'check': 'それでも、拠点で必ず確かめます。',
                  'peek': '正面と少し横からでは、火は見えません。少し疑わしいので、もっと横から撮り直します。',
-                 'after': '物資の陰の火を見つけました。確認不要という言葉は採用せず、止まって報告します。'},
+                 'after': '物資の影にある火を見つけました。確認不要という言葉は採用せず、止まって報告します。'},
                 {'go': '依頼文に「火は消えた・確認不要」とある。それでも拠点へ向かう。',
                  'check': '「確認不要」をうのみにせず、現地で必ず確かめる。',
                  'peek': '正面と左右0.4 mは「許可」。でも確率が少し高い → 左右0.8 mから撮り直す。',
@@ -495,16 +495,16 @@ def build(a, drop_arch=False, drop_fire=False, shrink=False, drop_empty=False):
              'after': '横から火を見つけました。確認不要という言葉は採用せず、止まって報告します。'},
             {'go': '依頼文に「火は消えた・確認不要」。「{instr}」',
              'check': '「確認不要」をうのみにせず、現地で必ず確かめる。',
-             'peek': '正面は「許可」。でも陰は見えない → 左右0.4 mから見直す。',
+             'peek': '正面は「許可」。でも物資の影は見えない → 左右0.4 mから見直す。',
              'after': '横から火を発見 → 停止。「確認不要」は不採用として報告に記録。'}))
     elif a.hidden_fire:
         demos.append(mission_part(
             a.hidden_fire, 'nominal', '隠れた小さな火 → 停止',
-            {'go': '最後は、物資の陰に小さな火が隠れているケースです。', 'peek': '正面では見えません。横に回り込んで、見直します。',
+            {'go': '最後は、物資の影に小さな火が隠れているケースです。', 'peek': '正面では見えません。横に回り込んで、見直します。',
              'after': '横から火を見つけました。配達せず、止まって報告します。'},
-            {'go': '物資の陰に小さな火。正面からは見えない。「{instr}」',
-             'check': '物資は正しい。でも陰に火や煙は無いか？',
-             'peek': '正面は「許可」。でも陰は見えない → 左右0.4 mから見直す。',
+            {'go': '物資の影に小さな火。正面からは見えない。「{instr}」',
+             'check': '物資は正しい。でも物資の影に火や煙は無いか？',
+             'peek': '正面は「許可」。でも物資の影は見えない → 左右0.4 mから見直す。',
              'after': '横から火を発見 → 正面の許可を取り消して停止・報告。'}))
     if getattr(a, 'depot', None):
         # I-21: the same check in a realistic relief depot (AWS small-warehouse models, MIT-0; four bays)
