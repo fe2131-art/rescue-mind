@@ -1754,7 +1754,9 @@ def build(account: str, video_url: str | None, repo_url: str):
           P('ローカルVLM（Qwen3.5-9B / V100）× ROS 2 Jazzy × Gazebo Harmonic — 誤った物資を届けず、無ければ探し、危険なら止まる', 'sub')]
     info = [table([['項目', '内容'],
                  ['提出者', f'omnicampus アカウント名：{account}（アカウントID：{VIDEO_ID}）'],
-                 ['コード', repo_url],
+                 ['コード', f'<a href="{repo_url}" color="#1a56a0">{repo_url}</a>'],
+                 ['論文（PDF）', f'<a href="{repo_url}/blob/main/docs/paper/main.pdf" color="#1a56a0">{repo_url}/blob/main/docs/paper/main.pdf</a><br/>'
+                  f'補足資料：<a href="{repo_url}/blob/main/docs/paper/supplement.pdf" color="#1a56a0">{repo_url}/blob/main/docs/paper/supplement.pdf</a>'],
                  ['動画', (f'{video_url}（YouTube、タイトル：PAI最終課題_{VIDEO_ID}）' if video_url else f'YouTube（タイトル：PAI最終課題_{VIDEO_ID}、アカウントID）') + f'。{SP}（倍速は動画内に常時表示）。日本語ナレーション（VOICEVOX:四国めたん）'],
                  ['使用ツール', 'ROS 2 Jazzy / Gazebo Harmonic（Docker・EGLヘッドレス描画）/ PyTorch 2.8 + Transformers 5.20 / Tesla V100 32GB（sudo不要）'],
                  ['AIの活用', '① 自然言語指示の理解（ローカルLLM）② 搭載カメラ画像による現物・危険の確認（ローカルVLM、選択肢の確率で判断）③ 現場の人への日本語状況報告']],
