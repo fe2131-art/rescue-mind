@@ -39,7 +39,7 @@ The results in the repository were produced on one machine; GPU times in this gu
 ## 1. External assets
 
 Nothing below is stored in the repository except metadata (`docs/THIRD_PARTY.md` is the authoritative list with licence texts and obligations;
-`git ls-files` contains no weights, dataset photographs, fonts or audio). The repository's own code is MIT (`LICENSE`).
+`git ls-files` contains no weights, dataset photographs, fonts or audio). The repository's own code is Apache-2.0 (`LICENSE`, `NOTICE`).
 
 | Asset | Used by | Licence | How to fetch | Where it goes |
 |---|---|---|---|---|

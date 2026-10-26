@@ -1,6 +1,6 @@
 # Third-party components, licences and obligations
 
-Checked 2026-10-17 against the sources named in each row (URLs are the pages actually read). The repository's own code is MIT (`LICENSE`);
+Checked 2026-10-17 against the sources named in each row (URLs are the pages actually read). The repository's own code is Apache-2.0 (`LICENSE`, `NOTICE`);
 that licence covers only code and text written for this project. Nothing below is re-licensed by it.
 
 Short version (日本語要約)：リポジトリには第三者のモデル重み・データセット画像・Commons 画像・音声・フォントを**同梱していない**
@@ -101,7 +101,7 @@ vLLM (Apache-2.0, https://github.com/vllm-project/vllm) serves Qwen3.5 locally; 
 1. **No blocking redistribution problem found.** No committed file derives from D-Fire or Commons images, and no weights, fonts or audio are committed.
 2. **Study Q is not on this branch.** When branch `worktree-agent-ac893207bdda069d9` is merged, `q_sample_final.json` (405 records, 246 of them CC BY-SA) will come with it. That is metadata only. Do not add Commons thumbnails or contact sheets to figures without per-image credits (see 4).
 3. **README licence section** listed only some models; it now links this file and carries the VOICEVOX credit.
-4. **Qwen2.5-VL-3B is non-commercial.** The MIT licence on this repository does not extend to anyone running the v3.3 stack commercially; that user needs Alibaba Cloud's licence. The submitted v3.6 path uses Qwen3.5-9B (Apache-2.0).
+4. **Qwen2.5-VL-3B is non-commercial.** The Apache-2.0 licence on this repository does not extend to anyone running the v3.3 stack commercially; that user needs Alibaba Cloud's licence. The submitted v3.6 path uses Qwen3.5-9B (Apache-2.0).
 5. **`scripts/q_fetch.py` (Q branch) sends a User-Agent naming `github.com/tetsutetsu/rescue-mind`**, while the remote is `fe2131-art/rescue-mind`. Cosmetic, but fix the URL before publication so the contact address is correct.
 6. **D-Fire provenance caveat**: the CC0 statement comes from the dataset authors for the collection; the web-scraped originals are not individually cleared. We do not redistribute them, so no action beyond not committing any D-Fire image.
 7. A public Docker image of `docker/Dockerfile` is not published. If one is, it redistributes ROS/Gazebo (Apache-2.0), Ubuntu packages, FFmpeg (LGPL/GPL) and NVIDIA CUDA libraries (NVIDIA licence); add their notices then.
