@@ -486,7 +486,11 @@ def main():
     out = ROOT / 'docs/figures'
     for lang in ('ja', 'en'):
         p = out / f'graphical_abstract_{lang}.png'
-        build(lang).save(p, optimize=True)
+        if lang == 'ja':      # I-189: the Japanese figure is the plain-words one-page summary
+            import make_summary_figure
+            make_summary_figure.build().save(p, optimize=True)
+        else:
+            build(lang).save(p, optimize=True)
         print('wrote', p)
     for w in WARN:
         print('WARNING', w)
