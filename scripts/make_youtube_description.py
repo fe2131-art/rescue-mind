@@ -128,7 +128,7 @@ def line_t1(res):
         m = t['models']['Qwen3.5-9B']
         fa, n = m['rules']['full']['false_approvals'], m['rules']['full']['n_deny']
         fa35 = m['rules']['v35_tau_h_0.05']['false_approvals']
-        return (f"・未使用の画像{m['n_images']}枚（T1）：拒否すべき{n}枚のうち誤許可 {fa}枚（登録した規則 v3.4）、{fa35}枚（v3.5の規則）。"
+        return (f"・未使用の画像{m['n_images']}枚（T1）：拒否すべき{n}枚のうち誤許可 {fa}枚（あらかじめ決めた規則 v3.4）、{fa35}枚（v3.5の規則）。"
                 f'すべて「物資の影に一部しか見えない火」の型で、これが残る弱点と判明')
     except (TypeError, KeyError):
         return None
@@ -239,7 +239,7 @@ def line_v(res):
     f = advice_numbers.v_facts()
     if not f:
         return None
-    t = (f"・ランダムな変化での再検証V：時間差 {f['diff']:.0f}秒（登録した予測区間 {f['pred_lo']:.0f}〜{f['pred_hi']:.0f}秒の内側）でモデルの予測は{'成立' if f['model_claim'] else '不成立'}、"
+    t = (f"・ランダムな変化での再検証V：時間差 {f['diff']:.0f}秒（あらかじめ決めた予測区間 {f['pred_lo']:.0f}〜{f['pred_hi']:.0f}秒の内側）でモデルの予測は{'成立' if f['model_claim'] else '不成立'}、"
          f"危険な配達は 記憶なし {f['unsafe']['M0']}・記憶をうのみにする方式 {f['unsafe']['M1']}・確認つきの記憶 {f['unsafe']['M2']}件。")
     if not f['memory_claim']:
         t += (f"「記憶は安全」の主張は不成立（余裕の条件は成立、系列単位の検定 p={f['mcnemar_p']:.4f}、10系列では検出力不足。1件は確認の誤り）。失敗として記録")
@@ -400,13 +400,13 @@ def line_qi(res):
     try:
         x = j['xd']
         sel = x['candidates'][x['selected']]
-        out.append(f"・別系統のAIを「拒否権だけの第2の審判」にする評価JH：見逃し {sel['miss_Q']}→{sel['miss_joint']}（登録した目標は{(2 * sel['miss_Q']) // 3}以下）で{'成立' if x['JH1']['holds'] else '不成立'}")
+        out.append(f"・別系統のAIを「拒否権だけの第2の審判」にする評価JH：見逃し {sel['miss_Q']}→{sel['miss_joint']}（あらかじめ決めた目標は{(2 * sel['miss_Q']) // 3}以下）で{'成立' if x['JH1']['holds'] else '不成立'}")
     except (TypeError, KeyError):
         pass
     q = jload(Path(res) / 'qi_summary.json')
     try:
         r, b, g = q['R']['miss'], q['xd_baseline']['miss'], q['G']['excluded']
-        out.append(f"・画像生成AI（Qwen-Image）で作った画像を凍結したゲートで採点（評価QI）：シミュレータ画像を写実化すると見逃しが {b['k']}/{b['n']}→{r['k']}/{r['n']}（登録した上限は20）で不成立、誤停止は {q['R']['false_stops']['k']}/{q['R']['false_stops']['n']} で成立。描き足した火は {g['n_excluded']}/{g['n_generated']} 枚が炎の色を持たず停止規則で止まった。弱点として報告")
+        out.append(f"・画像生成AI（Qwen-Image）で作った画像を凍結したゲートで採点（評価QI）：シミュレータ画像を写実化すると見逃しが {b['k']}/{b['n']}→{r['k']}/{r['n']}（あらかじめ決めた上限は20）で不成立、誤停止は {q['R']['false_stops']['k']}/{q['R']['false_stops']['n']} で成立。描き足した火は {g['n_excluded']}/{g['n_generated']} 枚が炎の色を持たず停止規則で止まった。弱点として報告")
     except (TypeError, KeyError):
         pass
     qj = jload(Path(res) / 'qj_summary.json')      # I-165: QJ was missing from the description
@@ -426,7 +426,7 @@ def line_gv(res):
         c, r = jload(Path(res) / 'gv_calibration.json'), jload(Path(res) / 'gv_stop_readout.json')
         if c and r and c.get('stop'):
             w = r['gv_wide_0.8m']
-            return (f"・倉庫で視点を0.8 mに広げる案（評価GV）は、登録した停止規則で本番を実施しなかった：火のない倉庫{c['m']}世界で較正した閾値が {c['tau_cal']:.3f}（既定 0.05 以上、0.4 m の視点では {r['gd_0.4m']['tau_cal']:.3f}）になり、"
+            return (f"・倉庫で視点を0.8 mに広げる案（評価GV）は、あらかじめ決めた停止規則で本番を実施しなかった：火のない倉庫{c['m']}世界で較正した閾値が {c['tau_cal']:.3f}（既定 0.05 以上、0.4 m の視点では {r['gd_0.4m']['tau_cal']:.3f}）になり、"
                     f"既定のままでも {w['n_at_or_above_default_0.05']}/{w['m']} 世界が止まるため")
         return ''
     try:
@@ -434,7 +434,7 @@ def line_gv(res):
         k, p = g['criteria'], g['paired']['v36_vs_wcal']
         ok = k['GV1_wcal_upper_at_most_15pct'] and k['GV2_false_stops_at_most_2']
         return (f"・倉庫で視点を0.8 mに広げ、同じ視点で閾値を較正して検証（評価GV、新しい{g['n_fire_worlds']}世界・{g['n_planned']}試行）：火へ配達は 広い視点＋較正 {c['k']}/{c['n']}（95%上限 {c['upper95_exact'] * 100:.1f}%）、"
-                f"既定 {v['k']}/{v['n']}、視点だけ広げた場合 {w['k']}/{w['n']}（対の比較 p={p['mcnemar_p']:.3f}）、火のない世界の誤停止 {g['arms']['wcal']['fire_free']['k']}/{g['arms']['wcal']['fire_free']['n']}。登録した主張 GV1・GV2 は{'成立' if ok else '一部不成立'}")
+                f"既定 {v['k']}/{v['n']}、視点だけ広げた場合 {w['k']}/{w['n']}（対の比較 p={p['mcnemar_p']:.3f}）、火のない世界の誤停止 {g['arms']['wcal']['fire_free']['k']}/{g['arms']['wcal']['fire_free']['n']}。あらかじめ決めた主張 GV1・GV2 は{'成立' if ok else '一部不成立'}")
     except (TypeError, KeyError):
         return ''
 
@@ -590,7 +590,7 @@ def build_description(chapters, res, _nums=None):
     if nums:
         blocks.append('【ほかの主な結果】（すべてシミュレーション）\n' + '\n'.join(nums) + '\n詳しい結果・うまくいかなかった主張・再現手順は、GitHub の README と説明資料（PDF）にあります。')
     if False:
-        blocks.append('詳しい結果（事前登録＝結果を見る前に条件を固定。v3.4〜v3.6＝システムの版名（v3.6が提出版）。誤許可＝届けてはいけない場面で「よい」と判断すること）：\n' + '\n'.join(nums))
+        blocks.append('詳しい結果（事前に条件を決めた計画＝結果を見る前に条件を固定。v3.4〜v3.6＝システムの版名（v3.6が提出版）。誤許可＝届けてはいけない場面で「よい」と判断すること）：\n' + '\n'.join(nums))
     blocks.append('コード：https://github.com/fe2131-art/rescue-mind\nナレーション：VOICEVOX:四国めたん')
     blocks.append('\n'.join(f"{mmss(c['start_s'])} {c['title']}" for c in facts['chapters']))
     paras[-1] += '\n\n' + '\n\n'.join(blocks)

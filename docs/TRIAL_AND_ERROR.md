@@ -1,6 +1,6 @@
 # 試行錯誤の記録：仮説 → 結果 → 分かったこと
 
-RescueMind は「うまくいった」ものだけでなく、**うまくいかなかった試み**も事前登録のうえ実行し、結果を残している。
+RescueMind は「うまくいった」ものだけでなく、**うまくいかなかった試み**も事前に決めたうえ実行し、結果を残している。
 詳細は [`IMPROVEMENT_LOG.md`](IMPROVEMENT_LOG.md)（I-xx）と [`REGISTRATIONS.md`](REGISTRATIONS.md)。失敗した主張は `failed_claims` に残す（論文の要旨に件数を明記）。
 
 ## 失敗から次の一手へ（自動生成、I-149）
