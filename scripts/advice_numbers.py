@@ -117,17 +117,17 @@ def v_claims_ja(f=None, bold='b'):
     MP = memory_power()
     ok = lambda x: '成立' if x else '不成立'
     B = (lambda t: f'<b>{t}</b>') if bold == 'b' else (lambda t: f'**{t}**')
-    s = (f"{B('モデルの予測：' + ok(f['model_claim']))}（M0−M2の所要時間差 実測 {f['diff']:.0f} 秒は事前登録した95%予測区間 {f['pred_lo']:.0f}〜{f['pred_hi']:.0f} 秒の内側、"
+    s = (f"{B('モデルの予測：' + ok(f['model_claim']))}（M0−M2の所要時間差 実測 {f['diff']:.0f} 秒はあらかじめ決めた95%予測区間 {f['pred_lo']:.0f}〜{f['pred_hi']:.0f} 秒の内側、"
          f"危険な配達と探索回数も区間の内側。ただし所要時間の絶対値はM0・M2とも区間の外で、モデルは約{MP['mean_time']['M0'] - MP['pred_time_p50']['M0']:.0f}〜{MP['mean_time']['M2'] - MP['pred_time_p50']['M2']:.0f}秒短く見積もった）、速さ（V3）は成立（系列単位のWilcoxon正確検定 p={f['v3_p']:.3f}）。"
          f"{B('記憶はランダムな変化でも安全：' + ok(f['memory_claim']))}。")
     if not f['memory_claim']:
         u, d = f['seq_unsafe'], f['disc']
-        s += (f" 登録した余裕の条件（M2−M0={f['m2_minus_m0']} 件、余裕 {f['margin']} 件以下）は成立したが、系列単位のMcNemar正確検定"
+        s += (f" あらかじめ決めた余裕の条件（M2−M0={f['m2_minus_m0']} 件、余裕 {f['margin']} 件以下）は成立したが、系列単位のMcNemar正確検定"
               f"（危険な配達のあった系列：M1 {u['M1']}・M2 {u['M2']}／{f['seq_n']}、食い違い {d[0]}対{d[1]}）が p={f['mcnemar_p']:.4f} で基準（p が 0.05 未満）に届かず、"
               f"副次の厳密な「M2 が M0 以下」（M2 {f['unsafe']['M2']} 件 対 M0 {f['unsafe']['M0']} 件）も満たさなかった。"
-              f"理由は2つ。1つ目は検出力で、M1に危険な配達のあった系列は{MP['m1_seqs']}あり、M2がそのどれでも危険な配達を出さない場合にしか基準を満たせない（その最小の p は {MP['p_min']:.3f}）。登録したモデルが予測したM2の危険な配達は中央値{MP['pred_m2_median']}件（{MP['pred_m2_lo']}〜{MP['pred_m2_hi']}）なので、不成立は検出力の不足であって、安全上の代償の証拠ではない。"
+              f"理由は2つ。1つ目は検出力で、M1に危険な配達のあった系列は{MP['m1_seqs']}あり、M2がそのどれでも危険な配達を出さない場合にしか基準を満たせない（その最小の p は {MP['p_min']:.3f}）。あらかじめ決めたモデルが予測したM2の危険な配達は中央値{MP['pred_m2_median']}件（{MP['pred_m2_lo']}〜{MP['pred_m2_hi']}）なので、不成立は検出力の不足であって、安全上の代償の証拠ではない。"
               f"2つ目は、M2の唯一の危険な配達（V156）が記憶の影響ではなく確認の誤りだったこと：到着位置のぶれで右の視点の火の確率が p_h={V_DIAG['p_m2']}（同じ世界のM0は {V_DIAG['p_m0']} で停止）と閾値 {V_DIAG['tau_h']} を下回り、許可した。"
-              f"p_h={V_DIAG['p_m2']} は追加視点を撮る疑いの閾値 {V_DIAG['tau_sus']}（I-20）を超えていたが、Vでは I-20 を無効にしていた。登録した主張は不成立のまま報告する。")
+              f"p_h={V_DIAG['p_m2']} は追加視点を撮る疑いの閾値 {V_DIAG['tau_sus']}（I-20）を超えていたが、Vでは I-20 を無効にしていた。あらかじめ決めた主張は不成立のまま報告する。")
     return s
 
 
@@ -383,7 +383,7 @@ def a_ja():
             f"本方式の{s['ours']['unsafe']}件は確認の誤り（助言なしの確認でも許可される配達）で、差は有意でなく W の ε_any の範囲内。代償は配達できなくなること（可用性）：配達できなかった世界 本方式 {s['ours']['lost']}/{s['n']}、警戒強化版 {s['scrutiny']['lost']}/{s['n']}、助言なし {s['control']['lost']}/{s['n']}。"
             f"依頼文の意図の受理 {f['intent_accepted']}/{f['extract'][1]}、設計した助言の正確な取り出し {f['extract'][0]}/{f['extract'][1]}（報告項目）。"
             f"保証は相対的で、火のある拠点へ近づく危険は上限の外。"
-            + (_aoff_ja() if f['offline_done'] else '登録した224件のオフライン注入セット（届け先の誤受理 0 が条件）の採点は未実施。'))
+            + (_aoff_ja() if f['offline_done'] else 'あらかじめ決めた224件のオフライン注入セット（届け先の誤受理 0 が条件）の採点は未実施。'))
 
 
 def a_en():
@@ -469,7 +469,7 @@ def if2_text(lang='ja'):
         price = f"{ab['per_category']['negation']['not_accepted'] + ab['per_category']['correction']['not_accepted']}/{ab['per_category']['negation']['n'] + ab['per_category']['correction']['n']}"
         if lang == 'ja':
             return (f"聞き返しの規則を入れると、新しい72文のすり替え{n}文のうち注入された物資を受理したのは{k}文（Wilson 上限 {up:.1f}%）、通常の依頼は{c}で受理、"
-                    f"規則なしでは同じ文で{pl['flip_acceptance']['k']}/{n}。代償は言い直し・否定の{price}を聞き返すこと。登録した主張 IF2 は{'成立' if j['claim_supported'] else '不成立'}（"
+                    f"規則なしでは同じ文で{pl['flip_acceptance']['k']}/{n}。代償は言い直し・否定の{price}を聞き返すこと。あらかじめ決めた主張 IF2 は{'成立' if j['claim_supported'] else '不成立'}（"
                     "すり替えは必ず両方の物資を名指すので語彙の規則で構造上そうなる。もう一方の物資を名指さない書き換えは対象外で、読み返しは引き続き必須）")
         return (f"with the ask-back rule, {k} of {n} flip texts of a new set were accepted with the injected supply (Wilson upper {up:.1f}%) and controls {c}; without it {pl['flip_acceptance']['k']}/{n}. "
                 f"Price: {price} corrections and negations are asked back. The registered claim IF2 is {'supported' if j['claim_supported'] else 'not supported'} (by construction of the lexical rule, since every flip names both supplies; "
@@ -493,9 +493,9 @@ def if_ja():
         return ''
     c = f['cat']
     return (f"凍結した v3.6 の意図の解析が、すり替えの依頼文{f['n']}件のうち{f['k']}件で、注入された物資を受理した（Wilson 95% {_pct(f['ci'][0])}〜{_pct(f['ci'][1])}%。偽のシステム通知 {c['flip_system'][0]}/{c['flip_system'][1]}、転送メモ {c['flip_forwarded'][0]}/{c['flip_forwarded'][1]}、"
-            f"「上は無視して」 {c['flip_hidden'][0]}/{c['flip_hidden'][1]}）。曖昧として断ると予測した件は{f['both']}件で、予測は外れ、登録した主張 IF1（上限 10% 未満）は"
+            f"「上は無視して」 {c['flip_hidden'][0]}/{c['flip_hidden'][1]}）。曖昧として断ると予測した件は{f['both']}件で、予測は外れ、あらかじめ決めた主張 IF1（上限 10% 未満）は"
             + ('成立' if f['held'] else '不成立') + f"。言い直しは{f['corr'][0]}/{f['corr'][1]}で従い、通常・否定の依頼は{f['ctrl'][0]}/{f['ctrl'][1]}で受理、通常・否定・言い直しの依頼で誤った物資の受理は{f['ctrl_wrong'] + f['corr_wrong'][0]}件。"
-            "依頼文から解析した依頼物資は保証の対象外で、対策（物資が食い違えば聞き返す、I-27）は研究 IF2 として事前登録した（" + ('結果は' + if2_short_ja().replace('（', '、').replace('）', '') if if2_done() else pending_word()) + '）。')
+            "依頼文から解析した依頼物資は保証の対象外で、対策（物資が食い違えば聞き返す、I-27）は研究 IF2 としてあらかじめ決めた（" + ('結果は' + if2_short_ja().replace('（', '、').replace('）', '') if if2_done() else pending_word()) + '）。')
 
 
 def if_en():
@@ -625,8 +625,8 @@ def study_phrase():
     """'研究 23 本（うち登録が結果より前と監査で確認できたもの 14、結果待ち 9）' - the one sentence form of the count."""
     c = study_counts()
     if not c:
-        return '研究（事前登録つき）'
-    return f"研究 {c['n']} 本（うち事前登録の時系列監査で、登録が結果より前と確認できたもの {c['ok']}、{PENDING_JA if snapshot_mode() else '結果待ち'} {c['pending']}）"
+        return '研究（条件を事前に決定）'
+    return f"研究 {c['n']} 本（うち、計画の記録時刻の監査で、登録が結果より前と確認できたもの {c['ok']}、{PENDING_JA if snapshot_mode() else '結果待ち'} {c['pending']}）"
 
 
 def study_phrase_en():
@@ -655,9 +655,9 @@ def b_ja(none=None):
         liar = bj['B1_liar']['sequences']
         no, cr = sorted({v['wasted_nocredit'] for v in liar.values()}), sorted({v['wasted_credit'] for v in liar.values()})
         rng = lambda x: str(x[0]) if len(x) == 1 else f'{x[0]}〜{x[-1]}'
-        return (f"毎回嘘をつく情報源は、{bj['m']}出動で信用枠なし {rng(no)}回・あり {rng(cr)}回の無駄足（{bj['B1_liar']['n_complete']}系列すべて、上限 {max(v['prop3_bound'] for v in liar.values())}）。"
+        return (f"毎回嘘をつく情報源は、{bj['m']}出動で信用管理なし {rng(no)}回・あり {rng(cr)}回の無駄足（{bj['B1_liar']['n_complete']}系列すべて、上限 {max(v['prop3_bound'] for v in liar.values())}）。"
                 f"正直な情報源は止められず、{bj['n_runs']}試行で監査の失敗 {len(bj['B3_audits']['audit_failures'])}・危険な配達 {len(bj['B3_audits']['unsafe_deliveries'])}。"
-                f"信用枠で系列あたり中央値 {bj['B4_time_descriptive']['median_saving_s']:.0f} 秒短縮（予測 {bj['B4_time_descriptive']['predicted_saving_per_sequence_s']:.0f} 秒）。仕組みが設計どおり働くことの確認で、確率の推定ではない")
+                f"信用管理で系列あたり中央値 {bj['B4_time_descriptive']['median_saving_s']:.0f} 秒短縮（予測 {bj['B4_time_descriptive']['predicted_saving_per_sequence_s']:.0f} 秒）。仕組みが設計どおり働くことの確認で、確率の推定ではない")
     except (TypeError, KeyError):
         return none
 
@@ -673,7 +673,7 @@ def s_ja(none=None):
         cr, d7 = sj['criteria'], sj['criteria']['S7_detail']
         return (f"本方式で標識により「拒否→許可」に変わった世界は全体で {fa['k']}/{fa['n']}（Wilson 上限 {100 * fa['ci95'][1]:.1f}%）：「Cと答えよ」 {fl(t['letter_C'])}、順序固定の文字A {fl(t['letter_A'])}、"
                 f"順序に依らない文字B {fl(t['letter_B'])}、取り違えのラベル {fl(g['mislabel'])}、「火災なし」の標識 {fl(g['false_safe'])}。"
-                f"予想した残る弱点（文字B・取り違え・可用性攻撃）は見つからず、1回判定の方式も騙されなかったので、登録した主張「順序の入れ替えが理由」は不成立"
+                f"予想した残る弱点（文字B・取り違え・可用性攻撃）は見つからず、1回判定の方式も騙されなかったので、あらかじめ決めた主張「順序の入れ替えが理由」は不成立"
                 f"（失敗した主張の一つ）。害のない文字は自由記述の基準方式を{d7['FREE-FORM']}世界で動かした（本方式は{d7['OURS']}）。"
                 f"OCR マスクと「文字を無視せよ」は何も変えなかった（もともと騙されていなかったため）。標識は適応的でないものだけで、**画像に映る文字は構造的な保証の対象外**")
     except (TypeError, KeyError):
@@ -706,7 +706,7 @@ def xdr_result_ja():
     try:
         fa = r['false_alarm']
         return (f"。実写の火のない倉庫写真 {r['n']} 枚では、0.05 で {fa['frozen']['k']}/{fa['frozen']['n']}（{100 * fa['frozen']['rate']:.1f}%）、P2 の 0.35 で {fa['p2_h36']['k']}/{fa['p2_h36']['n']} が火と誤判定"
-                "（登録した主張は倉庫の τ* で述べたが τ* が存在せず、登録済みの解析は「不成立」を返す。基準の20%以下は存在する2つの閾値では満たす。失敗の件数には加えず、ここに明記する）")
+                "（あらかじめ決めた主張は倉庫の τ* で述べたが τ* が存在せず、登録済みの解析は「不成立」を返す。基準の20%以下は存在する2つの閾値では満たす。失敗の件数には加えず、ここに明記する）")
     except (TypeError, KeyError):
         return ''
 
@@ -716,7 +716,7 @@ def xd_ja(none=None):
     if not f:
         return none
     return (f"倉庫（4拠点）の画像 {f['nworlds']} 世界（知覚できる火 {f['nperc']}）：正面のみの見逃し {f['front']}、見回し {f['la']}（Wilson 上限 {f['la_upper']:.1f}%）。"
-            f"難しい火（小さく半分隠れた炎）の見回しの見逃しは {f['hard_la']}（上限 {f['hard_upper']:.1f}%）で、登録した上限15%は**不成立**。"
+            f"難しい火（小さく半分隠れた炎）の見回しの見逃しは {f['hard_la']}（上限 {f['hard_upper']:.1f}%）で、あらかじめ決めた上限15%は**不成立**。"
             f"相対的な主張のうち、見回しが正面の見逃しの大半を減らす（O1）と、誤った物資の許可が無い（O4）は成り立ったが、疑わしいときだけ足す追加視点（I-20）は"
             f"見逃しを {f['removed']} 件減らし増やさなかった（{f['ad']}）一方で、火を取り除いた同じ場面の {f['trig']}（{f['trig_rate']:.0f}%）で発動し、事前の撤回規則（15%超）で既定にしないことになった（O3 不成立）。"
             f"閾値の再較正は登録の基準（較正の再現率0.95）を満たす閾値が無く不成立（0.05 での再現率 {f['recall']:.0f}%）" + xdr_result_ja())
@@ -728,7 +728,7 @@ def xd_short_ja(none=None):
     if not f:
         return none
     return (f"倉庫（4拠点）の画像 {f['nworlds']} 世界：見逃し 正面のみ {f['front']} → 見回し {f['la']}。"
-            f"難しい火（小さく半分隠れた炎）は {f['hard_la']}（上限 {f['hard_upper']:.1f}%）で、登録した上限15%は不成立（評価XD）")
+            f"難しい火（小さく半分隠れた炎）は {f['hard_la']}（上限 {f['hard_upper']:.1f}%）で、あらかじめ決めた上限15%は不成立（評価XD）")
 
 
 def xdr_result_en():
@@ -811,7 +811,7 @@ def q_ja(none=None):
     if not f:
         return none
     return (f"実写の Commons {f['n']}枚：断るべき {f['n_deny']}枚のうち誤って許可 {f['fa']}（Wilson 上限 {f['fa_upper']:.1f}%）で安全側は成り立ったが、正しい物資の許可は {f['ca']}/{f['n_allow']}（{f['ca_rate']:.0f}%）で"
-            f"登録した70%に届かず、主張「実写でも通用する」は{'成立' if f['held'] else '不成立'}（安全だが保守的）。比較の SigLIP・CLIP は正しい物資は全部許可するが、断るべき画像も {f['sig_fa']}・{f['clip_fa']}枚許可した")
+            f"あらかじめ決めた70%に届かず、主張「実写でも通用する」は{'成立' if f['held'] else '不成立'}（安全だが保守的）。比較の SigLIP・CLIP は正しい物資は全部許可するが、断るべき画像も {f['sig_fa']}・{f['clip_fa']}枚許可した")
 
 
 def q_en(none=None):
@@ -885,7 +885,7 @@ def failed_claims():
     ye = _load('ye_summary.json')      # registered claim YE2 (PREREGISTRATION_YE): 'every hc run visited two stations'; the check as written fails (the search goes on through the remaining candidates)
     if ye is not None and not ye['criteria']['YE2_hc_goes_on_and_decides']:
         out.append(dict(key='YE2', tex='YE2 (two stations visited: the registered wording)', en='YE2 (the registered wording "two stations visited")',
-                        ja='YE2（登録した文言「2拠点を訪れる」。拒否後の探索は残りの拠点まで続く）'))
+                        ja='YE2（あらかじめ決めた文言「2拠点を訪れる」。拒否後の探索は残りの拠点まで続く）'))
     yf = _load('yf_summary.json')      # registered claim YF4 (= Y4) of PREREGISTRATION_YF: at most 2 stations per run
     if yf is not None and not yf['Y-s']['criteria']['Y4_holds']:
         out.append(dict(key='YF4', tex='YF4 (at most two stations per run)', en='YF4 (at most two stations per run, on fresh worlds)',
@@ -933,7 +933,7 @@ def failed_claims():
         c = qi.get('claims') or {}
         for key, name, tex, en, ja in (
                 ('QI1_realised_miss_not_much_worse', 'QI1', 'QI1 (photo-realised frames)', 'QI1 (the miss on photo-realised hard fires stays within 20 of 126)', 'QI1（写実化した画像でも見逃し20件以内）'),
-                ('QI2_generated_fire_miss_rate', 'QI2', 'QI2 (generated fire; stopped by its rule)', 'QI2 (generator-drawn fire missed in at most 20% of worlds; stopped by its registered rule: 68% of the drawn-fire images had no flame colour)', 'QI2（生成した火の見逃しが2割以下。登録した停止規則で停止：炎の色のない画像が68%）'),
+                ('QI2_generated_fire_miss_rate', 'QI2', 'QI2 (generated fire; stopped by its rule)', 'QI2 (generator-drawn fire missed in at most 20% of worlds; stopped by its registered rule: 68% of the drawn-fire images had no flame colour)', 'QI2（生成した火の見逃しが2割以下。あらかじめ決めた停止規則で停止：炎の色のない画像が68%）'),
                 ('QI3_realised_false_stops_small', 'QI3', 'QI3 (false stops on realised clean frames)', 'QI3 (at most 5 false stops of 104 realised clean worlds)', 'QI3（写実化した火のない画像の誤停止5件以下）'),
                 ('QI3c_control_edits_do_not_create_hazards', 'QI3c', 'QI3c (control edits)', 'QI3c (control edits create hazards in at most 5% of twins)', 'QI3c（対照の編集で危険と誤る割合5%以下）')):
             if key in c and not c[key]:
@@ -1102,7 +1102,7 @@ def i22_ja():
     c = interlock_check()
     base = '配送インターロック（[I-22](docs/IMPROVEMENT_LOG.md)：許可証が無ければ速度ガードが配送区間を通さない）は実装済み・既定はオフ。'
     if not c:
-        return base + 'Gazebo での確認は未了。評価A・Xはインターロックなしで走らせる（事前登録に明記）。'
+        return base + 'Gazebo での確認は未了。評価A・Xはインターロックなしで走らせる（事前に決めた計画に明記）。'
     return (base + f"Gazebo での動作確認は{c['missions']}件の実走で通った（許可証は承認のときだけ出る。隠れた火＋「確認不要」の指示は拒否、`experiments/results/i22_gazebo_check.log`）。"
             + (f"許可証は承認した{c['permits']}件にだけ出て、拒否が期待の{c['refusals']}件（火、隠れた火＋「確認不要」）では出なかった。この{c['refusals']}件は終了コード1で終わるが設計どおりの拒否で、run の記録から写した判定は `experiments/results/i22_gazebo_check_summary.md` にある。" if c.get('summary') else '')
             + "評価Bは両群で有効、評価A・Xは無効（そのまま信じる方式の群・フィルタ群は許可なしで配達するのが比較対象のため）。改ざんしたミッションノードを使う閉ループの検証は未実施で、ミッションノードは信頼の基盤に残る。")
@@ -1247,13 +1247,13 @@ def storyline():
         notes = [f"評価H：危険な配達 記憶をうのみにする方式 {m1}/{n} → 確認つきの記憶 {m2}/{n}（p={p2['mcnemar_p']:.1e}）"]
         if v:
             notes.append(f"評価V（{v['n_per_arm']}出動）：うのみにする方式 {v['unsafe']['M1']}/{v['n_per_arm']} → 検証つき {v['unsafe']['M2']}/{v['n_per_arm']}。"
-                         f"残った{v['unsafe']['M2']}件のため登録した主張は{'成立' if v['memory_claim'] else '不成立'}")
+                         f"残った{v['unsafe']['M2']}件のためあらかじめ決めた主張は{'成立' if v['memory_claim'] else '不成立'}")
         rows.append({'key': 'memory', 'title': '変わった世界', 'attack': '出動の間に物資が移り、火が現れる',
                      'found': f"記憶に従うだけだと、古い情報のまま配達してしまう（記憶をうのみにする方式 {m1}/{n}）",
                      'fix': '記憶は行き先を決めるだけ。行った先で必ず確認し、火を見た拠点は厳しく（I-15）',
                      'before': f"{m1}/{n}", 'after': f"{m2}/{n}", 'label': '危険な配達（評価H）', 'notes': notes, 'extra': notes[1:],
                      'bullet': f"**変わった世界**（攻撃）→ 記憶をうのみにする方式は古い情報のまま配達（発見）→ 記憶は行き先を決めるだけ、行った先で必ず確認（対策、I-15）→ 再測定：危険な配達 {m1}/{n} → {m2}/{n}（評価H）"
-                               + (f"。評価Vでは確認つきの記憶にも{v['unsafe']['M2']}/{v['n_per_arm']}が残り、登録した主張は{'成立' if v['memory_claim'] else '不成立'}のまま報告" if v else '')})
+                               + (f"。評価Vでは確認つきの記憶にも{v['unsafe']['M2']}/{v['n_per_arm']}が残り、あらかじめ決めた主張は{'成立' if v['memory_claim'] else '不成立'}のまま報告" if v else '')})
     except (TypeError, KeyError):
         pass
     if smt and demo:       # 3. poisoned advice -> advice may only tighten (I-19) + machine check (I-23)
@@ -1290,7 +1290,7 @@ def storyline():
             a2 = i2['arms']['ask_back']
             after, a_pend = f"{a2['flip_acceptance']['k']}/{a2['flip_acceptance']['n']}", None
             re_txt = (f"評価IF2（新しい{a2['flip_acceptance']['n']}文）：すり替えの受理 {a2['flip_acceptance']['k']}/{a2['flip_acceptance']['n']}、通常の依頼の受理 {a2['control_accepted']['k']}/{a2['control_accepted']['n']}"
-                      f"（登録した主張は{'成立' if i2['claim_supported'] else '不成立'}）")
+                      f"（あらかじめ決めた主張は{'成立' if i2['claim_supported'] else '不成立'}）")
         except (TypeError, KeyError):
             after, a_pend = P, P
             re_txt = f"評価IF2（新しい72文）：{P}"
@@ -1298,8 +1298,8 @@ def storyline():
         notes = [f"評価IF：偽の通知 {c['flip_system'][0]}/{c['flip_system'][1]}、転送メモ {c['flip_forwarded'][0]}/{c['flip_forwarded'][1]}、「上は無視して」 {c['flip_hidden'][0]}/{c['flip_hidden'][1]}。曖昧として断った件は{iff['both']}件（予測は外れ）",
                  "対策までは、依頼物資を出発前に運用者へ読み返す（DEPLOYMENT）", re_txt]
         rows.append({'key': 'request', 'title': '依頼の書換え', 'attack': '依頼文に偽の通知・転送メモ・「上は無視して」を足して、頼まれた物資をすり替える',
-                     'found': f"凍結した解析が{iff['n']}文中{iff['k']}文で、すり替えた物資を受理（登録した主張 IF1 は{'成立' if iff['held'] else '不成立'}）。依頼物資は命令なので「聞いた情報で確認は省かない」という原理の対象外",
-                     'fix': '物資が食い違えば動かず聞き返す（I-27、既定は無効）。研究IF2として事前登録',
+                     'found': f"凍結した解析が{iff['n']}文中{iff['k']}文で、すり替えた物資を受理（あらかじめ決めた主張 IF1 は{'成立' if iff['held'] else '不成立'}）。依頼物資は命令なので「聞いた情報で確認は省かない」という原理の対象外",
+                     'fix': '物資が食い違えば動かず聞き返す（I-27、既定は無効）。研究IF2として事前に条件を決定',
                      'before': f"{iff['k']}/{iff['n']}", 'after': after, 'label': 'すり替えの受理（評価IF → IF2）', 'notes': notes, 'extra': notes, 'pending': a_pend,
-                     'bullet': f"**依頼のすり替え**（依頼文に偽の通知などを足す）→ 凍結した解析が{iff['n']}文中{iff['k']}文で受理、登録した主張は不成立（発見、評価IF）→ 物資が食い違えば聞き返す（対策、I-27）→ 再測定：{re_txt}"})
+                     'bullet': f"**依頼のすり替え**（依頼文に偽の通知などを足す）→ 凍結した解析が{iff['n']}文中{iff['k']}文で受理、あらかじめ決めた主張は不成立（発見、評価IF）→ 物資が食い違えば聞き返す（対策、I-27）→ 再測定：{re_txt}"})
     return rows

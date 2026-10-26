@@ -133,8 +133,8 @@ def t1_parts():
         lo, hi = r['ca_ci95']
         return f"**{r['correct_approvals']}/{r['n_allow']}**（{pct(r['ca_rate'])}、95%CI {pct(lo)}〜{pct(hi)}）"
     claim_ok = full['fa_ci95'][1] < 0.02
-    claim = ('登録した主張「誤許可2%未満」は、Wilson上限が2%を下回り**支持された**。' if claim_ok else
-             f"登録した主張「誤許可2%未満」は**支持されなかった**（Wilson上限 {pct(full['fa_ci95'][1])} > 2%）。")
+    claim = ('あらかじめ決めた主張「誤許可2%未満」は、Wilson上限が2%を下回り**支持された**。' if claim_ok else
+             f"あらかじめ決めた主張「誤許可2%未満」は**支持されなかった**（Wilson上限 {pct(full['fa_ci95'][1])} > 2%）。")
     return s, m, full, v35, n_img, fa_txt, ca_txt, claim, dev
 
 
@@ -272,15 +272,15 @@ T1 で分かった弱点に、結果を見る前に固定した条件で段階�
 
 {chr(10).join(lines)}
 
-* 食い違いは B のみ {gp['discordant_B_only']}・C のみ {gp['discordant_C_only']}、McNemar正確検定 **p={gp['mcnemar_p']:.3f}**（事前登録した主張が成立）
+* 食い違いは B のみ {gp['discordant_B_only']}・C のみ {gp['discordant_C_only']}、McNemar正確検定 **p={gp['mcnemar_p']:.3f}**（あらかじめ決めた主張が成立）
 * 読み方：この{nf}世界の火の多くは、設計上、正面からは見えにくい（または見えない）。したがって評価Gが測るのは「VLMが良くなった」ことではなく、そのような火に対して**横から見ると効果がある**ことである{mtxt}{t2txt}"""
     return txt, dict(nf=nf, gb=gc['B']['wrong_deliveries'], gcw=gc['C']['wrong_deliveries'], p=gp['mcnemar_p'], fs=gc['C']['false_hazard_stops'],
                      nfree=gc['C']['fire_free_trials'], ok=gc['C']['correct'], n=gc['C']['n'], okb=gc['B']['correct'],
                      fa=fp['wrong_deliveries_A'], fb=fp['wrong_deliveries_B'], nfv=fp['n_world_pairs_fire_visible_both'], fp=fp['mcnemar_p'])
 
 
-PENDING = '実行中（事前登録済み）'
-PENDING_NOT_RUN = '結果待ち（事前登録済み・未実行）'
+PENDING = '実行中（計画決定済み）'
+PENDING_NOT_RUN = '結果待ち（計画決定済み・未実行）'
 SNAP = advice_numbers.snapshot_mode()
 PENDING_JA_SHORT = advice_numbers.PENDING_JA if SNAP else '結果待ち'
 SNAP_JA = (('結果待ちの研究は「結果待ち」と書き、数値は結果ファイルから自動で入る。', '結果のない研究は「登録済み・提出時点で未実施」と書き、数値は載せない。'),
@@ -399,7 +399,7 @@ def v_text():
     v = jl('v_summary.json')
     try:
         d, a = v['V1_time_diff'], v['arms']
-        return (f"M0−M2の所要時間差 実測 {d['mean_M0_minus_M2_s']:.0f} 秒（事前登録した95%予測区間 {d['pred']['p2.5']:.0f}〜{d['pred']['p97.5']:.0f} 秒）、"
+        return (f"M0−M2の所要時間差 実測 {d['mean_M0_minus_M2_s']:.0f} 秒（あらかじめ決めた95%予測区間 {d['pred']['p2.5']:.0f}〜{d['pred']['p97.5']:.0f} 秒）、"
                 f"危険な配達は 記憶なし {a['M0']['unsafe']}・記憶をうのみにする方式 {a['M1']['unsafe']}・確認つきの記憶 {a['M2']['unsafe']}件。"
                 + advice_numbers.v_claims_ja(bold='md') + ' 図：[`docs/figures/v_prediction.png`](docs/figures/v_prediction.png)')
     except (TypeError, KeyError):
@@ -411,7 +411,7 @@ def v_idea_text():
     f = advice_numbers.v_facts()
     if not f:
         return PENDING
-    s = (f"出動ごとに物資と火がランダムに変わる10系列×6出動で、先に登録した予測を確かめた。モデルの予測は**{'成立' if f['model_claim'] else '不成立'}**（M0−M2の時間差 {f['diff']:.0f} 秒、予測区間 {f['pred_lo']:.0f}〜{f['pred_hi']:.0f} 秒の内側）。")
+    s = (f"出動ごとに物資と火がランダムに変わる10系列×6出動で、先にあらかじめ決めた予測を確かめた。モデルの予測は**{'成立' if f['model_claim'] else '不成立'}**（M0−M2の時間差 {f['diff']:.0f} 秒、予測区間 {f['pred_lo']:.0f}〜{f['pred_hi']:.0f} 秒の内側）。")
     if not f['memory_claim']:
         s += (f"一方、**記憶は安全という主張は不成立**：余裕の条件（M2−M0 = {f['m2_minus_m0']} 件、余裕 {f['margin']} 件以下）は成立したが、系列単位のMcNemar検定が p={f['mcnemar_p']:.4f}（{f['disc'][0]}対{f['disc'][1]}）で基準 0.05 に届かなかった。"
               "原因は検出力の不足（M1に危険な配達のあった系列でM2が1件も出さない場合にしか基準を満たせない設計で、M2の予測は中央値1件）と、M2の唯一の危険な配達が記憶ではなく確認の誤り（到着位置のぶれ）だったこと。所要時間の絶対値はM0・M2とも予測区間の外（差は区間の内側）。失敗として残している。詳細は[結果](#結果)の評価V・[FINDINGS](docs/FINDINGS.md) #29。")
@@ -431,7 +431,7 @@ def a_text():
         txt = advice_numbers.a_ja()
         if not txt:
             raise KeyError('a_facts')
-        return (txt + f" 登録した主張は 安全：{'成立' if a1['supported'] else '不成立'}、時間：{'成立' if a2['supported'] else ('不成立' if a2['monotone']['testable'] else '検定不能')}、"
+        return (txt + f" あらかじめ決めた主張は 安全：{'成立' if a1['supported'] else '不成立'}、時間：{'成立' if a2['supported'] else ('不成立' if a2['monotone']['testable'] else '検定不能')}、"
                 f"コスト：{'成立' if a3['supported'] else '不成立'}（予備走行と Amendment 1・2 の経緯は FINDINGS #30・#31、誘導の代償とガードレールの限界は #33・#34）")
     except (TypeError, KeyError):
         pf_ = advice_numbers.a_pilot_facts()
@@ -496,7 +496,7 @@ def i24_text():
         return None
     return (f"助言の信用枠（[I-24](docs/IMPROVEMENT_LOG.md)）：情報源（入力の経路）ごとに、助言を**捨てるだけ**の信用を持たせる。命題2は助言の部分集合でも成り立つので、安全は変わらず、"
             f"毎回嘘をつく・危険の誤報を繰り返す情報源が払わせる代償は、何回出動しても上限（命題3：場所の助言の無駄な訪問 ≤ {c['c_loc']:g} + {c['rho_shadow']:g}×出動数、"
-            f"誤った停止 ≤ {c['c_haz']:g} + {c['rho']:g}×出動数）に収まる。{c['missions']}出動の記述モデル（合成した結果。事前登録なし、閉ループ未検証）：嘘つきの無駄な遠回り +{c['liar_no']:.0f}秒 → +{c['liar_yes']:.0f}秒、"
+            f"誤った停止 ≤ {c['c_haz']:g} + {c['rho']:g}×出動数）に収まる。{c['missions']}出動の記述モデル（合成した結果。事前に条件を決めた計画なし、閉ループ未検証）：嘘つきの無駄な遠回り +{c['liar_no']:.0f}秒 → +{c['liar_yes']:.0f}秒、"
             f"実写の誤警報率での危険の誤報の繰り返しによる誤停止 {c['flood_no']}回 → {c['flood_yes']}回、正直な情報源は何も失わない（{c['honest_no']:.0f}秒の短縮のまま）。"
             f"運用者向けの報告書は、助言を採用しなかったことと理由を書く。図は下")
 
@@ -506,7 +506,7 @@ def pending_ifb_text():
     iff = advice_numbers.if_facts()
     ja = ['研究B（信用枠の閉ループ確認：毎回嘘をつく情報源の系列。予測は計算で一意に決まる）：' + (advice_numbers.b_ja() if p['B'] else PENDING_NOT_RUN.replace('・未実行', ''))]
     if iff:
-        ja.append(f"研究IF（依頼文で依頼物資を書き換えられるか、72文）：登録した主張は{'成立' if iff['held'] else '不成立'}（書き換え{iff['n']}文のうち{iff['k']}文で受理。論文を参照）")
+        ja.append(f"研究IF（依頼文で依頼物資を書き換えられるか、72文）：あらかじめ決めた主張は{'成立' if iff['held'] else '不成立'}（書き換え{iff['n']}文のうち{iff['k']}文で受理。論文を参照）")
     else:
         ja.append('研究IF（依頼文で依頼物資を書き換えられるか、72文）：' + PENDING_NOT_RUN.replace('・未実行', ''))
     ja.append('研究IF2（対策 I-27：物資が食い違えば聞き返す、新しい72文）：' + (advice_numbers.if2_text('ja') if advice_numbers.if2_done() else PENDING_NOT_RUN.replace('・未実行', '')))
@@ -539,7 +539,7 @@ def trial_chain_md():
 
 def section_key(e, t):
     """First screen: the headline results (6 rows) with an honest status, the other registered studies in a collapsed list; every number from the result files, nothing hand-typed."""
-    head = ['| 主張（事前登録した評価） | 結果（すべてシミュレーション） | 状態 |', '|---|---|---|']
+    head = ['| 主張（計画を事前に決めた評価） | 結果（すべてシミュレーション） | 状態 |', '|---|---|---|']
     rows = []
     if e:
         E = e[1]
@@ -580,7 +580,7 @@ def section_key(e, t):
         rows.append(f"| 悪意のある助言でも危険にならない（評価A、閉ループ） | 危険な配達（試行）：助言に従う方式 {r_['naive']['unsafe']}/{r_['naive']['n']}、本方式 {r_['monotone']['unsafe']}/{r_['monotone']['n']}{wtxt_}{steer_} | **{'支持' if a1['supported'] else '不成立'}** |")
     except (TypeError, KeyError):
         auto = '' if SNAP else '。結果ファイルができると数値が自動で入る'
-        rows.append(f'| 悪意のある助言でも危険にならない（評価A、閉ループ） | 本走行 {A_RUNS} 試行を事前登録済み{auto} | {PENDING_JA_SHORT} |')
+        rows.append(f'| 悪意のある助言でも危険にならない（評価A、閉ループ） | 本走行 {A_RUNS} 試行を計画決定済み{auto} | {PENDING_JA_SHORT} |')
     yj_, yej_, yfj_ = jl('y_summary.json'), jl('ye_summary.json'), jl('yf_summary.json')
     try:      # the depot closed loop after a truthful tip to a burning bay: X lost the delivery, Y keeps it (opt-in flag), YE measures the price, YF repeats Y on fresh worlds
         ys_ = yj_['Y-s']
@@ -608,14 +608,14 @@ def section_key(e, t):
         gv_, gf_, gc_ = grj_['arms']['v36']['fire'], grj_['arms']['front']['fire'], grj_['criteria']
         pool_ = gc_['pooled_with_G_v36']
         gok_ = gc_['GR1_v36_upper_at_most_20pct'] and gc_['GR2_front_worse_and_mcnemar_p_below_005'] and gc_['GR3_false_stops_at_most_1']
-        rows.append(f"| 見回しは閉ループでも火を見つける（評価GR、新しい{grj_['n_fire_worlds']}世界） | 火へ配達：v3.6 **{gv_['k']}/{gv_['n']}**（95%上限 {pct(gv_['upper95_exact'])}）、見回しなし {gf_['k']}/{gf_['n']}（McNemar p={grj_['paired']['mcnemar_p']:.5f}）、火のない世界の誤停止 {grj_['arms']['v36']['fire_free']['k']}/{grj_['arms']['v36']['fire_free']['n']}。評価Gと合わせて {pool_['k']}/{pool_['n']}（上限 {pct(pool_['upper95_exact'])}）。画像評価Wの 3/150 より閉ループは高く、横からしか見えない火の見逃しは登録した25%以下の予測を超えた（{gv_['strata']['side_only']['k']}/{gv_['strata']['side_only']['n']}） | {'GR1〜GR3：**支持**' if gok_ else 'GR：**一部不成立**'} |")
+        rows.append(f"| 見回しは閉ループでも火を見つける（評価GR、新しい{grj_['n_fire_worlds']}世界） | 火へ配達：v3.6 **{gv_['k']}/{gv_['n']}**（95%上限 {pct(gv_['upper95_exact'])}）、見回しなし {gf_['k']}/{gf_['n']}（McNemar p={grj_['paired']['mcnemar_p']:.5f}）、火のない世界の誤停止 {grj_['arms']['v36']['fire_free']['k']}/{grj_['arms']['v36']['fire_free']['n']}。評価Gと合わせて {pool_['k']}/{pool_['n']}（上限 {pct(pool_['upper95_exact'])}）。画像評価Wの 3/150 より閉ループは高く、横からしか見えない火の見逃しはあらかじめ決めた25%以下の予測を超えた（{gv_['strata']['side_only']['k']}/{gv_['strata']['side_only']['n']}） | {'GR1〜GR3：**支持**' if gok_ else 'GR：**一部不成立**'} |")
     except (TypeError, KeyError):
         pass
     gcj_ = jl('gc_summary.json')
     try:      # the calibrated threshold in closed loop
         gcc_, gcv_, gck_ = gcj_['arms']['cal']['fire'], gcj_['arms']['v36']['fire'], gcj_['criteria']
         gcok_ = gck_['GC1_cal_upper_at_most_15pct'] and gck_['GC2_false_stops_at_most_1']
-        rows.append(f"| サイトで較正した閾値の閉ループ評価（評価GC、新しい{gcj_['n_fire_worlds']}世界） | 火へ配達：較正した閾値（0.01）**{gcc_['k']}/{gcc_['n']}**（95%上限 {pct(gcc_['upper95_exact'])}、登録した上限15%）、既定 0.05 は {gcv_['k']}/{gcv_['n']}、火のない世界の誤停止 {gcj_['arms']['cal']['fire_free']['k']}/{gcj_['arms']['cal']['fire_free']['n']}。対の比較（較正のみ {gcj_['paired']['discordant_cal_only']}・既定のみ {gcj_['paired']['discordant_v36_only']}）は McNemar p={gcj_['paired']['mcnemar_p']:.3f} で有意でない。較正にはそのサイトの火のない映像が要る（倉庫では同じ値が火のない拠点を止める） | {'GC1・GC2：**支持**' if gcok_ else 'GC：**一部不成立**'} |")
+        rows.append(f"| サイトで較正した閾値の閉ループ評価（評価GC、新しい{gcj_['n_fire_worlds']}世界） | 火へ配達：較正した閾値（0.01）**{gcc_['k']}/{gcc_['n']}**（95%上限 {pct(gcc_['upper95_exact'])}、あらかじめ決めた上限15%）、既定 0.05 は {gcv_['k']}/{gcv_['n']}、火のない世界の誤停止 {gcj_['arms']['cal']['fire_free']['k']}/{gcj_['arms']['cal']['fire_free']['n']}。対の比較（較正のみ {gcj_['paired']['discordant_cal_only']}・既定のみ {gcj_['paired']['discordant_v36_only']}）は McNemar p={gcj_['paired']['mcnemar_p']:.3f} で有意でない。較正にはそのサイトの火のない映像が要る（倉庫では同じ値が火のない拠点を止める） | {'GC1・GC2：**支持**' if gcok_ else 'GC：**一部不成立**'} |")
     except (TypeError, KeyError):
         pass
     gdj_ = jl('gd_summary.json')
@@ -624,7 +624,7 @@ def section_key(e, t):
         gdok_ = gdk_['GD1_cal_upper_at_most_25pct'] and gdk_['GD2_false_stops_at_most_2']
         tau_ = json.loads((ROOT / 'experiments/gd_site_cal.json').read_text())['hazard_threshold']
         better_ = gdc_['k'] < gdv_['k']
-        rows.append(f"| 較正の手順は2か所目（倉庫）では誤停止の保証は成り立つが、見逃しは減らない（評価GD、新しい{gdj_['n_fire_worlds']}世界） | 火へ配達：較正した閾値（{tau_}）**{gdc_['k']}/{gdc_['n']}**（95%上限 {pct(gdc_['upper95_exact'])}、登録した上限25%）、既定 0.05 は {gdv_['k']}/{gdv_['n']}{'' if better_ else '（差なし）'}、火のない世界の誤停止 {gdj_['arms']['cal']['fire_free']['k']}/{gdj_['arms']['cal']['fire_free']['n']}。倉庫の閉ループでは、火のない世界のスコアのばらつきが画像評価より大きく、小さな火のスコアがその範囲に重なる | GD1・GD2：**{'成立' if gdok_ else '一部不成立'}**、予測P1・P3は外れ（`experiments/results/gd_summary.json`） |")
+        rows.append(f"| 較正の手順は2か所目（倉庫）では誤停止の保証は成り立つが、見逃しは減らない（評価GD、新しい{gdj_['n_fire_worlds']}世界） | 火へ配達：較正した閾値（{tau_}）**{gdc_['k']}/{gdc_['n']}**（95%上限 {pct(gdc_['upper95_exact'])}、あらかじめ決めた上限25%）、既定 0.05 は {gdv_['k']}/{gdv_['n']}{'' if better_ else '（差なし）'}、火のない世界の誤停止 {gdj_['arms']['cal']['fire_free']['k']}/{gdj_['arms']['cal']['fire_free']['n']}。倉庫の閉ループでは、火のない世界のスコアのばらつきが画像評価より大きく、小さな火のスコアがその範囲に重なる | GD1・GD2：**{'成立' if gdok_ else '一部不成立'}**、予測P1・P3は外れ（`experiments/results/gd_summary.json`） |")
     except (TypeError, KeyError):
         pass
     gvj_ = jl('gv_summary.json')
@@ -632,18 +632,18 @@ def section_key(e, t):
         gvc_, gvv_, gvw_, gvk_, gvp_ = gvj_['arms']['wcal']['fire'], gvj_['arms']['v36']['fire'], gvj_['arms']['wide']['fire'], gvj_['criteria'], gvj_['paired']['v36_vs_wcal']
         gvok_ = gvk_['GV1_wcal_upper_at_most_15pct'] and gvk_['GV2_false_stops_at_most_2']
         gvtau_ = json.loads((ROOT / 'experiments/gv_site_cal.json').read_text())['hazard_threshold']
-        rows.append(f"| 倉庫で視点を0.8 mに広げ、同じ視点で閾値を較正した閉ループ評価（評価GV、新しい{gvj_['n_fire_worlds']}世界） | 火へ配達：広い視点＋較正（{gvtau_}）**{gvc_['k']}/{gvc_['n']}**（95%上限 {pct(gvc_['upper95_exact'])}、登録した上限15%）、既定 v3.6 は {gvv_['k']}/{gvv_['n']}、視点だけ広げた場合は {gvw_['k']}/{gvw_['n']}、火のない世界の誤停止 {gvj_['arms']['wcal']['fire_free']['k']}/{gvj_['arms']['wcal']['fire_free']['n']}。対の比較（広い視点＋較正のみ {gvp_['discordant_wcal_only']}・既定のみ {gvp_['discordant_v36_only']}）は McNemar p={gvp_['mcnemar_p']:.3f}、時間の増加（中央値）{gvk_['time_cost_s']} 秒 | GV1・GV2：**{'成立' if gvok_ else '一部不成立'}**（`experiments/results/gv_summary.json`） |")
+        rows.append(f"| 倉庫で視点を0.8 mに広げ、同じ視点で閾値を較正した閉ループ評価（評価GV、新しい{gvj_['n_fire_worlds']}世界） | 火へ配達：広い視点＋較正（{gvtau_}）**{gvc_['k']}/{gvc_['n']}**（95%上限 {pct(gvc_['upper95_exact'])}、あらかじめ決めた上限15%）、既定 v3.6 は {gvv_['k']}/{gvv_['n']}、視点だけ広げた場合は {gvw_['k']}/{gvw_['n']}、火のない世界の誤停止 {gvj_['arms']['wcal']['fire_free']['k']}/{gvj_['arms']['wcal']['fire_free']['n']}。対の比較（広い視点＋較正のみ {gvp_['discordant_wcal_only']}・既定のみ {gvp_['discordant_v36_only']}）は McNemar p={gvp_['mcnemar_p']:.3f}、時間の増加（中央値）{gvk_['time_cost_s']} 秒 | GV1・GV2：**{'成立' if gvok_ else '一部不成立'}**（`experiments/results/gv_summary.json`） |")
     except (TypeError, KeyError):
         pass
     gvs_ = gv_stop_facts()
     if gvs_ and not gvj_:      # GV stopped at its registered calibration stop rule: no trial was run
-        rows.append(f"| 倉庫で視点を0.8 mに広げれば、較正した閾値で見逃しを減らせるか（評価GV：登録した停止規則で中止、本番は未実施） | 火のない倉庫{gvs_['m']}世界で較正すると閾値が {gvs_['tau']}（既定 0.05 以上）になり、既定 0.05 のままでも {gvs_['above']} 世界が止まる。0.4 m の視点（GD）では 0.028。最大の得点は薬の箱の右側の視点（赤い十字が画面を占める）に集中した（事後の観察） | 主張 GV1・GV2 は検証していない（失敗した主張には数えない）。前提（0.8 m で下げられる）は外れた（`experiments/results/gv_calibration.json`） |")
+        rows.append(f"| 倉庫で視点を0.8 mに広げれば、較正した閾値で見逃しを減らせるか（評価GV：あらかじめ決めた停止規則で中止、本番は未実施） | 火のない倉庫{gvs_['m']}世界で較正すると閾値が {gvs_['tau']}（既定 0.05 以上）になり、既定 0.05 のままでも {gvs_['above']} 世界が止まる。0.4 m の視点（GD）では 0.028。最大の得点は薬の箱の右側の視点（赤い十字が画面を占める）に集中した（事後の観察） | 主張 GV1・GV2 は検証していない（失敗した主張には数えない）。前提（0.8 m で下げられる）は外れた（`experiments/results/gv_calibration.json`） |")
     qi_ = jl('qi_summary.json')
     try:      # generated and photo-realised images scored by the frozen gate (registered QI1, QI2, QI3, QI3c; outcome-neutral wording: every figure comes from the summary)
         qr_, qb_ = qi_['R'], qi_['xd_baseline']['miss']
         qg_ = qi_['G']['excluded']
         qc_ = qi_['claims']
-        rows.append(f"| 画像生成モデルで写実化した画像でも、凍結したゲートは火を見つけるか（評価QI） | 写実化したフレームの見逃し {qr_['miss']['k']}/{qr_['miss']['n']}（上限 {pct(qr_['miss']['upper95'])}、元のシミュレータ画像 {qb_['k']}/{qb_['n']}、登録した上限 20）、火なし世界の誤停止 {qr_['false_stops']['k']}/{qr_['false_stops']['n']}。描き足した火は {qg_['n_excluded']}/{qg_['n_generated']} 枚が炎の色を持たず登録した停止規則で止まり、中立の対照編集は {qi_['C']['flips']}/{qi_['C']['n']} の対の場面を危険と判定させた（生成器が煙を描いたため）。シミュレータの灰色の煙の円盤が写実的な背景に残ると見逃す | 誤停止のみ **{'支持' if qc_.get('QI3_realised_false_stops_small') else '不成立'}**、見逃し（QI1）**{'支持' if qc_.get('QI1_realised_miss_not_much_worse') else '不成立'}**、生成した火（QI2）**{'支持' if qc_.get('QI2_generated_fire_miss_rate') else '不成立（停止規則）'}**、対照編集（QI3c）**{'支持' if qc_.get('QI3c_control_edits_do_not_create_hazards') else '不成立'}** |")
+        rows.append(f"| 画像生成モデルで写実化した画像でも、凍結したゲートは火を見つけるか（評価QI） | 写実化したフレームの見逃し {qr_['miss']['k']}/{qr_['miss']['n']}（上限 {pct(qr_['miss']['upper95'])}、元のシミュレータ画像 {qb_['k']}/{qb_['n']}、あらかじめ決めた上限 20）、火なし世界の誤停止 {qr_['false_stops']['k']}/{qr_['false_stops']['n']}。描き足した火は {qg_['n_excluded']}/{qg_['n_generated']} 枚が炎の色を持たずあらかじめ決めた停止規則で止まり、中立の対照編集は {qi_['C']['flips']}/{qi_['C']['n']} の対の場面を危険と判定させた（生成器が煙を描いたため）。シミュレータの灰色の煙の円盤が写実的な背景に残ると見逃す | 誤停止のみ **{'支持' if qc_.get('QI3_realised_false_stops_small') else '不成立'}**、見逃し（QI1）**{'支持' if qc_.get('QI1_realised_miss_not_much_worse') else '不成立'}**、生成した火（QI2）**{'支持' if qc_.get('QI2_generated_fire_miss_rate') else '不成立（停止規則）'}**、対照編集（QI3c）**{'支持' if qc_.get('QI3c_control_edits_do_not_create_hazards') else '不成立'}** |")
     except (TypeError, KeyError):
         pass
     jh_ = jl('jh_summary.json')
@@ -654,14 +654,14 @@ def section_key(e, t):
         cl_ = jf_['clusters']
         jv_ = (jl('jh_views.json') or {}).get('viewsets', {})
         six_ = jv_.get('all_six', {}).get('scorers', {})
-        rows.append(f"| 別系統のAIを「拒否権だけの第2の審判」にすると、見逃しは減るか（評価JH、事後の要因分析つき） | 見逃し {jc_['miss_Q']}→{jc_['miss_joint']}（登録した目標 {(2 * jc_['miss_Q']) // 3} 以下）、誤停止 {jc_['false_stops_union']}/{jx_['n']['test_clean']}。**元世界で数えると {cl_['gate_missed_bases']}→{cl_['gate_missed_bases'] - cl_['rescued_bases_by_judge'][jx_['selected']]}**（減少は1つの世界の複製）。残りは全審判が見逃す知覚の限界。見え方を増やす方が効く（ゲート単独：提出版3視点 {six_.get('qwen35', {}).get('miss', '?') if False else jv_['v36_FLR_0.4m']['scorers']['qwen35']['miss']} → 6視点 {six_['qwen35']['miss']}、事後）。研究JIで新しい世界で再現を検証する | **{'支持' if jx_['JH1']['holds'] else '不成立'}**（JH1） |")
+        rows.append(f"| 別系統のAIを「拒否権だけの第2の審判」にすると、見逃しは減るか（評価JH、事後の要因分析つき） | 見逃し {jc_['miss_Q']}→{jc_['miss_joint']}（あらかじめ決めた目標 {(2 * jc_['miss_Q']) // 3} 以下）、誤停止 {jc_['false_stops_union']}/{jx_['n']['test_clean']}。**元世界で数えると {cl_['gate_missed_bases']}→{cl_['gate_missed_bases'] - cl_['rescued_bases_by_judge'][jx_['selected']]}**（減少は1つの世界の複製）。残りは全審判が見逃す知覚の限界。見え方を増やす方が効く（ゲート単独：提出版3視点 {six_.get('qwen35', {}).get('miss', '?') if False else jv_['v36_FLR_0.4m']['scorers']['qwen35']['miss']} → 6視点 {six_['qwen35']['miss']}、事後）。研究JIで新しい世界で再現を検証する | **{'支持' if jx_['JH1']['holds'] else '不成立'}**（JH1） |")
     except (TypeError, KeyError):
         pass
     gm_ = jl('gm_summary.json')
     try:      # GL transferred to depot worlds with one realism feature off (registered GM1-GM3; outcome-neutral wording: every figure comes from the summary)
         gmv_, gmk_, gmc_ = gm_['arms']['v36']['fire'], gm_['arms']['left']['fire'], gm_['criteria']
         gmok_ = gmc_['GM1_paired_one_sided_p_below_005_and_fewer'] and gmc_['GM2_left_upper_at_most_15pct'] and gmc_['GM3_false_stops_at_most_3']
-        rows.append(f"| 左のみ0.8 mの見回しは、現実感の要素を1つ外した倉庫（照明・散らかり・周囲・台）でも効くか（評価GM、新しい{gm_['n_fire_worlds']}世界、再較正なし） | 火へ配達：v3.6 **{gmv_['k']}/{gmv_['n']}**（95%上限 {pct(gmv_['upper95_exact'])}）、左のみ **{gmk_['k']}/{gmk_['n']}**（上限 {pct(gmk_['upper95_exact'])}、登録した上限15%）。対の比較は v3.6 のみ {gm_['paired']['discordant_v36_only']}・左のみ {gm_['paired']['discordant_left_only']}（片側 McNemar p={gm_['paired']['mcnemar_one_sided_p']:.5f}）、火のない世界の誤停止 {gm_['arms']['left']['fire_free']['k']}/{gm_['arms']['left']['fire_free']['n']}。変種ごとの内訳は補足 | **{'支持' if gmok_ else '不成立'}**（GM1〜GM3） |")
+        rows.append(f"| 左のみ0.8 mの見回しは、現実感の要素を1つ外した倉庫（照明・散らかり・周囲・台）でも効くか（評価GM、新しい{gm_['n_fire_worlds']}世界、再較正なし） | 火へ配達：v3.6 **{gmv_['k']}/{gmv_['n']}**（95%上限 {pct(gmv_['upper95_exact'])}）、左のみ **{gmk_['k']}/{gmk_['n']}**（上限 {pct(gmk_['upper95_exact'])}、あらかじめ決めた上限15%）。対の比較は v3.6 のみ {gm_['paired']['discordant_v36_only']}・左のみ {gm_['paired']['discordant_left_only']}（片側 McNemar p={gm_['paired']['mcnemar_one_sided_p']:.5f}）、火のない世界の誤停止 {gm_['arms']['left']['fire_free']['k']}/{gm_['arms']['left']['fire_free']['n']}。変種ごとの内訳は補足 | **{'支持' if gmok_ else '不成立'}**（GM1〜GM3） |")
     except (TypeError, KeyError):
         pass
     ji_ = jl('ji_summary.json')
@@ -669,7 +669,7 @@ def section_key(e, t):
         jv6_, jv3_ = ji_['viewsets']['all_six']['scorers'], ji_['viewsets']['v36_FLR']['scorers']
         jg6_, jg3_, jj4_ = jv6_['qwen35'], jv3_['qwen35'], jv6_['qwen35+internvl3']
         jc_ = ji_['claims']
-        rows.append(f"| 視点を6つに増やすと見逃しは減るか。拒否権の審判を足すとさらに減るか（評価JI、新しい{ji_['n_fire']}世界と火を取り除いた同じ場面、画像単位、閾値は凍結） | 見逃し：3視点 **{jg3_['miss']}/{ji_['n_fire']}** → 6視点 **{jg6_['miss']}/{ji_['n_fire']}**（上限 {pct(jg6_['miss_upper95'])}）、誤停止 {jg3_['false_stops']}→{jg6_['false_stops']}/{ji_['n_clean']}。対の比較 p={ji_['paired_six_vs_three']['mcnemar_one_sided_p']:.4f}。6視点＋InternVL3の拒否権：見逃し {jj4_['miss']}、誤停止 {jj4_['false_stops']}。{'登録した主張JI1〜JI4はすべて成立' if all(jc_.values()) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k, v in jc_.items() if not v) + '）'} | [PREREGISTRATION_JI](experiments/PREREGISTRATION_JI.md)、[結果](experiments/results/ji_summary.json) |")
+        rows.append(f"| 視点を6つに増やすと見逃しは減るか。拒否権の審判を足すとさらに減るか（評価JI、新しい{ji_['n_fire']}世界と火を取り除いた同じ場面、画像単位、閾値は凍結） | 見逃し：3視点 **{jg3_['miss']}/{ji_['n_fire']}** → 6視点 **{jg6_['miss']}/{ji_['n_fire']}**（上限 {pct(jg6_['miss_upper95'])}）、誤停止 {jg3_['false_stops']}→{jg6_['false_stops']}/{ji_['n_clean']}。対の比較 p={ji_['paired_six_vs_three']['mcnemar_one_sided_p']:.4f}。6視点＋InternVL3の拒否権：見逃し {jj4_['miss']}、誤停止 {jj4_['false_stops']}。{'あらかじめ決めた主張JI1〜JI4はすべて成立' if all(jc_.values()) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k, v in jc_.items() if not v) + '）'} | [PREREGISTRATION_JI](experiments/PREREGISTRATION_JI.md)、[結果](experiments/results/ji_summary.json) |")
     except (TypeError, KeyError):
         pass
     jc_ = jl('ji_cascade_summary.json')
@@ -683,21 +683,21 @@ def section_key(e, t):
     try:      # JK replicated on fresh worlds with a concurrent control (registered JL1-JL3; outcome-neutral wording: every figure comes from the summary)
         jla_, jlv_, jlc_ = jlr_['arms']['adapt'], jlr_['arms']['v36'], jlr_['criteria']
         jlkeys_ = ('JL1_paired_one_sided_p_below_005_and_fewer', 'JL2_adapt_upper_at_most_10pct', 'JL3_false_stops_at_most_3')
-        rows.append(f"| 追加視点の結果は、新しい世界で、v3.6と交互に同時期に走らせても再現するか（評価JL、新しい{jlr_['n_fire_worlds']}世界） | 火へ配達：v3.6 **{jlv_['fire']['k']}/{jlv_['fire']['n']}** → 追加視点 **{jla_['fire']['k']}/{jla_['fire']['n']}**（95%上限 {pct(jla_['fire']['upper95_exact'])}、登録した上限10%）、対の比較 v3.6のみ {jlr_['paired']['discordant_v36_only']}・追加視点のみ {jlr_['paired']['discordant_adapt_only']}（片側 p={jlr_['paired']['mcnemar_one_sided_p']:.4f}）、火なし世界の誤停止 {jla_['fire_free']['k']}/{jla_['fire_free']['n']}（登録した上限3件） | {'JL1〜JL3：**支持**' if all(jlc_[k] for k in jlkeys_) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k in jlkeys_ if not jlc_[k]) + '）'} |")
+        rows.append(f"| 追加視点の結果は、新しい世界で、v3.6と交互に同時期に走らせても再現するか（評価JL、新しい{jlr_['n_fire_worlds']}世界） | 火へ配達：v3.6 **{jlv_['fire']['k']}/{jlv_['fire']['n']}** → 追加視点 **{jla_['fire']['k']}/{jla_['fire']['n']}**（95%上限 {pct(jla_['fire']['upper95_exact'])}、あらかじめ決めた上限10%）、対の比較 v3.6のみ {jlr_['paired']['discordant_v36_only']}・追加視点のみ {jlr_['paired']['discordant_adapt_only']}（片側 p={jlr_['paired']['mcnemar_one_sided_p']:.4f}）、火なし世界の誤停止 {jla_['fire_free']['k']}/{jla_['fire_free']['n']}（あらかじめ決めた上限3件） | {'JL1〜JL3：**支持**' if all(jlc_[k] for k in jlkeys_) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k in jlkeys_ if not jlc_[k]) + '）'} |")
     except (TypeError, KeyError):
         pass
     jk_ = jl('jk_summary.json')
     try:      # suspicion-triggered extra views in the closed loop at the depot (registered JK1-JK3; outcome-neutral wording: every figure comes from the summary)
         jka_, jkv_, jkc_ = jk_['arms']['adapt'], jk_['arms']['v36'], jk_['criteria']
         jkkeys_ = ('JK1_paired_one_sided_p_below_005_and_fewer', 'JK2_adapt_upper_at_most_10pct', 'JK3_false_stops_at_most_3')
-        rows.append(f"| 疑わしいときだけ左右0.8 mから撮り直す方式（追加視点、I-20。手前の視点は予行で外した）は、既定の閾値のまま倉庫で火への配達を減らすか（評価JK、評価GMと同じ{jk_['n_fire_worlds']}世界、比較相手のGMは別時刻の記録） | 火へ配達：v3.6 **{jkv_['fire']['k']}/{jkv_['fire']['n']}** → 追加視点 **{jka_['fire']['k']}/{jka_['fire']['n']}**（95%上限 {pct(jka_['fire']['upper95_exact'])}、登録した上限10%）、火なし世界の誤停止 {jka_['fire_free']['k']}/{jka_['fire_free']['n']}（登録した上限3件）。追加視点は構造上、拒否を増やすだけ | {'JK1〜JK3：**支持**' if all(jkc_[k] for k in jkkeys_) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k in jkkeys_ if not jkc_[k]) + '）'} |")
+        rows.append(f"| 疑わしいときだけ左右0.8 mから撮り直す方式（追加視点、I-20。手前の視点は予行で外した）は、既定の閾値のまま倉庫で火への配達を減らすか（評価JK、評価GMと同じ{jk_['n_fire_worlds']}世界、比較相手のGMは別時刻の記録） | 火へ配達：v3.6 **{jkv_['fire']['k']}/{jkv_['fire']['n']}** → 追加視点 **{jka_['fire']['k']}/{jka_['fire']['n']}**（95%上限 {pct(jka_['fire']['upper95_exact'])}、あらかじめ決めた上限10%）、火なし世界の誤停止 {jka_['fire_free']['k']}/{jka_['fire_free']['n']}（あらかじめ決めた上限3件）。追加視点は構造上、拒否を増やすだけ | {'JK1〜JK3：**支持**' if all(jkc_[k] for k in jkkeys_) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k in jkkeys_ if not jkc_[k]) + '）'} |")
     except (TypeError, KeyError):
         pass
     jm_ = jl('jm_summary.json')
     try:      # the paired smoke-plume ablation (registered JM1-JM3; outcome-neutral wording: every figure comes from the summary)
         jmv_, jma_, jmc_ = jm_['arms']['v36'], jm_['arms']['adapt'], jm_['criteria']
         jmkeys_ = ('JM1_smoke_increases_v36_misses', 'JM2_extra_views_reduce_misses_in_smoke', 'JM3_adapt_smoke_at_most_4_of_60')
-        rows.append(f"| 煙の有無だけが違う対の場面の世界で、見逃しは煙のせいか・追加視点は煙の中でも効くか（評価JM、新しい{jm_['n_fire_worlds']}組） | 提出版の火への配達：煙あり **{jmv_['smoke']['k']}/{jmv_['smoke']['n']}**・煙なし **{jmv_['no_smoke']['k']}/{jmv_['no_smoke']['n']}**。追加視点：煙あり **{jma_['smoke']['k']}/{jma_['smoke']['n']}**（95%上限 {pct(jma_['smoke']['upper95_exact'])}、登録した上限4件）・煙なし {jma_['no_smoke']['k']}/{jma_['no_smoke']['n']} | {'JM1〜JM3：**支持**' if all(jmc_[k] for k in jmkeys_) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k in jmkeys_ if not jmc_[k]) + '）'} |")
+        rows.append(f"| 煙の有無だけが違う対の場面の世界で、見逃しは煙のせいか・追加視点は煙の中でも効くか（評価JM、新しい{jm_['n_fire_worlds']}組） | 提出版の火への配達：煙あり **{jmv_['smoke']['k']}/{jmv_['smoke']['n']}**・煙なし **{jmv_['no_smoke']['k']}/{jmv_['no_smoke']['n']}**。追加視点：煙あり **{jma_['smoke']['k']}/{jma_['smoke']['n']}**（95%上限 {pct(jma_['smoke']['upper95_exact'])}、あらかじめ決めた上限4件）・煙なし {jma_['no_smoke']['k']}/{jma_['no_smoke']['n']} | {'JM1〜JM3：**支持**' if all(jmc_[k] for k in jmkeys_) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k in jmkeys_ if not jmc_[k]) + '）'} |")
     except (TypeError, KeyError):
         pass
     ij_ = jl('ij_summary.json')
@@ -705,20 +705,20 @@ def section_key(e, t):
         ijp_, ijc_ = ij_['scorers']['probe'], ij_['criteria']
         ijb_ = max(ij_['scorers']['zero_shot_yes']['auroc'], ij_['scorers']['closed_set_p_other']['auroc'])
         ijkeys_ = ('IJ1_probe_auroc_beats_best_baseline_by_0.05', 'IJ2_probe_pass_through_at_most_15pct', 'IJ3_probe_false_refusal_at_most_8pct')
-        rows.append(f"| 依頼解析モデルの内部状態から「知らない行き先」を見分けられるか（評価IJ、依頼文{ij_['n_dev'] + ij_['n_test']}件、地名の系統ごとに検証用を分離、提出版には未組み込み） | AUROC：内部状態の判定器 **{ijp_['auroc']:.3f}**、モデル自身の確率の最良 {ijb_:.3f}（登録した差0.05）。知らない行き先の素通り **{pct(ijp_['unknown_pass_through'])}**（上限15%）、登録済みの行き先の拒否 {pct(ijp_['false_refusal'])}（上限8%）、リストの規則の素通り {pct(ij_['scorers']['list_rule']['unknown_pass_through'])} | {'IJ1〜IJ3：**支持**' if all(ijc_[k] for k in ijkeys_) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k in ijkeys_ if not ijc_[k]) + '）'} |")
+        rows.append(f"| 依頼解析モデルの内部状態から「知らない行き先」を見分けられるか（評価IJ、依頼文{ij_['n_dev'] + ij_['n_test']}件、地名の系統ごとに検証用を分離、提出版には未組み込み） | AUROC：内部状態の判定器 **{ijp_['auroc']:.3f}**、モデル自身の確率の最良 {ijb_:.3f}（あらかじめ決めた差0.05）。知らない行き先の素通り **{pct(ijp_['unknown_pass_through'])}**（上限15%）、登録済みの行き先の拒否 {pct(ijp_['false_refusal'])}（上限8%）、リストの規則の素通り {pct(ij_['scorers']['list_rule']['unknown_pass_through'])} | {'IJ1〜IJ3：**支持**' if all(ijc_[k] for k in ijkeys_) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k in ijkeys_ if not ijc_[k]) + '）'} |")
     except (TypeError, KeyError):
         pass
     ih_ = jl('ih_summary.json')
     try:      # the destination rule for the request parser on a second fresh set (registered IH1-IH3; outcome-neutral wording: every figure comes from the summary)
         ihs_, ihv_, ihc_ = ih_['strict'], ih_['v36'], ih_['criteria']
         ihkeys_ = ('IH1_strict_unsafe_at_most_5', 'IH2_strict_accepted_at_least_80pct', 'IH3_strict_fewer_unsafe_than_v36')
-        rows.append(f"| 知らない行き先を断る規則で、依頼文の誤受理は減るか（評価IH、新しい依頼文{ih_['n']}件、規則は提出版では既定で無効） | 危険な結果：提出版 **{ihv_['unsafe']['k']}/{ih_['n']}** → 規則つき **{ihs_['unsafe']['k']}/{ih_['n']}**（登録した上限5件以下）、正当な依頼の受理 {ihs_['accepted_right_supply']['k']}/{ihs_['accepted_right_supply']['n']}（上限80%）。別の行き先の依頼の誤受理 {ihv_['wrong_destination_accepted']['k']}→{ihs_['wrong_destination_accepted']['k']}/{ihs_['wrong_destination_accepted']['n']}（リストにない場所を含む） | {'IH1〜IH3：**支持**' if all(ihc_[k] for k in ihkeys_) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k in ihkeys_ if not ihc_[k]) + '）'} |")
+        rows.append(f"| 知らない行き先を断る規則で、依頼文の誤受理は減るか（評価IH、新しい依頼文{ih_['n']}件、規則は提出版では既定で無効） | 危険な結果：提出版 **{ihv_['unsafe']['k']}/{ih_['n']}** → 規則つき **{ihs_['unsafe']['k']}/{ih_['n']}**（あらかじめ決めた上限5件以下）、正当な依頼の受理 {ihs_['accepted_right_supply']['k']}/{ihs_['accepted_right_supply']['n']}（上限80%）。別の行き先の依頼の誤受理 {ihv_['wrong_destination_accepted']['k']}→{ihs_['wrong_destination_accepted']['k']}/{ihs_['wrong_destination_accepted']['n']}（リストにない場所を含む） | {'IH1〜IH3：**支持**' if all(ihc_[k] for k in ihkeys_) else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k in ihkeys_ if not ihc_[k]) + '）'} |")
     except (TypeError, KeyError):
         pass
     ig_ = jl('ig_summary.json')
     try:      # the frozen request parser on fresh operator texts (registered IG1-IG2; outcome-neutral wording: every figure comes from the summary)
         igc_ = ig_['criteria']
-        rows.append(f"| 日本語・英語・音声認識風の新しい依頼文{ig_['n']}件を、凍結した依頼解析は正しく読むか（評価IG） | 取り違え・受理すべきでない依頼の受理 **{ig_['IG1_unsafe']['k']}/{ig_['n']}**（登録した上限2件以下）、正当な依頼の受理 **{ig_['IG2_accepted_right_supply']['k']}/{ig_['IG2_accepted_right_supply']['n']}**（上限80%）。音声認識風 {ig_['per_category']['voice_asr']['good']}/{ig_['per_category']['voice_asr']['n']}、英語 {ig_['per_category']['english']['good']}/{ig_['per_category']['english']['n']}。聞き返し（拒否）は安全側の誤り | {'IG1・IG2：**支持**' if igc_['IG1_unsafe_at_most_2'] and igc_['IG2_accepted_at_least_80pct'] else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k in ('IG1_unsafe_at_most_2', 'IG2_accepted_at_least_80pct') if not igc_[k]) + '）'} |")
+        rows.append(f"| 日本語・英語・音声認識風の新しい依頼文{ig_['n']}件を、凍結した依頼解析は正しく読むか（評価IG） | 取り違え・受理すべきでない依頼の受理 **{ig_['IG1_unsafe']['k']}/{ig_['n']}**（あらかじめ決めた上限2件以下）、正当な依頼の受理 **{ig_['IG2_accepted_right_supply']['k']}/{ig_['IG2_accepted_right_supply']['n']}**（上限80%）。音声認識風 {ig_['per_category']['voice_asr']['good']}/{ig_['per_category']['voice_asr']['n']}、英語 {ig_['per_category']['english']['good']}/{ig_['per_category']['english']['n']}。聞き返し（拒否）は安全側の誤り | {'IG1・IG2：**支持**' if igc_['IG1_unsafe_at_most_2'] and igc_['IG2_accepted_at_least_80pct'] else '成立しなかった主張あり（' + '、'.join(k.split('_')[0] for k in ('IG1_unsafe_at_most_2', 'IG2_accepted_at_least_80pct') if not igc_[k]) + '）'} |")
     except (TypeError, KeyError):
         pass
     qj_ = jl('qj_summary.json')
@@ -731,7 +731,7 @@ def section_key(e, t):
     try:      # left-only 0.8 m look-around at the depot, fresh worlds (registered GL1-GL3; outcome-neutral wording: every figure comes from the summary)
         glk_, glv_, glf_, glp_, glc_ = gl_['arms']['left']['fire'], gl_['arms']['v36']['fire'], gl_['arms']['left']['fire_free'], gl_['paired'], gl_['criteria']
         glok_ = glc_['GL1_paired_one_sided_p_below_005_and_fewer'] and glc_['GL2_left_upper_at_most_10pct'] and glc_['GL3_false_stops_at_most_2']
-        rows.append(f"| 倉庫で左だけ0.8 mの見回しにすると、見逃しは減るか（評価GL、新しい{gl_['n_fire_worlds']}世界、サイト固有の選択肢） | 火へ配達：v3.6 **{glv_['k']}/{glv_['n']}**（95%上限 {pct(glv_['upper95_exact'])}）、左0.8 m＋較正閾値0.028 **{glk_['k']}/{glk_['n']}**（上限 {pct(glk_['upper95_exact'])}、登録した上限10%）。対の比較は v3.6 のみ {glp_['discordant_v36_only']}・左のみ {glp_['discordant_left_only']}（片側 McNemar p={glp_['mcnemar_one_sided_p']:.5f}）、火のない世界の誤停止 {glf_['k']}/{glf_['n']}。効くのは正面から見えない火（側方のみ {glv_['strata']['side_only']['k']}/{glv_['strata']['side_only']['n']} → {glk_['strata']['side_only']['k']}/{glk_['strata']['side_only']['n']}）。幾何と閾値を同時に変えた比較で、左のみは箱の向きに依存する。既定は v3.6 のまま | **{'支持' if glok_ else '不成立'}**（GL1〜GL3） |")
+        rows.append(f"| 倉庫で左だけ0.8 mの見回しにすると、見逃しは減るか（評価GL、新しい{gl_['n_fire_worlds']}世界、サイト固有の選択肢） | 火へ配達：v3.6 **{glv_['k']}/{glv_['n']}**（95%上限 {pct(glv_['upper95_exact'])}）、左0.8 m＋較正閾値0.028 **{glk_['k']}/{glk_['n']}**（上限 {pct(glk_['upper95_exact'])}、あらかじめ決めた上限10%）。対の比較は v3.6 のみ {glp_['discordant_v36_only']}・左のみ {glp_['discordant_left_only']}（片側 McNemar p={glp_['mcnemar_one_sided_p']:.5f}）、火のない世界の誤停止 {glf_['k']}/{glf_['n']}。効くのは正面から見えない火（側方のみ {glv_['strata']['side_only']['k']}/{glv_['strata']['side_only']['n']} → {glk_['strata']['side_only']['k']}/{glk_['strata']['side_only']['n']}）。幾何と閾値を同時に変えた比較で、左のみは箱の向きに依存する。既定は v3.6 のまま | **{'支持' if glok_ else '不成立'}**（GL1〜GL3） |")
     except (TypeError, KeyError):
         pass
     iff_ = advice_numbers.if_facts()
@@ -748,7 +748,7 @@ def section_key(e, t):
     vis = [r for r in rows if any(k in r for k in front)]
     rest = [r for r in rows if r not in vis]
     if rest:
-        return '\n'.join(head + vis + ['', f'<details><summary>残りの事前登録した評価 {len(rest)} 件（成立しなかったものも省略せず掲載）</summary>', ''] + head + rest + ['', '</details>', '', honest])
+        return '\n'.join(head + vis + ['', f'<details><summary>残りの計画を事前に決めた評価 {len(rest)} 件（成立しなかったものも省略せず掲載）</summary>', ''] + head + rest + ['', '</details>', '', honest])
     return '\n'.join(head + rows + ['', honest])
 
 
@@ -768,7 +768,7 @@ def section_novelty():
     try:
         gc = g['per_config']
         nf = g['primary']['n_world_pairs_fire_perceivable']
-        gtxt = (f"正面で判断し切れない小さな火に、モデルを大きくせず**横へ動いて撮り直す**。事前登録の対比較で、火があるのに配達した回数 "
+        gtxt = (f"正面で判断し切れない小さな火に、モデルを大きくせず**横へ動いて撮り直す**。事前に決めた対比較で、火があるのに配達した回数 "
                 f"**{gc['B']['wrong_deliveries']}/{nf} → {gc['C']['wrong_deliveries']}/{nf}**（p={g['primary']['mcnemar_p']:.3f}）、火の無い世界の誤った停止 {gc['C']['false_hazard_stops']}/{gc['C']['fire_free_trials']}")
     except (TypeError, KeyError):
         gtxt = f'横から撮り直す能動知覚（評価G）：{PENDING}'
@@ -776,7 +776,7 @@ def section_novelty():
 
 一つの流れで読む：確かめる → 誤りの大半（隠れた火）は横から見直す → 聞いた情報は参考にするが、確認は省かない → 保証の対象外は測るだけ。
 
-**試行錯誤：失敗が次の研究を生んだ**（事前登録して成立しなかった主張を消さずに、次の一手とつないだもの。結果は結果ファイルから自動で入る。I-149）
+**試行錯誤の記録：成立しなかった主張と、その後の対応**（計画を事前に決めて成立しなかった主張を消さずに、次の一手とつないだもの。結果は結果ファイルから自動で入る。I-149）
 
 {trial_chain_md()}
 
@@ -795,7 +795,7 @@ def section_novelty():
 
   * **ランダムな変化での再検証（評価V）**：{v_idea_text()}
 
-    ![評価V：登録した予測区間（帯）と閉ループの実測（点）](docs/figures/v_prediction.png)
+    ![評価V：あらかじめ決めた予測区間（帯）と閉ループの実測（点）](docs/figures/v_prediction.png)
 
   * **機械検証**（[I-23](docs/IMPROVEMENT_LOG.md)）：{i23_text() or '結果ファイルなし'}。証明が対象にするのは、確認の判定・助言の適用・訪問ループという小さな純関数で、助言の長さも画像も任意。
   * **必要十分**（補足 S10「必要性」）：{necessity_text()}
@@ -812,7 +812,7 @@ def section_novelty():
   ![倉庫の世界の描画プレビュー（I-21）。上から 通常・煙・暗い照明と障害物、列は別のカメラ位置。描画の確認であり結果ではない](docs/figures/depot_preview_sheet.jpg)
 
 * **試したが採用しなかったもの**：2つのAI（Jev役 Clef-Flash＋Qwen）の2モデル確認（[I-16](docs/IMPROVEMENT_LOG.md)）。2つは系統を共有する（Clef-Flash は Qwen3.5-9B の追加学習版）ので失敗が相関し得て、評価Jでは単独より安全にならず、既定には採用しなかった（[結果](#結果)）。
-* **事前登録と時系列監査**（[論文](docs/paper/main.pdf)付録）：条件・閾値・解析を結果を見る前にコミットし、{audit_text()}。支持されなかった主張も、そのまま載せる。
+* **事前に条件を決めた計画と時系列監査**（[論文](docs/paper/main.pdf)付録）：条件・閾値・解析を結果を見る前にコミットし、{audit_text()}。支持されなかった主張も、そのまま載せる。
 * **実用性：出動ごとに1枚の現場報告を生成**（[I-18](docs/IMPROVEMENT_LOG.md)）：依頼・判断の理由・確認に使った写真と確率・次にしてほしいことを1枚にまとめ、現場の人が結論だけ読めば動ける。生成は `scripts/make_operator_report.py`、全出動での自動生成は評価終了後に組み込む。
 
 ![出動の記録から生成した1枚の現場報告（隠れた火で停止した例）](docs/figures/operator_report_hidden_fire.png)"""
@@ -847,10 +847,10 @@ def section_zpr():
             fz = p2['test_at_frozen_tau_0.05'][p2['chosen_wording']]
             p2t = (f"較正に使っていない400枚で、再現率 {ct['recall']['k']}/{ct['recall']['n']}、誤警報 {ct['false_alarm']['k']}/{ct['false_alarm']['n']}"
                    f"（{p2['chosen_wording']}、τ_h={p2['chosen_tau']}。固定の0.05では {fz['recall']['k']}/{fz['recall']['n']}・{fz['false_alarm']['k']}/{fz['false_alarm']['n']}）。"
-                   f"登録した基準（再現率0.90以上かつ誤警報0.20以下）：**{'成立' if p2['claim_supported'] else '不成立'}**")
+                   f"あらかじめ決めた基準（再現率0.90以上かつ誤警報0.20以下）：**{'成立' if p2['claim_supported'] else '不成立'}**")
         except (TypeError, KeyError):
             if p2 and p2.get('chosen_wording') is None and 'claim_supported' in p2:
-                p2t = '較正画像では閾値を決められず、登録した基準は **不成立**'
+                p2t = '較正画像では閾値を決められず、あらかじめ決めた基準は **不成立**'
         rows.append(f"| 評価P（実写真） | Gazebo外の実写真400枚（D-Fire）で火・煙の問いを検証 | 火・煙のある画像の検出 **{r['k']}/{r['n']}**（95%CI {pct(r['ci95'][0])}〜{pct(r['ci95'][1])}）、"
                     f"火の無い画像の誤警報 **{fa['k']}/{fa['n']}**（{pct(fa['ci95'][0])}〜{pct(fa['ci95'][1])}）。P2（現場の火の無い画像で閾値を較正）：{p2t} |")
         notes.append(f"* 評価P：見逃しはほぼ無いが、火の無い実写真（霞・低い雲・夕焼け・光るテント）への誤警報は {fa['k']}/{fa['n']} と多い。**そのまま実機に使える水準ではなく、現場ごとの閾値の較正が必要**（P2 で「較正した閾値が未使用の写真で通用するか」を登録済み）。誤警報は停止になるだけで、誤配達にはならない側の失敗")
@@ -863,7 +863,7 @@ def section_zpr():
         cl = r.get('clean', {})
         rows.append(f"| 評価R（カメラの劣化） | 未使用T2の30世界に、ノイズ・ぼけ・露出・JPEG の12条件を加えて再評価 | 全条件をまとめた誤許可 **{p1['false_approvals']}/{p1['n']}**"
                     f"（Wilson 95%CI {pct(p1['wilson_ci95'][0])}〜{pct(p1['wilson_ci95'][1])}、"
-                    f"{'「劣化に対して安全側」を支持' if p1['supported'] else '登録した「上限2%未満」は支持されず'}）、"
+                    f"{'「劣化に対して安全側」を支持' if p1['supported'] else 'あらかじめ決めた「上限2%未満」は支持されず'}）、"
                     f"最悪条件（{worst[0]}）でも誤許可は増えず、代償は配達できなくなること（可用性）：正しい許可 {worst[1]['correct_approvals']}/{r['n_allow']}（{pct(worst[1]['ca_rate'])}、うち品質ゲート棄却 {worst[1]['gate_rejected']}）"
                     f"{'、清浄画像では ' + str(cl['correct_approvals']) + '/' + str(r['n_allow']) if 'correct_approvals' in cl else ''} |")
     except (TypeError, KeyError, ValueError):
@@ -882,7 +882,7 @@ def section_k():
         ja = (f"| 評価K（保証付きの閾値） | 火の見逃し率の上限αを保証するように、閾値を開発データ（火{k['n_cal']}枚）から決める方法（適合予測）。保存済みスコアの再解析 | "
               f"未使用T2（火{k['n_fire']}枚・火の無い必須許可{k['n_free']}枚）：既定の0.05は見逃し {mf(fz)}・誤警報 {ff(fz)}。保証付き α=0.05（τ={a5['tau']}）は見逃し {mf(a5)}・誤警報 {ff(a5)}、"
               f"α=0.10（τ={a10['tau']}）は {mf(a10)}・{ff(a10)}で、誤警報が増えるだけ（T2の小さな火は{sf['heldout'] * 100:.1f}%、開発データは{sf['cal'] * 100:.0f}%で分布が違う）。"
-              f"開発データでの既定の見逃しは {fz['cal_miss']['k']}/{fz['cal_miss']['n']}。**注意：Kは T2 のスコアが既にある状態で登録した（スコアは調整し直していない）** |")
+              f"開発データでの既定の見逃しは {fz['cal_miss']['k']}/{fz['cal_miss']['n']}。**注意：Kは T2 のスコアが既にある状態であらかじめ決めた（スコアは調整し直していない）** |")
         en = (f"| K: conformal threshold (stored scores, offline) | on unseen T2 ({k['n_fire']} fires, {k['n_free']} fire-free must-approve): frozen tau=0.05 misses {mf(fz)}, false alarms {ff(fz)}; "
               f"calibrated alpha=0.05 (tau={a5['tau']}) misses {mf(a5)}, false alarms {ff(a5)}; alpha=0.10 (tau={a10['tau']}) {mf(a10)}, {ff(a10)}. "
               f"No threshold misses a T2 fire (a ceiling, so no difference is shown); the calibrated ones only add false alarms (T2 fires are easier: small fires {sf['heldout'] * 100:.1f}% vs. {sf['cal'] * 100:.0f}% in calibration). "
@@ -1235,7 +1235,7 @@ def main():
     t1_block = ''
     if t:
         s_, m, full, v35, n_img, fa_txt, ca_txt, claim, dev = t
-        R['T1'] = f"| 未使用テスト T1（オフライン） | 開発に一度も使わない{n_img}枚（照明・位置・未知の妨害物・火災）、登録した規則（v3.4） | 誤許可 {fa_txt(full)}、正しい許可 {ca_txt(full)} |"
+        R['T1'] = f"| 未使用テスト T1（オフライン） | 開発に一度も使わない{n_img}枚（照明・位置・未知の妨害物・火災）、あらかじめ決めた規則（v3.4） | 誤許可 {fa_txt(full)}、正しい許可 {ca_txt(full)} |"
         R['T1b'] = f"| 〃 v3.5（τ_h=0.05、副の事前指定） | 同じ画像・同じ保存済み確率から再計算 | 誤許可 {fa_txt(v35)}、正しい許可 {ca_txt(v35)} |"
         t1_block = f"* T1：{claim}主な原因は下の「残る弱点」（物資の影に隠れた火）"
     k_ja, k_en = section_k()
@@ -1244,16 +1244,16 @@ def main():
     R['H'] = f"| 評価H（前回の配達の記憶） | 前回の物資の場所を「先に行く拠点」の提案だけに使う（助言の一例）。記憶なし・記憶をうのみにする方式・確認つきの記憶を対比較 | {h_text()} |"
     R['L'] = f"| 評価L（未知の配置） | 2つの拠点と避難所の位置をランダムに変えた24通りの未知の配置で、v3.6 が期待どおり動くか（閉ループ） | {l_text()} |"
     R['J'] = f"| 評価J（2つのAI）：**採用せず** | Jev役 Clef-Flash＋Qwen の2モデル確認を閉ループで、v3.6単独と対比較 | {j_text()} |"
-    R['V'] = f"| 評価V（ランダムな変化での予測検証） | 出動ごとに世界がランダムに変わる10系列×6出動で、事前登録した予測区間と実測を比較 | {v_text()} |"
+    R['V'] = f"| 評価V（ランダムな変化での予測検証） | 出動ごとに世界がランダムに変わる10系列×6出動で、あらかじめ決めた予測区間と実測を比較 | {v_text()} |"
     R['A'] = f"| 評価A（信頼できない助言、閉ループ） | 他ロボット・依頼文の助言は順序変更と閾値の強化にしか使えない（I-19）。偽の「火は消えた」「別の拠点にある」を、助言に従う方式と対比較（{A_RUNS}試行）。ε_any の誘導（真の助言で隠れた火の拠点へ誘導）は別セルで測る | {a_text()} |"
     if advice_numbers.if_facts():
-        R['IF'] = f"| 評価IF（依頼文によるすり替え、オフライン） | 依頼文に偽の通知・転送メモ・「上は無視して」を足して頼まれた物資を書き換える72文（6種類×2言語×2物資×3表現）を、凍結した v3.6 の意図の解析（i35）に通す。登録した主張 IF1：書き換え36文のうち受理の割合の上限が10%未満 | {advice_numbers.if_ja()} |"
+        R['IF'] = f"| 評価IF（依頼文によるすり替え、オフライン） | 依頼文に偽の通知・転送メモ・「上は無視して」を足して頼まれた物資を書き換える72文（6種類×2言語×2物資×3表現）を、凍結した v3.6 の意図の解析（i35）に通す。あらかじめ決めた主張 IF1：書き換え36文のうち受理の割合の上限が10%未満 | {advice_numbers.if_ja()} |"
     if advice_numbers.q_ja():
         R['Q'] = f"| 評価Q（実写の物資確認、画像レベル） | Wikimedia Commons の写真405枚（水・救急箱・どちらでもない）で、頼まれた物資の確認を v3.6 のまま採点 | {advice_numbers.q_ja()} |"
     R['S'] = f"| 評価S（画像内の文字による注入、画像レベル） | 標識・ラベル・「Cと答えよ」を置いた64世界を、標識なし・攻撃・無害の3通りで描画し、本方式・1回判定・自由記述・全体画像で比較 | {s_text()} |"
     R['W'] = f"| 評価W（小さく隠れた火の見逃しと先行手法、I-20の副次解析を含む） | 画像レベル：正面のみ対見回し（150火世界＋75対の場面）、VAP-TAMP風の投票・KnowNo風の共形集合との誤許可の比較 | {w_text()} |"
     R['X'] = f"| 評価XD・X（倉庫の世界、4拠点） | XD：倉庫の保留画像で ε と閾値の再較正（画像レベル）。X：記憶なし対確認つきの記憶と、助言による方向づけを閉ループ59試行で。描画の確認は I-21（`docs/figures/depot_preview_sheet.jpg`） | {x_text()} |"
-    head = ['| 評価（事前登録） | 内容 | 結果 |', '|---|---|---|']
+    head = ['| 評価（事前に条件を決めた計画） | 内容 | 結果 |', '|---|---|---|']
     stages = [      # study-subset: the chain's detailed rows; the later studies are named in group 7 (I-136)
         ('1. 届ける前に確かめる（確認は閉集合の確率、迷えば止まる）', ['E', 'L', 'D', 'Z']),
         ('2. 誤りはどこにあるか（隠れた火が大半）・閾値', ['T1', 'T1b', 'K']),
@@ -1271,9 +1271,9 @@ def main():
         if rows:
             tables += [f'#### {title}', '', '\n'.join(head + rows), '']
     if _later:
-        tables += ['#### 7. この節に行の無い研究', '', f"{'・'.join(_later)}（計{len(_later)}本）の結果と状態は、このページ先頭の表（「残りの事前登録した評価」を含む）と論文の補足資料にある。", '']
+        tables += ['#### 7. この節に行の無い研究', '', f"{'・'.join(_later)}（計{len(_later)}本）の結果と状態は、このページ先頭の表（「残りの計画を事前に決めた評価」を含む）と論文の補足資料にある。", '']
     parts = ['<!-- RESULTS:START -->', '## 結果', '',
-             '事前登録した評価（' + str(len(list((RES.parent).glob('PREREGISTRATION_*.md')))) + '本の登録文書' + (('、' + ('登録済み・提出時点で未実施の' if SNAP else '結果待ちの') + '・'.join(waiting_studies())) if waiting_studies() else '') + '）を、論文と同じ**一つの流れ**の順に並べる：①確かめる ②誤りの大半は隠れた火 ③横から見直す ④聞いた情報は参考にするが、確認は省かない ⑤保証の対象外 ⑥採用しなかったもの。Qwen3.5-9B（ローカル・V100）。条件・閾値・解析は結果を見る前に `experiments/PREREGISTRATION_*.md` に固定し、台帳は全試行を記録。' + ('登録済み・提出時点で未実施の研究は、数値を載せていない（結果ファイルができれば自動で入る）。' if SNAP else '結果待ちの研究は、結果ファイルができると数値が自動で入る。'), '',
+             '計画を事前に決めた評価（' + str(len(list((RES.parent).glob('PREREGISTRATION_*.md')))) + '本の登録文書' + (('、' + ('登録済み・提出時点で未実施の' if SNAP else '結果待ちの') + '・'.join(waiting_studies())) if waiting_studies() else '') + '）を、論文と同じ**一つの流れ**の順に並べる：①確かめる ②誤りの大半は隠れた火 ③横から見直す ④聞いた情報は参考にするが、確認は省かない ⑤保証の対象外 ⑥採用しなかったもの。Qwen3.5-9B（ローカル・V100）。条件・閾値・解析は結果を見る前に `experiments/PREREGISTRATION_*.md` に固定し、台帳は全試行を記録。' + ('登録済み・提出時点で未実施の研究は、数値を載せていない（結果ファイルができれば自動で入る）。' if SNAP else '結果待ちの研究は、結果ファイルができると数値が自動で入る。'), '',
              '用語：**誤許可**＝届けてはいけない場面で「届けてよい」と判断してしまうこと（ロボットを実際に動かす評価では**誤配達**。火のある拠点から届けてしまうことは**危険な配達**）。**正しい許可**＝届けてよい場面で正しく「よい」と判断できること。**閉ループ**＝AIの判断でロボットが実際に動くところまで含めた評価。**ε**＝確認そのものが、届けてはいけない拠点を許可してしまう確率（助言の危険は、この内側に収まる）。', '',
              '\n'.join(tables)]
     if t1_block:
@@ -1313,7 +1313,7 @@ def main():
         demos = [c.get('demo_title', c['title']).split('：', 1)[-1] for c in ch if c.get('kind') == 'mission']
         n_tab = sum(c.get('kind') == 'table' for c in ch)
         length = '3分以内' if ch[-1]['end_s'] <= 180 else f"{int(ch[-1]['end_s'] // 60)}分{int(round(ch[-1]['end_s'] % 60)):02d}秒"
-        desc = (f"{length}、日本語ナレーション付き。実走デモ{len(demos)}本（{'／'.join(demos)}）と、事前登録した結果の表{n_tab}枚"
+        desc = (f"{length}、日本語ナレーション付き。実走デモ{len(demos)}本（{'／'.join(demos)}）と、あらかじめ決めた結果の表{n_tab}枚"
                 + (f"。{sp}（速度は画面に常時表示）" if sp else '。'))
         txt = re.sub(r'(<!-- VIDEO:START -->\n).*?(\n<!-- VIDEO:END -->)', lambda m: m.group(1) + '* **動画の内容**：' + desc + m.group(2), txt, count=1, flags=re.S)
     txt = sync_counts(txt, readme)
