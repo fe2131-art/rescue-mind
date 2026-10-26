@@ -1894,9 +1894,10 @@ def main():
     import make_registrations as _mr
     studies = [(lab, f'PREREGISTRATION_{key}.md', res) for lab, key, res in _mr.STUDIES]
     main_ref = 'main' if git('rev-parse', '--verify', '-q', 'main')[1] == 0 else 'HEAD'
+    hist_ref = _mr.HIST      # the original history when the archive tag exists (docs/PROVENANCE.md), else HEAD
 
     def first_commit(path):          # first commit that added the file (hash date)
-        o, _ = git('log', '--diff-filter=A', '--format=%h %ad', '--date=short', '--', path)
+        o, _ = git('log', hist_ref, '--diff-filter=A', '--format=%h %ad', '--date=short', '--', path)
         return o.splitlines()[-1] if o else ''
 
     rows = [r'\begin{tabular}{llllc}', r'\toprule', r'Study & Registered (commit, date) & First results (commit, date) & Amendments & Order \\', r'\midrule']
@@ -1911,7 +1912,7 @@ def main():
                 rows.append(f"{name} & registered at merge, pending & \\texttt{{{sc.split()[0] if sc else 'pending'}}} & -- & pending \\\\")
             drafts.append(name)
             continue
-        hist, _ = git('log', '--full-history', '--no-merges', '--invert-grep', '--grep=erratum (times)', '--format=%h %ad', '--date=short', '--', rel)   # newest first; an appended time erratum is not a change of the registered text
+        hist, _ = git('log', hist_ref, '--full-history', '--no-merges', '--invert-grep', '--grep=erratum (times)', '--format=%h %ad', '--date=short', '--', rel)   # newest first; an appended time erratum is not a change of the registered text
         hist = hist.splitlines()
         rc = ''
         if sc:   # the text in force at the first result: the newest registration commit strictly before the first results commit
@@ -1949,7 +1950,7 @@ def main():
         sc = first_commit(f'experiments/results/{res}')
         for mm in re.finditer(r'^(?:\*\*|## )Amendment (\d+)[^\n(]*\(([0-9-]+)?(?: ([0-9:]+))?', txt, re.M):
             k_, d_, t_ = mm.group(1), mm.group(2), mm.group(3)
-            o_, _ = git('log', '--reverse', '--full-history', '--no-merges', '--format=%h %cd', '--date=format:%Y-%m-%d %H:%M', '-G', rf'^(\*\*|## )Amendment {k_} \(', '--', rel)
+            o_, _ = git('log', hist_ref, '--reverse', '--full-history', '--no-merges', '--format=%h %cd', '--date=format:%Y-%m-%d %H:%M', '-G', rf'^(\*\*|## )Amendment {k_} \(', '--', rel)
             c_ = o_.splitlines()[0] if o_ else ''
             if not c_:
                 continue

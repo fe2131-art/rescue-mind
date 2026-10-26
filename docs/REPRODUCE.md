@@ -274,9 +274,10 @@ Registrations are git-committed Markdown files; the first result file of the sam
 # 1. the paper's audit table, regenerated from git history (also: make numbers)
 python3 scripts/paper_numbers.py && cat docs/paper/tab_prereg.tex     # columns: registration commit, first-results commit, amendments, order
 grep -E 'NStudies|PreregOrderOK|PreregDrafts' docs/paper/numbers.tex   # 23 studies; 15 checked; order "holds"; drafts listed
-# 2. by hand for one study (G): original registration vs first results
-R=$(git log --diff-filter=A --format=%h -- experiments/PREREGISTRATION_G.md | tail -1)
-L=$(git log --diff-filter=A --format=%h -- experiments/results/campaign_G_ledger.jsonl | tail -1)
+# 2. by hand for one study (G): original registration vs first results (the hashes quoted in the paper are those of the original history, kept under the archive tag; docs/PROVENANCE.md)
+H=refs/tags/archive/pre-claude-attribution-rewrite-20261026      # use HEAD instead in a clone that still has the original history
+R=$(git log $H --diff-filter=A --format=%h -- experiments/PREREGISTRATION_G.md | tail -1)
+L=$(git log $H --diff-filter=A --format=%h -- experiments/results/campaign_G_ledger.jsonl | tail -1)
 git merge-base --is-ancestor $R $L && echo "registration predates results"
 # 3. the amendments after registration are inside the Markdown ("**Amendment n**") and in git log -- experiments/PREREGISTRATION_G.md
 ```

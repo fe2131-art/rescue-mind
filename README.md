@@ -454,6 +454,12 @@ bash docker/run.sh python3 scripts/make_figures.py
 * 近距離（約0.9 m 以下）では物資が画面から切れて誤拒否が出ます（実機の想定停止距離は約1.4 m）。
 * ROSグラフ監視は認証機構ではなく、実機の安全認証を意味しません。
 
+## Git履歴について
+
+2026-10-26 に `main` の履歴を一度だけ書き換え、コミットメッセージの Claude の `Co-Authored-By` 行だけを除きました（ソース・結果・PDF・作者・日時・マージは同じ）。
+元の履歴は公開タグ `archive/pre-claude-attribution-rewrite-20261026` に残してあり、登録台帳・論文の表・タイムスタンプ（OpenTimestamps）の対象テキストが引用するコミットハッシュは元の履歴のものです。
+確認方法とタイムスタンプの検証結果は [`docs/PROVENANCE.md`](docs/PROVENANCE.md) にあります。
+
 ## ライセンス
 
 Apache-2.0（`LICENSE`、`NOTICE`）。使用モデル：[Qwen/Qwen3.5-9B](https://huggingface.co/Qwen/Qwen3.5-9B)（Apache-2.0、重みは同梱しない）。

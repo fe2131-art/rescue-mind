@@ -572,10 +572,19 @@ def is_pending(letter):
     return snapshot_mode() and letter in snapshot_pending()
 
 
+ARCHIVE_TAG = 'refs/tags/archive/pre-claude-attribution-rewrite-20261026'
+
+
+def history_ref():
+    """The original history (public archive tag, docs/PROVENANCE.md) when it is present, else HEAD: the commit hashes quoted in the documents are those of the original history."""
+    r = subprocess.run(['git', 'rev-parse', '--verify', '-q', ARCHIVE_TAG + '^{commit}'], cwd=ROOT, capture_output=True, text=True)
+    return ARCHIVE_TAG if r.returncode == 0 else 'HEAD'
+
+
 def registration_commit(letter):
     """'<hash> <date>' of the newest commit of experiments/PREREGISTRATION_<letter>.md (an appended time erratum does not count), or ''."""
     rel = f'experiments/PREREGISTRATION_{letter}.md'
-    r = subprocess.run(['git', 'log', '--full-history', '--no-merges', '--invert-grep', '--grep=erratum (times)', '--format=%h %ad', '--date=short', '-1', '--', rel],
+    r = subprocess.run(['git', 'log', history_ref(), '--full-history', '--no-merges', '--invert-grep', '--grep=erratum (times)', '--format=%h %ad', '--date=short', '-1', '--', rel],
                        cwd=ROOT, capture_output=True, text=True)
     return r.stdout.strip() if r.returncode == 0 else ''
 
